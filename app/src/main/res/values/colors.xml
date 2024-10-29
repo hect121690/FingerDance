@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+
+    <!-- Colores para la combinación Moderno y Minimalista -->
+    <color name="fondo_textview_moderno">#F5F5F5</color>
+    <color name="progreso_textview_moderno">#2196F3</color>
+    <color name="texto_textview_moderno">#424242</color>
+    <color name="borde_textview_moderno">#BDBDBD</color> <!-- Gris Medio -->
+
+    <!-- Colores para la combinación Vibrante y Energético -->
+    <color name="fondo_textview_vibrante">#FFFFFF</color>
+    <color name="progreso_textview_vibrante">#FF5722</color>
+    <color name="texto_textview_vibrante">#000000</color>
+    <color name="borde_textview_vibrante">#FF9800</color> <!-- Naranja Claro -->
+
+    <!-- Colores para la combinación Sofisticado y Elegante -->
+    <color name="fondo_textview_elegante">#283593</color>
+    <color name="progreso_textview_elegante">#FFC107</color>
+    <color name="texto_textview_elegante">#FFFFFF</color>
+    <color name="borde_textview_elegante">#303F9F</color> <!-- Azul Marino Oscuro -->
+
+</resources>

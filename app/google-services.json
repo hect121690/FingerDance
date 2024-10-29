@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "288540725295",
+    "project_id": "fingerdance",
+    "storage_bucket": "fingerdance.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:288540725295:android:f1e9629e029d983f01b6da",
+        "android_client_info": {
+          "package_name": "com.fingerdance"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "288540725295-tdnc08bat0tia4vp6uf6rhio7q1rpcgj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fingerdance",
+            "certificate_hash": "3964d93181378bcb0f1f00080894f448d867fdab"
+          }
+        },
+        {
+          "client_id": "288540725295-b5m1f1eqcl5e4vodufggt8h9gac4pt27.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "288540725295-b5m1f1eqcl5e4vodufggt8h9gac4pt27.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Finger Dance</string>
+    <string name="hero_image_description">Hero Image Description</string>
+    <string name="lv_image_description">Lv Image Description</string>
+    <string name="image_visor">AnimArrows</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
