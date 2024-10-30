@@ -110,10 +110,7 @@ open class GameScreenActivity : AndroidApplication() {
 
         resultSong = ResultSong()
         addVideoBackground()
-        //getPadBtns()
         getExpandRecepts()
-        //gs = GameScreenKsf()
-        //contextActivity = this.context
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
@@ -488,77 +485,6 @@ open class GameScreenActivity : AndroidApplication() {
             this.finish()
 
         }
-    }
-
-    private fun getPadBtns() {
-        //customBackgroundView = findViewById(R.id.custom_background_buttons)
-        //customBackgroundView.layoutParams.height = height / 2
-/*
-        customButtons = findViewById(R.id.custom_buttons)
-        customButtons.layoutParams.height = height / 2
-        customButtons.layoutParams.width = width
-*/
-        /*
-        val btnLeftDown = ImageView(this)
-        val btnLeftUp = ImageView(this)
-        val btnCenter = ImageView(this)
-        val btnRightUp = ImageView(this)
-        val btnRightDown = ImageView(this)
-
-        val heightLayoutBtns = linearButtons.layoutParams.height.toFloat()
-        val heightbtns = linearButtons.layoutParams.height / 2f
-        val widthbtns = width / 3f
-
-        keyViews = mutableListOf(btnLeftDown,btnLeftUp,btnCenter,btnRightUp,btnRightDown)
-        posLD = arrayOf(0f, heightLayoutBtns-heightbtns)
-        posLU = arrayOf(0f, heightLayoutBtns-(heightbtns * 2f), )
-        posC = arrayOf(widthbtns, heightLayoutBtns - ((heightLayoutBtns / 4f) * 3f))
-        posRU = arrayOf(widthbtns * 2f, heightLayoutBtns-(heightbtns * 2f))
-        posRD = arrayOf(widthbtns * 2f,heightLayoutBtns-heightbtns)
-
-        val layoutParams = RelativeLayout.LayoutParams(widthbtns.toInt(), heightbtns.toInt())
-
-        btnLeftDown.layoutParams = layoutParams
-        btnLeftDown.x = 0f
-        btnLeftDown.y = heightbtns
-        btnLeftDown.background = btnOffPress
-
-        btnLeftUp.layoutParams = layoutParams
-        btnLeftUp.x = 0f
-        btnLeftUp.y = 0f
-        btnLeftUp.background = btnOffPress
-
-        btnCenter.layoutParams = layoutParams
-        btnCenter.x = widthbtns
-        btnCenter.y = heightbtns / 2f
-        btnCenter.background = btnOffPress
-
-        btnRightUp.layoutParams = layoutParams
-        btnRightUp.x = widthbtns * 2
-        btnRightUp.y = 0f
-        btnRightUp.background = btnOffPress
-
-        btnRightDown.layoutParams = layoutParams
-        btnRightDown.x = widthbtns * 2
-        btnRightDown.y = heightbtns
-        btnRightDown.background = btnOffPress
-
-        linearButtons.addView(btnLeftDown)
-        linearButtons.addView(btnLeftUp)
-        linearButtons.addView(btnCenter)
-        linearButtons.addView(btnRightUp)
-        linearButtons.addView(btnRightDown)
-
-        val relativeLayout = RelativeLayout(this)
-        relativeLayout.layoutParams = RelativeLayout.LayoutParams(width, height / 2)
-        relativeLayout.isClickable = true
-        linearButtons.addView(relativeLayout)
-
-        relativeLayout.setOnTouchListener { view, event ->
-            handleTouch(event)
-            true
-        }
-        */
     }
 
     override fun onDestroy() {

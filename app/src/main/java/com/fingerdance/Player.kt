@@ -73,8 +73,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
         private lateinit var sprFlare: Texture
 
-        private val trcFlare = Array(6) { Array(6) { Rectangle() } }
-
         private lateinit var flareArrowFrame : Array<TextureRegion>
 
         private val LONGNOTE = Array(10) { LongNotePress() }
@@ -82,15 +80,15 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     }
 
     data class PlayerFlare(var startTime: Long = 0)
-    data class PlayerJudge(var startTime: Long = 0, var judge: Int = 0)
-    data class PlayerScore(
+    //data class PlayerJudge(var startTime: Long = 0, var judge: Int = 0)
+    /*data class PlayerScore(
         var PERFECT: Int = 0,
         var GREAT: Int = 0,
         var GOOD: Int = 0,
         var BAD: Int = 0,
         var MISS: Int = 0,
         var MAXCOMBO: Int = 0
-    )
+    )*/
 
     enum class SetSpeedType { SET, ADD, SUB }
 
@@ -98,7 +96,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private var m_fCurBPM  = 0.0
     private var arrowFrame = 0
     private var iCurPtnNum = 0
-    private var iPtnNowNo = 0
     //private var iLineNo = 0
     private var m_iStepWidth = 5
     var curCombo = 0
@@ -113,23 +110,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private var yFlare = medidaFlechas - (medidaFlechas * 2f)
 
     private val inputProcessor = InputProcessor()
-
-    /*
-    private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
-    private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
-
-    private val heightLayoutBtns = Gdx.graphics.height / 2f
-    private val heightbtns = heightLayoutBtns / 2f
-    private val widthbtns = Gdx.graphics.width / 3f
-
-    private val posLD = arrayOf(0f, heightLayoutBtns + heightbtns)
-    private val posLU = arrayOf(0f, heightbtns * 2f)
-    private val posC = arrayOf(widthbtns, heightLayoutBtns + (heightLayoutBtns / 4f))
-    private val posRU = arrayOf(widthbtns * 2f, heightbtns * 2f)
-    private val posRD = arrayOf(widthbtns * 2f, heightLayoutBtns + heightbtns)
-
-    private val padPositions = listOf(posLD, posLU, posC, posRU, posRD)
-    */
 
     private var speed = if(playerSong.speed.contains("X", ignoreCase = true)){
         playerSong.speed.replace("X", "").toFloat()
@@ -209,10 +189,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         val drawLongPress = BooleanArray(10)
         val longTop = LongArray(10)
 
-        var iPtnNo = 0
+        //var iPtnNo = 0
         var iPtnNowNo = 0
-        var iLineNo = 0
-        var iStepNo = 0
+        //var iLineNo = 0
+        //var iStepNo = 0
 
         inputProcessor.render(batch)
         inputProcessor.update()
@@ -260,12 +240,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
         iCurPtnNum = iPtnNowNo
 
-        iLineNo = arrowFrame
-
-        for(iStepNo in 0 until m_iStepWidth){
-        }
-
-
         val fGapPerStep  = (STEPSIZE * speed)
         var iPtnTop: Long
         var iPtnBottom: Long
@@ -276,7 +250,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         iPtnTop = adaptValue(((((ksf.patterns[iPtnNowNo].timePos + timeToCalculate) - time).toFloat()) * m_fCurBPM * speed * 0.001f).toLong())
 
         for(iPtnNo in (iPtnNowNo - 1) downTo 0){
-            if(iPtnTop < -STEPSIZE)break
+            if(iPtnTop < -STEPSIZE)
+                break
             val pPtnCur = ksf.patterns[iPtnNo]
             val fPtnTick = pPtnCur.tick.toFloat()
             val iLineCnt = pPtnCur.lines.size
@@ -285,7 +260,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
             for(iLineNo in 0 until iLineCnt){
                 val iNoteTop = (iPtnTop + (iLineNo * fGapPerStep / fPtnTick) + STEPSIZE).toInt()
-                if(iNoteTop > -STEPSIZE && iNoteTop < height){
+                if(iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height){
                     for(iStepNo in 0 until m_iStepWidth){
                         val nowStep = pPtnCur.lines[iLineNo].step[iStepNo]
                         if (nowStep and NOTE_NOTE_CHK != 0.toByte()){
@@ -319,13 +294,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             }
                         }
                     }
-                }else if(iNoteTop >= height) break
+                }else if(iNoteTop >= height){
+                    break
+                }
+
             }
         }
 
         iPtnBottom = adaptValue((((ksf.patterns[iPtnNowNo].timePos + timeToCalculate) - time) * m_fCurBPM * speed * 0.001f).toLong())
         for (iPtnNo in iPtnNowNo until ksf.patterns.size) {
-            if (iPtnBottom > Gdx.graphics.height) break
+            if (iPtnBottom > Gdx.graphics.height)
+                break
             val pPtnCur  = ksf.patterns[iPtnNo]
             val fPtnTick = pPtnCur.tick
             val iLineCnt = pPtnCur.lines.size
@@ -333,7 +312,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             iPtnBottom = iPtnTop + (iLineCnt * fGapPerStep  / fPtnTick).toLong()
             for (iLineNo in 0 until iLineCnt) {
                 val iNoteTop = (iPtnTop + (iLineNo * fGapPerStep  / fPtnTick).toInt() + STEPSIZE).toInt()
-                if (iNoteTop > -STEPSIZE && iNoteTop < height) {
+                if (iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height) {
                     for (iStepNo in 0 until m_iStepWidth) {
                         val nowstep = pPtnCur.lines[iLineNo].step[iStepNo]
                         if (nowstep and NOTE_NOTE_CHK != 0.toByte()) {
@@ -366,7 +345,9 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             }
                         }
                     }
-                }else if (iNoteTop >= Gdx.graphics.height) break
+                }else if (iNoteTop >= Gdx.graphics.height) {
+                    break
+                }
             }
         }
 
@@ -381,14 +362,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 drawLongNotePress(iStepNo)
             }
 
-            if (flare[iStepNo].startTime == 0L) continue
+            if (flare[iStepNo].startTime == 0L) {
+                continue
+            }
             longTop[iStepNo] = ((timeCom - flare[iStepNo].startTime) shr 6)
             if (longTop[iStepNo] >= 6) {
                 flare[iStepNo].startTime = 0
                 continue
             }
-            //drawFlare(iStepNo)
+            drawFlare(iStepNo)
         }
+        //newScore(iStepNo)
 
     }
 
@@ -403,8 +387,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private val btnPress = BooleanArray(10)
     val GaugeIncNormal = floatArrayOf(5f, 4f, 3f, -4f, -5f)
     fun updateStepData(time: Long) {
-        //val patterns = ksf.patterns
-        var x: Int
+        //var x: Int
         var iptn: Int
         val iptnc = ksf.patterns.size
         var line_num_s: Int
@@ -656,37 +639,39 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     }
 
     private fun getLongNoteEndTime(x: Int): Long {
-        val patterns = ksf.patterns
-        for (iptn in LONGNOTE[x].ptn until patterns.size) {
-            val ptnNow = patterns[iptn]
-            val lineStart = if (iptn == LONGNOTE[x].ptn) LONGNOTE[x].line else 0
-            for (lineNum in lineStart until ptnNow.lines.size) {
-                val note = ptnNow.lines[lineNum].step[x]
-                if (note == NOTE_LEND || note == NOTE_LEND_PRESS) {
-                    return (60000 / ptnNow.bpm * lineNum / ptnNow.tick).toLong() + ptnNow.timePos + timeToCalculate
+        val ln = LONGNOTE[x]
+        val iPtnc = ksf.patterns.size
+        for(iptn in ln.ptn until iPtnc){
+            val ptn_now  = ksf.patterns[iptn]
+            val line_num_c = ptn_now.lines.size
+            val line_start = if(iptn == ln.ptn) ln.line else 0
+            for(line_num in line_start until line_num_c){
+                val nnote = ptn_now.lines[line_num].step[x]
+                if(nnote == NOTE_LEND || nnote == NOTE_LEND_PRESS){
+                    return (60000 / ptn_now.bpm * line_num / ptn_now.tick).toLong() + ptn_now.timePos + timeToCalculate
                 }
             }
         }
         return 0
+
     }
 
     private fun clearLongNote(x: Int) {
-        for (iptn in LONGNOTE[x].ptn until ksf.patterns.size) {
-            val ptnNow = ksf.patterns[iptn]
-            val lineStart = if (iptn == LONGNOTE[x].ptn) LONGNOTE[x].line else 0
-            for (lineNum in lineStart until ptnNow.lines.size) {
-                when (ptnNow.lines[lineNum].step[x]) {
-                    NOTE_LEND, NOTE_LEND_PRESS -> {
-                        ptnNow.lines[lineNum].step[x] = NOTE_NONE
-                        ksf.patterns[iptn].lines[lineNum].step[x] = NOTE_NONE
-                        //onStepChange(iptn, lineNum, x, NOTE_NONE)
-                        return
-                    }
-                    NOTE_LNOTE, NOTE_LSTART_PRESS -> {
-                        ptnNow.lines[lineNum].step[x] = NOTE_NONE
-                        ksf.patterns[iptn].lines[lineNum].step[x] = NOTE_NONE
-                        //onStepChange(iptn, lineNum, x, NOTE_NONE)
-                    }
+        val ln = LONGNOTE[x]
+        val iPtnc = ksf.patterns.size
+        for(iptn in ln.ptn until iPtnc){
+            val ptn_now  = ksf.patterns[iptn]
+            val line_num_c = ptn_now.lines.size
+            val line_start = if(iptn == ln.ptn) ln.line else 0
+            for(line_num in line_start until line_num_c){
+                var nnote = ptn_now.lines[line_num].step[x]
+                if(nnote == NOTE_LEND || nnote == NOTE_LEND_PRESS){
+                    nnote == NOTE_NONE
+                    ksf.patterns[iptn].lines[line_num].step[x] = NOTE_NONE
+                    return
+                }else if(nnote == NOTE_LNOTE || nnote == NOTE_LSTART_PRESS){
+                    nnote == NOTE_NONE
+                    ksf.patterns[iptn].lines[line_num].step[x] = NOTE_NONE
                 }
             }
         }
@@ -768,43 +753,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         return (valorOriginal * STEPSIZE) / 60
     }
 
-    /*
-    private fun drawPads() {
-        padPositions.forEachIndexed { _, pos ->
-            val pressed = isPressed(pos)
-            drawPad(pos, pressed)
-        }
-    }
-
-    private fun drawPad(position: Array<Float>, pressed: Boolean) {
-        val texture = if (pressed) btnOnPress else btnOffPress
-        batch.draw(texture, position[0], position[1], widthbtns, heightbtns)
-    }
-
-    private fun isPressed(buttonPos: Array<Float>): Boolean {
-        return inputProcessor.fingerStates.values.any { state ->
-            isInButtonArea(state.x, state.y, buttonPos) && state.pressed
-        }
-    }
-
-    private fun isInButtonArea(x: Float, y: Float, buttonPos: Array<Float>): Boolean {
-        val buttonX = buttonPos[0]
-        val buttonY = buttonPos[1]
-        return x in buttonX..(buttonX + widthbtns) && y in buttonY..(buttonY + heightbtns)
-    }
-*/
-
-    /*
-    private fun getPadIndex(x: Float, y: Float): Int? {
-        padPositions.forEachIndexed { index, pos ->
-            if (isInButtonArea(x, y, pos)) {
-                return index
-            }
-        }
-        return null  // No se encontró ningún pad tocado
-    }
-*/
-
     fun setSpeed(type: SetSpeedType, spd: Float) {
         when (type) {
             SetSpeedType.SET -> speed = spd
@@ -813,8 +761,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
         speed = speed.coerceIn(1f, 8f)
     }
-
-    //fun getScore(): PlayerScore = score.copy()
 
     fun makeRandom() {
         ksf.makeRandom()
@@ -843,22 +789,26 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 batch.draw(arrArrowsBody[x][arrowFrame], left, y.toFloat() + (STEPSIZE / 2), medidaFlechas, y + (y2 - y + STEPSIZE) / 2f)
                 drawNote(x, y)
                 drawLongBottom(x, (y + (STEPSIZE / 2))+(y + (y2 - y + STEPSIZE) / 2))
+                Gdx.app.log("Condicion", "1")
             }
             if(y2 < Gdx.graphics.height){
                 batch.draw(arrArrowsBody[x][arrowFrame], left, y + (y2 - y + STEPSIZE) / 2f + (STEPSIZE / 2), medidaFlechas, y2.toFloat() + STEPSIZE)
                 drawNote(x, (y + (y2 - y + STEPSIZE) / 2 + (STEPSIZE / 2))+(y + (y2 - y + STEPSIZE) / 2))
                 drawLongBottom(x, y2 + STEPSIZE)
+                Gdx.app.log("Condicion", "2")
             }
         }else{
             if(y > -STEPSIZE){
                 batch.draw(arrArrowsBody[x][arrowFrame], left, y.toFloat() + (STEPSIZE / 2), medidaFlechas, y.toFloat() + STEPSIZE)
                 drawNote(x, y)
                 drawLongBottom(x, (y + (STEPSIZE / 2))+(y + STEPSIZE))
+                Gdx.app.log("Condicion", "3")
             }
             if(y2 < Gdx.graphics.height){
                 batch.draw(arrArrowsBody[x][arrowFrame], left, y2.toFloat() + (STEPSIZE / 2), medidaFlechas, y2.toFloat() + STEPSIZE)
                 drawNote(x, y)
                 drawLongBottom(x, (y2 + (STEPSIZE / 2))+(y2 + STEPSIZE))
+                Gdx.app.log("Condicion", "4")
             }
         }
     }
@@ -869,12 +819,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     }
 
     private fun drawLongNotePress(x: Int) {
-        val left = medidaFlechas * (x + 1)
+        val left = medidaFlechas * (x + 1) - (medidaFlechas * 2.1f)
         val frame = (System.currentTimeMillis() % 299 * 6 / 300).toInt()
-        batch.draw(
-            TextureRegion(sprFlare, trcFlare[5][frame].x.toInt(), trcFlare[5][frame].y.toInt(), 80, 80),
-            left, 50f, 80f, 80f
-        )
+        batch.draw(flareArrowFrame[frame], left, yFlare, widthFlare, widthFlare)
+
     }
 
     private fun getArrows3x2(arrow: Texture, isMirror: Boolean = false) : Array<TextureRegion> {
@@ -939,7 +887,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
     private fun drawFlare(x: Int) {
         val left = medidaFlechas * (x + 1) - (medidaFlechas * 2.1f)
-        //batch.setColor(1f, 1f, 1f, 0.8f)
         batch.draw(flareArrowFrame[arrowFrame], left, yFlare, widthFlare, widthFlare)
     }
 
