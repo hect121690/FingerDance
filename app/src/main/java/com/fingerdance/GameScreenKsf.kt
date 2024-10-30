@@ -1,6 +1,5 @@
 package com.fingerdance
 
-import com.badlogic.gdx.Game
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.Color
@@ -33,7 +32,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private val padRightUp = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_up.png")))
     private val padRightDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_down.png")))
 
-    private var targetTop = 0f
+    var targetTop = 0f
     private var elapsedTime = 0f
     private var rithymAnim = 0f
 
@@ -48,8 +47,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         stage.addActor(lifeBar)
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
-
         player = Player(batch, a)
+
         font = BitmapFont()
         font.data.setScale(medidaFlechas / 4 / font.lineHeight)
 
@@ -83,6 +82,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             val currentTime = (elapsedTime * 1000).toLong()
             batch.begin()
             elapsedTime += delta
+            getFPS()
             getReceptsAnimation()
             showBgPads()
             player.updateStepData(currentTime)
@@ -98,8 +98,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private fun getFPS() {
         val fps = Gdx.graphics.framesPerSecond
         font.color = Color.WHITE
-        font.draw(batch, "FPS: $fps", 0f,-20f)
+        val posX = 10f
+        val posY = camera.viewportHeight - 10f
+        font.draw(batch, "FPS: $fps", posX, posY)
     }
+
 
     private fun showBgPads(){
 
