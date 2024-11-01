@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.fingerdance'
-    compileSdk 33
+    compileSdk 34
 
     compileOptions {
         targetCompatibility JavaVersion.VERSION_1_8
@@ -15,7 +15,7 @@ android {
     defaultConfig {
         applicationId "com.fingerdance"
         minSdk 28
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -84,6 +84,7 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-backend-android:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-box2d:1.13.0"
+    implementation fileTree(dir: 'libs', include: '*.jar')
 
 }
 

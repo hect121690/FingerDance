@@ -15,15 +15,15 @@ class InputProcessor() : InputAdapter() {
     private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
 
     val padStates = IntArray(padPositions.size) { KEY_NONE }
-    private val pointerToPadMap = mutableMapOf<Int, Int>()  // Relación entre pointer y pad
-
-    // Otros métodos (touchDown, touchUp, touchDragged, update, render) se mantienen iguales...
+    private val pointerToPadMap = mutableMapOf<Int, Int>()
+    private var hasStateChanged = false  // Controlar cambios en estados de pads
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
         padIndex?.let {
             padStates[it] = KEY_DOWN
-            pointerToPadMap[pointer] = it  // Asociar pointer con el pad}
+            pointerToPadMap[pointer] = it
+            hasStateChanged = true  // Estado ha cambiado
         }
         return padIndex != null
     }
@@ -33,6 +33,7 @@ class InputProcessor() : InputAdapter() {
         padIndex?.let {
             padStates[it] = KEY_UP
             pointerToPadMap.remove(pointer)
+            hasStateChanged = true  // Estado ha cambiado
         }
         return true
     }
@@ -40,17 +41,19 @@ class InputProcessor() : InputAdapter() {
     override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
 
+        // Si ya estamos en el pad correcto, no hacer nada
+        if (pointerToPadMap[pointer] == padIndex) return true
+
         pointerToPadMap[pointer]?.let { previousPad ->
-            if (padIndex != previousPad) {
-                // Si el dedo salió del pad anterior, lo devolvemos a KEY_NONE
-                padStates[previousPad] = KEY_NONE
-                pointerToPadMap.remove(pointer)
-            }
+            padStates[previousPad] = KEY_NONE
+            pointerToPadMap.remove(pointer)
+            hasStateChanged = true
         }
 
         padIndex?.let {
             padStates[it] = KEY_PRESS
-            pointerToPadMap[pointer] = it  // Actualizar la asociación con el nuevo pad
+            pointerToPadMap[pointer] = it
+            hasStateChanged = true
         }
 
         return true
@@ -63,12 +66,16 @@ class InputProcessor() : InputAdapter() {
     }
 
     fun update() {
+        // Actualizar solo si ha habido cambios en los estados
+        if (!hasStateChanged) return
+
         for (i in padStates.indices) {
             when (padStates[i]) {
                 KEY_DOWN -> padStates[i] = KEY_PRESS
                 KEY_UP -> padStates[i] = KEY_NONE
             }
         }
+        hasStateChanged = false  // Restablecer indicador de cambios
     }
 
     fun render(batch: SpriteBatch) {
@@ -82,9 +89,6 @@ class InputProcessor() : InputAdapter() {
             batch.draw(texture, x, y, widthBtns, heightBtns)
         }
     }
-
-    // Obtener una copia de los estados actuales de los pads
-
 
     fun dispose() {
         btnOffPress.dispose()

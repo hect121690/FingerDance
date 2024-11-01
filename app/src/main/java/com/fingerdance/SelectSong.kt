@@ -128,7 +128,7 @@ private val sequencePattern = listOf(false, true, false, true, false, true)
 
 private lateinit var bmFloor: Bitmap
 private lateinit var bmFloor2: Bitmap
-
+/*
 var leftD : Bitmap? = null
 var leftU : Bitmap? = null
 var cent : Bitmap? = null
@@ -140,7 +140,7 @@ var leftUExpand : Bitmap? = null
 var centExpand : Bitmap? = null
 var rightUExpand: Bitmap? = null
 var rightDExpand: Bitmap? = null
-
+*/
 var bitPerfect: Bitmap? = null
 var bitGreat: Bitmap? = null
 var bitGood: Bitmap? = null
@@ -1179,7 +1179,7 @@ val padPositions = listOf(
             mirroredFrames = getListFrames6x1(bitLefUpBottom!!, frameWidth, frameHeight)
             bitRightUpBottom = combinarFramesEnBitmap6x1(mirroredFrames, frameWidth, frameHeight)
             bitCenterBottom = BitmapFactory.decodeFile("$ruta/Center Hold BottomCap Active 6x1.png")
-            */
+
             leftD = BitmapFactory.decodeFile("$ruta/DownLeft Ready Receptor 1x3.png")
             val matrixLeftRecep = Matrix().apply {
                 preScale(-1f, 1f, leftD!!.width / 2f, leftD!!.height / 2f)
@@ -1199,7 +1199,7 @@ val padPositions = listOf(
             centExpand = Bitmap.createBitmap(cent!!, 0, (cent!!.height / 3) * 2, cent!!.width, cent!!.width)
             rightUExpand = Bitmap.createBitmap(rightU!!, 0, (rightU!!.height / 3) * 2, rightU!!.width, rightU!!.width)
             rightDExpand = Bitmap.createBitmap(rightD!!, 0, (rightD!!.height / 3) * 2, rightD!!.width, rightD!!.width)
-
+            */
         }
 
         private fun performAction() {

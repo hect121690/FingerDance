@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.graphics.Rect
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -128,6 +129,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             chkPtnNum[x] = 0
             chkPtnNum[x] = 0
         }
+
     }
     fun initCommonInfo() {
 
@@ -380,7 +382,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         var pressed: Boolean = false,
         var time: Long = 0,
         var ptn: Int = 0,
-        var line: Int = 0
+        var line: Int = 0,
     )
 
     private var stepWidth = 5
@@ -664,7 +666,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             val line_num_c = ptn_now.lines.size
             val line_start = if(iptn == ln.ptn) ln.line else 0
             for(line_num in line_start until line_num_c){
-                var nnote = ptn_now.lines[line_num].step[x]
+                val nnote = ptn_now.lines[line_num].step[x]
                 if(nnote == NOTE_LEND || nnote == NOTE_LEND_PRESS){
                     nnote == NOTE_NONE
                     ksf.patterns[iptn].lines[line_num].step[x] = NOTE_NONE
@@ -677,6 +679,27 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
+    fun processStep(area: Int, pressed: Boolean) {
+        if(pressed){
+            if (area == 0) {
+                startShrinkAnimation(1)
+            }
+            if (area == 1) {
+                startShrinkAnimation(2)
+            }
+            if (area == 2) {
+                startShrinkAnimation(3)
+            }
+            if (area == 3) {
+                startShrinkAnimation(4)
+            }
+            if (area == 4) {
+                startShrinkAnimation(5)
+            }
+        }
+    }
+
+    /*
     fun processStep(area: Int, pressed: Boolean) {
         if(pressed){
             a.runOnUiThread {
@@ -699,7 +722,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
         }
     }
-
+    */
     fun newScore(judgeType: Int) {
         a.runOnUiThread {
             when (judgeType) {
@@ -782,33 +805,31 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
     }
 
-    fun drawLongNote(x: Int, y: Int, y2: Int) {
+    private fun drawLongNote(x: Int, y: Int, y2: Int) {
         val left = medidaFlechas * (x + 1)
         if(y2 - y > STEPSIZE){
             if(y > -STEPSIZE){
                 batch.draw(arrArrowsBody[x][arrowFrame], left, y.toFloat() + (STEPSIZE / 2), medidaFlechas, y + (y2 - y + STEPSIZE) / 2f)
                 drawNote(x, y)
                 drawLongBottom(x, (y + (STEPSIZE / 2))+(y + (y2 - y + STEPSIZE) / 2))
-                Gdx.app.log("Condicion", "1")
             }
             if(y2 < Gdx.graphics.height){
                 batch.draw(arrArrowsBody[x][arrowFrame], left, y + (y2 - y + STEPSIZE) / 2f + (STEPSIZE / 2), medidaFlechas, y2.toFloat() + STEPSIZE)
                 drawNote(x, (y + (y2 - y + STEPSIZE) / 2 + (STEPSIZE / 2))+(y + (y2 - y + STEPSIZE) / 2))
                 drawLongBottom(x, y2 + STEPSIZE)
-                Gdx.app.log("Condicion", "2")
             }
         }else{
             if(y > -STEPSIZE){
-                batch.draw(arrArrowsBody[x][arrowFrame], left, y.toFloat() + (STEPSIZE / 2), medidaFlechas, y.toFloat() + STEPSIZE)
+                val top = y.toFloat()
+                batch.draw(arrArrowsBody[x][arrowFrame], left, y.toFloat() + (STEPSIZE / 2), medidaFlechas, top + STEPSIZE)
                 drawNote(x, y)
                 drawLongBottom(x, (y + (STEPSIZE / 2))+(y + STEPSIZE))
-                Gdx.app.log("Condicion", "3")
             }
             if(y2 < Gdx.graphics.height){
-                batch.draw(arrArrowsBody[x][arrowFrame], left, y2.toFloat() + (STEPSIZE / 2), medidaFlechas, y2.toFloat() + STEPSIZE)
+                val top = y.toFloat()
+                batch.draw(arrArrowsBody[x][arrowFrame], left, y2.toFloat() + (STEPSIZE / 2), medidaFlechas, top + STEPSIZE)
                 drawNote(x, y)
                 drawLongBottom(x, (y2 + (STEPSIZE / 2))+(y2 + STEPSIZE))
-                Gdx.app.log("Condicion", "4")
             }
         }
     }
