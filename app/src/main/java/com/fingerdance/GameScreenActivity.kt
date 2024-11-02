@@ -1,7 +1,6 @@
 package com.fingerdance
 
 import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Intent
@@ -453,14 +452,12 @@ open class GameScreenActivity : AndroidApplication() {
         videoViewBgaOn = findViewById(R.id.videoViewBgaOn)
         videoViewBgaOn.y = medidaFlechas * 2.5f
         mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
-        //val ds = mediaPlayer.duration
 
         if(isFileExists(File(playerSong.rutaVideo!!))){
             if(playerSong.isBGAOff == false){
                 videoViewBgaoff.isVisible = false
                 videoViewBgaOn.isVisible = true
                 videoViewBgaOn.setVideoPath(playerSong.rutaVideo)
-                //imgBanner.background = Drawable.createFromPath(playerSong.rutaBanner)
                 isVideo = true
             }else{
                 videoViewBgaoff.isVisible = true

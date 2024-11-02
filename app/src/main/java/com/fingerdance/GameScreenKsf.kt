@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.os.Handler
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.OrthographicCamera
@@ -91,7 +92,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                 videoViewBgaoff.start()
             }
         }
-        mediaPlayer.start()
+        val handler = Handler()
+        handler.postDelayed({
+            mediaPlayer.start()
+        }, latency)
+
     }
 
     override fun render(delta: Float) {
@@ -136,18 +141,18 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     }
 
     private fun getAnimation(image: Image) {
-        image.clearActions()
+        //image.clearActions()
         image.isVisible = true
 
         val scaleAndFadeAction = Actions.parallel(
-            Actions.scaleTo(1.3f, 1.3f, 0.5f),  // Escala a 1.3 en 0.5 segundos
-            //Actions.fadeIn(0.1f),               // Asegurar visibilidad inmediata
-            Actions.fadeOut(0.5f)               // Desvanecer en 0.5 segundos
+            Actions.scaleTo(1.3f, 1.3f, 0.5f),
+            //Actions.fadeIn(0.1f),
+            Actions.fadeOut(0.5f)
         )
         val resetVisibility = Actions.run {
             image.isVisible = false
-            image.setScale(1f)             // Restablece la escala original
-            image.color.a = 1f             // Restablece la transparencia original
+            image.setScale(1f)
+            image.color.a = 1f
         }
 
         image.addAction(Actions.sequence(scaleAndFadeAction, resetVisibility))
@@ -159,7 +164,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             setSize(medidaFlechas, medidaFlechas)
             setPosition(medidaFlechas * position, Gdx.graphics.height / 2f)
             setOrigin(Align.center)
-            isVisible = false
+            //isVisible = false
         }
     }
     private fun getTextureRegion(texture: Texture, isMirror: Boolean = false) : TextureRegion {
@@ -173,15 +178,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     }
 
     private fun getReceptsAnimTexture() {
-        val recept0 = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
-        val recept1 = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
-        val recept2 = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
-
-        val recept0Frames = getReceptsTexture(recept0)
-        val recept1Frames = getReceptsTexture(recept1)
-        val recept2Frames = getReceptsTexture(recept2)
-        val recept3Frames = getReceptsTexture(recept1, true)
-        val recept4Frames = getReceptsTexture(recept0, true)
+        val recept0Frames = getReceptsTexture(textureLD)
+        val recept1Frames = getReceptsTexture(textureLU)
+        val recept2Frames = getReceptsTexture(textureCE)
+        val recept3Frames = getReceptsTexture(textureLU, true)
+        val recept4Frames = getReceptsTexture(textureLD, true)
 
         val frameDurationRecepts = rithymAnim / 2
 
