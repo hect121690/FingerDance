@@ -22,7 +22,9 @@
         android:theme="@style/Theme.FingerDance"
         tools:targetApi="31"
         android:category="android.intent.category.GAME">
-
+        <activity
+            android:name=".CalibrationActivity"
+            android:exported="false" />
         <activity
             android:name=".DanceGrade"
             android:exported="false" />

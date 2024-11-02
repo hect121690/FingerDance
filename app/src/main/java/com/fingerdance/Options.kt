@@ -53,6 +53,8 @@ class Options : AppCompatActivity(), ItemClickListener {
     private lateinit var btnCanciones : Button
     private lateinit var btnNoteSkins : Button
 
+    private lateinit var btnCalibrity : Button
+
     private lateinit var layoutTemas : ConstraintLayout
     private lateinit var linearTextProgressChannel : LinearLayout
     private lateinit var layoutCanciones : ConstraintLayout
@@ -95,6 +97,7 @@ class Options : AppCompatActivity(), ItemClickListener {
         btnTemas = findViewById(R.id.btnThemes)
         btnCanciones = findViewById(R.id.btnCanciones)
         btnNoteSkins = findViewById(R.id.btnNoteSkins)
+        btnCalibrity = findViewById(R.id.button2)
 
         btnTemas.compoundDrawableTintList = ColorStateList.valueOf(Color.WHITE)
         btnCanciones.compoundDrawableTintList = ColorStateList.valueOf(Color.WHITE)
@@ -201,6 +204,11 @@ class Options : AppCompatActivity(), ItemClickListener {
                 layoutNoteSkins.visibility = View.VISIBLE
                 btnNoteSkins.setCompoundDrawablesWithIntrinsicBounds(null , null, close, null)
             }
+        }
+
+        btnCalibrity.setOnClickListener {
+            val intent = Intent(this, CalibrationActivity::class.java)
+            startActivity(intent)
         }
 
         val dir = getExternalFilesDir("/FingerDance/Themes/")
