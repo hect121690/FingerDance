@@ -28,7 +28,7 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
     private var currentLifeTexture = (maxLife * 0.5).toInt() // Comienza en 50%
     var currentLife = maxWidth * 0.5f // Comienza en 50%
 
-    private val msPerBeat: Float = (60000f / displayBPM)
+    var msPerBeat: Float = (60000f / displayBPM)
     private var elapsedTime: Float = 0f
     private var growing = true
     private val shineDuration: Float = 500f
@@ -112,6 +112,7 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
 
         if (currentLife <= 3) {
             a.runOnUiThread {
+                a.finish()
                 a.breakDance()
             }
         }

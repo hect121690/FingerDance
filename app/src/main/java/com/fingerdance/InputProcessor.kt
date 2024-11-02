@@ -14,14 +14,14 @@ class InputProcessor() : InputAdapter() {
     private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
     private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
 
-    val padStates = IntArray(padPositions.size) { KEY_NONE }
+    val getKeyBoard = IntArray(padPositions.size) { KEY_NONE }
     private val pointerToPadMap = mutableMapOf<Int, Int>()
     private var hasStateChanged = false  // Controlar cambios en estados de pads
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
         padIndex?.let {
-            padStates[it] = KEY_DOWN
+            getKeyBoard[it] = KEY_DOWN
             pointerToPadMap[pointer] = it
             hasStateChanged = true  // Estado ha cambiado
         }
@@ -31,7 +31,7 @@ class InputProcessor() : InputAdapter() {
     override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
         padIndex?.let {
-            padStates[it] = KEY_UP
+            getKeyBoard[it] = KEY_UP
             pointerToPadMap.remove(pointer)
             hasStateChanged = true  // Estado ha cambiado
         }
@@ -45,13 +45,13 @@ class InputProcessor() : InputAdapter() {
         if (pointerToPadMap[pointer] == padIndex) return true
 
         pointerToPadMap[pointer]?.let { previousPad ->
-            padStates[previousPad] = KEY_NONE
+            getKeyBoard[previousPad] = KEY_NONE
             pointerToPadMap.remove(pointer)
             hasStateChanged = true
         }
 
         padIndex?.let {
-            padStates[it] = KEY_PRESS
+            getKeyBoard[it] = KEY_PRESS
             pointerToPadMap[pointer] = it
             hasStateChanged = true
         }
@@ -69,10 +69,10 @@ class InputProcessor() : InputAdapter() {
         // Actualizar solo si ha habido cambios en los estados
         if (!hasStateChanged) return
 
-        for (i in padStates.indices) {
-            when (padStates[i]) {
-                KEY_DOWN -> padStates[i] = KEY_PRESS
-                KEY_UP -> padStates[i] = KEY_NONE
+        for (i in getKeyBoard.indices) {
+            when (getKeyBoard[i]) {
+                KEY_DOWN -> getKeyBoard[i] = KEY_PRESS
+                KEY_UP -> getKeyBoard[i] = KEY_NONE
             }
         }
         hasStateChanged = false  // Restablecer indicador de cambios
@@ -81,7 +81,7 @@ class InputProcessor() : InputAdapter() {
     fun render(batch: SpriteBatch) {
         for (i in padPositions.indices) {
             val (x, y) = padPositions[i]
-            val texture = if (padStates[i] == KEY_DOWN || padStates[i] == KEY_PRESS) {
+            val texture = if (getKeyBoard[i] == KEY_DOWN || getKeyBoard[i] == KEY_PRESS) {
                 btnOnPress
             } else {
                 btnOffPress

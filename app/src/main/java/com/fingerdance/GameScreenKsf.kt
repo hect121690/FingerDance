@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.Image
+import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 
@@ -122,45 +123,42 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     }
 
     fun startShrinkAnimation(area: Int) {
-        val image = when (area) {
-            1 -> imageLD
-            2 -> imageLU
-            3 -> imageCE
-            4 -> imageRU
-            5 -> imageRD
+        when (area) {
+            1 -> getAnimation(imageLD)
+            2 -> getAnimation(imageLU)
+            3 -> getAnimation(imageCE)
+            4 -> getAnimation(imageRU)
+            5 -> getAnimation(imageRD)
             else -> return
         }
 
-        // Asegúrate de que la imagen esté lista para animarse
-        image.clearActions()
-        image.color.a = 0f // Opacidad inicial a 0
-        image.setScale(1f) // Tamaño inicial al 100%
-        image.isVisible = true
 
-        // Definir la animación
-        val scaleAndFadeAction = Actions.sequence(
-            Actions.parallel(
-                Actions.scaleTo(1.3f, 1.3f, 0.5f),  // Escala a 1.3 en 0.5 segundos
-                Actions.fadeIn(0.1f),               // Asegurar visibilidad inmediata
-                Actions.fadeOut(0.5f)               // Desvanecer en 0.5 segundos
-            ),
-            Actions.run {
-                image.isVisible = false  // Ocultar al terminar
-                image.setScale(1f)       // Reiniciar tamaño
-                image.color.a = 0f       // Reiniciar opacidad
-            }
-        )
-
-        image.setPosition(medidaFlechas * area, Gdx.graphics.height / 2f)
-        // Ejecuta la animación
-        image.addAction(scaleAndFadeAction)
     }
 
+    private fun getAnimation(image: Image) {
+        image.clearActions()
+        image.isVisible = true
+
+        val scaleAndFadeAction = Actions.parallel(
+            Actions.scaleTo(1.3f, 1.3f, 0.5f),  // Escala a 1.3 en 0.5 segundos
+            //Actions.fadeIn(0.1f),               // Asegurar visibilidad inmediata
+            Actions.fadeOut(0.5f)               // Desvanecer en 0.5 segundos
+        )
+        val resetVisibility = Actions.run {
+            image.isVisible = false
+            image.setScale(1f)             // Restablece la escala original
+            image.color.a = 1f             // Restablece la transparencia original
+        }
+
+        image.addAction(Actions.sequence(scaleAndFadeAction, resetVisibility))
+    }
 
 
     private fun getImage(textureRegion: TextureRegion, position: Int) : Image {
         return Image(textureRegion).apply {
             setSize(medidaFlechas, medidaFlechas)
+            setPosition(medidaFlechas * position, Gdx.graphics.height / 2f)
+            setOrigin(Align.center)
             isVisible = false
         }
     }
