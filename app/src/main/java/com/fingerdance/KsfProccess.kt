@@ -3,6 +3,7 @@ package com.fingerdance
 import java.io.File
 import kotlin.experimental.and
 import kotlin.experimental.or
+import kotlin.math.round
 import kotlin.random.Random
 
 class KsfProccess {
@@ -135,9 +136,9 @@ class KsfProccess {
                 "BPM3" -> bpm3 = info.value.toDouble()
                 "BUNKI" -> bunki = info.value.toLong() * 10
                 "BUNKI2" -> bunki2 = info.value.toLong() * 10
-                "STARTTIME" -> startTime = info.value.toLong() * 10
-                "STARTTIME2" -> startTime2 = info.value.toLong() * 10
-                "STARTTIME3" -> startTime3 = info.value.toLong() * 10
+                "STARTTIME" -> startTime = (round(info.value.toDouble()) * 10).toLong()
+                "STARTTIME2" -> startTime2 = (round(info.value.toDouble()) * 10).toLong()
+                "STARTTIME3" -> startTime3 = (round(info.value.toDouble()) * 10).toLong()
             }
         }
 
@@ -267,7 +268,7 @@ class KsfProccess {
 
         if (bUseOldBPM) {
             val ptn0 = patterns.first()
-            var ptn1: Pattern? = null
+            val ptn1: Pattern?
             var ptn2: Pattern? = null
             ptn0.timePos = startTime
 
@@ -389,7 +390,7 @@ class KsfProccess {
     }
 
     private fun getPtnTimePos(bpm: Double, start: Long, bunki: Long, tick: Int): Long {
-        var lastTick = start.toFloat()
+        val lastTick = start.toFloat()
         val ticks = 60000 / bpm
         val dest = bunki.toFloat()
 
@@ -450,13 +451,13 @@ class KsfProccess {
                         }
                         NOTE_LNOTE -> {
                             newLine[nowLong[a].toInt()] = line.step[a]
-                            line.step[a] = NOTE_NONE.toByte()
+                            line.step[a] = NOTE_NONE
                         }
                         NOTE_LEND -> {
                             newLine[nowLong[a].toInt()] = line.step[a]
                             noNote[nowLong[a].toInt()] = 2
                             nowLong[a] = stepWidth.toByte()
-                            line.step[a] = NOTE_NONE.toByte()
+                            line.step[a] = NOTE_NONE
                         }
                     }
                 }
