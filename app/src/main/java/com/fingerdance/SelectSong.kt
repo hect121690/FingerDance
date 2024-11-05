@@ -11,6 +11,7 @@ import android.graphics.drawable.Drawable
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
@@ -21,6 +22,8 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.*
+import androidx.activity.result.ActivityResultLauncher
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
@@ -177,7 +180,6 @@ var ksf = KsfParser()
 val heightLayoutBtns = height / 2f
 val heightBtns = heightLayoutBtns / 2f
 val widthBtns = width / 3f
-
 val padPositions = listOf(
     arrayOf(0f, (heightLayoutBtns + heightBtns)),
     arrayOf(0f, heightBtns * 2f),
@@ -186,9 +188,12 @@ val padPositions = listOf(
     arrayOf(widthBtns * 2f, heightLayoutBtns + heightBtns)
 )
 
+lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
+
 //lateinit var smdata : SMData
 
     class SelectSong : AppCompatActivity() {
+        @RequiresApi(Build.VERSION_CODES.S)
         override fun onCreate(savedInstanceState: Bundle?) {
             getSupportActionBar()?.hide()
             super.onCreate(savedInstanceState)
@@ -727,15 +732,7 @@ val padPositions = listOf(
                         val timeToLoad = 2000L
                         showProgressBar(timeToLoad)
                         mediPlayer.pause()
-                        //playerSong.rutaBanner = listItems[oldValue].rutaBanner
                         playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
-
-                        //val steps = readFile(listItems[oldValue].rutaSteps)
-                        //val temp = steps.split("//---------------pump-single")
-                        //val songSelected = listItemsKsf[oldValue]
-                        //val levelSelected = songSelected.listKsf[positionActualLvs]
-                        //playerSong.steps = temp[positionActualLvs + 1]
-
                         playerSong.speed = txVelocidadActual.text.toString()
 
                         if(playerSong.rutaNoteSkin != ""){
@@ -750,13 +747,12 @@ val padPositions = listOf(
                             }
                         }
 
-                        initFlechas(ruta)
+                        //initFlechas(ruta)
                         hideSelectLv(anim)
                         playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
                         load(playerSong.rutaKsf!!)
-
                         val handler = Handler()
                         handler.postDelayed({
                             val intent = Intent(this, GameScreenActivity()::class.java)
@@ -1149,6 +1145,7 @@ val padPositions = listOf(
             return mirroredFrames
         }
 
+        /*
         private fun initFlechas(ruta: String) {
             /*
             bitLefDown = BitmapFactory.decodeFile("$ruta/DownLeft Tap Note 3x2.png")
@@ -1201,6 +1198,7 @@ val padPositions = listOf(
             rightDExpand = Bitmap.createBitmap(rightD!!, 0, (rightD!!.height / 3) * 2, rightD!!.width, rightD!!.width)
             */
         }
+        */
 
         private fun performAction() {
             openCommandWindow()
@@ -1752,6 +1750,7 @@ val padPositions = listOf(
 
         @Deprecated("Deprecated in Java")
         override fun onBackPressed() {
+            super.onBackPressed()
             Toast.makeText(this, "Use los botones BACK", Toast.LENGTH_SHORT).show()
         }
 

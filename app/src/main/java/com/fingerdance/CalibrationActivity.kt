@@ -11,11 +11,12 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import kotlin.math.abs
 
-class CalibrationActivity : AppCompatActivity() {
+class CalibrationActivity() : AppCompatActivity() {
 
     private lateinit var soundPool: SoundPool
     private var soundId: Int = 0
@@ -28,24 +29,27 @@ class CalibrationActivity : AppCompatActivity() {
     private var difference = 0L
     private lateinit var btnSaveLatency: Button
 
+    private lateinit var txMessage: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_calibration)
 
-        // Inicializar componentes
         tapButton = findViewById(R.id.tapButton)
         resultTextView = findViewById(R.id.resultTextView)
         outerCircle = findViewById(R.id.outerCircle)
         btnSaveLatency = findViewById(R.id.btnSaveLatency)
+        txMessage = findViewById(R.id.txMessage)
+        txMessage.layoutParams.width = (width / 10) * 8
+        txMessage.setText(R.string.latency_message)
 
-        // Configurar SoundPool para el sonido
         soundPool = SoundPool.Builder().setMaxStreams(1).build()
         soundId = soundPool.load(this, R.raw.drum, 1)
 
         animator = ValueAnimator.ofFloat(250f, 150f).apply {
-            duration = 4000 // 2 segundos para que se sincronice con el sonido
+            duration = 4000
             interpolator = LinearInterpolator()
-            repeatCount = ValueAnimator.INFINITE // Repetir indefinidamente
+            repeatCount = ValueAnimator.INFINITE
             addUpdateListener { animation ->
                 val size = (animation.animatedValue as Float).toInt()
                 val params = outerCircle.layoutParams as ConstraintLayout.LayoutParams
@@ -60,14 +64,22 @@ class CalibrationActivity : AppCompatActivity() {
         tapButton.setOnClickListener {
             startCircleAnimation()
             val tapTime = SystemClock.elapsedRealtime()
-            difference = abs(tapTime - soundPlayTime) // diferencia entre tap y sonido
-
-            //tapTimes.add(difference)
+            difference = abs(tapTime - soundPlayTime)
             resultTextView.text = "Latency: $difference ms"
         }
-
+        val builder = AlertDialog.Builder(this)
         btnSaveLatency.setOnClickListener {
-            latency = calculateAverageLatency()
+            builder.setTitle("Aviso")
+            builder.setMessage("Guardar latencia y salir?")
+            builder.setPositiveButton(android.R.string.yes) { dialog, which ->
+                latency = calculateAverageLatency()
+                configLatency = true
+                this.finish()
+            }
+            builder.setNegativeButton(android.R.string.no) { dialog, which ->
+
+            }
+            builder.show()
         }
     }
 
@@ -80,10 +92,10 @@ class CalibrationActivity : AppCompatActivity() {
 
         handler.postDelayed(object : Runnable {
             override fun run() {
-                playSound() // Reproducir el sonido
-                soundPlayTime = SystemClock.elapsedRealtime() // Guardar el tiempo en que suena
+                playSound()
+                soundPlayTime = SystemClock.elapsedRealtime()
 
-                handler.postDelayed(this, 2000) // Repetir cada 2 segundos
+                handler.postDelayed(this, 2000)
             }
         }, 2000)
     }
@@ -99,7 +111,7 @@ class CalibrationActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        soundPool.release() // Liberar recursos de SoundPool
+        soundPool.release()
         handler.removeCallbacksAndMessages(null) // Detener el handler
     }
 }

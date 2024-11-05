@@ -1,11 +1,9 @@
 package com.fingerdance
 
-import android.graphics.Rect
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
-import com.badlogic.gdx.math.Rectangle
 import java.lang.Math.abs
 import kotlin.experimental.and
 
@@ -34,10 +32,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_PRESS_CHK: Byte = 16
         const val NOTE_MISS_CHK: Byte = 32
 
-        private var ZONE_PERFECT: Long = if(playerSong.hj!!) 20 else 80
-        private var ZONE_GREAT: Long = if(playerSong.hj!!) 50 else 110
-        private var ZONE_GOOD: Long = if(playerSong.hj!!) 80 else 130
-        private var ZONE_BAD: Long = if(playerSong.hj!!) 100 else 160
+        private var ZONE_PERFECT: Long = if(playerSong.hj!!) 20 else 50
+        private var ZONE_GREAT: Long = if(playerSong.hj!!) 50 else 80
+        private var ZONE_GOOD: Long = if(playerSong.hj!!) 80 else 100
+        private var ZONE_BAD: Long = if(playerSong.hj!!) 100 else 130
 
         const val JUDGE_PERFECT = 0
         const val JUDGE_GREAT = 1
@@ -77,7 +75,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         private lateinit var flareArrowFrame : Array<TextureRegion>
 
         private val LONGNOTE = Array(10) { LongNotePress() }
-
     }
 
     data class PlayerFlare(var startTime: Long = 0)
@@ -129,7 +126,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             chkPtnNum[x] = 0
             chkPtnNum[x] = 0
         }
-
     }
     fun initCommonInfo() {
 
@@ -365,7 +361,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
         }
 
-        lifeBar.msPerBeat = (60000 / m_fCurBPM).toFloat()
+        //lifeBar.msPerBeat = (60000 / m_fCurBPM).toFloat()
 
         for (iStepNo in 0 until m_iStepWidth) {
             if (bDrawLongPress[iStepNo]) {
@@ -418,7 +414,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         for (x in 0 until stepWidth) {
             if (key[x] == KEY_DOWN ) {
                 btnPress[x] = true
-                processStep(x, true)
+                //processStep(x, true)
                 for (iptn in 0 until iptnc) {
                     val ptn_now = ksf.patterns[iptn]
                     val timepos = ptn_now.timePos + timeToPresiscion
@@ -438,7 +434,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         line_num_s = 0
                     for (line_num in line_num_s until line_num_c) {
                         line_mpos = (60000 / ptn_now.bpm * line_num / ptn_now.tick).toLong() + timepos
-                        judge_time = abs(line_mpos - time) //- timeToPresiscion
+                        judge_time = abs(line_mpos - time)
                         if (judge_time < ZONE_BAD) {
                             var nnote = ptn_now.lines[line_num].step[x]
                             if (nnote and NOTE_MISS_CHK != 0.toByte()){
@@ -512,7 +508,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
             else if (key[x] == KEY_PRESS ) {
                 btnPress[x] = true
-                processStep(x, true)
+                //processStep(x, true)
                 if (LONGNOTE[x].pressed){
                     line_num = LONGNOTE[x].line
                     iptn = LONGNOTE[x].ptn
@@ -559,7 +555,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
             else if (key[x] == KEY_UP){
                 m_bBtnPress[x] = false
-                processStep(x, false)
+                //processStep(x, false)
                 if (LONGNOTE[x].pressed){
                     LONGNOTE[x].pressed = false
                     judge_time = getLongNoteEndTime(x) - time
@@ -700,6 +696,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
+    /*
     fun processStep(area: Int, pressed: Boolean) {
         if(pressed){
             if (area == 0) {
@@ -719,31 +716,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
         }
     }
+*/
 
-    /*
-    fun processStep(area: Int, pressed: Boolean) {
-        if(pressed){
-            a.runOnUiThread {
-                if (area == 0) {
-                    a.startShrinkAnimation(1)
-                }
-                if (area == 1) {
-                    a.startShrinkAnimation(2)
-                }
-                if (area == 2) {
-                    a.startShrinkAnimation(3)
-                }
-                if (area == 3) {
-                    a.startShrinkAnimation(4)
-                }
-                if (area == 4) {
-                    a.startShrinkAnimation(5)
-                }
-            }
-
-        }
-    }
-    */
     fun newScore(judgeType: Int) {
         a.runOnUiThread {
             when (judgeType) {

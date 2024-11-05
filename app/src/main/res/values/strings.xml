@@ -3,6 +3,8 @@
     <string name="hero_image_description">Hero Image Description</string>
     <string name="lv_image_description">Lv Image Description</string>
     <string name="image_visor">AnimArrows</string>
-    <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="latency_message"> 1- Presiona el botón Tap cada que escuches el sonido del tick.\n
+                                    2- El círculo se sincronizará con cada Tap, cuando consideres que tus toques
+                                      están sincronizados con el tick, presiona el botón SAVE LATENCY.</string>
 </resources>

@@ -6,12 +6,11 @@ import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Animation
+import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
+import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Stage
-import com.badlogic.gdx.scenes.scene2d.actions.Actions
-import com.badlogic.gdx.scenes.scene2d.ui.Image
-import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 
@@ -19,7 +18,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     val a = activity
 
     private lateinit var batch: SpriteBatch
-    private lateinit var stage: Stage
+    lateinit var stage: Stage
 
     private lateinit var animationReceptLeftDown: Animation<TextureRegion>
     private lateinit var animationReceptLeftUp: Animation<TextureRegion>
@@ -37,20 +36,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
     val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
     val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
-    val textureRU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
-    val textureRD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
-
-    val textureRegionLD = getTextureRegion(textureLD)
-    val textureRegionLU = getTextureRegion(textureLU)
-    val textureRegionCE = getTextureRegion(textureCE)
-    val textureRegionRU = getTextureRegion(textureRU, true)
-    val textureRegionRD = getTextureRegion(textureRD, true)
-
-    val imageLD = getImage(textureRegionLD, 1)
-    val imageLU = getImage(textureRegionLU, 2)
-    val imageCE = getImage(textureRegionCE, 3)
-    val imageRU = getImage(textureRegionRU, 4)
-    val imageRD = getImage(textureRegionRD, 5)
+    //val textureRU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
+    //val textureRD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
 
     var targetTop = 0f
     private var elapsedTime = 0f
@@ -64,11 +51,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         batch = SpriteBatch()
         stage = Stage(ScreenViewport())
         stage.addActor(lifeBar)
-        stage.addActor(imageLD)
-        stage.addActor(imageLU)
-        stage.addActor(imageCE)
-        stage.addActor(imageRU)
-        stage.addActor(imageRD)
+
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
         player = Player(batch, a)
@@ -108,6 +91,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             batch.begin()
             elapsedTime += delta
             getReceptsAnimation()
+
             showBgPads()
             player.updateStepData(currentTime)
             player.render(currentTime)
@@ -125,56 +109,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         batch.draw(padCenter, padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
         batch.draw(padRightUp, padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
         batch.draw(padRightDown, padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
-    }
-
-    fun startShrinkAnimation(area: Int) {
-        when (area) {
-            1 -> getAnimation(imageLD)
-            2 -> getAnimation(imageLU)
-            3 -> getAnimation(imageCE)
-            4 -> getAnimation(imageRU)
-            5 -> getAnimation(imageRD)
-            else -> return
-        }
-
-
-    }
-
-    private fun getAnimation(image: Image) {
-        //image.clearActions()
-        image.isVisible = true
-
-        val scaleAndFadeAction = Actions.parallel(
-            Actions.scaleTo(1.3f, 1.3f, 0.5f),
-            //Actions.fadeIn(0.1f),
-            Actions.fadeOut(0.5f)
-        )
-        val resetVisibility = Actions.run {
-            image.isVisible = false
-            image.setScale(1f)
-            image.color.a = 1f
-        }
-
-        image.addAction(Actions.sequence(scaleAndFadeAction, resetVisibility))
-    }
-
-
-    private fun getImage(textureRegion: TextureRegion, position: Int) : Image {
-        return Image(textureRegion).apply {
-            setSize(medidaFlechas, medidaFlechas)
-            setPosition(medidaFlechas * position, Gdx.graphics.height / 2f)
-            setOrigin(Align.center)
-            //isVisible = false
-        }
-    }
-    private fun getTextureRegion(texture: Texture, isMirror: Boolean = false) : TextureRegion {
-        val textureRegion = TextureRegion(texture, 0, texture.height / 3 * 2, texture.width, texture.height / 3)
-        if(!isMirror){
-            textureRegion.flip(false, false)
-        }else{
-            textureRegion.flip(true, false)
-        }
-        return textureRegion
     }
 
     private fun getReceptsAnimTexture() {

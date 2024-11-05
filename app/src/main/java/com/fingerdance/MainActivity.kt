@@ -20,17 +20,17 @@ import android.view.Window
 import android.view.WindowManager
 import android.view.animation.AnimationUtils
 import android.widget.*
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
-import java.io.*
-import kotlin.system.exitProcess
 import com.google.firebase.FirebaseApp
-
 import com.google.firebase.storage.FirebaseStorage
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.io.*
+import kotlin.system.exitProcess
 
 
 lateinit var themes : SharedPreferences
@@ -45,6 +45,7 @@ var typeSpeedSelected : String = ""
 var bgaOff : String = ""
 
 var latency = 0L
+var configLatency = false
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var imageIcon : ImageView
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
