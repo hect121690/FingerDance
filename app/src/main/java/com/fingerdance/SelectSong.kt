@@ -22,7 +22,6 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.*
-import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -36,9 +35,6 @@ import androidx.viewpager2.widget.ViewPager2
 import com.fingerdance.databinding.ActivitySelectSongBinding
 import java.io.File
 import java.math.BigDecimal
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.Paths
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -150,7 +146,7 @@ var bitGood: Bitmap? = null
 var bitBad: Bitmap? = null
 var bitMiss: Bitmap? = null
 
-var tamañoLvs = 0
+var sizeLvs = 0
 
 private var contador = 0
 private val handler = Handler()
@@ -187,10 +183,6 @@ val padPositions = listOf(
     arrayOf(widthBtns * 2f, heightBtns * 2f),
     arrayOf(widthBtns * 2f, heightLayoutBtns + heightBtns)
 )
-
-lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
-
-//lateinit var smdata : SMData
 
     class SelectSong : AppCompatActivity() {
         @RequiresApi(Build.VERSION_CODES.S)
@@ -300,17 +292,17 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
             linearBottom.layoutParams.width = ancho
 
             linearLvs.layoutParams.width = commandWindow.layoutParams.width
-            tamañoLvs = linearLvs.layoutParams.width / 9
+            sizeLvs = linearLvs.layoutParams.width / 9
 
             imgContador = findViewById(R.id.imgContador)
-            imgContador.layoutParams.height = (tamañoLvs * .45).toInt()
+            imgContador.layoutParams.height = (sizeLvs * .45).toInt()
 
             iniciarContador()
 
             indicatorLayout = findViewById(R.id.indicatorImageView)
             val bmIndicator= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator_lv.png")!!.absolutePath)
             indicatorLayout.setImageBitmap(bmIndicator)
-            indicatorLayout.layoutParams.width = tamañoLvs
+            indicatorLayout.layoutParams.width = sizeLvs
 
             val anchoRecyclerCommands = linearMenus.layoutParams.width / 3
             recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)
@@ -1081,125 +1073,6 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
             indicatorLayout.x = indicatorX.toFloat()
         }
 
-        private fun crearEspejoBitmap(originalBitmap: Bitmap): Bitmap {
-            val matrix = Matrix().apply {
-                preScale(-1f, 1f, originalBitmap.width / 2f, originalBitmap.height / 2f)
-            }
-            return Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
-        }
-
-        private fun combinarFramesEnBitmap3x2(frames: List<Bitmap>, frameWidth: Int, frameHeight: Int): Bitmap {
-            val combinedWidth = frameWidth * 3
-            val combinedHeight = frameHeight * 2
-
-            val combinedBitmap = Bitmap.createBitmap(combinedWidth, combinedHeight, Bitmap.Config.ARGB_8888)
-
-            val canvas = Canvas(combinedBitmap)
-
-            for (row in 0 until 2) {
-                for (col in 0 until 3) {
-                    val frameBitmap = frames[row * 3 + col]
-                    canvas.drawBitmap(frameBitmap, col * frameWidth.toFloat(), row * frameHeight.toFloat(), null)
-                }
-            }
-
-            return combinedBitmap
-        }
-
-        private fun combinarFramesEnBitmap6x1(frames: List<Bitmap>, frameWidth: Int, frameHeight: Int): Bitmap {
-            val combinedWidth = frameWidth * 6
-            val combinedBitmap = Bitmap.createBitmap(combinedWidth, frameHeight, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(combinedBitmap)
-            for (col in 0 until 6) {
-                val frameBitmap = frames[col]
-                canvas.drawBitmap(frameBitmap, col * frameWidth.toFloat(), 0f, null)
-            }
-            return combinedBitmap
-        }
-
-        private fun getListFrames3x2(bitmap: Bitmap, frameWidth: Int, frameHeight: Int): MutableList<Bitmap> {
-            val mirroredFrames = mutableListOf<Bitmap>()
-            for (row in 0 until 2) {
-                for (col in 0 until 3) {
-                    val frameX = col * frameWidth
-                    val frameY = row * frameHeight
-
-                    val frameBitmap =
-                        Bitmap.createBitmap(bitmap, frameX, frameY, frameWidth, frameHeight)
-                    val mirroredFrame = crearEspejoBitmap(frameBitmap)
-                    mirroredFrames.add(mirroredFrame)
-                }
-            }
-            return mirroredFrames
-        }
-
-        private fun getListFrames6x1(bitmap: Bitmap, frameWidth: Int, frameHeight: Int): MutableList<Bitmap> {
-            val mirroredFrames = mutableListOf<Bitmap>()
-            for (col in 0 until 6) {
-                val frameX = col * frameWidth
-                val frameBitmap = Bitmap.createBitmap(bitmap, frameX, 0, frameWidth, frameHeight)
-                val mirroredFrame = crearEspejoBitmap(frameBitmap)
-                mirroredFrames.add(mirroredFrame)
-            }
-
-            return mirroredFrames
-        }
-
-        /*
-        private fun initFlechas(ruta: String) {
-            /*
-            bitLefDown = BitmapFactory.decodeFile("$ruta/DownLeft Tap Note 3x2.png")
-            var frameWidth = bitLefDown!!.width / 3
-            var frameHeight = bitLefDown!!.height / 2
-            var mirroredFrames = getListFrames3x2(bitLefDown!!, frameWidth, frameHeight)
-            bitRightDown = combinarFramesEnBitmap3x2(mirroredFrames, frameWidth, frameHeight)
-            bitLefUp = BitmapFactory.decodeFile("$ruta/UpLeft Tap Note 3x2.png")
-            mirroredFrames = getListFrames3x2(bitLefUp!!, frameWidth, frameHeight)
-            bitRightUp = combinarFramesEnBitmap3x2(mirroredFrames, frameWidth, frameHeight)
-            bitCenter = BitmapFactory.decodeFile("$ruta/Center Tap Note 3x2.png")
-
-            bitLefDownBody = BitmapFactory.decodeFile("$ruta/DownLeft Hold Body Active 6x1.png")
-            frameWidth = bitLefDownBody!!.width / 6
-            frameHeight = bitLefDownBody!!.height
-            mirroredFrames = getListFrames6x1(bitLefDownBody!!, frameWidth, frameHeight)
-            bitRightDownBody = combinarFramesEnBitmap6x1(mirroredFrames, frameWidth, frameHeight)
-            bitLefUpBody = BitmapFactory.decodeFile("$ruta/UpLeft Hold Body Active 6x1.png")
-            mirroredFrames = getListFrames6x1(bitLefUpBody!!, frameWidth, frameHeight)
-            bitRightUpBody = combinarFramesEnBitmap6x1(mirroredFrames, frameWidth, frameHeight)
-            bitCenterBody = BitmapFactory.decodeFile("$ruta/Center Hold Body Active 6x1.png")
-
-            bitLefDownBottom = BitmapFactory.decodeFile("$ruta/DownLeft Hold BottomCap Active 6x1.png")
-            mirroredFrames = getListFrames6x1(bitLefDownBottom!!, frameWidth, frameHeight)
-            bitRightDownBottom = combinarFramesEnBitmap6x1(mirroredFrames, frameWidth, frameHeight)
-
-            bitLefUpBottom = BitmapFactory.decodeFile("$ruta/UpLeft Hold BottomCap Active 6x1.png")
-            mirroredFrames = getListFrames6x1(bitLefUpBottom!!, frameWidth, frameHeight)
-            bitRightUpBottom = combinarFramesEnBitmap6x1(mirroredFrames, frameWidth, frameHeight)
-            bitCenterBottom = BitmapFactory.decodeFile("$ruta/Center Hold BottomCap Active 6x1.png")
-
-            leftD = BitmapFactory.decodeFile("$ruta/DownLeft Ready Receptor 1x3.png")
-            val matrixLeftRecep = Matrix().apply {
-                preScale(-1f, 1f, leftD!!.width / 2f, leftD!!.height / 2f)
-            }
-            rightD = Bitmap.createBitmap(leftD!!,0,0, leftD!!.width, leftD!!.height, matrixLeftRecep,true)
-
-            leftU = BitmapFactory.decodeFile("$ruta/UpLeft Ready Receptor 1x3.png")
-            val matrixRightRecep = Matrix().apply {
-                preScale(-1f, 1f, leftU!!.width / 2f, leftU!!.height / 2f)
-            }
-            rightU = Bitmap.createBitmap(leftU!!, 0, 0, leftU!!.width, leftU!!.height, matrixRightRecep, true)
-
-            cent = BitmapFactory.decodeFile("$ruta/Center Ready Receptor 1x3.png")
-
-            leftDExpand = Bitmap.createBitmap(leftD!!, 0, (leftD!!.height / 3) * 2, leftD!!.width, leftD!!.width)
-            leftUExpand = Bitmap.createBitmap(leftU!!, 0, (leftU!!.height / 3) * 2, leftU!!.width, leftU!!.width)
-            centExpand = Bitmap.createBitmap(cent!!, 0, (cent!!.height / 3) * 2, cent!!.width, cent!!.width)
-            rightUExpand = Bitmap.createBitmap(rightU!!, 0, (rightU!!.height / 3) * 2, rightU!!.width, rightU!!.width)
-            rightDExpand = Bitmap.createBitmap(rightD!!, 0, (rightD!!.height / 3) * 2, rightD!!.width, rightD!!.width)
-            */
-        }
-        */
-
         private fun performAction() {
             openCommandWindow()
             sequence.clear()
@@ -1509,7 +1382,7 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
         private fun isFocusCommandWindow (position: Int){
             soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             val item = listCommands[position]
-            recyclerCommands.setCurrentItem(position)
+            recyclerCommands.currentItem = position
             if(item.value.contains("Speed", ignoreCase = true)){
                 lbCurrentBpm.text = "Velocidad"
                 txCurrentBpm.text = "2X"
@@ -1602,7 +1475,7 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
         private fun llenaLvs(listLvs : MutableList<Lvs>){
             binding.recyclerLvs.apply {
                 layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                adapter = LvsAdapter(listLvs, null, tamañoLvs)
+                adapter = LvsAdapter(listLvs, null, sizeLvs)
             }
             recyclerLvs.onFlingListener = null
         }
@@ -1610,7 +1483,7 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
         private fun llenaLvsKsf(listLvs : MutableList<Ksf>){
             binding.recyclerLvs.apply {
                 layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                adapter = LvsAdapter(null, listLvs, tamañoLvs)
+                adapter = LvsAdapter(null, listLvs, sizeLvs)
             }
             recyclerLvs.onFlingListener = null
         }
@@ -1619,9 +1492,9 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
             binding.recyclerNoLvs.apply {
                 layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
                 if(listLvs != null){
-                    adapter = LvsAdapter(listLvs, null, (tamañoLvs))
+                    adapter = LvsAdapter(listLvs, null, (sizeLvs))
                 }else if(listLvsKsf != null){
-                    adapter = LvsAdapter(null, listLvsKsf, (tamañoLvs))
+                    adapter = LvsAdapter(null, listLvsKsf, (sizeLvs))
                 }
 
             }
@@ -1724,7 +1597,7 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
             return arraylist
         }
 
-        fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int, frameDuration : Int): AnimationDrawable{
+        private fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int, frameDuration : Int): AnimationDrawable{
             val arrowSpritesRD = arrayOf(
                 Bitmap.createBitmap(bitmap, 0, 0, spriteWidth, spriteHeight),
                 Bitmap.createBitmap(bitmap, spriteWidth, 0, spriteWidth, spriteHeight),
@@ -1739,13 +1612,8 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
             return animation
         }
 
-        fun isFileExists(file: File): Boolean {
+        private fun isFileExists(file: File): Boolean {
             return file.exists() && !file.isDirectory
-        }
-
-        fun readFile(path: String): String {
-            val encoded = Files.readAllBytes(Paths.get(path))
-            return String(encoded, StandardCharsets.UTF_8)
         }
 
         @Deprecated("Deprecated in Java")
@@ -1773,26 +1641,25 @@ lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
 
         override fun onDestroy() {
             super.onDestroy()
-            //goSelectChannel()
         }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            hideSystemUI()
+        override fun onWindowFocusChanged(hasFocus: Boolean) {
+            super.onWindowFocusChanged(hasFocus)
+            if (hasFocus) {
+                hideSystemUI()
+            }
         }
-    }
 
-    private fun hideSystemUI() {
-    val decorView: View = window.decorView
-    decorView.setSystemUiVisibility(
-        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_FULLSCREEN)
-    }
+        private fun hideSystemUI() {
+        val decorView: View = window.decorView
+        decorView.setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN)
+        }
 
 }
 
