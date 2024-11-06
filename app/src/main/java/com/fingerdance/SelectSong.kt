@@ -171,7 +171,7 @@ lateinit var numberBitmaps: List<Bitmap>
 lateinit var numberBitmapsMiss: List<Bitmap>
 
 var ruta = ""
-var ksf = KsfParser()
+var ksf = KsfProccess()
 
 val heightLayoutBtns = height / 2f
 val heightBtns = heightLayoutBtns / 2f
@@ -518,32 +518,6 @@ val padPositions = listOf(
 
             imgFloor.layoutParams.width = (width * 0.6).toInt()
             imgAceptar.layoutParams.width = (width * 0.3).toInt()
-
-            /*
-            val constraintMain = findViewById<RelativeLayout>(R.id.linearPrevViewSong)
-            var rutaBit = ""
-            if(playerSong.rutaNoteSkin != ""){
-                rutaBit = playerSong.rutaNoteSkin.toString()
-            }else{
-                rutaBit = getExternalFilesDir("/FingerDance/NoteSkins/01-XX").toString()
-            }
-            val bit = BitmapFactory.decodeFile(rutaBit + "/Flare 6x1.png")
-            val pruebaF = makeBlackTransparent(bit)
-
-
-            val pruebaFlare = createArrowBody(pruebaF, this)
-            //pruebaFlare.alpha = 0.5f
-            pruebaFlare.layoutParams = RelativeLayout.LayoutParams(500, 500)
-            pruebaFlare.y = 150f
-            pruebaFlare.x = (width / 2) - 250.toFloat()
-
-            constraintMain.addView(pruebaFlare)
-            pruebaFlare.bringToFront()
-*/
-            //val ksf = Cksf()
-
-            //val ruta = getExternalFilesDir("/FingerDance/Songs/Channels/01-REMIX/15B7 - Clue/Single Lv.4.ksf")!!.absolutePath
-            //val list = ksf.Load(ruta, 0)
 
             if(skinSelected != ""){
                 if(!imgNoteSkin.isVisible){
@@ -976,7 +950,7 @@ val padPositions = listOf(
         }
 
         fun load(filename: String) {
-            ksf = KsfParser()
+            ksf = KsfProccess()
             ksf.load(filename)
         }
 

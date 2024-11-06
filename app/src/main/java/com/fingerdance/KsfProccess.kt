@@ -20,18 +20,9 @@ class KsfProccess {
         const val NOTE_LSTART: Byte = 6
         const val NOTE_LNOTE: Byte = 2
         const val NOTE_LEND: Byte = 10
-        const val NOTE_LSTART_PRESS: Byte = 22
-        const val NOTE_LEND_PRESS: Byte = 26
-        const val NOTE_NOTE_MISS: Byte = 33
-        const val NOTE_LSTART_MISS: Byte = 38
-        const val NOTE_LEND_MISS: Byte = 42
 
-        const val NOTE_NOTE_CHK: Byte = NOTE_NOTE
-        const val NOTE_LONG_CHK: Byte = NOTE_LNOTE
         const val NOTE_START_CHK: Byte = 4
         const val NOTE_END_CHK: Byte = 8
-        const val NOTE_PRESS_CHK: Byte = 16
-        const val NOTE_MISS_CHK: Byte = 32
     }
 
     data class Line(val step: ByteArray = ByteArray(10))
@@ -40,10 +31,10 @@ class KsfProccess {
         var timePos: Long = 0,
         var timeLen: Long = 0,
         var timeDelay: Long = 0,
-        var tick: Int = 0,
+        var iTick: Int = 0,
         var iLastMissCheck: Int = 0,
-        var bpm: Double = 0.0,
-        val lines: MutableList<Line> = mutableListOf()
+        var fBPM: Double = 0.0,
+        val vLine: MutableList<Line> = mutableListOf()
     )
 
     data class LoadingInfo(val tag: String, val value: String)
@@ -180,7 +171,7 @@ class KsfProccess {
         var curBPM = bpm
         val buttonCount = 5
 
-        var curPtn = Pattern(bpm = bpm, tick = tickCount)
+        var curPtn = Pattern(fBPM = bpm, iTick = tickCount)
         patterns.add(curPtn)
 
         stepInfo.forEach { info ->
@@ -192,11 +183,11 @@ class KsfProccess {
                             '1' -> {
                                 line.step[iStep] = NOTE_NOTE
                                 if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].lines[curLongNote[iStep].iPrevPos].step[iStep]
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
                                     curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].lines[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
                                     if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].lines[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
                                     }
                                 }
                             }
@@ -207,45 +198,45 @@ class KsfProccess {
                                 }
                                 curLongNote[iStep].bUsed = true
                                 curLongNote[iStep].iPrevPtn = patterns.size - 1
-                                curLongNote[iStep].iPrevPos = patterns.last().lines.size
+                                curLongNote[iStep].iPrevPos = patterns.last().vLine.size
                             }
                             else -> {
                                 if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].lines[curLongNote[iStep].iPrevPos].step[iStep]
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
                                     curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].lines[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
                                     if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].lines[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
                                     }
                                 }
                                 line.step[iStep] = NOTE_NONE
                             }
                         }
                     }
-                    patterns.last().lines.add(line)
+                    patterns.last().vLine.add(line)
                 }
                 STEPINFO_BPM -> {
-                    if (patterns.last().lines.isNotEmpty()) {
-                        curPtn = Pattern(bpm = info.step.toDouble(), tick = curTick)
+                    if (patterns.last().vLine.isNotEmpty()) {
+                        curPtn = Pattern(fBPM = info.step.toDouble(), iTick = curTick)
                         patterns.add(curPtn)
                     } else {
-                        curPtn.bpm = info.step.toDouble()
+                        curPtn.fBPM = info.step.toDouble()
                     }
-                    curBPM = curPtn.bpm
+                    curBPM = curPtn.fBPM
                 }
                 STEPINFO_TICK -> {
-                    if (patterns.last().lines.isNotEmpty()) {
-                        curPtn = Pattern(bpm = curBPM, tick = info.step.toInt())
+                    if (patterns.last().vLine.isNotEmpty()) {
+                        curPtn = Pattern(fBPM = curBPM, iTick = info.step.toInt())
                         patterns.add(curPtn)
                     } else {
-                        curPtn.tick = info.step.toInt()
+                        curPtn.iTick = info.step.toInt()
                     }
-                    curTick = curPtn.tick
+                    curTick = curPtn.iTick
                 }
                 STEPINFO_DELAY -> {
-                    val delayPtn = Pattern(bpm = curBPM, tick = curTick, timeDelay = info.step.toLong())
-                    if (patterns.last().lines.isNotEmpty()) {
-                        curPtn = Pattern(bpm = curBPM, tick = curTick)
+                    val delayPtn = Pattern(fBPM = curBPM, iTick = curTick, timeDelay = info.step.toLong())
+                    if (patterns.last().vLine.isNotEmpty()) {
+                        curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
                         patterns.removeLast()
                     }
@@ -253,9 +244,9 @@ class KsfProccess {
                     patterns.add(curPtn)
                 }
                 STEPINFO_DELAYBEAT -> {
-                    val delayPtn = Pattern(bpm = curBPM, tick = curTick)
-                    if (patterns.last().lines.isNotEmpty()) {
-                        curPtn = Pattern(bpm = curBPM, tick = curTick)
+                    val delayPtn = Pattern(fBPM = curBPM, iTick = curTick)
+                    if (patterns.last().vLine.isNotEmpty()) {
+                        curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
                         patterns.removeLast()
                     }
@@ -273,41 +264,41 @@ class KsfProccess {
             ptn0.timePos = startTime
 
             if (bunki != 0L) {
-                val cuttingPos = getCuttingPos(bpm, startTime, bunki, ptn0.lines.size.toLong(), tickCount)
+                val cuttingPos = getCuttingPos(bpm, startTime, bunki, ptn0.vLine.size.toLong(), tickCount)
                 if (cuttingPos >= 0) {
-                    ptn1 = Pattern(bpm = bpm2, timePos = startTime2, tick = ptn0.tick)
+                    ptn1 = Pattern(fBPM = bpm2, timePos = startTime2, iTick = ptn0.iTick)
                     patterns.add(ptn1)
-                    while (ptn0.lines.size > cuttingPos) {
-                        val newLine = ptn0.lines[cuttingPos]
-                        ptn1.lines.add(newLine)
-                        ptn0.lines.removeAt(cuttingPos)
+                    while (ptn0.vLine.size > cuttingPos) {
+                        val newLine = ptn0.vLine[cuttingPos]
+                        ptn1.vLine.add(newLine)
+                        ptn0.vLine.removeAt(cuttingPos)
                     }
                     if (bunki2 != 0L) {
-                        val cuttingPos2 = getCuttingPos(bpm2, startTime2, bunki2, (ptn0.lines.size + ptn1.lines.size).toLong(), tickCount)
+                        val cuttingPos2 = getCuttingPos(bpm2, startTime2, bunki2, (ptn0.vLine.size + ptn1.vLine.size).toLong(), tickCount)
                         if (cuttingPos < cuttingPos2) {
-                            ptn2 = Pattern(bpm = bpm3, timePos = startTime3, tick = ptn1.tick)
+                            ptn2 = Pattern(fBPM = bpm3, timePos = startTime3, iTick = ptn1.iTick)
                             patterns.add(ptn2)
                             val newCuttingPos = cuttingPos2 - cuttingPos
-                            while  (ptn1.lines.size > newCuttingPos) {
-                                val newLine = ptn1.lines[newCuttingPos]
-                                ptn2.lines.add(newLine)
-                                ptn1.lines.removeAt(newCuttingPos)
+                            while  (ptn1.vLine.size > newCuttingPos) {
+                                val newLine = ptn1.vLine[newCuttingPos]
+                                ptn2.vLine.add(newLine)
+                                ptn1.vLine.removeAt(newCuttingPos)
                             }
                         } else if (cuttingPos == cuttingPos2) {
-                            ptn1.bpm = bpm3
+                            ptn1.fBPM = bpm3
                         } else {
-                            ptn2 = Pattern(bpm = bpm3, timePos = startTime3, tick = ptn1.tick)
+                            ptn2 = Pattern(fBPM = bpm3, timePos = startTime3, iTick = ptn1.iTick)
                             patterns.add(ptn2)
-                            val newCuttingPos = ptn0.lines.size - (cuttingPos2 - cuttingPos)
-                            while (ptn0.lines.size > newCuttingPos) {
-                                val newLine = ptn0.lines[newCuttingPos]
-                                ptn2.lines.add(newLine)
-                                ptn0.lines.removeAt(newCuttingPos)
+                            val newCuttingPos = ptn0.vLine.size - (cuttingPos2 - cuttingPos)
+                            while (ptn0.vLine.size > newCuttingPos) {
+                                val newLine = ptn0.vLine[newCuttingPos]
+                                ptn2.vLine.add(newLine)
+                                ptn0.vLine.removeAt(newCuttingPos)
                             }
-                            while (ptn1.lines.isNotEmpty()) {
-                                val newLine = ptn1.lines[0]
-                                ptn2.lines.add(newLine)
-                                ptn1.lines.removeAt(0)
+                            while (ptn1.vLine.isNotEmpty()) {
+                                val newLine = ptn1.vLine[0]
+                                ptn2.vLine.add(newLine)
+                                ptn1.vLine.removeAt(0)
                             }
                             patterns.removeAt(1)
                         }
@@ -317,7 +308,7 @@ class KsfProccess {
                     var tcuttingPos = getCuttingPos(bpm2, startTime2, bunki, Long.MAX_VALUE, tickCount)
                     while (cuttingPos1 < tcuttingPos) {
                         tcuttingPos--
-                        ptn1.lines.removeAt(0)
+                        ptn1.vLine.removeAt(0)
                     }
                     if (cuttingPos1 > tcuttingPos) {
                         val temp = mutableListOf<Line>()
@@ -326,7 +317,7 @@ class KsfProccess {
                             tcuttingPos++
                             temp.add(newLine)
                         }
-                        ptn1.lines.addAll(0, temp)
+                        ptn1.vLine.addAll(0, temp)
                     }
                     if (patterns.size == 3) {
                         ptn2!!.timePos = getPtnTimePos(bpm3, startTime3, bunki2, tickCount)
@@ -334,7 +325,7 @@ class KsfProccess {
                         var tcuttingPos2 = getCuttingPos(bpm3, startTime3, bunki2, Long.MAX_VALUE, tickCount)
                         while (cuttingPos2 < tcuttingPos2) {
                             tcuttingPos2--
-                            ptn2.lines.removeAt(0)
+                            ptn2.vLine.removeAt(0)
                         }
                         if (cuttingPos2 > tcuttingPos2) {
                             val temp = mutableListOf<Line>()
@@ -343,7 +334,7 @@ class KsfProccess {
                                 tcuttingPos2++
                                 temp.add(newLine)
                             }
-                            ptn2.lines.addAll(0, temp)
+                            ptn2.vLine.addAll(0, temp)
                         }
                     }
                 }
@@ -355,8 +346,8 @@ class KsfProccess {
                 if (ptn.timeDelay > 0) {
                     lastTick += ptn.timeDelay
                 } else {
-                    if (ptn.bpm != 0.0) {
-                        lastTick += (60000 / ptn.bpm * ptn.lines.size / ptn.tick).toFloat()
+                    if (ptn.fBPM != 0.0) {
+                        lastTick += (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toFloat()
                     }
                 }
             }
@@ -366,8 +357,8 @@ class KsfProccess {
             ptn.timeLen = if (ptn.timeDelay > 0) {
                 ptn.timeDelay
             } else {
-                if (ptn.bpm != 0.0) {
-                    (60000 / ptn.bpm * ptn.lines.size / ptn.tick).toLong()
+                if (ptn.fBPM != 0.0) {
+                    (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toLong()
                 } else {
                     0
                 }
@@ -425,7 +416,7 @@ class KsfProccess {
         val stepWidth = 5
 
         patterns.forEach { ptn ->
-            ptn.lines.forEachIndexed { l, line ->
+            ptn.vLine.forEachIndexed { l, line ->
                 for (a in 0 until stepWidth) {
                     newLine[a] = 0
                     if (noNote[a] == 2.toByte()) {
