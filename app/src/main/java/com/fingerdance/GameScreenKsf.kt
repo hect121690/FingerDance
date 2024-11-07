@@ -1,15 +1,12 @@
 package com.fingerdance
 
-import android.os.Handler
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Animation
-import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
-import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
@@ -75,11 +72,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                 videoViewBgaoff.start()
             }
         }
-        val handler = Handler()
-        handler.postDelayed({
-            mediaPlayer.start()
-        }, latency)
-
+        mediaPlayer.start()
     }
 
     override fun render(delta: Float) {
@@ -87,12 +80,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         camera.update()
         batch.projectionMatrix = camera.combined
         if (!isPaused) {
-            val currentTime = (elapsedTime * 1000).toLong()
+            val currentTime = (elapsedTime * 1000).toLong() + latency
             batch.begin()
             elapsedTime += delta
             getReceptsAnimation()
-
             showBgPads()
+
             player.updateStepData(currentTime)
             player.render(currentTime)
 

@@ -39,66 +39,52 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private lateinit var binding: ActivitySelectSongBinding
-
 private lateinit var linearBG: LinearLayout
-
 private lateinit var lbNameSong: TextView
 private lateinit var lbArtist: TextView
-
 private lateinit var lbLvActive: TextView
 private lateinit var lbBestScore: TextView
-
 private lateinit var lbCurrentBpm: TextView
 private lateinit var txCurrentBpm: TextView
 private lateinit var txAV: TextView
-
 private lateinit var lbBpm: TextView
 private lateinit var imgSelected: ImageView
 private lateinit var txInfoCW: TextView
-
 private lateinit var imgVelocidadActual: ImageView
 private lateinit var txVelocidadActual: TextView
 private lateinit var imgDisplay: ImageView
 private lateinit var imgJudge: ImageView
 private lateinit var imgNoteSkin: ImageView
 private lateinit var imgNoteSkinFondo: ImageView
-
 private lateinit var nav_izq: ImageView
 private lateinit var nav_der: ImageView
 private lateinit var nav_back_Izq: ImageView
 private lateinit var nav_back_der: ImageView
-
-private lateinit var commandWindow: ConstraintLayout
 private lateinit var commandWindowBG: LinearLayout
 private lateinit var linearMenus: LinearLayout
-
 private lateinit var linearTop: LinearLayout
 private lateinit var linearCurrent: LinearLayout
 private lateinit var linearValues: LinearLayout
 private lateinit var linearCommands: LinearLayout
 private lateinit var linearInfo: LinearLayout
 private lateinit var linearBottom: LinearLayout
-private lateinit var linearLvs: ConstraintLayout
-
 private lateinit var linearLoading: LinearLayout
 private lateinit var imgLoading: ImageView
-
 private lateinit var imgAceptar: ImageView
 private lateinit var imgFloor: ImageView
-
 private lateinit var imgLvSelected: ImageView
 private lateinit var imgBestScore: ImageView
-
 private lateinit var video_fondo : VideoView
-
 private lateinit var imgPrev: ImageView
-
 private lateinit var indicatorLayout: ImageView
+private lateinit var imageCircle : ImageView
+
 private lateinit var mediPlayer : MediaPlayer
 private lateinit var mediaPlayerVideo : MediaPlayer
+private lateinit var commandWindow: ConstraintLayout
+private lateinit var linearLvs: ConstraintLayout
 
 private var currentVideoPosition : Int = 0
-private lateinit var imageCircle : ImageView
 private lateinit var recyclerView: RecyclerView
 private lateinit var recyclerLvs: RecyclerView
 private lateinit var recyclerLvsVacios: RecyclerView
@@ -127,19 +113,7 @@ private val sequencePattern = listOf(false, true, false, true, false, true)
 
 private lateinit var bmFloor: Bitmap
 private lateinit var bmFloor2: Bitmap
-/*
-var leftD : Bitmap? = null
-var leftU : Bitmap? = null
-var cent : Bitmap? = null
-var rightU: Bitmap? = null
-var rightD: Bitmap? = null
 
-var leftDExpand : Bitmap? = null
-var leftUExpand : Bitmap? = null
-var centExpand : Bitmap? = null
-var rightUExpand: Bitmap? = null
-var rightDExpand: Bitmap? = null
-*/
 var bitPerfect: Bitmap? = null
 var bitGreat: Bitmap? = null
 var bitGood: Bitmap? = null

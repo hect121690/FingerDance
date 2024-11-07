@@ -28,42 +28,10 @@ import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import java.io.File
 
 var isVideo = false
-//var noteTime = 0f
 
 lateinit var mediaPlayer : MediaPlayer
 private var currentVideoPositionScreen : Int = 0
 var isMediaPlayerPrepared = false
-
-//private lateinit var customBackgroundView: CustomBackgroundView
-//private lateinit var customButtons: RelativeLayout
-/*
-lateinit var leftDEscale : ImageView
-lateinit var leftUEscale : ImageView
-lateinit var centEscale : ImageView
-lateinit var rightUEscale : ImageView
-lateinit var rightDEscale : ImageView
-val valueExpand = 1.3f
-
-var alphaAnimLD : ObjectAnimator? = null
-var leftDEscaleAnimX : ObjectAnimator? = null
-var leftDEscaleAnimY : ObjectAnimator? = null
-
-var alphaAnimLU : ObjectAnimator? = null
-var leftUEscaleAnimX : ObjectAnimator? = null
-var leftUEscaleAnimY : ObjectAnimator? = null
-
-var alphaAnimCE : ObjectAnimator? = null
-var centEscaleAnimX : ObjectAnimator? = null
-var centEscaleAnimY : ObjectAnimator? = null
-
-var alphaAnimRU : ObjectAnimator? = null
-var rightUEscaleAnimX : ObjectAnimator? = null
-var rightUEscaleAnimY : ObjectAnimator? = null
-
-var alphaAnimRD : ObjectAnimator? = null
-var rightDEscaleAnimX : ObjectAnimator? = null
-var rightDEscaleAnimY : ObjectAnimator? = null
-*/
 
 private lateinit var gdxContainer : RelativeLayout
 
@@ -83,8 +51,6 @@ private lateinit var img_count_combo : ImageView
 
 private lateinit var imgJudgeCompleto : LinearLayout
 
-//lateinit var gs: GameScreenKsf
-
 private var fadeOutHandler: Handler? = null
 private var fadeOutRunnable: Runnable? = null
 
@@ -92,12 +58,6 @@ lateinit var lifeBar: LifeBar
 
 private val widthJudges = width / 2
 private val heightJudges = widthJudges / 6
-
-private val animatorSetLD = AnimatorSet()
-private val animatorSetLU = AnimatorSet()
-private val animatorSetCE = AnimatorSet()
-private val animatorSetRU = AnimatorSet()
-private val animatorSetRD = AnimatorSet()
 
 lateinit var resultSong: ResultSong
 open class GameScreenActivity : AndroidApplication() {
@@ -123,7 +83,6 @@ open class GameScreenActivity : AndroidApplication() {
 
         initJugde()
 
-        //getAnimatorsShirnk()
     }
 
     fun getPerfect(){
@@ -198,159 +157,7 @@ open class GameScreenActivity : AndroidApplication() {
 
         imgJudgeCompleto.bringToFront()
     }
-/*
-    private fun getExpandRecepts() {
-        leftDEscale = ImageView(this)
-        leftUEscale = ImageView(this)
-        centEscale = ImageView(this)
-        rightUEscale = ImageView(this)
-        rightDEscale = ImageView(this)
 
-        leftDEscale.setImageBitmap(leftDExpand)
-        leftUEscale.setImageBitmap(leftUExpand)
-        centEscale.setImageBitmap(centExpand)
-        rightUEscale.setImageBitmap(rightUExpand)
-        rightDEscale.setImageBitmap(rightDExpand)
-
-        alphaAnimLD = ObjectAnimator.ofFloat(leftDEscale, "alpha", 0f)
-        leftDEscaleAnimX = ObjectAnimator.ofFloat(leftDEscale, "scaleX", valueExpand)
-        leftDEscaleAnimY = ObjectAnimator.ofFloat(leftDEscale, "scaleY", valueExpand)
-
-        alphaAnimLU = ObjectAnimator.ofFloat(leftUEscale, "alpha", 0f)
-        leftUEscaleAnimX = ObjectAnimator.ofFloat(leftUEscale, "scaleX", valueExpand)
-        leftUEscaleAnimY = ObjectAnimator.ofFloat(leftUEscale, "scaleY", valueExpand)
-
-        alphaAnimCE = ObjectAnimator.ofFloat(centEscale, "alpha", 0f)
-        centEscaleAnimX = ObjectAnimator.ofFloat(centEscale, "scaleX", valueExpand)
-        centEscaleAnimY = ObjectAnimator.ofFloat(centEscale, "scaleY", valueExpand)
-
-        alphaAnimRU = ObjectAnimator.ofFloat(rightUEscale, "alpha", 0f)
-        rightUEscaleAnimX = ObjectAnimator.ofFloat(rightUEscale, "scaleX", valueExpand)
-        rightUEscaleAnimY = ObjectAnimator.ofFloat(rightUEscale, "scaleY", valueExpand)
-
-        alphaAnimRD = ObjectAnimator.ofFloat(rightDEscale, "alpha", 0f)
-        rightDEscaleAnimX = ObjectAnimator.ofFloat(rightDEscale, "scaleX", valueExpand)
-        rightDEscaleAnimY = ObjectAnimator.ofFloat(rightDEscale, "scaleY", valueExpand)
-
-        gdxContainer.addView(leftDEscale)
-        gdxContainer.addView(leftUEscale)
-        gdxContainer.addView(centEscale)
-        gdxContainer.addView(rightUEscale)
-        gdxContainer.addView(rightDEscale)
-
-        leftDEscale.visibility = View.GONE
-        leftUEscale.visibility = View.GONE
-        centEscale.visibility = View.GONE
-        rightUEscale.visibility = View.GONE
-        rightDEscale.visibility = View.GONE
-
-        leftDEscale.layoutParams = RelativeLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt())
-        leftUEscale.layoutParams = RelativeLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt())
-        centEscale.layoutParams = RelativeLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt())
-        rightUEscale.layoutParams = RelativeLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt())
-        rightDEscale.layoutParams = RelativeLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt())
-
-        val xRecept = medidaFlechas
-        val yRecept = medidaFlechas
-
-        leftDEscale.x = xRecept
-        leftDEscale.y = yRecept
-        leftUEscale.x = xRecept * 2
-        leftUEscale.y = yRecept
-        centEscale.x = xRecept * 3
-        centEscale.y = yRecept
-        rightUEscale.x = xRecept * 4
-        rightUEscale.y = yRecept
-        rightDEscale.x = xRecept * 5
-        rightDEscale.y = yRecept
-
-        leftDEscale.bringToFront()
-        leftUEscale.bringToFront()
-        centEscale.bringToFront()
-        rightUEscale.bringToFront()
-        rightDEscale.bringToFront()
-    }
-
-    private fun getAnimatorsShirnk() {
-        val duration = 500L
-        animatorSetLD.duration = duration
-        animatorSetLD.playTogether(leftDEscaleAnimX, leftDEscaleAnimY, alphaAnimLD)
-        animatorSetLD.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                //leftDEscale.visibility = View.GONE
-            }
-        })
-        animatorSetLU.duration = duration
-        animatorSetLU.playTogether(leftUEscaleAnimX, leftUEscaleAnimY, alphaAnimLU)
-        animatorSetLU.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                //leftUEscale.visibility = View.GONE
-            }
-        })
-        animatorSetCE.duration = duration
-        animatorSetCE.playTogether(centEscaleAnimX, centEscaleAnimY, alphaAnimCE)
-        animatorSetCE.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                //centEscale.visibility = View.GONE
-            }
-        })
-        animatorSetRU.duration = duration
-        animatorSetRU.playTogether(rightUEscaleAnimX, rightUEscaleAnimY, alphaAnimRU)
-        animatorSetRU.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                //rightUEscale.visibility = View.GONE
-            }
-        })
-        animatorSetRD.duration = duration
-        animatorSetRD.playTogether(rightDEscaleAnimX, rightDEscaleAnimY, alphaAnimRD)
-        animatorSetRD.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                //rightDEscale.visibility = View.GONE
-            }
-        })
-    }
-
-    fun startShrinkAnimation(position: Int) {
-        when (position) {
-            1 -> {
-                leftDEscale.visibility = View.VISIBLE
-                if (animatorSetLD.isRunning) {
-                    animatorSetLD.cancel()
-                }
-                animatorSetLD.start()
-            }
-            2 -> {
-                leftUEscale.visibility = View.VISIBLE
-                if (animatorSetLU.isRunning) {
-                    animatorSetLU.cancel()
-                }
-                animatorSetLU.start()
-            }
-            3 -> {
-                centEscale.visibility = View.VISIBLE
-                if (animatorSetCE.isRunning) {
-                    animatorSetCE.cancel()
-                }
-                animatorSetCE.start()
-            }
-            4 -> {
-                rightUEscale.visibility = View.VISIBLE
-                if (animatorSetRU.isRunning) {
-                    animatorSetRU.cancel()
-                }
-                animatorSetRU.start()
-            }
-            5 -> {
-                rightDEscale.visibility = View.VISIBLE
-                if (animatorSetRD.isRunning) {
-                    animatorSetRD.cancel()
-                }
-                animatorSetRD.start()
-            }
-        }
-
-    }
-*/
     private fun isFileExists(file: File): Boolean {
         return file.exists() && !file.isDirectory
     }
@@ -507,7 +314,6 @@ open class GameScreenActivity : AndroidApplication() {
         combo_miss = 0
         curCombo = 0
         isVideo = false
-        //gs.dispose()
         this.finish()
     }
 
@@ -540,7 +346,6 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
     val gsa = gameScreenActivity
     override fun create() {
         lifeBar = LifeBar(height.toFloat(), gsa)
-        //Gdx.app.run {  }
         setScreen(GameScreenKsf(gsa))
     }
 }
