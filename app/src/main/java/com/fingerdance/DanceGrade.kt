@@ -430,16 +430,13 @@ class DanceGrade : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if(mediaPlayerEvaluation.isPlaying){
-            mediaPlayerEvaluation.stop()
-        }
+        mediaPlayerEvaluation.release()
     }
 
     override fun onBackPressed() {
         super.onBackPressed()
         mediaPlayerEvaluation.stop()
         this.finish()
-
     }
 
     override fun onPause() {

@@ -39,7 +39,6 @@ lateinit var videoViewBgaoff : VideoView
 lateinit var videoViewBgaOn : VideoView
 
 var curCombo = 0
-
 var combo = 0
 var combo_miss = 0
 
@@ -299,6 +298,9 @@ open class GameScreenActivity : AndroidApplication() {
         } else {
             videoViewBgaoff.seekTo(0)
         }
+        curCombo = 0
+        combo = 0
+        combo_miss = 0
     }
 
     fun breakDance(){
