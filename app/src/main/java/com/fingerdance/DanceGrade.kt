@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
@@ -46,6 +47,7 @@ class DanceGrade : AppCompatActivity() {
 
         DGContext = this
         bgConstraint = findViewById(R.id.bgContraint)
+        val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
 
         val dbDG = DataBasePlayer(this)
         dbDG.writableDatabase
@@ -61,8 +63,30 @@ class DanceGrade : AppCompatActivity() {
 
         val imgNewRecord = findViewById<ImageView>(R.id.imgNewRecord)
         imgNewRecord.visibility = View.INVISIBLE
-        //imgNewRecord.layoutParams.width = ((width / 10) * 3.5).toInt()
-        //imgNewRecord.layoutParams.height = ((width / 10) * 8.5).toInt()
+
+        val txNameSong = findViewById<TextView>(R.id.txNameSong)
+        val txNameChannel = findViewById<TextView>(R.id.txNameChannel)
+
+        txNameSong.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label name.png")
+        txNameChannel.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label channel.png")
+        txNameSong.text = currentSong
+        txNameChannel.text = currentChannel.split("-")[1]
+
+        txNameSong.apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor(ContextCompat.getColor(context, R.color.white))
+            textSize = medidaFlechas / 10f
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+        }
+
+        txNameChannel.apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor(ContextCompat.getColor(context, R.color.white))
+            textSize = medidaFlechas / 10f
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+        }
 
         val bgBanner: ImageView = findViewById(R.id.bgImage)
         val bitmap = BitmapFactory.decodeFile(playerSong.rutaBanner)
@@ -82,7 +106,7 @@ class DanceGrade : AppCompatActivity() {
         val noteWeighs = perfect + great + good + bad + miss
         totalScore = (((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000
 
-        val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
+
         val arrayGrades = getGrades(rutaGrades)
         imgMyBestScore.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body.png").toString()))
 
