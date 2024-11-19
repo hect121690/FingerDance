@@ -71,89 +71,117 @@
 
         <ImageView
             android:id="@+id/imgVelocidadActual"
-            android:layout_width="70dp"
-            android:layout_height="60dp"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true"
-            app:layout_constraintBottom_toBottomOf="@+id/linearPrevViewSong"
-            app:layout_constraintEnd_toEndOf="@+id/linearListSongs"
-            app:layout_constraintTop_toTopOf="@+id/linearPrevViewSong"
-            app:layout_constraintVertical_bias="0.15" />
-
-        <TextView
-            android:id="@+id/txAV"
-            android:layout_width="60dp"
-            android:layout_height="wrap_content"
-            android:layout_alignStart="@+id/imgVelocidadActual"
-            android:layout_alignTop="@+id/imgVelocidadActual"
-            android:layout_alignParentEnd="true"
-            android:gravity="bottom|center_horizontal"
-            android:text="AV"
-            android:textAlignment="center"
-            android:textColor="@color/white"
-            android:textSize="10dp"
-            android:textStyle="bold|italic"
-            app:layout_constraintBottom_toTopOf="@+id/txVelocidadActual"
-            app:layout_constraintEnd_toEndOf="@+id/txVelocidadActual"
-            app:layout_constraintStart_toStartOf="@+id/imgVelocidadActual"
-            app:layout_constraintTop_toTopOf="@+id/imgVelocidadActual" />
+            android:layout_width="57dp"
+            android:layout_height="40dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.16" />
 
         <TextView
             android:id="@+id/txVelocidadActual"
-            android:layout_width="60dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignStart="@+id/imgVelocidadActual"
-            android:layout_alignTop="@+id/imgVelocidadActual"
-            android:layout_alignBottom="@+id/imgVelocidadActual"
-            android:layout_alignParentEnd="true"
             android:gravity="center_horizontal|center_vertical"
             android:text="2.0X"
             android:textAlignment="center"
             android:textColor="@color/white"
-            android:textSize="20dp"
+            android:textSize="15dp"
+            android:inputType="none"
             android:textStyle="bold|italic"
             app:layout_constraintBottom_toBottomOf="@+id/imgVelocidadActual"
             app:layout_constraintEnd_toEndOf="@+id/imgVelocidadActual"
             app:layout_constraintStart_toStartOf="@+id/imgVelocidadActual"
-            app:layout_constraintTop_toTopOf="@+id/imgVelocidadActual" />
+            app:layout_constraintTop_toTopOf="@+id/imgVelocidadActual"/>
 
         <ImageView
             android:id="@+id/imgDisplay"
-            android:layout_width="70dp"
-            android:layout_height="60dp"
-            android:layout_below="@+id/imgVelocidadActual"
-            android:layout_alignParentEnd="true"
+            android:layout_width="57dp"
+            android:layout_height="40dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/imgVelocidadActual" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgVelocidadActual"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintVertical_bias="0.0"/>
 
         <ImageView
             android:id="@+id/imgJudge"
-            android:layout_width="70dp"
-            android:layout_height="60dp"
-            android:layout_below="@+id/imgDisplay"
-            android:layout_alignParentEnd="true"
-            app:layout_constraintEnd_toEndOf="@+id/linearListSongs"
-            app:layout_constraintTop_toBottomOf="@+id/imgDisplay" />
+            android:layout_width="57dp"
+            android:layout_height="40dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgDisplay"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintVertical_bias="0.0"/>
 
         <ImageView
             android:id="@+id/imgNoteSkinFondo"
-            android:layout_width="70dp"
-            android:layout_height="60dp"
-            android:layout_below="@+id/imgJudge"
-            android:layout_alignParentEnd="true"
-            app:layout_constraintEnd_toEndOf="@+id/linearPrevViewSong"
-            app:layout_constraintTop_toBottomOf="@+id/imgJudge" />
+            android:layout_width="57dp"
+            android:layout_height="40dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgJudge"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintVertical_bias="0.0"/>
 
         <ImageView
             android:id="@+id/imgNoteSkin"
-            android:layout_width="70dp"
+            android:layout_width="57dp"
+            android:layout_height="40dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgJudge"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintVertical_bias="0.0"/>
+
+        <ImageView
+            android:id="@+id/imgOffsetActual"
+            android:layout_width="57dp"
+            android:layout_height="40dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgNoteSkin"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintVertical_bias="0.0" />
+
+        <TextView
+            android:id="@+id/txOffsetActual"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@+id/imgJudge"
-            android:layout_alignParentEnd="true"
-            app:layout_constraintBottom_toBottomOf="@+id/imgNoteSkinFondo"
-            app:layout_constraintEnd_toEndOf="@+id/imgNoteSkinFondo"
-            app:layout_constraintStart_toStartOf="@+id/imgNoteSkinFondo"
-            app:layout_constraintTop_toBottomOf="@+id/imgJudge" />
+            android:gravity="center_horizontal|center_vertical"
+            android:inputType="none"
+            android:textAlignment="center"
+            android:textColor="@color/white"
+            android:textSize="15dp"
+            android:textStyle="bold|italic"
+            app:layout_constraintBottom_toBottomOf="@+id/imgOffsetActual"
+            app:layout_constraintEnd_toEndOf="@+id/imgOffsetActual"
+            app:layout_constraintStart_toStartOf="@+id/imgOffsetActual"
+            app:layout_constraintTop_toTopOf="@+id/imgOffsetActual" />
+
+        <TextView
+            android:id="@+id/txOffset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal|center_vertical"
+            android:inputType="none"
+            android:text="OFFSET"
+            android:textAlignment="center"
+            android:textColor="@color/white"
+            android:textSize="7dp"
+            android:textStyle="bold|italic"
+            app:layout_constraintBottom_toBottomOf="@+id/imgOffsetActual"
+            app:layout_constraintEnd_toEndOf="@+id/imgOffsetActual"
+            app:layout_constraintStart_toStartOf="@+id/imgOffsetActual"
+            app:layout_constraintTop_toTopOf="@+id/imgOffsetActual"
+            app:layout_constraintVertical_bias="0.1" />
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/linearListSongs"
@@ -198,17 +226,16 @@
                 android:layout_alignParentTop="true"
                 android:layout_alignParentBottom="true"
                 android:ems="10"
-                android:inputType="textPersonName"
                 android:shadowColor="#000000"
                 android:shadowDx="1.5"
                 android:shadowDy="1.3"
                 android:shadowRadius="1.6"
-                android:text="08"
                 android:textAlignment="center"
                 android:textAllCaps="true"
                 android:textColor="@color/white"
                 android:textSize="40dp"
                 android:textStyle="bold"
+                android:inputType="none"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="@+id/imgLvSelected"
                 app:layout_constraintStart_toStartOf="@+id/imgLvSelected"
@@ -224,6 +251,16 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
+            <ImageView
+                android:id="@+id/imgBestGrade"
+                android:layout_width="80dp"
+                android:layout_height="90dp"
+                app:layout_constraintBottom_toBottomOf="@+id/imgBestScore"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.95"
+                app:layout_constraintStart_toStartOf="@+id/imgBestScore"
+                app:layout_constraintTop_toTopOf="@+id/imgBestScore"/>
+
             <TextView
                 android:id="@+id/lbBestScore"
                 android:layout_width="151dp"
@@ -233,12 +270,11 @@
                 android:layout_alignParentBottom="true"
                 android:layout_toEndOf="@+id/imgLvSelected"
                 android:ems="10"
-                android:inputType="textPersonName"
+                android:inputType="none"
                 android:shadowColor="#000000"
                 android:shadowDx="1.5"
                 android:shadowDy="1.3"
                 android:shadowRadius="1.6"
-                android:text="1456068"
                 android:textAlignment="viewStart"
                 android:textAllCaps="true"
                 android:textColor="#FFEB3B"
@@ -273,11 +309,10 @@
             android:ems="10"
             android:fadingEdge="horizontal"
             android:focusable="false"
-            android:inputType="textPersonName"
+            android:inputType="none"
             android:marqueeRepeatLimit="marquee_forever"
             android:scrollHorizontally="true"
             android:singleLine="true"
-            android:text="Name Song"
             android:textAlignment="center"
             android:textColor="@color/white"
             android:textSize="24dp"
@@ -295,7 +330,7 @@
             android:ems="10"
             android:fadingEdge="horizontal"
             android:focusable="false"
-            android:inputType="textPersonName"
+            android:inputType="none"
             android:marqueeRepeatLimit="marquee_forever"
             android:scrollHorizontally="true"
             android:shadowColor="#000000"
@@ -307,10 +342,10 @@
             android:textAlignment="textStart"
             android:textAllCaps="true"
             android:textColor="@color/white"
-            android:textSize="20dp"
+            android:textSize="16dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.25"
+            app:layout_constraintHorizontal_bias="0.23"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/lbNameSong" />
 
@@ -318,19 +353,25 @@
             android:id="@+id/lbBpm"
             android:layout_width="wrap_content"
             android:layout_height="28dp"
+            android:ellipsize="none"
             android:ems="10"
-            android:inputType="textPersonName"
+            android:gravity="end"
+            android:inputType="none"
+            android:maxLines="1"
             android:shadowColor="#000000"
             android:shadowDx="1.5"
             android:shadowDy="1.3"
             android:shadowRadius="1.6"
+            android:singleLine="true"
+            android:text="BPM:220.00"
             android:textAlignment="textEnd"
             android:textAllCaps="true"
             android:textColor="@android:color/white"
-            android:textSize="20dp"
+            android:textSize="16dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/lbArtist"
+            app:layout_constraintHorizontal_bias="0.82"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/lbNameSong" />
 
         <ImageView
@@ -470,7 +511,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"></LinearLayout>
+                app:layout_constraintTop_toTopOf="parent"/>
 
             <LinearLayout
                 android:id="@+id/linearTop"
@@ -479,7 +520,7 @@
                 android:orientation="vertical"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"></LinearLayout>
+                app:layout_constraintTop_toTopOf="parent"/>
 
             <LinearLayout
                 android:id="@+id/linearMenus"
@@ -506,6 +547,7 @@
                         android:textAlignment="center"
                         android:textColor="@color/white"
                         android:textSize="12dp"
+                        android:inputType="none"
                         android:textStyle="bold|italic" />
 
                     <TextView
@@ -513,6 +555,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="300"
+                        android:inputType="none"
                         android:textAlignment="center"
                         android:textColor="@color/white"
                         android:textSize="32dp"
@@ -536,10 +579,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
 
-                    <!--<androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/recyclerCommands"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />-->
                 </LinearLayout>
 
                 <LinearLayout
@@ -575,7 +614,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:singleLine="false"
-                        android:text="TextView"
+                        android:inputType="none"
                         android:textAlignment="center"
                         android:textColor="@color/white"
                         android:textSize="18dp" />

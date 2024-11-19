@@ -63,7 +63,7 @@ lateinit var resultSong: ResultSong
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_my_gdx)
+        setContentView(R.layout.activity_game_screen)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         gdxContainer = findViewById(R.id.gdxContainer)
         gdxContainer.layoutParams = RelativeLayout.LayoutParams(width, height)
@@ -115,14 +115,15 @@ open class GameScreenActivity : AndroidApplication() {
         showJudge()
     }
 
+    val bitmapVacio = Bitmap.createBitmap(widthJudges, heightJudges, Bitmap.Config.ARGB_8888)
     private fun showJudge() {
         if(combo <= 3 ){
-            img_combo.setImageBitmap(Bitmap.createBitmap(widthJudges, heightJudges, Bitmap.Config.ARGB_8888))
-            img_count_combo.setImageBitmap(Bitmap.createBitmap(widthJudges, heightJudges, Bitmap.Config.ARGB_8888))
+            img_combo.setImageBitmap(bitmapVacio)
+            img_count_combo.setImageBitmap(bitmapVacio)
         }
         if(combo_miss < 3){
-            img_combo.setImageBitmap(Bitmap.createBitmap(widthJudges, heightJudges, Bitmap.Config.ARGB_8888))
-            img_count_combo.setImageBitmap(Bitmap.createBitmap(widthJudges, heightJudges, Bitmap.Config.ARGB_8888))
+            img_combo.setImageBitmap(bitmapVacio)
+            img_count_combo.setImageBitmap(bitmapVacio)
         }
         if(combo >= 4){
             img_combo.setImageBitmap(bitmapCombo)
@@ -133,7 +134,6 @@ open class GameScreenActivity : AndroidApplication() {
             updateCombo(combo_miss, true)
         }
         showExpandJudge(imgJudgeCompleto)
-        imgJudgeCompleto.bringToFront()
     }
 
     private fun initJugde() {
@@ -155,7 +155,6 @@ open class GameScreenActivity : AndroidApplication() {
         imgJudgeCompleto.addView(img_count_combo)
         imgJudgeCompleto.visibility = View.INVISIBLE
 
-        imgJudgeCompleto.bringToFront()
     }
 
     private fun isFileExists(file: File): Boolean {

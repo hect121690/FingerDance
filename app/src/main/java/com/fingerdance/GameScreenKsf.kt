@@ -58,6 +58,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         targetTop = medidaFlechas
 
         getReceptsAnimTexture()
+
         padLefDown.flip(false, true)
         padLeftUp.flip(false, true)
         padCenter.flip(false, true)
@@ -83,7 +84,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             val currentTime = (elapsedTime * 1000).toLong() + latency
             batch.begin()
             elapsedTime += delta
-            getReceptsAnimation()
+
+            if(!playerSong.fd){
+                getReceptsAnimation()
+            }
+
             showBgPads()
 
             player.updateStepData(currentTime)

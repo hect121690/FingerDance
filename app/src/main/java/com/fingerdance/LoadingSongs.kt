@@ -23,15 +23,6 @@ var listCommands : ArrayList<Command> = ArrayList()
 var barLife1 : Drawable? = null
 var barLife : Drawable? = null
 
-
-var rutaJudge : String = ""
-/*
-var perfect : Drawable? = null
-var great : Drawable? = null
-var good : Drawable? = null
-var bad : Drawable? = null
-var miss : Drawable? = null
-*/
 private lateinit var soundPoolSelectSong: SoundPool
 
 private var selectSong_mov : Int = 0
@@ -91,14 +82,6 @@ class LoadingSongs() : AppCompatActivity() {
         barLife1 = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png").toString())
         barLife = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife.png").toString())
 
-        //rutaJudge = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/").toString()
-        /*
-        perfect = Drawable.createFromPath(rutaJudge + "/perfect.png")
-        great = Drawable.createFromPath(rutaJudge + "/great.png")
-        good = Drawable.createFromPath(rutaJudge + "/good.png")
-        bad = Drawable.createFromPath(rutaJudge + "/bad.png")
-        miss = Drawable.createFromPath(rutaJudge + "/miss.png")
-        */
     }
 
     fun loadSounds(c: Context) {

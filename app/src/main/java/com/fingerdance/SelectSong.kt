@@ -8,13 +8,9 @@ import android.graphics.*
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.os.CountDownTimer
-import android.os.Handler
+import android.os.*
 import android.renderscript.*
 import android.util.TypedValue
 import android.view.View
@@ -46,12 +42,15 @@ private lateinit var lbLvActive: TextView
 private lateinit var lbBestScore: TextView
 private lateinit var lbCurrentBpm: TextView
 private lateinit var txCurrentBpm: TextView
-private lateinit var txAV: TextView
 private lateinit var lbBpm: TextView
 private lateinit var imgSelected: ImageView
 private lateinit var txInfoCW: TextView
 private lateinit var imgVelocidadActual: ImageView
 private lateinit var txVelocidadActual: TextView
+
+private lateinit var imgOffset: ImageView
+private lateinit var txOffset: TextView
+
 private lateinit var imgDisplay: ImageView
 private lateinit var imgJudge: ImageView
 private lateinit var imgNoteSkin: ImageView
@@ -74,6 +73,7 @@ private lateinit var imgAceptar: ImageView
 private lateinit var imgFloor: ImageView
 private lateinit var imgLvSelected: ImageView
 private lateinit var imgBestScore: ImageView
+private lateinit var imgBestGrade: ImageView
 private lateinit var video_fondo : VideoView
 private lateinit var imgPrev: ImageView
 private lateinit var indicatorLayout: ImageView
@@ -158,7 +158,11 @@ val padPositions = listOf(
     arrayOf(widthBtns * 2f, heightLayoutBtns + heightBtns)
 )
 
-    class SelectSong : AppCompatActivity() {
+lateinit var arrayBestGrades : ArrayList<Bitmap>
+var currentScore = ""
+lateinit var currentBestGrade : Bitmap
+
+class SelectSong : AppCompatActivity() {
         @RequiresApi(Build.VERSION_CODES.S)
         override fun onCreate(savedInstanceState: Bundle?) {
             getSupportActionBar()?.hide()
@@ -236,13 +240,19 @@ val padPositions = listOf(
 
             lbCurrentBpm = findViewById(R.id.lbCurrentBpm)
             txCurrentBpm = findViewById(R.id.txCurrentBpm)
-            txAV = findViewById(R.id.txAV)
+            //txAV = findViewById(R.id.txAV)
             //txAV.isVisible = false
 
             imgVelocidadActual = findViewById(R.id.imgVelocidadActual)
             val bmVA= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
             imgVelocidadActual.setImageBitmap(bmVA)
             txVelocidadActual = findViewById(R.id.txVelocidadActual)
+
+            imgOffset = findViewById(R.id.imgOffsetActual)
+            imgOffset.setImageBitmap(bmVA)
+            txOffset = findViewById(R.id.txOffsetActual)
+            txOffset.text = "None"
+
             imgDisplay = findViewById(R.id.imgDisplay)
             imgDisplay.isVisible=false
             imgJudge = findViewById(R.id.imgJudge)
@@ -321,6 +331,12 @@ val padPositions = listOf(
             val bestScore = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body.png")!!.absolutePath)
             imgBestScore.setImageBitmap(bestScore)
             imgBestScore.isVisible = false
+
+            imgBestGrade = findViewById(R.id.imgBestGrade)
+            imgBestGrade.isVisible = false
+
+            val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
+            arrayBestGrades = getGrades(rutaGrades)
 
             val yDelta = width / 40
             val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 2).toFloat())
@@ -466,14 +482,16 @@ val padPositions = listOf(
 
             lbBestScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
-            txVelocidadActual.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+            /*
             val sizeImgEffects = (width / 5)
             imgVelocidadActual.layoutParams.width = sizeImgEffects
             imgDisplay.layoutParams.width = sizeImgEffects
             imgJudge.layoutParams.width = sizeImgEffects
             imgNoteSkinFondo.layoutParams.width = sizeImgEffects
             imgNoteSkin.layoutParams.width = sizeImgEffects
-            txVelocidadActual.layoutParams.width = imgVelocidadActual.layoutParams.width
+            txVelocidadActual.layoutParams.width = sizeImgEffects
+            txVelocidadActual.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+            */
 
             textSize = width / 28
             lbArtist.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
@@ -481,11 +499,11 @@ val padPositions = listOf(
             txInfoCW.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
             lbBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbBpm.layoutParams.width = (width * 0.2).toInt()
+            //lbBpm.layoutParams.width = (width * 0.2).toInt()
 
             textSize = width / 40
-            txAV.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            txAV.layoutParams.width = txVelocidadActual.layoutParams.width
+            //txAV.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+            //txAV.layoutParams.width = txVelocidadActual.layoutParams.width
             lbCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
             imgLvSelected.layoutParams.width = (width / 4.1).toInt()
@@ -506,10 +524,10 @@ val padPositions = listOf(
             }
             if(speedSelected != ""){
                 txVelocidadActual.text = speedSelected
-                txAV.text = typeSpeedSelected
+                //txAV.text = typeSpeedSelected
             }else{
                 txVelocidadActual.text = "2.0X"
-                txAV.text = ""
+                //txAV.text = ""
             }
 
             nav_back_Izq.setOnLongClickListener {
@@ -518,7 +536,6 @@ val padPositions = listOf(
 
                 true
             }
-
             nav_back_der.setOnLongClickListener(){
                 ready = 0
                 goSelectChannel()
@@ -669,12 +686,10 @@ val padPositions = listOf(
                             }
                         })
                         imgLoading.isVisible = true
-                        val timeToLoad = 2000L
-                        showProgressBar(timeToLoad)
+                        showProgressBar()
                         mediPlayer.pause()
                         playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
                         playerSong.speed = txVelocidadActual.text.toString()
-
                         if(playerSong.rutaNoteSkin != ""){
                             ruta = playerSong.rutaNoteSkin!!
                         }else{
@@ -684,26 +699,27 @@ val padPositions = listOf(
                             }
                             if (directorios != null) {
                                 ruta = directorios.firstOrNull().toString()
+                                playerSong.rutaNoteSkin = ruta
                             }
                         }
-
-                        //initFlechas(ruta)
                         hideSelectLv(anim)
                         playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
                         load(playerSong.rutaKsf!!)
-                        val handler = Handler()
+                        val handler = Handler(Looper.getMainLooper())
                         handler.postDelayed({
                             val intent = Intent(this, GameScreenActivity()::class.java)
                             startActivity(intent)
-                            linearLoading.isVisible = false
-                            imgLoading.isVisible = false
+                            handler.postDelayed({
+                                linearLoading.isVisible = false
+                                imgLoading.isVisible = false
+                            }, 1000L)
                             ready = 0
-                        }, timeToLoad)
-                        imgAceptar.isEnabled = true
-                        imgFloor.setImageBitmap(bmFloor)
+                            imgFloor.setImageBitmap(bmFloor)
+                        }, 3000L)
                     }
+                    imgAceptar.isEnabled = true
                     if(ready == 0){
                         ready = 1
                         imgFloor.setImageBitmap(bmFloor2)
@@ -715,7 +731,6 @@ val padPositions = listOf(
                     soundPoolSelectSongKsf.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     val itemValues = listCommands[oldValueCommand].listCommandValues[oldValueCommandValues]
                     if(itemCommand.value.contains("Speed", ignoreCase = true)){
-                        //txAV.isVisible = false
                         if(itemValues.value == "0"){
                             txCurrentBpm.text = "2.0X"
                             txVelocidadActual.text = txCurrentBpm.text
@@ -726,6 +741,7 @@ val padPositions = listOf(
                                 txCurrentBpm.text.toString().replace("X", "").toBigDecimal()
                             }
                             val result = valorActual + itemValues.value.toBigDecimal()
+
                             if(itemValues.value.toDouble()<0){
                                 if(result <= BigDecimal(0.5)) {
                                     txCurrentBpm.text = "0.5X"
@@ -743,134 +759,77 @@ val padPositions = listOf(
                                     txVelocidadActual.text = txCurrentBpm.text
                                 }
                             }
-                            txAV.text = ""
                             speedSelected = txVelocidadActual.text.toString()
-                            typeSpeedSelected = ""
                             themes.edit().putString("speed", txVelocidadActual.text.toString()).apply()
                             themes.edit().putString("typeSpeed", "").apply()
                         }
                     }
-                    if(itemCommand.value.contains("Auto", ignoreCase = true)){
-                        val valorActual = if(txVelocidadActual.text != "2.0X") {
-                            txVelocidadActual.text.toString().replace("X", "").toBigDecimal()
-                        }else {
-                            txCurrentBpm.text.toString().replace("X", "").toBigDecimal()
-                        }
-                        //txAV.isVisible = true
+                    if(itemCommand.value.contains("Offset", ignoreCase = true)){
+                        val valorActual = if(txOffset.text == "None") 0 else txOffset.text.toString().toLong()
+                        txCurrentBpm.text = valorActual.toString()
                         if(itemValues.value == "0"){
-                            txCurrentBpm.text = "300"
-                            txVelocidadActual.text = txCurrentBpm.text
-                            if(speedSelected != ""){
-                                txVelocidadActual.text = speedSelected
-                                txAV.text = typeSpeedSelected
-                            }
-                        }else{
-                            val result = valorActual.toInt() + itemValues.value.toInt()
-                            if(itemValues.value.toInt() < 0 ){
-                                if(result < 100) {
-                                    txCurrentBpm.text = "100"
-                                    txVelocidadActual.text = txCurrentBpm.text
-                                }else{
-                                    txCurrentBpm.text = result.toString()
-                                    txVelocidadActual.text = txCurrentBpm.text
-                                }
-                            }else{
-                                if(result  > 1000) {
-                                    txCurrentBpm.text = "1000"
-                                    txVelocidadActual.text = txCurrentBpm.text
-                                }else{
-                                    txCurrentBpm.text = result.toString()
-                                    txVelocidadActual.text = txCurrentBpm.text
-                                }
-                            }
+                            valueOffset = 0
+                            txCurrentBpm.text = valueOffset.toString()
+                            txOffset.text = txCurrentBpm.text
+                        }else {
+                            val result = valorActual.toInt() + itemValues.value.toLong()
+                            txCurrentBpm.text = result.toString()
+                            txOffset.text = txCurrentBpm.text
                         }
-                        txAV.text = "AV"
-                        speedSelected = txVelocidadActual.text.toString()
-                        typeSpeedSelected = txAV.text.toString()
-                        themes.edit().putString("speed", txVelocidadActual.text.toString()).apply()
-                        themes.edit().putString("typeSpeed", txAV.text.toString()).apply()
+                        valueOffset = txOffset.text.toString().toLong()
                     }
                     if(itemCommand.value.contains("Display", ignoreCase = true)){
                         linearCurrent.isVisible = false
-                        if(!imgDisplay.isVisible){
-                            imgDisplay.isVisible=true
-                            if(listEfectsDisplay.size > 0){
-                                val existEfect = listEfectsDisplay.find { e -> e.value == itemValues.value }
-                                if(existEfect == null){
-                                    listEfectsDisplay.add(itemValues)
-                                    imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
-
-                                    if(itemValues.value == "V"){
-                                        Toast.makeText(this, itemValues.value + "anish ACTIVE", Toast.LENGTH_SHORT).show()
-                                    }else{
-                                        Toast.makeText(this, itemValues.value + " ACTIVE", Toast.LENGTH_SHORT).show()
-                                    }
-
-                                    if(itemValues.value == "BGAOFF"){
-                                        playerSong.isBGAOff = true
-                                    }
-                                }else{
-                                    listEfectsDisplay.remove(existEfect)
-                                    resetRunnable()
-
-                                    if(existEfect.value == "V"){
-                                        Toast.makeText(this, existEfect.value + "anish OFF", Toast.LENGTH_SHORT).show()
-                                    }else{
-                                        Toast.makeText(this, itemValues.value + " OFF", Toast.LENGTH_SHORT).show()
-                                    }
-                                    if(listEfectsDisplay.size == 0){
-                                        imgDisplay.isVisible = false
-                                    }
-                                    if(existEfect.value == "BGAOFF"){
-                                        playerSong.isBGAOff = false
-                                    }
-                                }
+                        imgDisplay.isVisible=true
+                        val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
+                        if(existEffect != null){
+                            listEfectsDisplay.remove(existEffect)
+                            if(listEfectsDisplay.size == 0){
+                                imgDisplay.isVisible=false
                             }else{
-                                listEfectsDisplay.add(itemValues)
                                 imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
-                                if(itemValues.value == "V"){
-                                    Toast.makeText(this, itemValues.value + "anish ON", Toast.LENGTH_SHORT).show()
-                                }else{
-                                    Toast.makeText(this, itemValues.value + " ON", Toast.LENGTH_SHORT).show()
-                                }
                                 if(itemValues.value == "BGAOFF"){
-                                    playerSong.isBGAOff = true
+                                    playerSong.isBGAOff = false
                                 }
+                                if(itemValues.value == "FD"){
+                                    playerSong.fd = false
+                                }
+                                if(itemValues.value == "V"){
+                                    playerSong.vanish = false
+                                }
+                                if(itemValues.value == "AP"){
+                                    playerSong.ap = true
+                                }
+                                resetRunnable()
                             }
                         }else{
-                            if(listEfectsDisplay.size > 0){
-                                val existEfect = listEfectsDisplay.find { e -> e.value == itemValues.value }
-                                if(existEfect == null){
-                                    listEfectsDisplay.add(itemValues)
-                                    imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
-                                    if(itemValues.value == "V"){
-                                        Toast.makeText(this, itemValues.value + "anish ON", Toast.LENGTH_SHORT).show()
-                                    }else{
-                                        Toast.makeText(this, itemValues.value + " ON", Toast.LENGTH_SHORT).show()
-                                    }
-                                    if(itemValues.value == "BGAOFF"){
-                                        playerSong.isBGAOff = true
-                                    }
-                                }else{
-                                    listEfectsDisplay.remove(existEfect)
-                                    resetRunnable()
-                                    if(itemValues.value == "V"){
-                                        Toast.makeText(this, existEfect.value + "anish OFF", Toast.LENGTH_SHORT).show()
-                                    }else{
-                                        Toast.makeText(this, existEfect.value + " OFF", Toast.LENGTH_SHORT).show()
-                                    }
-                                    if(listEfectsDisplay.size == 0){
-                                        imgDisplay.isVisible = false
-                                    }
-                                    if(existEfect.value == "BGAOFF"){
-                                        playerSong.isBGAOff = false
-
-                                    }
-                                }
-                            }else{
-                                imgDisplay.isVisible = false
+                            imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
+                            listEfectsDisplay.add(itemValues)
+                            if(itemValues.value == "BGAOFF"){
+                                playerSong.isBGAOff = true
                             }
+                            if(itemValues.value == "FD"){
+                                playerSong.fd = true
+                            }
+                            if(itemValues.value == "V"){
+                                playerSong.vanish = true
+                                val isAp = listEfectsDisplay.find { it.value == "AP" }
+                                if(isAp != null){
+                                    playerSong.ap = false
+                                    listEfectsDisplay.remove(isAp)
+                                }
+                            }
+                            if(itemValues.value == "AP"){
+                                playerSong.ap = true
+                                val isVanish = listEfectsDisplay.find { it.value == "V" }
+                                if(isVanish != null){
+                                    playerSong.vanish = false
+                                    listEfectsDisplay.remove(isVanish)
+                                }
+                            }
+                            resetRunnable()
                         }
+
                     }
                     val bm= BitmapFactory.decodeFile(itemValues.rutaCommandImg)
                     if(itemCommand.value.contains("NoteSkin", ignoreCase = true)){
@@ -882,6 +841,7 @@ val padPositions = listOf(
                                 imgNoteSkin.setImageBitmap(bm)
                                 playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
                                 themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
+
                             }
                         }else{
                             //imgNoteSkin.isVisible=false
@@ -892,15 +852,18 @@ val padPositions = listOf(
                             themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
                         }
                     }
+
                     if(itemCommand.value.contains("Judge", ignoreCase = true)){
                         linearCurrent.isVisible = false
                         if(!imgJudge.isVisible){
                             imgJudge.isVisible=true
                             imgJudge.setImageBitmap(bm)
                             playerSong.hj = true
+                            playerSong.pathImgHJ = itemValues.rutaCommandImg
                         }else{
                             imgJudge.isVisible=false
                             playerSong.hj = false
+                            playerSong.pathImgHJ = ""
                         }
                     }
                 }
@@ -908,7 +871,7 @@ val padPositions = listOf(
                     linearValues.isVisible = true
                     linearCurrent.isVisible = true
                     var size = 0
-                    if(itemCommand.value.contains("Auto", ignoreCase = true) || itemCommand.value.contains("Speed", ignoreCase = true)){
+                    if(itemCommand.value.contains("Offset", ignoreCase = true) || itemCommand.value.contains("Speed", ignoreCase = true)){
                         size = (listCommands[oldValueCommand].listCommandValues.size - 1) / 2
                     }
                     if(size.toString().length == 2){
@@ -919,6 +882,16 @@ val padPositions = listOf(
                     }
                     isFocusCommandWindow(oldValueCommand)
                     isFocusCommandWindowValues(size)
+                }
+            }
+        }
+        private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
+            val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
+            return ArrayList<Bitmap>().apply {
+                var i = 0
+                for (a in 0 until 8) {
+                    add(Bitmap.createBitmap(bit, 0, i, bit.width, bit.height / 8))
+                    i += bit.height / 8
                 }
             }
         }
@@ -1009,9 +982,7 @@ val padPositions = listOf(
         }
 
         fun getRutaNoteSkin(rutaOriginal: String): String {
-            val patron = Regex("""/_Icon(?: \(doubleres\))?\.png""")
-            val resultado = patron.replaceFirst(rutaOriginal, "/")
-            return resultado.removeSuffix("_icon.png").removeSuffix("_icon (doubleres)")
+            return rutaOriginal.removeSuffix("_Icon.png")
         }
 
         private fun moveIndicatorToPosition(position: Int) {
@@ -1019,6 +990,7 @@ val padPositions = listOf(
             val itemView = layoutManager?.findViewByPosition(position)
             val indicatorX = itemView?.left ?: 0
             indicatorLayout.x = indicatorX.toFloat()
+
         }
 
         private fun performAction() {
@@ -1041,8 +1013,8 @@ val padPositions = listOf(
             }
         }
 
-        private fun showProgressBar(time: Long) {
-            val duration = time
+        private fun showProgressBar() {
+            val duration = 3000L
             var currentTime: Long
 
             val progressBar = findViewById<ProgressBar>(R.id.progressBar)
@@ -1058,7 +1030,6 @@ val padPositions = listOf(
 
                 override fun onFinish() {
                     currentTime = duration
-
                     progressBar.progress = maxProgress
                 }
             }
@@ -1073,13 +1044,45 @@ val padPositions = listOf(
             imgSelected.visibility = View.INVISIBLE
             imgLvSelected.isVisible = true
             imgBestScore.isVisible = true
+            imgBestGrade.isVisible = true
             lbLvActive.isVisible = true
             lbBestScore.isVisible = true
+
             imgLvSelected.startAnimation(animOn)
             imgBestScore.startAnimation(animOn)
+            imgBestGrade.startAnimation(animOn)
             lbLvActive.startAnimation(animOn)
             lbBestScore.startAnimation(animOn)
             moverLvs(positionActualLvs)
+        }
+
+        private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
+            var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+            if(listChannelScores[positionActualLvs].grade == "SSS"){ //SSS
+                bestGrade = arrayBestGrades[0]
+            }
+            if(listChannelScores[positionActualLvs].grade == "SS"){ //SS
+                bestGrade = arrayBestGrades[1]
+            }
+            if(listChannelScores[positionActualLvs].grade == "S"){ //S
+                bestGrade = arrayBestGrades[2]
+            }
+            if(listChannelScores[positionActualLvs].grade == "A"){ //A
+                bestGrade = arrayBestGrades[3]
+            }
+            if(listChannelScores[positionActualLvs].grade == "B"){ //B
+                bestGrade = arrayBestGrades[4]
+            }
+            if(listChannelScores[positionActualLvs].grade == "C"){ //C
+                bestGrade = arrayBestGrades[5]
+            }
+            if(listChannelScores[positionActualLvs].grade == "D"){ //D
+                bestGrade = arrayBestGrades[6]
+            }
+            if(listChannelScores[positionActualLvs].grade == "F"){ //F
+                bestGrade = arrayBestGrades[7]
+            }
+            return bestGrade
         }
 
         private fun openCommandWindow() {
@@ -1171,6 +1174,7 @@ val padPositions = listOf(
 
             imgLvSelected.isVisible = false
             imgBestScore.isVisible = false
+            imgBestGrade.isVisible = false
             lbLvActive.isVisible = false
             lbBestScore.isVisible = false
         }
@@ -1195,6 +1199,13 @@ val padPositions = listOf(
             //lbLvActive.text = lv.lvl
             lbLvActive.text = lv.level
             moveIndicatorToPosition(positionActualLvs)
+            currentLevel = lv.level
+            lbBestScore.text = listChannelScores[positionActualLvs].puntaje
+            currentScore = lbBestScore.text.toString()
+
+            currentBestGrade = getBitMapGrade(positionActualLvs)
+            imgBestGrade.setImageBitmap(currentBestGrade)
+            playerSong.level = lv.level
         }
 
         private fun isFocus (position: Int){
@@ -1209,6 +1220,22 @@ val padPositions = listOf(
                     isTimerRunning = false
                 }
             }
+            currentSong = item.title
+            listChannelScores = db.getChannelScores(db.readableDatabase, currentChannel, currentSong)
+            if(listChannelScores.isEmpty()){
+                for (cancion in listChannels[positionCurrentChannel].listCancionesKsf) {
+                    for (nivel in cancion.listKsf) {
+                        db.insertNivel(
+                            canal = listChannels[positionCurrentChannel].nombre,
+                            cancion = cancion.title,
+                            nivel = nivel.level,
+                            puntaje = "0",
+                            grade = ""
+                        )
+                    }
+                }
+            }
+
 
             //if(isFileExists(File(item.rutaPrevVideo))){
             if(isFileExists(File(item.rutaPreview))){
@@ -1223,13 +1250,13 @@ val padPositions = listOf(
                     video_fondo.setVideoPath(item.rutaPreview)
                     video_fondo.visibility = View.VISIBLE
                     imgPrev.visibility = View.GONE
-                    val retriever = MediaMetadataRetriever()
-                    retriever.setDataSource(item.rutaPreview)
+                    //val retriever = MediaMetadataRetriever()
+                    //retriever.setDataSource(item.rutaPreview)
                     video_fondo.start()
-                    val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
-                    if(hasAudio != null ){
-                        video_fondo.setOnPreparedListener { mp -> mp.setVolume(0.0f, 0.0f) }
-                    }
+                    //val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
+                    //if(hasAudio != null ){
+                        //video_fondo.setOnPreparedListener { mp -> mp.setVolume(0.0f, 0.0f) }
+                    //}
                     video_fondo.setOnCompletionListener {
                         video_fondo.start()
                     }
@@ -1333,11 +1360,11 @@ val padPositions = listOf(
             recyclerCommands.currentItem = position
             if(item.value.contains("Speed", ignoreCase = true)){
                 lbCurrentBpm.text = "Velocidad"
-                txCurrentBpm.text = "2X"
+                txCurrentBpm.text = txVelocidadActual.text
             }
-            if(item.value.contains("Auto", ignoreCase = true)){
-                lbCurrentBpm.text = "BPM"
-                txCurrentBpm.text = "300"
+            if(item.value.contains("Offset", ignoreCase = true)){
+                lbCurrentBpm.text = "Offset"
+                txCurrentBpm.text = txOffset.text
             }
             if(item.value.contains("NoteSkin", ignoreCase = true) ||
                 item.value.contains("Display", ignoreCase = true) ||
@@ -1566,7 +1593,7 @@ val padPositions = listOf(
 
         @Deprecated("Deprecated in Java")
         override fun onBackPressed() {
-            super.onBackPressed()
+            //super.onBackPressed()
             Toast.makeText(this, "Use los botones BACK", Toast.LENGTH_SHORT).show()
         }
 
@@ -1589,6 +1616,7 @@ val padPositions = listOf(
 
         override fun onDestroy() {
             super.onDestroy()
+
         }
 
         override fun onWindowFocusChanged(hasFocus: Boolean) {

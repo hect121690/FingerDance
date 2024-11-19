@@ -88,7 +88,7 @@ class CalibrationActivity() : AppCompatActivity() {
     }
 
     private fun startSoundAndAnimationLoop() {
-        startCircleAnimation() // Iniciar la animación del círculo
+        startCircleAnimation()
 
         handler.postDelayed(object : Runnable {
             override fun run() {

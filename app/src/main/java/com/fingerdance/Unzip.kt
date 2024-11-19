@@ -25,7 +25,7 @@ class Unzip (private val context: Context) {
             if (zipEntry?.isDirectory == true) {
                 file.mkdirs()
             } else {
-                val parent = File(file.parent)
+                val parent = File(file.parent!!)
 
                 if (!parent.exists()) {
                     parent.mkdirs()

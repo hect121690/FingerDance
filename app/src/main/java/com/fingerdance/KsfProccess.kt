@@ -127,7 +127,7 @@ class KsfProccess {
                 "BPM3" -> bpm3 = info.value.toDouble()
                 "BUNKI" -> bunki = info.value.toLong() * 10
                 "BUNKI2" -> bunki2 = info.value.toLong() * 10
-                "STARTTIME" -> startTime = (round(info.value.toDouble()) * 10).toLong()
+                "STARTTIME" -> startTime = (round(info.value.toDouble()) * 10).toLong() + valueOffset
                 "STARTTIME2" -> startTime2 = (round(info.value.toDouble()) * 10).toLong()
                 "STARTTIME3" -> startTime3 = (round(info.value.toDouble()) * 10).toLong()
             }
@@ -136,9 +136,9 @@ class KsfProccess {
         if (bpm < 0) bpm = 0.0
         if (bpm2 < 0) bpm2 = 0.0
         if (bpm3 < 0) bpm3 = 0.0
-        if (startTime < 0) startTime = 0
-        if (startTime2 < 0) startTime2 = 0
-        if (startTime3 < 0) startTime3 = 0
+        //if (startTime < 0) startTime = 0
+        //if (startTime2 < 0) startTime2 = 0
+        //if (startTime3 < 0) startTime3 = 0
         if (bunki < 0) bunki = 0
         if (bunki2 < 0) bunki2 = 0
 

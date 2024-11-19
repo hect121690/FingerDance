@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -20,7 +19,6 @@ import android.media.MediaPlayer
 import android.media.SoundPool
 import android.net.Uri
 import android.os.Bundle
-import android.util.DisplayMetrics
 import android.util.TypedValue
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -71,6 +69,16 @@ private lateinit var objectAnimator : ObjectAnimator
 
 private var animIndicator: Animation? = null
 private var position : Int = 0
+
+lateinit var listChannelScores: Array<ObjPuntaje>
+var currentChannel = ""
+var currentSong = ""
+var currentLevel = ""
+lateinit var db : DataBasePlayer
+var positionCurrentChannel = 0
+
+var valueOffset = 0L
+var listActiveEffects: ArrayList<ActiveEffects> = arrayListOf()
 
 class SelectChannel : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -216,6 +224,9 @@ class SelectChannel : AppCompatActivity() {
         imgAceptar.startAnimation(animateSetTraslation)
         imgAceptar.bringToFront()
 
+        db = DataBasePlayer(this)
+        //db.readableDatabase
+
         nav_back_Izq.setOnClickListener {
             goMain(nav_back_Izq)
         }
@@ -263,6 +274,9 @@ class SelectChannel : AppCompatActivity() {
             if(listChannels[position].listCanciones.size > 0 || listChannels[position].listCancionesKsf.size > 0){
                 listSongsChannel = listChannels[position].listCanciones
                 listSongsChannelKsf = listChannels[position].listCancionesKsf
+
+                currentChannel = listChannels[position].nombre
+
                 val intent = Intent(this, SelectSong()::class.java)
                 startActivity(intent)
                 overridePendingTransition(R.anim.anim_command_window_on, 0)
@@ -322,6 +336,7 @@ class SelectChannel : AppCompatActivity() {
         channel = item.nombre
         lbNombreChannel.text = item.descripcion
         objectAnimator.start()
+        positionCurrentChannel = position
 
     }
 
@@ -389,3 +404,4 @@ class SelectChannel : AppCompatActivity() {
         )
     }
 }
+class ActiveEffects(var isActive: Boolean, var effect : Bitmap)

@@ -20,7 +20,6 @@ import android.view.Window
 import android.view.WindowManager
 import android.view.animation.AnimationUtils
 import android.widget.*
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -29,7 +28,8 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.storage.FirebaseStorage
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import java.io.*
+import java.io.File
+import java.io.Serializable
 import kotlin.system.exitProcess
 
 
@@ -41,7 +41,7 @@ var width: Int = 0
 
 var skinSelected : String = ""
 var speedSelected : String = ""
-var typeSpeedSelected : String = ""
+//var typeSpeedSelected : String = ""
 var bgaOff : String = ""
 
 var latency = 0L
@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private var soundPlayer : MediaPlayer? = null
     private var currentVideoPosition : Int = 0
     private lateinit var animLogo : ImageView
-    private lateinit var logo : ImageView
+    //private lateinit var logo : ImageView
     private lateinit var btnPlay : Button
     private lateinit var btnOptions : Button
     private lateinit var btnExit : Button
@@ -63,11 +63,10 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var imageIcon : ImageView
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
-    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
-        supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
+        supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
@@ -79,7 +78,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         skinSelected = themes.getString("skin", "").toString()
 
         speedSelected = themes.getString("speed", "").toString()
-        typeSpeedSelected = themes.getString("typeSpeed", "").toString()
+        //typeSpeedSelected = themes.getString("typeSpeed", "").toString()
+        themes.edit().remove("typeSpeed").apply()
 
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
@@ -90,8 +90,10 @@ class MainActivity : AppCompatActivity(), Serializable {
             tema ="default"
         }
 
+
         themes.edit().putString("allTunes", "").apply()
         themes.edit().putString("efects", "").apply()
+
 
         linearDownload = findViewById(R.id.linearDownload)
 
@@ -221,20 +223,17 @@ class MainActivity : AppCompatActivity(), Serializable {
         imageIcon.isVisible = false
         lbDescargando.isVisible = false
         progressBar.isVisible = false
-        logo = findViewById(R.id.imgLogo)
+        //logo = findViewById(R.id.imgLogo)
         val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
         if (!them.exists()) {
             tema ="default"
         }
 
-        val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
-        logo.setImageBitmap(bmLogo)
-
         btnPlay = findViewById(R.id.btnPlay)
         btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
-        btnOptions = findViewById<Button>(R.id.btnOptions)
+        btnOptions = findViewById(R.id.btnOptions)
         btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
-        btnExit = findViewById<Button>(R.id.btnExit)
+        btnExit = findViewById(R.id.btnExit)
         btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
 
         val sound = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
@@ -243,6 +242,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         soundPlayer!!.start()
 
         animLogo = findViewById(R.id.imgLogo)
+        val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
+        animLogo.setImageBitmap(bmLogo)
         bgaOff = this.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
         video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
 
@@ -254,7 +255,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             mediPlayer.seekTo(currentVideoPosition)
             mediPlayer.start()
         }
-        animar();
+        animar()
         val goSound = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
         val animation = AnimationUtils.loadAnimation(this, R.anim.press_button)
         btnPlay.setOnClickListener {
@@ -274,7 +275,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                 }
                 //val ls = LoadingSongs()
-                val ls = LoadSongsKsf(this)
+                val ls = LoadSongsKsf()
                 //ls.loadImages(this)
                 ls.loadSounds(this)
                 val intent = Intent(applicationContext, SelectChannel::class.java)
@@ -283,7 +284,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 soundPlayer!!.pause()
             }else{
                 //val ls = LoadingSongs()
-                val ls = LoadSongsKsf(this)
+                val ls = LoadSongsKsf()
 
                 listChannels.clear()
                 listCommands.clear()
@@ -316,7 +317,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             val tiempoTranscurrir :Long = 500
             val handler = Handler()
-            handler.postDelayed(Runnable {
+            handler.postDelayed({
                 val intent = Intent(applicationContext, Options::class.java)
                 startActivity(intent)
             }, tiempoTranscurrir)
@@ -425,8 +426,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         animLogo.startAnimation(animation)
 
     }
-
-
-
-
 }
+
+class ObjPuntaje(var puntaje: String = "", var grade: String = "")

@@ -16,14 +16,14 @@ class InputProcessor() : InputAdapter() {
 
     val getKeyBoard = IntArray(padPositions.size) { KEY_NONE }
     private val pointerToPadMap = mutableMapOf<Int, Int>()
-    private var hasStateChanged = false  // Controlar cambios en estados de pads
+    private var hasStateChanged = false
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
         padIndex?.let {
             getKeyBoard[it] = KEY_DOWN
             pointerToPadMap[pointer] = it
-            hasStateChanged = true  // Estado ha cambiado
+            hasStateChanged = true
         }
         return padIndex != null
     }
@@ -33,7 +33,7 @@ class InputProcessor() : InputAdapter() {
         padIndex?.let {
             getKeyBoard[it] = KEY_UP
             pointerToPadMap.remove(pointer)
-            hasStateChanged = true  // Estado ha cambiado
+            hasStateChanged = true
         }
         return true
     }
@@ -41,23 +41,21 @@ class InputProcessor() : InputAdapter() {
     override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
 
-        // Si ya estamos en el pad correcto, no hacer nada
         if (pointerToPadMap[pointer] == padIndex) return true
 
         pointerToPadMap[pointer]?.let { previousPad ->
             getKeyBoard[previousPad] = KEY_NONE
-            pointerToPadMap.remove(pointer)
-            hasStateChanged = true
         }
 
         padIndex?.let {
-            getKeyBoard[it] = KEY_PRESS
+            getKeyBoard[it] = KEY_DOWN
             pointerToPadMap[pointer] = it
             hasStateChanged = true
         }
 
         return true
     }
+
 
     private fun getPadIndex(x: Float, y: Float): Int? {
         return padPositions.indexOfFirst { pad ->
@@ -75,7 +73,7 @@ class InputProcessor() : InputAdapter() {
                 KEY_UP -> getKeyBoard[i] = KEY_NONE
             }
         }
-        hasStateChanged = false  // Restablecer indicador de cambios
+        hasStateChanged = false
     }
 
     fun render(batch: SpriteBatch) {
