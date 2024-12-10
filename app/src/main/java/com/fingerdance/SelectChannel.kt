@@ -47,7 +47,6 @@ private var press_start : Int = 0
 private lateinit var context: Context
 private lateinit var lbNombreChannel: TextView
 private lateinit var linearLayout: LinearLayout
-private lateinit var layoutCarousel: LinearLayout
 private lateinit var nav_izq: ImageView
 private lateinit var nav_der: ImageView
 private lateinit var nav_back_Izq: ImageView
@@ -70,7 +69,6 @@ private lateinit var objectAnimator : ObjectAnimator
 private var animIndicator: Animation? = null
 private var position : Int = 0
 
-lateinit var listChannelScores: Array<ObjPuntaje>
 var currentChannel = ""
 var currentSong = ""
 var currentLevel = ""
@@ -78,7 +76,6 @@ lateinit var db : DataBasePlayer
 var positionCurrentChannel = 0
 
 var valueOffset = 0L
-var listActiveEffects: ArrayList<ActiveEffects> = arrayListOf()
 
 class SelectChannel : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -225,7 +222,6 @@ class SelectChannel : AppCompatActivity() {
         imgAceptar.bringToFront()
 
         db = DataBasePlayer(this)
-        //db.readableDatabase
 
         nav_back_Izq.setOnClickListener {
             goMain(nav_back_Izq)
@@ -260,6 +256,7 @@ class SelectChannel : AppCompatActivity() {
             }
             isFocusChannel(position)
         }
+
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Aviso")
         builder.setMessage("Este canal no contiene canciones.")
@@ -360,8 +357,8 @@ class SelectChannel : AppCompatActivity() {
         soundPool.play(channel_back, 1.0f, 1.0f, 1, 0, 1.0f)
         flecha.startAnimation(animIndicator)
         soundSelecctChannel.pause()
-        val intent = Intent(this, MainActivity::class.java)
-        startActivity(intent)
+        //val intent = Intent(this, MainActivity::class.java)
+        //startActivity(intent)
         this.finish()
     }
 
@@ -404,4 +401,3 @@ class SelectChannel : AppCompatActivity() {
         )
     }
 }
-class ActiveEffects(var isActive: Boolean, var effect : Bitmap)

@@ -23,16 +23,16 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private lateinit var animationReceptRightUp: Animation<TextureRegion>
     private lateinit var animationReceptRightDown: Animation<TextureRegion>
 
-    private val rutaPads = "/FingerDance/Themes/$tema/GraphicsStatics/game_play"
+    val rutaPads = "/FingerDance/Themes/$tema/GraphicsStatics/game_play"
     private val padLefDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/left_down.png")))
     private val padLeftUp = TextureRegion(Texture(Gdx.files.external("$rutaPads/left_up.png")))
     private val padCenter = TextureRegion(Texture(Gdx.files.external("$rutaPads/center.png")))
     private val padRightUp = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_up.png")))
     private val padRightDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_down.png")))
 
-    val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
-    val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
-    val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
+    private val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
+    private val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
+    private val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
     //val textureRU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
     //val textureRD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
 

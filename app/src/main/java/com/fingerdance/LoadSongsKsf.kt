@@ -46,8 +46,7 @@ var startKsf : Int = 0
 
 var tick : Int = 0
 
-class LoadSongsKsf (){
-    //private var context = context
+class LoadSongsKsf {
 
     private lateinit var channel: Channels
     fun getChannels(context: Context): ArrayList<Channels> {
@@ -124,6 +123,8 @@ class LoadSongsKsf (){
                                 }
                             }else if (isFileExists(File(songKsf.rutaPreview.replace(".mpg", ".mp4")))) {
                                 songKsf.rutaPreview = songKsf.rutaPreview.replace(".mpg", ".mp4")
+                            }else {
+                                songKsf.rutaPreview = songKsf.rutaPreview.replace(".mpg", ".mp4")
                             }
                         }
 
@@ -143,7 +144,7 @@ class LoadSongsKsf (){
                                             songKsf.displayBpm = getValue(line)
                                         }
                                         line.startsWith("#STARTTIME:") ->{
-                                            songKsf.offset = getValue(line).toLong()
+                                            songKsf.offset = getValue(line).trim().toLong()
                                         }
                                         line.startsWith("#DIFFICULTY:") ->{
                                             var level = getValue(line)

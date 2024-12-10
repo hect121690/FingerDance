@@ -14,6 +14,7 @@ class KsfProccess {
         const val STEPINFO_DELAY = 3
         const val STEPINFO_DELAYBEAT = 4
         const val STEPINFO_UNKNOWN = 5
+        const val STEPINFO_SPEED = 6
 
         const val NOTE_NONE: Byte = 0
         const val NOTE_NOTE: Byte = 1
@@ -33,8 +34,9 @@ class KsfProccess {
         var timeDelay: Long = 0,
         var iTick: Int = 0,
         var iLastMissCheck: Int = 0,
-        var fBPM: Double = 0.0,
-        val vLine: MutableList<Line> = mutableListOf()
+        var fBPM: Float = 0f,
+        val vLine: MutableList<Line> = mutableListOf(),
+        var iSpeed: Pair<Float, Long> = Pair(0f, 0)
     )
 
     data class LoadingInfo(val tag: String, val value: String)
@@ -74,6 +76,7 @@ class KsfProccess {
                                     'T' -> STEPINFO_TICK
                                     'D' -> STEPINFO_DELAY
                                     'E' -> STEPINFO_DELAYBEAT
+                                    'S' -> STEPINFO_SPEED
                                     else -> STEPINFO_UNKNOWN
                                 }
                                 stepInfo.add(StepInfo(line!!.substring(2, line!!.length - 1), type))
@@ -109,45 +112,46 @@ class KsfProccess {
         }
 
         var tickCount = 4
-        var bpm = 0.0
-        var bpm2 = 0.0
-        var bpm3 = 0.0
+        var bpm = 0f
+        var bpm2 = 0f
+        var bpm3 = 0f
         var bunki = 0L
         var bunki2 = 0L
         var startTime = 0L
         var startTime2 = 0L
         var startTime3 = 0L
         var bUseOldBPM = false
+        var baseSpeed = 1f
 
         loadInfo.forEach { info ->
             when (info.tag) {
                 "TICKCOUNT" -> tickCount = info.value.toInt()
-                "BPM" -> bpm = info.value.toDouble()
-                "BPM2" -> bpm2 = info.value.toDouble()
-                "BPM3" -> bpm3 = info.value.toDouble()
+                "BPM" -> bpm = info.value.toFloat()
+                "BPM2" -> bpm2 = info.value.toFloat()
+                "BPM3" -> bpm3 = info.value.toFloat()
                 "BUNKI" -> bunki = info.value.toLong() * 10
                 "BUNKI2" -> bunki2 = info.value.toLong() * 10
-                "STARTTIME" -> startTime = (round(info.value.toDouble()) * 10).toLong() + valueOffset
-                "STARTTIME2" -> startTime2 = (round(info.value.toDouble()) * 10).toLong()
-                "STARTTIME3" -> startTime3 = (round(info.value.toDouble()) * 10).toLong()
+                "STARTTIME" -> startTime = ((round(info.value.toDouble()) + valueOffset) * 10).toLong()
+                "STARTTIME2" -> startTime2 = ((round(info.value.toDouble()) + valueOffset) * 10).toLong()
+                "STARTTIME3" -> startTime3 = ((round(info.value.toDouble()) + valueOffset) * 10).toLong()
             }
         }
 
-        if (bpm < 0) bpm = 0.0
-        if (bpm2 < 0) bpm2 = 0.0
-        if (bpm3 < 0) bpm3 = 0.0
+        if (bpm < 0) bpm = 0f
+        if (bpm2 < 0) bpm2 = 0f
+        if (bpm3 < 0) bpm3 = 0f
         //if (startTime < 0) startTime = 0
         //if (startTime2 < 0) startTime2 = 0
         //if (startTime3 < 0) startTime3 = 0
         if (bunki < 0) bunki = 0
         if (bunki2 < 0) bunki2 = 0
 
-        if (bpm2 != 0.0) {
+        if (bpm2 != 0F) {
             bUseOldBPM = true
             if (bunki == 0L) {
                 bpm = bpm2
                 bpm2 = bpm3
-                bpm3 = 0.0
+                bpm3 = 0f
                 bunki = bunki2
                 bunki2 = 0
                 startTime = startTime2
@@ -156,12 +160,12 @@ class KsfProccess {
             }
             if (bunki == bunki2) {
                 bpm2 = bpm3
-                bpm3 = 0.0
+                bpm3 = 0f
                 bunki2 = 0
                 startTime2 = startTime3
                 startTime3 = 0
             }
-            if (bpm2 == 0.0) {
+            if (bpm2 == 0f) {
                 bUseOldBPM = false
             }
         }
@@ -217,10 +221,10 @@ class KsfProccess {
                 }
                 STEPINFO_BPM -> {
                     if (patterns.last().vLine.isNotEmpty()) {
-                        curPtn = Pattern(fBPM = info.step.toDouble(), iTick = curTick)
+                        curPtn = Pattern(fBPM = info.step.toFloat(), iTick = curTick)
                         patterns.add(curPtn)
                     } else {
-                        curPtn.fBPM = info.step.toDouble()
+                        curPtn.fBPM = info.step.toFloat()
                     }
                     curBPM = curPtn.fBPM
                 }
@@ -234,7 +238,7 @@ class KsfProccess {
                     curTick = curPtn.iTick
                 }
                 STEPINFO_DELAY -> {
-                    val delayPtn = Pattern(fBPM = curBPM, iTick = curTick, timeDelay = info.step.toLong())
+                    val delayPtn = Pattern(fBPM = curBPM, iTick = curTick, timeDelay = info.step.toDouble().toLong())
                     if (patterns.last().vLine.isNotEmpty()) {
                         curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
@@ -252,6 +256,18 @@ class KsfProccess {
                     }
                     delayPtn.timeDelay = (60000 / curBPM * info.step.toFloat() / curTick).toLong()
                     patterns.add(delayPtn)
+                    patterns.add(curPtn)
+                }
+                STEPINFO_SPEED -> {
+                    val speedPtn = Pattern(iSpeed = Pair(baseSpeed, 0))
+                    if (patterns.last().vLine.isNotEmpty()) {
+                        curPtn = Pattern(fBPM = curBPM, iTick = curTick)
+                    } else {
+                        patterns.removeLast()
+                    }
+                    val pair = info.step.split("=")
+                    speedPtn.iSpeed = Pair(pair[0].toFloat(), pair[1].toLong())
+                    patterns.add(speedPtn)
                     patterns.add(curPtn)
                 }
             }
@@ -340,30 +356,59 @@ class KsfProccess {
                 }
             }
         } else {
-            var lastTick = startTime.toFloat()
+            var lastTick = startTime.toFloat()  // Conversión explícita de startTime a Float
+            for (i in 0 until patterns.size) {
+                val nowptn = patterns[i]
+                nowptn.timePos = lastTick.toLong()  // Conversión explícita de lastTick a Long
+                if (nowptn.timeDelay > 0) {
+                    lastTick += nowptn.timeDelay  // Sumar timeDelay (presumiblemente un Float o Long)
+                } else {
+                    if (nowptn.fBPM != 0f) {
+                        lastTick += (60000f / nowptn.fBPM * nowptn.vLine.size.toFloat() / nowptn.iTick.toFloat())  // Conversión explícita a Float
+                    }
+                }
+            }
+            
+            /*
             patterns.forEachIndexed { i, ptn ->
                 ptn.timePos = lastTick.toLong()
                 if (ptn.timeDelay > 0) {
                     lastTick += ptn.timeDelay
                 } else {
-                    if (ptn.fBPM != 0.0) {
-                        lastTick += (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toFloat()
+                    if (ptn.fBPM != 0F) {
+                        lastTick += (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick)
                     }
+                }
+            }
+            */
+        }
+
+        for(i in 0 until patterns.size){
+            val ptn = patterns[i]
+            if(ptn.timeDelay != 0L){
+                ptn.timeLen = ptn.timeDelay
+            }else{
+                if (ptn.fBPM != 0F) {
+                    ptn.timeLen = (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toLong()
+                }else{
+                    ptn.timeLen = 0
                 }
             }
         }
 
+        /*
         patterns.forEach { ptn ->
-            ptn.timeLen = if (ptn.timeDelay > 0) {
+            ptn.timeLen = if (ptn.timeDelay != 0L) {
                 ptn.timeDelay
             } else {
-                if (ptn.fBPM != 0.0) {
+                if (ptn.fBPM != 0F) {
                     (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toLong()
                 } else {
                     0
                 }
             }
         }
+        */
 
         for (i in 0 until patterns.size - 1) {
             val mpos = patterns[i].timePos
@@ -380,7 +425,7 @@ class KsfProccess {
         return true
     }
 
-    private fun getPtnTimePos(bpm: Double, start: Long, bunki: Long, tick: Int): Long {
+    private fun getPtnTimePos(bpm: Float, start: Long, bunki: Long, tick: Int): Long {
         val lastTick = start.toFloat()
         val ticks = 60000 / bpm
         val dest = bunki.toFloat()
@@ -395,7 +440,7 @@ class KsfProccess {
         }
     }
 
-    private fun getCuttingPos(bpm: Double, start: Long, bunki: Long, max: Long, tick: Int): Int {
+    private fun getCuttingPos(bpm: Float, start: Long, bunki: Long, max: Long, tick: Int): Int {
         val lastTick = start.toFloat()
         val ticks = 60000 / bpm
         val dest = bunki.toFloat()

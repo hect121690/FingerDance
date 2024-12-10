@@ -14,11 +14,11 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
-import android.view.animation.AnimationUtils
-import android.view.animation.LinearInterpolator
+import android.view.animation.*
 import android.widget.ImageView
+import android.widget.RelativeLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
@@ -30,13 +30,19 @@ private lateinit var bgConstraint: ConstraintLayout
 private lateinit var mediaPlayerEvaluation: MediaPlayer
 private lateinit var grade : Bitmap
 
-
 private var totalScore = 0.0
 private var soundGrade = 0
 private var newGrade = ""
+private var rankA = 0
+private var rankB = 0
+
+private var isPlayingRankA = 0
+private var isPlayingRankB = 0
+private var isPlayingNewRecord = 0
 
 
 private lateinit var DGContext: Context
+private lateinit var linearEfects: RelativeLayout
 
 class DanceGrade : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +53,17 @@ class DanceGrade : AppCompatActivity() {
 
         DGContext = this
         bgConstraint = findViewById(R.id.bgContraint)
+        linearEfects = findViewById(R.id.linearEfects)
+
+        val bgBanner: ImageView = findViewById(R.id.bgImage)
+        val bitmap = BitmapFactory.decodeFile(playerSong.rutaBanner)
+        val bitmapDrawable = BitmapDrawable(resources, bitmap)
+        bgBanner.background = bitmapDrawable
+        bgBanner.layoutParams.height = height
+        bgBanner.layoutParams.width = height + (height / 2)
+
+        bgBanner.alpha = 0.5f
+
         val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
 
         val dbDG = DataBasePlayer(this)
@@ -70,7 +87,7 @@ class DanceGrade : AppCompatActivity() {
         txNameSong.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label name.png")
         txNameChannel.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label channel.png")
         txNameSong.text = currentSong
-        txNameChannel.text = currentChannel.split("-")[1]
+        txNameChannel.text = if(currentChannel.contains("-")) currentChannel.split("-")[1] else currentChannel
 
         txNameSong.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
@@ -88,15 +105,6 @@ class DanceGrade : AppCompatActivity() {
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
         }
 
-        val bgBanner: ImageView = findViewById(R.id.bgImage)
-        val bitmap = BitmapFactory.decodeFile(playerSong.rutaBanner)
-        val bitmapDrawable = BitmapDrawable(resources, bitmap)
-        bgBanner.background = bitmapDrawable
-        bgBanner.layoutParams.height = height
-        bgBanner.layoutParams.width = height + (height / 2)
-
-        bgBanner.alpha = 0.5f
-
         val perfect = 1 * resultSong.perfect
         val great = 0.6 * resultSong.great
         val good = 0.2 * resultSong.good
@@ -106,14 +114,14 @@ class DanceGrade : AppCompatActivity() {
         val noteWeighs = perfect + great + good + bad + miss
         totalScore = (((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000
 
-
-        val arrayGrades = getGrades(rutaGrades)
         imgMyBestScore.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body.png").toString()))
 
         val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
         imgNewRecord.setImageBitmap(bitNR)
 
-        showGrade(arrayGrades)
+        showGrade(arrayBestGrades)
+
+        getBtnAceptar(handlerDG)
 
         mediaPlayerEvaluation = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation.mp3")!!.absolutePath)))
         mediaPlayerEvaluation.start()
@@ -158,50 +166,93 @@ class DanceGrade : AppCompatActivity() {
                 setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
             }
         }
-
-        CoroutineScope(Dispatchers.Main).launch {
-            val jobs = mutableListOf<Job>()
-            for (bar in imageViews) {
-                jobs.add(animateBar(bar))
-                delay(200)
-            }
-
-            jobs.joinAll()
-            setCounts(resultSong, textViews)
-
-            handlerDG.postDelayed({
-                imgGrade.setImageBitmap(grade)
-                animateImageView(imgGrade)
-                soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
-                val rankA = getRankSound(soundGrade)
-                val rankB = getRankSoundB(soundGrade)
-                soundPoolSelectSongKsf.play(rankA,1.0f, 1.0f, 1, 0, 1.0f)
-                soundPoolSelectSongKsf.play(rankB,1.0f, 1.0f, 1, 0, 1.0f)
-
-                if(totalScore > currentScore.toInt()){
-                    dbDG.updatePuntaje(currentChannel, currentSong, currentLevel, totalScore.toInt().toString(), newGrade)
-                    imgMyBestGrade.setImageBitmap(grade)
-                    lbBestScoreDG.text = totalScore.toInt().toString()
-                    showNewRecord(imgNewRecord, handlerDG)
-                }else{
-                    getBestScore(imgMyBestGrade, lbBestScoreDG)
+        handlerDG.postDelayed({
+            CoroutineScope(Dispatchers.Main).launch {
+                val jobs = mutableListOf<Job>()
+                for (bar in imageViews) {
+                    jobs.add(animateBar(bar))
+                    delay(200)
                 }
 
-            }, 500)
+                jobs.joinAll()
+                setCounts(resultSong, textViews)
+
+                handlerDG.postDelayed({
+                    imgGrade.setImageBitmap(grade)
+                    animateImageView(imgGrade)
+                    soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
+                    rankA = getRankSound(soundGrade)
+                    rankB = getRankSoundB(soundGrade)
+                    isPlayingRankA = soundPoolSelectSongKsf.play(rankA, 1.0f, 1.0f, 1, 0, 1.0f)
+                    isPlayingRankB = soundPoolSelectSongKsf.play(rankB, 1.0f, 1.0f, 1, 0, 1.0f)
+
+                    if (totalScore > currentScore.toInt()) {
+                        dbDG.updatePuntaje(
+                            currentChannel,
+                            currentSong,
+                            currentLevel,
+                            totalScore.toInt().toString(),
+                            newGrade
+                        )
+                        imgMyBestGrade.setImageBitmap(grade)
+                        lbBestScoreDG.text = totalScore.toInt().toString()
+                        showNewRecord(imgNewRecord, handlerDG)
+                    } else {
+                        getBestScore(imgMyBestGrade, lbBestScoreDG)
+                    }
+
+                }, 500)
+            }
+        },750)
+    }
+
+    private fun getBtnAceptar(handlerDG: Handler) {
+        val imgFloor = findViewById<ImageView>(R.id.floorDG)
+        val bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
+        imgFloor.setImageBitmap(bmFloor)
+
+        val imgAceptar = findViewById<ImageView>(R.id.aceptDG)
+        val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
+        imgAceptar.setImageBitmap(bm)
+
+        imgAceptar.layoutParams.width = (width / 2.5).toInt()
+
+        val yDelta = width / 36
+        val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 1.5).toFloat())
+        animateSetTraslation.duration = 400
+        animateSetTraslation.repeatCount = Animation.INFINITE
+        animateSetTraslation.repeatMode = Animation.REVERSE
+        imgAceptar.startAnimation(animateSetTraslation)
+        imgAceptar.bringToFront()
+
+        imgAceptar.setOnClickListener {
+            mediaPlayerEvaluation.stop()
+            soundPoolSelectSongKsf.stop(isPlayingRankA)
+            soundPoolSelectSongKsf.stop(isPlayingRankB)
+            soundPoolSelectSongKsf.stop(isPlayingNewRecord)
+            handlerDG.removeCallbacksAndMessages(null)
+            this.finish()
+        }
+        imgFloor.setOnLongClickListener {
+            imgAceptar.performClick()
         }
     }
 
     private fun getEfects(pathCommandEffect: String) {
         showLevel()
-        val posX = medidaFlechas / 10f
+        val posX = medidaFlechas
+        val heightImages = ((medidaFlechas / 4) * 3).toInt()
+
+        linearEfects.layoutParams.width = (medidaFlechas * 3).toInt()
+        linearEfects.layoutParams.height = (heightImages * 2)
 
         val imgSpeed = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeFile(pathCommandEffect))
         }
-        bgConstraint.addView(imgSpeed)
-        imgSpeed.x = posX
-        imgSpeed.y = (height / 2f) + medidaFlechas * 0.7f
+        linearEfects.addView(imgSpeed)
+
         imgSpeed.layoutParams.width = medidaFlechas.toInt()
+        imgSpeed.layoutParams.height = heightImages
 
         val txtSpeed = TextView(this).apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
@@ -210,43 +261,43 @@ class DanceGrade : AppCompatActivity() {
             setTypeface(typeface, Typeface.BOLD_ITALIC)
             text = playerSong.speed
         }
-        bgConstraint.addView(txtSpeed)
+        linearEfects.addView(txtSpeed)
         txtSpeed.layoutParams.width = medidaFlechas.toInt()
-        txtSpeed.x = posX + (posX / 4f)
-        txtSpeed.y = (height / 2f) + medidaFlechas * 0.95f
+        txtSpeed.layoutParams.height = heightImages
+        txtSpeed.y = linearEfects.y + (heightImages.toFloat() / 4)
 
         val imgNoteSkinBG = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeFile(pathCommandEffect))
         }
-        bgConstraint.addView(imgNoteSkinBG)
-        imgNoteSkinBG.x = medidaFlechas + posX
-        imgNoteSkinBG.y = (height / 2f) + medidaFlechas * 0.7f
+        linearEfects.addView(imgNoteSkinBG)
+        imgNoteSkinBG.x = posX
+        imgNoteSkinBG.layoutParams.height = heightImages
         imgNoteSkinBG.layoutParams.width = medidaFlechas.toInt()
 
         val imgNoteSkinDG =  ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeFile(playerSong.rutaNoteSkin + "/_Icon.png"))
         }
-        bgConstraint.addView(imgNoteSkinDG)
-        imgNoteSkinDG.x = medidaFlechas + posX
-        imgNoteSkinDG.y = (height / 2f) + medidaFlechas * 0.8f
+        linearEfects.addView(imgNoteSkinDG)
+        imgNoteSkinDG.x = posX
         imgNoteSkinDG.layoutParams.width = medidaFlechas.toInt()
-        imgNoteSkinDG.layoutParams.height = (medidaFlechas.toInt() / 10) * 6
+        imgNoteSkinDG.layoutParams.height = heightImages
 
         if(playerSong.hj){
             val image = ImageView(this)
             image.setImageBitmap(BitmapFactory.decodeFile(playerSong.pathImgHJ))
-            bgConstraint.addView(image)
-            image.x = (medidaFlechas * 2) + posX
-            image.y = (height / 2f) + medidaFlechas * 0.7f
+            linearEfects.addView(image)
+            image.x = posX * 2
             image.layoutParams.width = medidaFlechas.toInt()
+            image.layoutParams.height = heightImages
         }
         for(i in 0 until listEfectsDisplay.size){
             val image = ImageView(this)
             image.setImageBitmap(BitmapFactory.decodeFile(listEfectsDisplay[i].rutaCommandImg))
-            bgConstraint.addView(image)
-            image.x = (medidaFlechas * i) + posX
-            image.y = (height / 2f) + medidaFlechas * 1.6f
+            linearEfects.addView(image)
+            image.x = (posX * i)
+            image.y = linearEfects.y + heightImages.toFloat()
             image.layoutParams.width = medidaFlechas.toInt()
+            image.layoutParams.height = heightImages
         }
     }
 
@@ -325,7 +376,7 @@ class DanceGrade : AppCompatActivity() {
         handlerDG.postDelayed({
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
-            soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
+            isPlayingNewRecord = soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
         }, 1500)
     }
 
@@ -339,7 +390,7 @@ class DanceGrade : AppCompatActivity() {
 
         val animatorSet = AnimatorSet()
         animatorSet.playTogether(scaleX, scaleY, fadeIn)
-        animatorSet.duration = 500 // Duración de la animación en milisegundos
+        animatorSet.duration = 500
         animatorSet.interpolator = AccelerateDecelerateInterpolator()
         animatorSet.start()
     }
@@ -368,17 +419,6 @@ class DanceGrade : AppCompatActivity() {
             7 -> {d_rankB}
             8 -> {f_rankB}
             else -> {0}
-        }
-    }
-
-    private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
-        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
-        return ArrayList<Bitmap>().apply {
-            var i = 0
-            for (a in 0 until 8) {
-                add(Bitmap.createBitmap(bit, 0, i, bit.width, bit.height / 8))
-                i += bit.height / 8
-            }
         }
     }
 
@@ -432,11 +472,10 @@ class DanceGrade : AppCompatActivity() {
         super.onDestroy()
         mediaPlayerEvaluation.release()
     }
-
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        super.onBackPressed()
-        mediaPlayerEvaluation.stop()
-        this.finish()
+        //super.onBackPressed()
+        Toast.makeText(this, "Press Center Step", Toast.LENGTH_SHORT).show()
     }
 
     override fun onPause() {

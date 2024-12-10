@@ -12,12 +12,15 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.*
 import android.renderscript.*
+import android.util.Log
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -29,13 +32,20 @@ import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
 import com.fingerdance.databinding.ActivitySelectSongBinding
+import com.google.android.gms.ads.*
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 import java.math.BigDecimal
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private lateinit var binding: ActivitySelectSongBinding
 private lateinit var linearBG: LinearLayout
+private lateinit var buttonLayout: LinearLayout
+private lateinit var constraintMain: ConstraintLayout
 private lateinit var lbNameSong: TextView
 private lateinit var lbArtist: TextView
 private lateinit var lbLvActive: TextView
@@ -79,7 +89,7 @@ private lateinit var imgPrev: ImageView
 private lateinit var indicatorLayout: ImageView
 private lateinit var imageCircle : ImageView
 
-private lateinit var mediPlayer : MediaPlayer
+lateinit var mediPlayer : MediaPlayer
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
 private lateinit var linearLvs: ConstraintLayout
@@ -162,7 +172,30 @@ lateinit var arrayBestGrades : ArrayList<Bitmap>
 var currentScore = ""
 lateinit var currentBestGrade : Bitmap
 
+private var idAdd = ""
+private var interstitialAd: InterstitialAd? = null
+
+lateinit var listSongScores: Array<ObjPuntaje>
+
+private lateinit var overlayBG: View
+private lateinit var btnAddPreview: Button
+private lateinit var btnAddBga: Button
+private var currentPathSong: String = ""
+
 class SelectSong : AppCompatActivity() {
+
+    private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            saveFileToDestination(it, "song_p.mp4", false)
+        }
+
+    }
+
+    private val pickBgaFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            saveFileToDestination(it, "song.mp4", true)
+        }
+    }
         @RequiresApi(Build.VERSION_CODES.S)
         override fun onCreate(savedInstanceState: Bundle?) {
             getSupportActionBar()?.hide()
@@ -170,6 +203,9 @@ class SelectSong : AppCompatActivity() {
             setContentView(R.layout.activity_select_song)
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             onWindowFocusChanged(true)
+
+            MobileAds.initialize(this) {}
+            loadInterstitialAd()
 
             binding = ActivitySelectSongBinding.inflate(layoutInflater)
             setContentView(binding.root)
@@ -194,6 +230,7 @@ class SelectSong : AppCompatActivity() {
             playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
                                      false,"", "", levels, "")
 
+            constraintMain = findViewById(R.id.constraintMain)
             linearBG = findViewById(R.id.linearBG)
             linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
 
@@ -251,7 +288,7 @@ class SelectSong : AppCompatActivity() {
             imgOffset = findViewById(R.id.imgOffsetActual)
             imgOffset.setImageBitmap(bmVA)
             txOffset = findViewById(R.id.txOffsetActual)
-            txOffset.text = "None"
+            txOffset.text = "0"
 
             imgDisplay = findViewById(R.id.imgDisplay)
             imgDisplay.isVisible=false
@@ -408,9 +445,6 @@ class SelectSong : AppCompatActivity() {
 
             val rutaBtns = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play").toString()
 
-            //btnOn = BitmapFactory.decodeFile("$rutaBtns/btn_on.png")!!
-            //btnOff = BitmapFactory.decodeFile("$rutaBtns/btn_off.png")!!
-
             bitPerfect = BitmapFactory.decodeFile("$rutaBtns/perfect.png")!!
             bitGreat = BitmapFactory.decodeFile("$rutaBtns/great.png")!!
             bitGood = BitmapFactory.decodeFile("$rutaBtns/good.png")!!
@@ -481,18 +515,6 @@ class SelectSong : AppCompatActivity() {
             lbNameSong.layoutParams.width = (width /2)
 
             lbBestScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
-            /*
-            val sizeImgEffects = (width / 5)
-            imgVelocidadActual.layoutParams.width = sizeImgEffects
-            imgDisplay.layoutParams.width = sizeImgEffects
-            imgJudge.layoutParams.width = sizeImgEffects
-            imgNoteSkinFondo.layoutParams.width = sizeImgEffects
-            imgNoteSkin.layoutParams.width = sizeImgEffects
-            txVelocidadActual.layoutParams.width = sizeImgEffects
-            txVelocidadActual.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            */
-
             textSize = width / 28
             lbArtist.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
             lbArtist.layoutParams.width = (width * 0.5).toInt()
@@ -502,8 +524,6 @@ class SelectSong : AppCompatActivity() {
             //lbBpm.layoutParams.width = (width * 0.2).toInt()
 
             textSize = width / 40
-            //txAV.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            //txAV.layoutParams.width = txVelocidadActual.layoutParams.width
             lbCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
             imgLvSelected.layoutParams.width = (width / 4.1).toInt()
@@ -592,7 +612,7 @@ class SelectSong : AppCompatActivity() {
             nav_izq.setOnClickListener() {
                 ready = 0
                 imgFloor.setImageBitmap(bmFloor)
-                handleButtonPress(false)
+                //handleButtonPress(false)
                 if (recyclerView.isVisible && !commandWindow.isVisible) {
                     if (oldValue == 2) {
                         //oldValue = listItems.size - 3
@@ -604,6 +624,7 @@ class SelectSong : AppCompatActivity() {
                     moveIndicatorToPosition(0)
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
+                    handleButtonPress(false)
                     soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     if (positionActualLvs != 0) {
                         positionActualLvs -= 1
@@ -630,7 +651,7 @@ class SelectSong : AppCompatActivity() {
             nav_der.setOnClickListener() {
                 ready = 0
                 imgFloor.setImageBitmap(bmFloor)
-                handleButtonPress(true)
+                //handleButtonPress(true)
                 if (recyclerView.isVisible && !commandWindow.isVisible) {
                     //if (oldValue == listItems.size - 3) {
                     if (oldValue == listItemsKsf.size - 3) {
@@ -642,6 +663,7 @@ class SelectSong : AppCompatActivity() {
                     moveIndicatorToPosition(0)
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
+                    handleButtonPress(true)
                     soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     ultimoLv = (recyclerLvs.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
                     if (positionActualLvs < ultimoLv) {
@@ -686,7 +708,7 @@ class SelectSong : AppCompatActivity() {
                             }
                         })
                         imgLoading.isVisible = true
-                        showProgressBar()
+                        showProgressBar(3000L)
                         mediPlayer.pause()
                         playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
                         playerSong.speed = txVelocidadActual.text.toString()
@@ -706,18 +728,11 @@ class SelectSong : AppCompatActivity() {
                         playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
+                        valueOffset = txOffset.text.toString().toLong()
                         load(playerSong.rutaKsf!!)
-                        val handler = Handler(Looper.getMainLooper())
-                        handler.postDelayed({
-                            val intent = Intent(this, GameScreenActivity()::class.java)
-                            startActivity(intent)
-                            handler.postDelayed({
-                                linearLoading.isVisible = false
-                                imgLoading.isVisible = false
-                            }, 1000L)
-                            ready = 0
-                            imgFloor.setImageBitmap(bmFloor)
-                        }, 3000L)
+                        db.updateOffset(currentChannel, currentSong, listItemsKsf[oldValue].listKsf[positionActualLvs].level, txOffset.text.toString())
+                        showAddOurGS()
+
                     }
                     imgAceptar.isEnabled = true
                     if(ready == 0){
@@ -765,7 +780,7 @@ class SelectSong : AppCompatActivity() {
                         }
                     }
                     if(itemCommand.value.contains("Offset", ignoreCase = true)){
-                        val valorActual = if(txOffset.text == "None") 0 else txOffset.text.toString().toLong()
+                        val valorActual = if(txOffset.text == "0") 0 else txOffset.text.toString().toLong()
                         txCurrentBpm.text = valorActual.toString()
                         if(itemValues.value == "0"){
                             valueOffset = 0
@@ -787,7 +802,7 @@ class SelectSong : AppCompatActivity() {
                             if(listEfectsDisplay.size == 0){
                                 imgDisplay.isVisible=false
                             }else{
-                                imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
+                                //imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
                                 if(itemValues.value == "BGAOFF"){
                                     playerSong.isBGAOff = false
                                 }
@@ -798,7 +813,7 @@ class SelectSong : AppCompatActivity() {
                                     playerSong.vanish = false
                                 }
                                 if(itemValues.value == "AP"){
-                                    playerSong.ap = true
+                                    playerSong.ap = false
                                 }
                                 resetRunnable()
                             }
@@ -844,11 +859,8 @@ class SelectSong : AppCompatActivity() {
 
                             }
                         }else{
-                            //imgNoteSkin.isVisible=false
-                            //imgNoteSkinFondo.isVisible=false
                             imgNoteSkin.setImageBitmap(bm)
                             playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
-                            //playerSong.rutaNoteSkin = itemValues.rutaCommandImg
                             themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
                         }
                     }
@@ -884,8 +896,179 @@ class SelectSong : AppCompatActivity() {
                     isFocusCommandWindowValues(size)
                 }
             }
+
+            imgPrev.setOnLongClickListener {
+                showOverlay(false)
+                true
+            }
+            video_fondo.setOnLongClickListener {
+                showOverlay(true)
+                true
+            }
         }
-        private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
+
+    private fun showOverlay(isBGA: Boolean) {
+        // Crear un fondo semitransparente
+        overlayBG = View(this).apply {
+            setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        buttonLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        btnAddPreview = Button(this).apply {
+            text = if(isBGA) "Replace Preview" else "Add Preview"
+            setBackgroundResource(android.R.color.transparent)
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(20, 10, 20, 10)
+            setOnClickListener {
+                pickPreviewFile.launch(arrayOf("video/mp4"))
+            }
+        }
+        buttonLayout.addView(btnAddPreview)
+
+        btnAddBga = Button(this).apply {
+            text = "Add BGA"
+            setBackgroundResource(android.R.color.transparent)
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(20, 10, 20, 10)
+            setOnClickListener {
+                pickBgaFile.launch(arrayOf("video/mp4"))
+            }
+        }
+
+        val btnCancel = Button(this).apply {
+            text = "Cancel"
+            setBackgroundResource(android.R.color.transparent)
+            setTextColor(0xFFFF0000.toInt())
+            setPadding(20, 10, 20, 10)
+            setOnClickListener {
+
+                constraintMain.removeView(overlayBG)
+                constraintMain.removeView(buttonLayout)
+            }
+        }
+
+        buttonLayout.addView(btnAddBga)
+
+        // Separar los botones con un espacio
+        val space = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                40
+            )
+        }
+        buttonLayout.addView(space)
+        buttonLayout.addView(btnCancel)
+
+        // Añadir el overlay y botones a la pantalla
+        constraintMain.addView(overlayBG)
+        constraintMain.addView(buttonLayout)
+    }
+
+    private fun saveFileToDestination(uri: Uri, fileName: String, isBGA: Boolean) {
+        val destinationPath = File(currentPathSong.replace("song.mp3", "", ignoreCase = true))
+        val destinationFile = File(destinationPath, fileName)
+        try {
+            val inputStream: InputStream? = contentResolver.openInputStream(uri)
+            val outputStream = FileOutputStream(destinationFile)
+            inputStream?.use { input ->
+                outputStream.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
+            handler.postDelayed({
+                if(!isBGA){
+                    Toast.makeText(this, "Se guardo el preview correctamente", Toast.LENGTH_SHORT).show()
+                }else{
+                    Toast.makeText(this, "Se guardo el BGA correctamente", Toast.LENGTH_SHORT).show()
+                }
+                constraintMain.removeView(overlayBG)
+                constraintMain.removeView(buttonLayout)
+            }, 1500L)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Error al guardar el archivo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showAddOurGS() {
+        if(countAdd == 2 && interstitialAd == null) loadInterstitialAd()
+
+        if (countAdd <= 2) {
+            val handler = Handler(Looper.getMainLooper())
+            handler.postDelayed({
+                val intent = Intent(this, GameScreenActivity::class.java)
+                startActivity(intent)
+                handler.postDelayed({
+                    linearLoading.isVisible = false
+                    imgLoading.isVisible = false
+                }, 1000L)
+                ready = 0
+                imgFloor.setImageBitmap(bmFloor)
+            }, 3000L)
+        } else {
+            if (interstitialAd != null) {
+                interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        interstitialAd = null
+                        countAdd = 0
+                        themes.edit().putInt("countAdd", countAdd).apply()
+                        showAddOurGS()
+                    }
+                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        Toast.makeText(this@SelectSong, "No se pudo mostrar el anuncio. Verifica tu conexión a internet.", Toast.LENGTH_LONG).show()
+                        linearLoading.isVisible = false
+                        imgLoading.isVisible = false
+                        ready = 0
+                        imgFloor.setImageBitmap(bmFloor)
+                    }
+                }
+                interstitialAd?.show(this)
+                interstitialAd = null
+
+            } else {
+                loadInterstitialAd()
+                Toast.makeText(this, "No se pudo cargar el anuncio. Verifica tu conexión a internet.", Toast.LENGTH_LONG).show()
+                linearLoading.isVisible = false
+                imgLoading.isVisible = false
+                ready = 0
+                imgFloor.setImageBitmap(bmFloor)
+            }
+        }
+    }
+
+    private fun loadInterstitialAd() {
+        /*ID para anuncio real*/
+        //idAdd = "ca-app-pub-1525853918723620/4651716599"
+        /*De prueba para desarrollo*/
+        idAdd = if(showAddActive) "ca-app-pub-1525853918723620/4651716599" else "ca-app-pub-3940256099942544/1033173712"
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(this, idAdd, adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: InterstitialAd) {
+                interstitialAd = ad
+                Log.d("AdMob", "Intersticial cargado correctamente. $countAdd")
+            }
+
+            override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                interstitialAd = null
+                Log.e("AdMob", "Error al cargar el intersticial: ${loadAdError.message}")
+            }
+        })
+    }
+
+    private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
             val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
             return ArrayList<Bitmap>().apply {
                 var i = 0
@@ -930,7 +1113,6 @@ class SelectSong : AppCompatActivity() {
                 }
             }
         }
-
         private fun actualizarImagenNumero(numero: Int) {
             val unidad = numero % 10
             val decena = numero / 10
@@ -940,7 +1122,6 @@ class SelectSong : AppCompatActivity() {
 
             imgContador.setImageBitmap(bitmapNumeroCompleto)
         }
-
 
         fun dividirPNG(digito: Int): Bitmap {
             val anchoTotal = bitmapNumber.width
@@ -1013,8 +1194,7 @@ class SelectSong : AppCompatActivity() {
             }
         }
 
-        private fun showProgressBar() {
-            val duration = 3000L
+        private fun showProgressBar(duration: Long) {
             var currentTime: Long
 
             val progressBar = findViewById<ProgressBar>(R.id.progressBar)
@@ -1058,28 +1238,28 @@ class SelectSong : AppCompatActivity() {
 
         private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
             var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-            if(listChannelScores[positionActualLvs].grade == "SSS"){ //SSS
+            if(listSongScores[positionActualLvs].grade == "SSS"){ //SSS
                 bestGrade = arrayBestGrades[0]
             }
-            if(listChannelScores[positionActualLvs].grade == "SS"){ //SS
+            if(listSongScores[positionActualLvs].grade == "SS"){ //SS
                 bestGrade = arrayBestGrades[1]
             }
-            if(listChannelScores[positionActualLvs].grade == "S"){ //S
+            if(listSongScores[positionActualLvs].grade == "S"){ //S
                 bestGrade = arrayBestGrades[2]
             }
-            if(listChannelScores[positionActualLvs].grade == "A"){ //A
+            if(listSongScores[positionActualLvs].grade == "A"){ //A
                 bestGrade = arrayBestGrades[3]
             }
-            if(listChannelScores[positionActualLvs].grade == "B"){ //B
+            if(listSongScores[positionActualLvs].grade == "B"){ //B
                 bestGrade = arrayBestGrades[4]
             }
-            if(listChannelScores[positionActualLvs].grade == "C"){ //C
+            if(listSongScores[positionActualLvs].grade == "C"){ //C
                 bestGrade = arrayBestGrades[5]
             }
-            if(listChannelScores[positionActualLvs].grade == "D"){ //D
+            if(listSongScores[positionActualLvs].grade == "D"){ //D
                 bestGrade = arrayBestGrades[6]
             }
-            if(listChannelScores[positionActualLvs].grade == "F"){ //F
+            if(listSongScores[positionActualLvs].grade == "F"){ //F
                 bestGrade = arrayBestGrades[7]
             }
             return bestGrade
@@ -1182,11 +1362,10 @@ class SelectSong : AppCompatActivity() {
         private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int) {
             soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             flecha.startAnimation(animation)
-            val direccion = oldValue
-            recyclerView.scrollToPosition(direccion)
-            isFocus(direccion)
+            recyclerView.scrollToPosition(oldValue)
+            isFocus(oldValue)
             val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
-            smoothScroller.targetPosition = direccion
+            smoothScroller.targetPosition = oldValue
             recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
             positionActualLvs = 0
             lbArtist.isSelected = true
@@ -1200,17 +1379,21 @@ class SelectSong : AppCompatActivity() {
             lbLvActive.text = lv.level
             moveIndicatorToPosition(positionActualLvs)
             currentLevel = lv.level
-            lbBestScore.text = listChannelScores[positionActualLvs].puntaje
+            lbBestScore.text = listSongScores[positionActualLvs].puntaje
             currentScore = lbBestScore.text.toString()
 
             currentBestGrade = getBitMapGrade(positionActualLvs)
             imgBestGrade.setImageBitmap(currentBestGrade)
             playerSong.level = lv.level
+
+            txOffset.text = if(listSongScores[positionActualLvs].offset != "0") listSongScores[positionActualLvs].offset else valueOffset.toString()
+            //valueOffset = txOffset.text.toString().toLong()
+
         }
 
         private fun isFocus (position: Int){
-            //val item = listItems[position]
             val item = listItemsKsf[position]
+            currentPathSong = item.rutaSong
             var isVideo = true
             timer?.cancel()
             timer = object : CountDownTimer(10000, 1000) {
@@ -1220,22 +1403,27 @@ class SelectSong : AppCompatActivity() {
                     isTimerRunning = false
                 }
             }
-            currentSong = item.title
-            listChannelScores = db.getChannelScores(db.readableDatabase, currentChannel, currentSong)
-            if(listChannelScores.isEmpty()){
-                for (cancion in listChannels[positionCurrentChannel].listCancionesKsf) {
-                    for (nivel in cancion.listKsf) {
-                        db.insertNivel(
-                            canal = listChannels[positionCurrentChannel].nombre,
-                            cancion = cancion.title,
-                            nivel = nivel.level,
-                            puntaje = "0",
-                            grade = ""
-                        )
-                    }
-                }
-            }
 
+            //txOffset.text = "0"
+            //valueOffset = txOffset.text.toString().toLong()
+
+            txOffset.text = valueOffset.toString()
+
+            currentSong = item.title
+            listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
+            if(listSongScores.isEmpty()){
+                for (nivel in item.listKsf) {
+                    db.insertNivel(
+                        canal = currentChannel,
+                        cancion = item.title,
+                        nivel = nivel.level,
+                        puntaje = "0",
+                        grade = "",
+                        offset = "0"
+                    )
+                }
+                listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
+            }
 
             //if(isFileExists(File(item.rutaPrevVideo))){
             if(isFileExists(File(item.rutaPreview))){
@@ -1248,8 +1436,12 @@ class SelectSong : AppCompatActivity() {
                 }
                 if(isVideo){
                     video_fondo.setVideoPath(item.rutaPreview)
+                    video_fondo.setOnPreparedListener { mediaPlayer ->
+                        mediaPlayer.setVolume(0f, 0f)
+                    }
                     video_fondo.visibility = View.VISIBLE
                     imgPrev.visibility = View.GONE
+
                     //val retriever = MediaMetadataRetriever()
                     //retriever.setDataSource(item.rutaPreview)
                     video_fondo.start()
@@ -1314,11 +1506,12 @@ class SelectSong : AppCompatActivity() {
                     isTimerRunning = true
                 }
             }
+            /*
             if(currentVideoPosition != 0){
                 mediPlayer.seekTo(currentVideoPosition)
                 mediPlayer.start()
             }
-
+            */
             if(item.title == ""){
                 lbNameSong.text = "NO TITLE"
             }else{
@@ -1349,9 +1542,6 @@ class SelectSong : AppCompatActivity() {
             ): Int {
                 return boxStart + (boxEnd - boxStart) / 2 - (viewStart + (viewEnd - viewStart) / 2)
             }
-            /*override fun calculateSpeedPerPixel(displayMetrics: DisplayMetrics): Float {
-                return 125f / displayMetrics.densityDpi
-            }*/
         }
 
         private fun isFocusCommandWindow (position: Int){
@@ -1430,21 +1620,6 @@ class SelectSong : AppCompatActivity() {
                 offscreenPageLimit = 3
                 (getChildAt(0) as RecyclerView).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
             }
-        }
-
-        class CenterSmoothScrollerCommandWindow(context: Context?) : LinearSmoothScroller(context) {
-            override fun calculateDtToFit(
-                viewStart: Int,
-                viewEnd: Int,
-                boxStart: Int,
-                boxEnd: Int,
-                snapPreference: Int,
-            ): Int {
-                return boxStart + (boxEnd - boxStart) / 2 - (viewStart + (viewEnd - viewStart) / 2)
-            }
-            /*override fun calculateSpeedPerPixel(displayMetrics: DisplayMetrics): Float {
-                return 125f / displayMetrics.densityDpi
-            }*/
         }
 
         private fun llenaLvs(listLvs : MutableList<Lvs>){
@@ -1601,10 +1776,12 @@ class SelectSong : AppCompatActivity() {
             super.onPause()
             handler.removeCallbacks(runnable)
             handlerContador.removeCallbacks(runnableContador)
+            //mediPlayer.pause()
         }
 
         override fun onResume() {
             super.onResume()
+            //mediPlayer.start()
             recyclerView.scrollToPosition(oldValue)
             isFocus(oldValue)
             val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
@@ -1612,11 +1789,11 @@ class SelectSong : AppCompatActivity() {
             recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
             resetRunnable()
             detenerContador()
+            //mediPlayer.start()
         }
 
         override fun onDestroy() {
             super.onDestroy()
-
         }
 
         override fun onWindowFocusChanged(hasFocus: Boolean) {

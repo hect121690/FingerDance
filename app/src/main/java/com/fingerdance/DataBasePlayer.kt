@@ -19,6 +19,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         const val COLUMN_NIVEL = "nivel"
         const val COLUMN_PUNTAJE = "puntaje"
         const val COLUMN_GRADE = "grade"
+        const val COLUMN_OFFSET = "column_offset"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -28,7 +29,8 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COLUMN_CANCION TEXT,
                 $COLUMN_NIVEL TEXT,
                 $COLUMN_PUNTAJE TEXT,
-                $COLUMN_GRADE TEXT
+                $COLUMN_GRADE TEXT,
+                $COLUMN_OFFSET TEXT
             )
         """
         db.execSQL(createNivelesTable)
@@ -39,16 +41,13 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         onCreate(db)
     }
 
-    fun insertNivel(canal: String, cancion: String, nivel: String, puntaje: String, grade: String) {
+    fun insertNivel(canal: String, cancion: String, nivel: String, puntaje: String, grade: String, offset: String) {
         val db = this.writableDatabase
-
-        // Verifica si ya existe el nivel en esa canción y canal
         val cursor = db.rawQuery(
-            "SELECT 1 FROM $TABLE_NIVELES WHERE $COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ? AND $COLUMN_GRADE = ?",
-            arrayOf(canal, cancion, nivel, grade)
+            "SELECT 1 FROM $TABLE_NIVELES WHERE $COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ? AND $COLUMN_GRADE = ? AND $COLUMN_OFFSET = ?",
+            arrayOf(canal, cancion, nivel, grade, offset)
         )
 
-        // Si el cursor está vacío, entonces el registro no existe y lo insertamos
         if (!cursor.moveToFirst()) {
             val values = ContentValues().apply {
                 put(COLUMN_CANAL, canal)
@@ -56,6 +55,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 put(COLUMN_NIVEL, nivel)
                 put(COLUMN_PUNTAJE, puntaje)
                 put(COLUMN_GRADE, grade)
+                put(COLUMN_OFFSET, offset)
             }
             db.insert(TABLE_NIVELES, null, values)
         }
@@ -64,7 +64,20 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.close()
     }
 
-    // Actualizar puntaje en la tabla "niveles"
+    fun updateOffset(canal: String, cancion: String, nivel: String, offset: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_OFFSET, offset)
+        }
+        db.update(
+            TABLE_NIVELES, values,
+            "$COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ?",
+            arrayOf(canal, cancion, nivel)
+        )
+
+        db.close()
+    }
+
     fun updatePuntaje(canal: String, cancion: String, nivel: String, nuevoPuntaje: String, nuevoGrade: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
@@ -80,11 +93,11 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.close()
     }
 
-    fun getChannelScores(db: SQLiteDatabase, canal: String, cancion: String): Array<ObjPuntaje> {
+    fun getSongScores(db: SQLiteDatabase, canal: String, cancion: String): Array<ObjPuntaje> {
         val puntajes = arrayListOf<ObjPuntaje>()
 
         val cursor = db.rawQuery(
-            "SELECT puntaje, grade FROM niveles WHERE canal = ? AND cancion = ?",
+            "SELECT puntaje, grade, column_offset FROM niveles WHERE canal = ? AND cancion = ?",
             arrayOf(canal, cancion)
         )
 
@@ -93,7 +106,8 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             do {
                 val punt = cursor.getString(cursor.getColumnIndexOrThrow("puntaje")).toString()
                 val grad = cursor.getString(cursor.getColumnIndexOrThrow("grade")).toString()
-                val obj = ObjPuntaje(puntaje = punt, grade = grad)
+                val offs = cursor.getString(cursor.getColumnIndexOrThrow("column_offset")).toString()
+                val obj = ObjPuntaje(puntaje = punt, grade = grad, offset = offs)
                 puntajes.add(obj)
             } while (cursor.moveToNext())
         }

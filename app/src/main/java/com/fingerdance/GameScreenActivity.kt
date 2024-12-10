@@ -15,7 +15,6 @@ import android.os.Looper
 import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.AccelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -43,11 +42,8 @@ var combo = 0
 var combo_miss = 0
 
 private lateinit var img_JudgeLetter : ImageView
-
 private lateinit var img_combo : ImageView
-
 private lateinit var img_count_combo : ImageView
-
 private lateinit var imgJudgeCompleto : LinearLayout
 
 private var fadeOutHandler: Handler? = null
@@ -59,6 +55,20 @@ private val widthJudges = width / 2
 private val heightJudges = widthJudges / 6
 
 lateinit var resultSong: ResultSong
+
+val thisHandler = Handler(Looper.getMainLooper())
+
+private val interpolator = LinearInterpolator()
+private val animatorSet = AnimatorSet()
+private lateinit var expandX : ObjectAnimator
+private lateinit var expandY : ObjectAnimator
+//private lateinit var contractX : ObjectAnimator
+//private lateinit var contractY : ObjectAnimator
+private var fadeSet = AnimatorSet()
+private lateinit var fadeOut : ObjectAnimator
+private lateinit var flattenY : ObjectAnimator
+
+
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,9 +77,17 @@ open class GameScreenActivity : AndroidApplication() {
         gdxContainer = findViewById(R.id.gdxContainer)
         gdxContainer.layoutParams = RelativeLayout.LayoutParams(width, height)
 
+        if(mediPlayer.isPlaying){
+            mediPlayer.stop()
+        }
+
         resultSong = ResultSong()
         addVideoBackground()
-        //getExpandRecepts()
+
+        thisHandler.postDelayed({
+            countAdd ++
+            themes.edit().putInt("countAdd", countAdd).apply()
+        }, 20000)
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
@@ -79,9 +97,20 @@ open class GameScreenActivity : AndroidApplication() {
             (gdxView).holder.setFormat(PixelFormat.TRANSLUCENT)
         }
         gdxContainer.addView(gdxView)
-
         initJugde()
+        imgJudgeCompleto.bringToFront()
 
+    }
+
+    val uiHandler = Handler(Looper.getMainLooper()) { msg ->
+        when (msg.what) {
+            0 -> getPerfect()
+            1 -> getGreat()
+            2 -> getGood()
+            3 -> getBad()
+            4 -> getMiss()
+        }
+        true
     }
 
     fun getPerfect(){
@@ -133,49 +162,23 @@ open class GameScreenActivity : AndroidApplication() {
             updateCombo(combo_miss, true)
         }
         showExpandJudge(imgJudgeCompleto)
-    }
 
-    private fun initJugde() {
-        imgJudgeCompleto = findViewById(R.id.imgJudgeCombo)
-        imgJudgeCompleto.layoutParams = RelativeLayout.LayoutParams(widthJudges, heightJudges * 3)
-
-        img_JudgeLetter = ImageView(this)
-        img_JudgeLetter.layoutParams = RelativeLayout.LayoutParams(widthJudges, heightJudges)
-        img_combo = ImageView(this)
-        img_combo.layoutParams = RelativeLayout.LayoutParams(widthJudges, heightJudges)
-
-        img_count_combo = ImageView(this)
-
-        imgJudgeCompleto.x = widthJudges - (widthJudges / 2f)
-        imgJudgeCompleto.y = height / 2f - heightJudges * 3
-
-        imgJudgeCompleto.addView(img_JudgeLetter)
-        imgJudgeCompleto.addView(img_combo)
-        imgJudgeCompleto.addView(img_count_combo)
-        imgJudgeCompleto.visibility = View.INVISIBLE
-
-    }
-
-    private fun isFileExists(file: File): Boolean {
-        return file.exists() && !file.isDirectory
     }
 
     private fun updateCombo(numero: Int, isMiss: Boolean = false) {
         val numeroStr = if (numero < 100) String.format("%03d", numero) else numero.toString()
-        val digitos = numeroStr.map { it.toString().toInt() }
-        val bitmaps = mutableListOf<Bitmap>()
-        for (digito in digitos) {
-            bitmaps.add(dividirPNG(digito, isMiss))
+        val bitmaps = Array(numeroStr.length) { index ->
+            val digito = numeroStr[index].toString().toInt()
+            dividirPNG(digito, isMiss)
         }
-        val bitmapNumeroCompleto = combinarBitmaps(bitmaps)
-        img_count_combo.setImageBitmap(bitmapNumeroCompleto)
+        img_count_combo.setImageBitmap(combinarBitmaps(bitmaps))
     }
 
     private fun dividirPNG(digito: Int, isMiss: Boolean): Bitmap {
         return if (isMiss) numberBitmapsMiss[digito] else numberBitmaps[digito]
     }
 
-    private fun combinarBitmaps(bitmaps: List<Bitmap>): Bitmap {
+    private fun combinarBitmaps(bitmaps: Array<Bitmap>): Bitmap {
         val anchoTotal = bitmaps.sumOf { it.width }
         val altura = bitmaps[0].height
 
@@ -196,45 +199,24 @@ open class GameScreenActivity : AndroidApplication() {
         linearLayout.alpha = 1f
 
         fadeOutHandler?.removeCallbacks(fadeOutRunnable!!)
-
         linearLayout.clearAnimation()
 
-        val expandX = ObjectAnimator.ofFloat(linearLayout, "scaleX", 1f, 1.3f)
-        val contractX = ObjectAnimator.ofFloat(linearLayout, "scaleX", 1.3f, 1f)
-
-        val expandY = ObjectAnimator.ofFloat(linearLayout, "scaleY", 1f, 1.3f)
-        val contractY = ObjectAnimator.ofFloat(linearLayout, "scaleY", 1.3f, 1f)
-
         expandX.duration = 150
-        contractX.duration = 150
         expandY.duration = 150
-        contractY.duration = 150
-
-        val interpolator = LinearInterpolator()
 
         expandX.interpolator = interpolator
-        contractX.interpolator = interpolator
         expandY.interpolator = interpolator
-        contractY.interpolator = interpolator
 
-        val animatorSet = AnimatorSet()
         animatorSet.play(expandX).with(expandY)
-        animatorSet.play(contractX).with(contractY).after(expandX)
 
         animatorSet.start()
 
         fadeOutHandler = Handler(Looper.getMainLooper())
         fadeOutRunnable = Runnable {
-            val fadeOut = ObjectAnimator.ofFloat(linearLayout, "alpha", 1f, 0f)
-            val flattenY = ObjectAnimator.ofFloat(linearLayout, "scaleY", 1f, 0f)
-
-            fadeOut.duration = 1000
-            flattenY.duration = 1000
-
-            fadeOut.interpolator = AccelerateInterpolator()  // Hacer que el desvanecimiento sea suave
-            flattenY.interpolator = AccelerateInterpolator()
-
-            val fadeSet = AnimatorSet()
+            fadeOut.duration = 500
+            flattenY.duration = 500
+            //fadeOut.interpolator = AccelerateInterpolator()
+            //flattenY.interpolator = AccelerateInterpolator()
             fadeSet.playTogether(fadeOut, flattenY)
             fadeSet.start()
 
@@ -250,6 +232,39 @@ open class GameScreenActivity : AndroidApplication() {
         fadeOutHandler?.postDelayed(fadeOutRunnable!!, 1000)
     }
 
+    private fun initJugde() {
+        imgJudgeCompleto = findViewById(R.id.imgJudgeCombo)
+        imgJudgeCompleto.layoutParams = RelativeLayout.LayoutParams(widthJudges, heightJudges * 3)
+
+        img_JudgeLetter = ImageView(this)
+        img_combo = ImageView(this)
+        img_count_combo = ImageView(this)
+
+        img_JudgeLetter.layoutParams = RelativeLayout.LayoutParams(widthJudges, heightJudges)
+        img_combo.layoutParams = RelativeLayout.LayoutParams(widthJudges, (heightJudges * 0.7).toInt())
+        img_count_combo.layoutParams = RelativeLayout.LayoutParams(widthJudges, (heightJudges))
+
+        imgJudgeCompleto.x = widthJudges - (widthJudges / 2f)
+        imgJudgeCompleto.y = height / 2f - heightJudges * 3
+
+        imgJudgeCompleto.addView(img_JudgeLetter)
+        imgJudgeCompleto.addView(img_combo)
+        imgJudgeCompleto.addView(img_count_combo)
+
+        imgJudgeCompleto.visibility = View.INVISIBLE
+
+        expandX = ObjectAnimator.ofFloat(imgJudgeCompleto, "scaleX", 1.4f, 1.0f)
+        expandY = ObjectAnimator.ofFloat(imgJudgeCompleto, "scaleY", 1.4f, 1.0f)
+
+        fadeOut = ObjectAnimator.ofFloat(imgJudgeCompleto, "scaleX", 1f, 1.5f)
+        flattenY = ObjectAnimator.ofFloat(imgJudgeCompleto, "scaleY", 1f, 0f)
+
+    }
+
+    private fun isFileExists(file: File): Boolean {
+        return file.exists() && !file.isDirectory
+    }
+
     private fun addVideoBackground() {
         videoViewBgaoff = findViewById(R.id.videoViewBgaoff)
         videoViewBgaoff.isVisible = false
@@ -263,6 +278,9 @@ open class GameScreenActivity : AndroidApplication() {
                 videoViewBgaoff.isVisible = false
                 videoViewBgaOn.isVisible = true
                 videoViewBgaOn.setVideoPath(playerSong.rutaVideo)
+                videoViewBgaOn.setOnPreparedListener { mediaPlayer ->
+                    mediaPlayer.setVolume(0f, 0f)
+                }
                 isVideo = true
             }else{
                 videoViewBgaoff.isVisible = true
@@ -283,10 +301,12 @@ open class GameScreenActivity : AndroidApplication() {
         }
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-            val intent = Intent(this, DanceGrade()::class.java)
-            startActivity(intent)
-            this.finish()
 
+            thisHandler.postDelayed({
+                val intent = Intent(this, DanceGrade()::class.java)
+                startActivity(intent)
+                this.finish()
+            }, 2500)
         }
     }
 
@@ -301,6 +321,8 @@ open class GameScreenActivity : AndroidApplication() {
         curCombo = 0
         combo = 0
         combo_miss = 0
+        uiHandler.removeCallbacksAndMessages(null)
+        thisHandler.removeCallbacksAndMessages(null)
     }
 
     fun breakDance(){
@@ -326,7 +348,6 @@ open class GameScreenActivity : AndroidApplication() {
             videoViewBgaOn.pause()
         } else {
             videoViewBgaoff.pause()
-
         }
     }
 

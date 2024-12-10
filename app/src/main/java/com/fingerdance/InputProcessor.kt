@@ -15,7 +15,7 @@ class InputProcessor() : InputAdapter() {
     private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
 
     val getKeyBoard = IntArray(padPositions.size) { KEY_NONE }
-    private val pointerToPadMap = mutableMapOf<Int, Int>()
+    private var pointerToPadMap = mutableMapOf<Int, Int>()
     private var hasStateChanged = false
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
@@ -64,9 +64,7 @@ class InputProcessor() : InputAdapter() {
     }
 
     fun update() {
-        // Actualizar solo si ha habido cambios en los estados
         if (!hasStateChanged) return
-
         for (i in getKeyBoard.indices) {
             when (getKeyBoard[i]) {
                 KEY_DOWN -> getKeyBoard[i] = KEY_PRESS
@@ -87,6 +85,15 @@ class InputProcessor() : InputAdapter() {
             batch.draw(texture, x, y, widthBtns, heightBtns)
         }
     }
+
+    fun resetState() {
+        for (i in getKeyBoard.indices) {
+            getKeyBoard[i] = KEY_NONE
+        }
+        pointerToPadMap = mutableMapOf<Int, Int>()
+        hasStateChanged = true
+    }
+
 
     fun dispose() {
         btnOffPress.dispose()

@@ -1,5 +1,7 @@
 package com.fingerdance
 
+import android.os.Message
+import android.os.SystemClock
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Sprite
@@ -35,10 +37,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_PRESS_CHK: Byte = 16
         const val NOTE_MISS_CHK: Byte = 32
 
-        private var ZONE_PERFECT: Long = if(playerSong.hj) 20 else 50
-        private var ZONE_GREAT: Long = if(playerSong.hj) 50 else 80
-        private var ZONE_GOOD: Long = if(playerSong.hj) 80 else 100
-        private var ZONE_BAD: Long = if(playerSong.hj) 100 else 130
+        private var ZONE_PERFECT: Long = if(playerSong.hj) 20 else 70
+        private var ZONE_GREAT: Long = if(playerSong.hj) 50 else 100
+        private var ZONE_GOOD: Long = if(playerSong.hj) 80 else 120
+        private var ZONE_BAD: Long = if(playerSong.hj) 100 else 150
 
         const val JUDGE_PERFECT = 0
         const val JUDGE_GREAT = 1
@@ -94,7 +96,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     enum class SetSpeedType { SET, ADD, SUB }
 
     var gauge = 0f
-    private var m_fCurBPM  = 0.0
+    private var m_fCurBPM  = 0F
     private var arrowFrame = 0
     private var iCurPtnNum = 0
     //private var iLineNo = 0
@@ -111,6 +113,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private var yFlare = medidaFlechas - (medidaFlechas * 2f)
 
     private val inputProcessor = InputProcessor()
+
 
     private var speed = playerSong.speed.replace("X", "").toFloat()
 
@@ -177,14 +180,21 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
         arrArrowsBottom = arrayOf(ldBottomArrowFrame, luBottomArrowFrame, ceBottomArrowFrame, ruBottomArrowFrame, rdBottomArrowFrame)
 
+        inputProcessor.resetState()
     }
     val timeToBpm = 360
     val timeToCalculate = 360
     var timeToPresiscion = 360
 
+    private var isChangedSpeed = false
+    private var currentChangedSpeed = 0f
+    private var currentTimeToChangedSpeed = 0L
+    private var elapsedTime = 0L
+    private var isAddSpeed = false
+
     fun render(delta: Long) {
         var time = delta
-        val timeCom = System.currentTimeMillis()
+        val timeCom = SystemClock.uptimeMillis() //System.currentTimeMillis()
         val bDrawLong = BooleanArray(10) {false}
         val bDrawLongPress = BooleanArray(10){false}
         val iLongTop = LongArray(10){0}
@@ -213,7 +223,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     var currentPattern = pPtnCur
                     var iPtnNoCopy = iPtnNo
 
-                    while (currentPattern.fBPM == 0.0) {
+                    while (currentPattern.fBPM == 0F) {
                         iPtnNoCopy--
                         currentPattern = ksf.patterns[iPtnNoCopy]
                     }
@@ -230,7 +240,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     if(time >=pPtnCur.timePos + timeToBpm && time < pPtnNext.timePos + timeToBpm){
                         var currentPattern = pPtnCur
                         var iPtnNoCopy = iPtnNo
-                        while (currentPattern.fBPM == 0.0){
+                        while (currentPattern.fBPM == 0F){
                             iPtnNoCopy--
                             currentPattern = ksf.patterns[iPtnNoCopy]
                         }
@@ -241,6 +251,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 }
             }
         }
+
         iCurPtnNum = iPtnNowNo
 
         val fGapPerStep  = (STEPSIZE * speed)
@@ -261,60 +272,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             iPtnBottom = iPtnTop
             iPtnTop = iPtnBottom - ((iLineCnt * fGapPerStep / fPtnTick)).toLong()
 
-            for(iLineNo in 0 until iLineCnt){
-                val iNoteTop = (iPtnTop + (iLineNo * fGapPerStep / fPtnTick) + STEPSIZE).toInt()
-                if(iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height){
-                    for(iStepNo in 0 until m_iStepWidth){
-                        val nowStep = pPtnCur.vLine[iLineNo].step[iStepNo]
-                        if (nowStep and NOTE_NOTE_CHK != 0.toByte()){
-                            drawNote(iStepNo, iNoteTop)
-                        }else if (nowStep and NOTE_LONG_CHK != 0.toByte()) {
-                            if (nowStep and NOTE_START_CHK != 0.toByte()) {
-                                if (nowStep and NOTE_PRESS_CHK != 0.toByte()) {
-                                    bDrawLong[iStepNo] = true
-                                    iLongTop[iStepNo] = STEPSIZE.toLong()
-                                    bDrawLongPress[iStepNo] = true
-                                } else {
-                                    bDrawLong[iStepNo] = true
-                                    iLongTop[iStepNo] = iNoteTop.toLong()
-                                }
-                                //drawNote(iStepNo, iLongTop[iStepNo].toInt())
-                            } else if (nowStep and NOTE_END_CHK != 0.toByte()) {
-                                if (nowStep and NOTE_PRESS_CHK != 0.toByte()) {
-                                    drawLongNote(iStepNo, STEPSIZE, iNoteTop)
-                                    bDrawLongPress[iStepNo] = true
-                                } else {
-                                    if (bDrawLong[iStepNo]) {
-                                        bDrawLong[iStepNo] = false
-                                    }
-                                    drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
-                                }
-                            } else {
-                                if (!bDrawLong[iStepNo]) {
-                                    bDrawLong[iStepNo] = true
-                                    iLongTop[iStepNo] = -STEPSIZE.toLong()
-                                }
-                            }
-                        }
-                    }
-                }else if(iNoteTop >= height){
-                    break
-                }
-
-            }
-        }
-
-        iPtnBottom = adaptValue((((ksf.patterns[iPtnNowNo].timePos + timeToCalculate) - time) * m_fCurBPM * speed * 0.001f).toLong())
-        for (iPtnNo in iPtnNowNo until ksf.patterns.size) {
-            if (iPtnBottom > Gdx.graphics.height)
-                break
-            val pPtnCur  = ksf.patterns[iPtnNo]
-            val fPtnTick = pPtnCur.iTick
-            val iLineCnt = pPtnCur.vLine.size
-            iPtnTop = iPtnBottom
-            iPtnBottom = iPtnTop + (iLineCnt * fGapPerStep  / fPtnTick).toLong()
             for (iLineNo in 0 until iLineCnt) {
-                val iNoteTop = (iPtnTop + (iLineNo * fGapPerStep  / fPtnTick) + STEPSIZE).toInt()
+                val iNoteTop = (iPtnTop + (iLineNo * fGapPerStep / fPtnTick) + STEPSIZE).toInt()
                 if (iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height) {
                     for (iStepNo in 0 until m_iStepWidth) {
                         val nowstep = pPtnCur.vLine[iLineNo].step[iStepNo]
@@ -330,15 +289,18 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     bDrawLong[iStepNo] = true
                                     iLongTop[iStepNo] = iNoteTop.toLong()
                                 }
-                                //drawNote(iStepNo, iLongTop[iStepNo].toInt())
+                                drawNote(iStepNo, iLongTop[iStepNo].toInt())
                             } else if (nowstep and NOTE_END_CHK != 0.toByte()) {
                                 if (nowstep and NOTE_PRESS_CHK != 0.toByte()) {
+                                    drawNote(iStepNo, STEPSIZE)
+                                    drawNote(iStepNo, iNoteTop)
                                     drawLongNote(iStepNo, STEPSIZE, iNoteTop)
                                     bDrawLongPress[iStepNo] = true
                                 } else {
                                     if (bDrawLong[iStepNo]) {
                                         bDrawLong[iStepNo] = false
                                     }
+                                    drawNote(iStepNo, iNoteTop)
                                     drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
                                 }
                             } else {
@@ -349,12 +311,65 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             }
                         }
                     }
-                }else if (iNoteTop >= Gdx.graphics.height) {
+                } else if (iNoteTop >= Gdx.graphics.height) {
                     break
                 }
             }
         }
 
+        iPtnBottom = adaptValue((((ksf.patterns[iPtnNowNo].timePos + timeToCalculate) - time) * m_fCurBPM * speed * 0.001f).toLong())
+
+        for (iPtnNo in iPtnNowNo until ksf.patterns.size) {
+            if (iPtnBottom > Gdx.graphics.height) break
+            val pPtnCur = ksf.patterns[iPtnNo]
+            val fPtnTick = pPtnCur.iTick.toFloat()
+            val iLineCnt = pPtnCur.vLine.size
+            iPtnTop = iPtnBottom
+            iPtnBottom = iPtnTop + (iLineCnt * fGapPerStep / fPtnTick).toLong().toInt()
+            for (iLineNo in 0 until iLineCnt) {
+                val iNoteTop = (iPtnTop + (iLineNo * fGapPerStep / fPtnTick) + STEPSIZE).toInt()
+                if (iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height) {
+                    for (iStepNo in 0 until m_iStepWidth) {
+                        val nowstep = pPtnCur.vLine[iLineNo].step[iStepNo]
+                        if (nowstep and NOTE_NOTE_CHK != 0.toByte()) {
+                            drawNote(iStepNo, iNoteTop)
+                        } else if (nowstep and NOTE_LONG_CHK != 0.toByte()) {
+                            if (nowstep and NOTE_START_CHK != 0.toByte()) {
+                                if (nowstep and NOTE_PRESS_CHK != 0.toByte()) {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = STEPSIZE.toLong()
+                                    bDrawLongPress[iStepNo] = true
+                                } else {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = iNoteTop.toLong()
+                                }
+                                drawNote(iStepNo, iLongTop[iStepNo].toInt())
+                            } else if (nowstep and NOTE_END_CHK != 0.toByte()) {
+                                if (nowstep and NOTE_PRESS_CHK != 0.toByte()) {
+                                    drawNote(iStepNo, STEPSIZE)
+                                    drawNote(iStepNo, iNoteTop)
+                                    drawLongNote(iStepNo, STEPSIZE, iNoteTop)
+                                    bDrawLongPress[iStepNo] = true
+                                } else {
+                                    if (bDrawLong[iStepNo]) {
+                                        bDrawLong[iStepNo] = false
+                                    }
+                                    drawNote(iStepNo, iNoteTop)
+                                    drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
+                                }
+                            } else {
+                                if (!bDrawLong[iStepNo]) {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = -STEPSIZE.toLong()
+                                }
+                            }
+                        }
+                    }
+                } else if (iNoteTop >= Gdx.graphics.height) {
+                    break
+                }
+            }
+        }
         for (iStepNo in 0 until m_iStepWidth) {
             if (bDrawLong[iStepNo]) {
                 drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), Gdx.graphics.height)
@@ -388,10 +403,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     )
 
     private var stepWidth = 5
-    private val btnPress = BooleanArray(10)
+    //private val btnPress = BooleanArray(10)
     val GaugeIncNormal = floatArrayOf(5f, 4f, 3f, -4f, -5f)
     fun updateStepData(time: Long) {
-        val timeCom = System.currentTimeMillis()
+        val timeCom = SystemClock.uptimeMillis() //System.currentTimeMillis()
         var iptn: Int
         val iptnc = ksf.patterns.size
         var line_num_s: Int
@@ -403,17 +418,16 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         val key = IntArray(10)
 
         var ptn_now : KsfProccess.Pattern
-        val keyboard = inputProcessor.getKeyBoard
 
         for(x in 0 until m_iStepWidth){
-            key[x] = keyboard[x]
+            key[x] = inputProcessor.getKeyBoard[x]
         }
 
         for (x in 0 until stepWidth) {
             if (key[x] == KEY_DOWN ) {
-                btnPress[x] = true
+                //btnPress[x] = true
                 for (iptn in 0 until iptnc) {
-                    val ptn_now = ksf.patterns[iptn]
+                    ptn_now = ksf.patterns[iptn]
                     val timepos = ptn_now.timePos + timeToPresiscion
                     if (time < timepos - ZONE_BAD) {
                         break
@@ -421,24 +435,26 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     if (time > timepos + ptn_now.timeLen + ZONE_BAD){
                         continue
                     }
-                    if (ptn_now.fBPM == 0.0) {
+                    if (ptn_now.fBPM == 0F) {
                         continue
                     }
 
                     line_num_s = ((time - timepos - ZONE_BAD) / 60000f * ptn_now.fBPM * ptn_now.iTick).toInt()
                     line_num_c = ptn_now.vLine.size
-                    if (line_num_s < 0)
+                    //revisar esta parte
+                    if (line_num_s < 0) {
                         line_num_s = 0
+                    }
                     for (line_num in line_num_s until line_num_c) {
                         line_mpos = (60000 / ptn_now.fBPM * line_num / ptn_now.iTick).toLong() + timepos
                         judge_time = abs(line_mpos - time)
                         if (judge_time < ZONE_BAD) {
-                            var nnote = ptn_now.vLine[line_num].step[x]
+                            val nnote = ptn_now.vLine[line_num].step[x]
                             if (nnote and NOTE_MISS_CHK != 0.toByte()){
                                 continue
                             }
                             if(nnote == NOTE_NOTE) {
-                                nnote = NOTE_NONE
+                                ptn_now.vLine[line_num].step[x] = NOTE_NONE
                                 ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_NONE
                                 judge = getJudgement(judge_time)
                                 newFlare(x, timeCom)
@@ -453,26 +469,26 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
                             }else if(nnote == NOTE_LSTART){
                                 var step_to_change: Byte
-                                nnote = NOTE_NONE
+                                ptn_now.vLine[line_num].step[x] = NOTE_NONE
                                 ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_NONE
                                 if(line_num + 1 == line_num_c){
                                     var next_long_ptn = iptn + 1
                                     while(ksf.patterns[next_long_ptn].vLine.isEmpty()){
-                                        ++ next_long_ptn
+                                        next_long_ptn++
                                     }
                                     step_to_change = ksf.patterns[next_long_ptn].vLine.first().step[x]
                                     LONGNOTE[x].ptn = next_long_ptn
                                     LONGNOTE[x].line = 0
                                 }else{
                                     step_to_change = ptn_now.vLine[line_num + 1].step[x]
-                                    LONGNOTE[x].ptn = iptn;
-                                    LONGNOTE[x].line = line_num + 1;
+                                    LONGNOTE[x].ptn = iptn
+                                    LONGNOTE[x].line = line_num + 1
                                 }
                                 if(step_to_change == NOTE_LNOTE){
                                     step_to_change = NOTE_LSTART_PRESS
                                     ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
                                 }else if(step_to_change==NOTE_LEND){
-                                    step_to_change = NOTE_LEND_PRESS;
+                                    step_to_change = NOTE_LEND_PRESS
                                     ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LEND_PRESS
                                 }
                                 LONGNOTE[x].pressed = true
@@ -504,16 +520,16 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 }
             }
             else if (key[x] == KEY_PRESS ) {
-                btnPress[x] = true
+                //btnPress[x] = true
                 if (LONGNOTE[x].pressed) {
-                    var lineNum = LONGNOTE[x].line
-                    var iptn = LONGNOTE[x].ptn
-                    var ptnNow = ksf.patterns[iptn]
-                    val lineMpos = (60000 / ptnNow.fBPM * lineNum / ptnNow.iTick).toLong() + ptnNow.timePos + timeToPresiscion
-                    if (lineMpos <= time) {
-                        ptnNow.vLine[lineNum].step[x] = NOTE_NONE
-                        ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_NONE
-                        if (lineNum + 1 == ptnNow.vLine.size) {
+                    line_num = LONGNOTE[x].line
+                    iptn = LONGNOTE[x].ptn
+                    ptn_now = ksf.patterns[iptn]
+                    line_mpos = (60000 / ptn_now.fBPM * line_num / ptn_now.iTick).toLong() + ptn_now.timePos + timeToPresiscion
+                    if (line_mpos <= time) {
+                        ptn_now.vLine[line_num].step[x] = NOTE_NONE
+                        ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_NONE
+                        if (line_num + 1 == ptn_now.vLine.size) {
                             var nextLongPtn = LONGNOTE[x].ptn + 1
                             while (ksf.patterns[nextLongPtn].vLine.isEmpty()) {
                                 nextLongPtn++
@@ -523,21 +539,22 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         } else {
                             LONGNOTE[x].line++
                         }
-                        lineNum = LONGNOTE[x].line
+                        line_num = LONGNOTE[x].line
                         iptn = LONGNOTE[x].ptn
-                        ptnNow = ksf.patterns[iptn]
-                        when (ptnNow.vLine[lineNum].step[x]) {
+                        ptn_now = ksf.patterns[iptn]
+                        when (ptn_now.vLine[line_num].step[x]) {
                             NOTE_LEND -> {
-                                ptnNow.vLine[lineNum].step[x] = NOTE_LEND_PRESS
-                                ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] =  NOTE_LEND_PRESS
+                                ptn_now.vLine[line_num].step[x] = NOTE_LEND_PRESS
+                                ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LEND_PRESS
                             }
                             NOTE_LNOTE -> {
-                                ptnNow.vLine[lineNum].step[x] = NOTE_LSTART_PRESS
+                                getJudge(0)
+                                ptn_now.vLine[line_num].step[x] = NOTE_LSTART_PRESS
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
                             }
                             else -> {
                                 val judgeTime = LONGNOTE[x].time shr 1
-                                val judge = getJudgement(judgeTime)
+                                judge = getJudgement(judgeTime)
                                 getJudge(judge)
                                 gauge = GaugeIncNormal[judge]
                                 if(gauge >= 3){
@@ -545,7 +562,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 }else if(gauge < 0){
                                     lifeBar.decreaseLife(abs(gauge))
                                 }
-                                //newJudge(judge, SystemClock.uptimeMillis())
                                 newFlare(x, timeCom)
                                 LONGNOTE[x].pressed = false
                             }
@@ -559,6 +575,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     LONGNOTE[x].pressed = false
                     judge_time = getLongNoteEndTime(x) - time
                     if (judge_time < ZONE_BAD){
+                        judge_time = abs(judge_time)
                         judge_time += LONGNOTE[x].time
                         judge_time = judge_time shr 1
                         judge = getJudgement(judge_time)
@@ -607,7 +624,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         line_mpos = (60000 / ptn_now.fBPM * line_num / ptn_now.iTick).toLong() + timepos
                         line_mpos += ZONE_BAD
                         if (line_mpos < time) {
-                            var nnote = ptn_now.vLine[line_num].step[x]
+                            val nnote = ptn_now.vLine[line_num].step[x]
                             if (nnote and NOTE_MISS_CHK != 0.toByte()) {
                                 continue
                             }
@@ -615,7 +632,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 continue
                             }
                             if (nnote == NOTE_NOTE) {
-                                nnote = NOTE_NOTE_MISS
+                                ptn_now.vLine[line_num].step[x] = NOTE_NOTE_MISS
                                 ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_NOTE_MISS
                                 getJudge(JUDGE_MISS)
                                 gauge = GaugeIncNormal[JUDGE_MISS]
@@ -625,7 +642,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     lifeBar.decreaseLife(abs(gauge))
                                 }
                             }else if(nnote == NOTE_LSTART){
-                                nnote = NOTE_LSTART_MISS
+                                ptn_now.vLine[line_num].step[x] = NOTE_LSTART_MISS
                                 ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_LSTART_MISS
                                 getJudge(JUDGE_MISS)
                                 gauge = GaugeIncNormal[JUDGE_MISS]
@@ -635,7 +652,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     lifeBar.decreaseLife(abs(gauge))
                                 }
                             }else if(nnote == NOTE_LEND){
-                                nnote = NOTE_LEND_MISS
+                                ptn_now.vLine[line_num].step[x] = NOTE_LEND_MISS
                                 ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_LEND_MISS
                             }
                             chkPtnNum[x] = iptn
@@ -653,6 +670,51 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
+    private fun getLongNoteEndTime(x: Int): Long {
+        val ln = LONGNOTE[x]
+
+        for (iptn in ln.ptn until ksf.patterns.size) {
+            val ptn_now = ksf.patterns[iptn]
+            val lineNumC = ptn_now.vLine.size
+            val lineStart = if (iptn == ln.ptn) ln.line else 0
+
+            for (line_num in lineStart until lineNumC) {
+                val nnote = ptn_now.vLine[line_num].step[x]
+                if (nnote == NOTE_LEND || nnote == NOTE_LEND_PRESS) {
+                    val lineMpos =(60000 / ptn_now.fBPM * line_num / ptn_now.iTick).toLong() + ptn_now.timePos + timeToCalculate
+                    return lineMpos
+                }
+            }
+        }
+        return 0
+    }
+
+    private fun clearLongNote(x: Int) {
+        val ln = LONGNOTE[x]
+
+        for (iptn in ln.ptn until ksf.patterns.size) {
+            val ptnNow = ksf.patterns[iptn]
+            val lineNumC = ptnNow.vLine.size
+            val lineStart = if (iptn == ln.ptn) ln.line else 0
+
+            for (line_num in lineStart until lineNumC) {
+                val nnote = ptnNow.vLine[line_num].step[x]
+                when (nnote) {
+                    NOTE_LEND, NOTE_LEND_PRESS -> {
+                        ptnNow.vLine[line_num].step[x] = NOTE_NONE
+                        ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_NONE
+                        return
+                    }
+                    NOTE_LNOTE, NOTE_LSTART_PRESS -> {
+                        ptnNow.vLine[line_num].step[x] = NOTE_NONE
+                        ksf.patterns[iptn].vLine[line_num].step[x] = NOTE_NONE
+                    }
+                }
+            }
+        }
+    }
+
+    /*
     private fun getLongNoteEndTime(x: Int): Long {
         val ln = LONGNOTE[x]
         val iPtnc = ksf.patterns.size
@@ -691,17 +753,14 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
         }
     }
+    */
 
+
+    lateinit var message : Message
     fun getJudge(judgeType: Int) {
-        a.runOnUiThread {
-            when (judgeType) {
-                0 -> a.getPerfect()
-                1 -> a.getGreat()
-                2 -> a.getGood()
-                3 -> a.getBad()
-                4 -> a.getMiss()
-            }
-        }
+        message = Message.obtain()
+        message.what = judgeType
+        a.uiHandler.sendMessage(message)
         when (judgeType) {
             0 -> {
                 resultSong.perfect++
@@ -792,17 +851,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         if(!noEffects){
             batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, height)
             batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-            if(height > 0){
+            //if(height > 0){
                 batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
-            }
+            //}
         }else{
             if(playerSong.vanish){
                 if(posY > MEASUREVANISH){
                     batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, height)
                     batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-                    if(height > 0){
+                    //if(height > 0){
                         batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
-                    }
+                    //}
                 }
             }
             if(playerSong.ap){
@@ -822,7 +881,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
     private fun drawLongNotePress(x: Int) {
         val left = medidaFlechas * (x + 1) - (medidaFlechas * 2.1f)
-        val frame = (System.currentTimeMillis() % 299 * 6 / 300).toInt()
+        val frame = (SystemClock.uptimeMillis() % 299 * 6 / 300).toInt() //(System.currentTimeMillis() % 299 * 6 / 300).toInt()
         batch.draw(flareArrowFrame[frame], left, yFlare, widthFlare, widthFlare)
     }
 

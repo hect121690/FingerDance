@@ -34,7 +34,6 @@ import java.io.File
 
 
 class Options : AppCompatActivity(), ItemClickListener {
-
     private lateinit var bgOptions : LinearLayout
     private lateinit var titleOptions : TextView
     //private lateinit var titleTemas : TextView
@@ -67,7 +66,6 @@ class Options : AppCompatActivity(), ItemClickListener {
     private var selectedValueChannel: String? = null
 
     private lateinit var txProgressDownloadChannel : TextView
-    //private val handler = Handler(Looper.getMainLooper())
     private var progressMaxWidth = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,15 +95,18 @@ class Options : AppCompatActivity(), ItemClickListener {
         btnTemas = findViewById(R.id.btnThemes)
         btnCanciones = findViewById(R.id.btnCanciones)
         btnNoteSkins = findViewById(R.id.btnNoteSkins)
+
         btnCalibrity = findViewById(R.id.button2)
 
         btnTemas.compoundDrawableTintList = ColorStateList.valueOf(Color.WHITE)
         btnCanciones.compoundDrawableTintList = ColorStateList.valueOf(Color.WHITE)
         btnNoteSkins.compoundDrawableTintList = ColorStateList.valueOf(Color.WHITE)
 
+
         layoutTemas = findViewById(R.id.layoutThemes)
         layoutCanciones = findViewById(R.id.layoutCanciones)
         layoutNoteSkins = findViewById(R.id.layoutNoteSkins)
+
         linearTextProgressChannel = findViewById(R.id.linearTextProgressChannel)
 
         var textSize = pxToSp((width/10).toFloat(), this)
@@ -194,6 +195,8 @@ class Options : AppCompatActivity(), ItemClickListener {
 
         }
 
+
+        btnNoteSkins.isVisible = false
         btnNoteSkins.setOnClickListener {
             if(layoutNoteSkins.visibility == View.VISIBLE){
                 layoutNoteSkins.visibility = View.GONE

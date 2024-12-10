@@ -10,7 +10,7 @@ import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
 
 private lateinit var video_fondo : VideoView
-private lateinit var mediPlayer : MediaPlayer
+private lateinit var mediaPlayerBreak : MediaPlayer
 private var currentVideoPosition : Int = 0
 
 private lateinit var linearLeft: LinearLayout
@@ -28,9 +28,9 @@ class BreakDance : AppCompatActivity() {
 
         video_fondo = findViewById(R.id.videoBreak)
         video_fondo.setOnPreparedListener { mp ->
-            mediPlayer = mp
-            mediPlayer.isLooping = false
-            mediPlayer.setOnCompletionListener {
+            mediaPlayerBreak = mp
+            mediaPlayerBreak.isLooping = false
+            mediaPlayerBreak.setOnCompletionListener {
                 this.finish()
             }
         }
