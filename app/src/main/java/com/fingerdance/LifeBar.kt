@@ -1,7 +1,5 @@
 package com.fingerdance
 
-import android.app.Activity
-import android.content.Intent
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
@@ -110,12 +108,14 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
         barLifeSprite.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
         barLifeSprite.setSize(currentLife, originalHeight)
 
+
         if (currentLife <= 3) {
             a.runOnUiThread {
                 a.finish()
                 a.breakDance()
             }
         }
+
 
     }
 }

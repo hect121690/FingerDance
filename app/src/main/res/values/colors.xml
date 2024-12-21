@@ -8,7 +8,6 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-
     <!-- Colores para la combinación Moderno y Minimalista -->
     <color name="fondo_textview_moderno">#F5F5F5</color>
     <color name="progreso_textview_moderno">#2196F3</color>
@@ -17,7 +16,7 @@
 
     <!-- Colores para la combinación Vibrante y Energético -->
     <color name="fondo_textview_vibrante">#FFFFFF</color>
-    <color name="progreso_textview_vibrante">#FF5722</color>
+    <color name="progreso_textview_vibrante">#2196F3</color>
     <color name="texto_textview_vibrante">#000000</color>
     <color name="borde_textview_vibrante">#FF9800</color> <!-- Naranja Claro -->
 
@@ -26,5 +25,9 @@
     <color name="progreso_textview_elegante">#FFC107</color>
     <color name="texto_textview_elegante">#FFFFFF</color>
     <color name="borde_textview_elegante">#303F9F</color> <!-- Azul Marino Oscuro -->
+
+    <color name="primaryColor">#4CAF50</color> <!-- Verde tipo Material Design -->
+    <color name="pressedColor">#388E3C</color> <!-- Color más oscuro al presionar -->
+
 
 </resources>

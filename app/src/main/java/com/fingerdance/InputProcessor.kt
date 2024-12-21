@@ -10,7 +10,7 @@ private val KEY_DOWN = 1
 private val KEY_PRESS = 2
 private val KEY_UP = 3
 
-class InputProcessor() : InputAdapter() {
+class InputProcessor : InputAdapter() {
     private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
     private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
 
@@ -56,11 +56,24 @@ class InputProcessor() : InputAdapter() {
         return true
     }
 
-
     private fun getPadIndex(x: Float, y: Float): Int? {
-        return padPositions.indexOfFirst { pad ->
+        val visiblePadIndex = padPositions.indexOfFirst { pad ->
             x in pad[0]..(pad[0] + widthBtns) && y in pad[1]..(pad[1] + heightBtns)
         }.takeIf { it >= 0 }
+
+        if (visiblePadIndex != null) {
+            return visiblePadIndex
+        }
+
+        return when (touchAreas.indexOfFirst { pad ->
+            x in pad[0]..(pad[0] + (widthBtns / 2)) && y in pad[1]..(pad[1] + heightBtns + (heightBtns / 2))
+        }) {
+            0 -> 0
+            1 -> 4
+            2 -> 1
+            3 -> 3
+            else -> null
+        }
     }
 
     fun update() {
@@ -93,7 +106,6 @@ class InputProcessor() : InputAdapter() {
         pointerToPadMap = mutableMapOf<Int, Int>()
         hasStateChanged = true
     }
-
 
     fun dispose() {
         btnOffPress.dispose()

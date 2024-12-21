@@ -62,7 +62,7 @@ class KsfProccess {
                             if (value.endsWith(";")) {
                                 value = value.substring(0, value.length - 1)
                             }
-                            if (tag == "STEP") {
+                            if (tag == "STEP" && line!!.length == 6) {
                                 readingSteps = true
                             } else {
                                 loadInfo.add(LoadingInfo(tag, value))
@@ -121,7 +121,7 @@ class KsfProccess {
         var startTime2 = 0L
         var startTime3 = 0L
         var bUseOldBPM = false
-        var baseSpeed = 1f
+        val baseSpeed = 1f
 
         loadInfo.forEach { info ->
             when (info.tag) {

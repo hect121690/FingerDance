@@ -4,7 +4,7 @@
             <solid android:color="@color/fondo_textview_vibrante" />
             <stroke
                 android:width="2dp"
-                android:color="@color/borde_textview_vibrante" />
+                android:color="@color/fondo_textview_elegante" />
             <corners android:radius="8dp" />
         </shape>
     </item>

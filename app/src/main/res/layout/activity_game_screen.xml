@@ -22,6 +22,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+
     <RelativeLayout
         android:id="@+id/gdxContainer"
         android:layout_width="match_parent"
@@ -31,17 +32,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-<!--
-    <com.fingerdance.CustomBackgroundView
-        android:id="@+id/custom_background_buttons"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.90" />
--->
+
     <LinearLayout
         android:id="@+id/imgJudgeCombo"
         android:layout_width="wrap_content"

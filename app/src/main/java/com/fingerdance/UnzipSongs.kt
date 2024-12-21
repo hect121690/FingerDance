@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.TextView
 import androidx.core.view.isVisible
+import androidx.lifecycle.MutableLiveData
 import com.google.gson.Gson
 import java.io.File
 import java.io.FileInputStream
@@ -14,7 +15,10 @@ import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
+
+
 class UnzipSongs (private val context: Context, private val nombreChannel: String, private val textView: TextView) {
+    val finishActivity = MutableLiveData<Boolean>()
     private val BUFFER_SIZE = 1024
 
     fun performUnzip(rutaZip: String) {
@@ -81,6 +85,7 @@ class UnzipSongs (private val context: Context, private val nombreChannel: Strin
             handler.postDelayed({
                 textView.isVisible = false
                 context.startActivity(Intent(context, MainActivity::class.java))
+                finishActivity.value = true
             }, 2000)
         }
     }

@@ -109,18 +109,27 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutCanciones"
         android:layout_width="match_parent"
-        android:layout_height="130dp"
+        android:layout_height="wrap_content"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnCanciones">
 
 
+        <Button
+            android:id="@+id/createChannel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Crear canal"
+            android:textSize="10dp"
+            app:icon="@android:drawable/ic_input_add"
+            app:iconPadding="2dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recycler_view_list_channels"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:paddingBottom="10dp"
-            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -129,45 +138,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Descargar"
-            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/recycler_view_list_channels" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <Button
-        android:id="@+id/btnNoteSkins"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:backgroundTint="#002196F3"
-        android:text="NoteSkins"
-        android:textColor="@color/white"
-        android:textSize="24sp"
-        app:icon="@android:drawable/arrow_down_float"
-        app:iconGravity="textEnd"
-        app:layout_constraintEnd_toEndOf="@+id/bgOptions"
-        app:layout_constraintHorizontal_bias="0.05"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/layoutCanciones" />
-
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/layoutNoteSkins"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnNoteSkins">
-
-        <Button
-            android:id="@+id/button2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Button"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <LinearLayout
@@ -199,4 +173,137 @@
             app:layout_constraintTop_toTopOf="parent" />
 
     </LinearLayout>
+
+    <Button
+        android:id="@+id/txPad"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#002196F3"
+        android:text="SELECCIONAR PAD"
+        android:textColor="@color/white"
+        android:textSize="24sp"
+        app:icon="@android:drawable/arrow_down_float"
+        app:iconGravity="textEnd"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.05"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/layoutCanciones" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutPads"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/txPad">
+
+        <RadioGroup
+            android:id="@+id/radioGroupPads"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <RadioButton
+                android:id="@+id/rbPadA"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Usar Pad A"
+                android:textColor="#FAFAFA"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/rbPadB"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Usar Pad B"
+                android:textColor="#FAFAFA"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/rbPadC"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Usar Pad C"
+                android:textColor="#FAFAFA"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+        </RadioGroup>
+
+        <Button
+            android:id="@+id/btnGuardarPads"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:gravity="center"
+            android:text="Guardar"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/radioGroupPads" />
+
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/showImagePadA"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ocultar dibujos Pad A"
+            android:textAlignment="textStart"
+            android:textColor="#C62828"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/radioGroupPads"
+            app:layout_constraintTop_toTopOf="@+id/radioGroupPads" />
+
+        <TextView
+            android:id="@+id/txPercentAlpha"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="opacidad del Pad B: 100%"
+            android:textColor="@color/white"
+            android:textIsSelectable="false"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/radioGroupPads"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <SeekBar
+            android:id="@+id/seekBarAlphaPadB"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/radioGroupPads"
+            app:layout_constraintTop_toBottomOf="@+id/txPercentAlpha" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerPadsB"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/radioGroupPads"
+            app:layout_constraintTop_toBottomOf="@+id/seekBarAlphaPadB" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerPadsC"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/radioGroupPads"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

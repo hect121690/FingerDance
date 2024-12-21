@@ -49,7 +49,7 @@ class ThemesAdapter(private val items: List<ThemeItem>) :
                     notifyItemChanged(lastCheckedPosition)
                 }
                 lastCheckedPosition = clickedPosition
-                selectedItem = item// Agregamos el elemento seleccionado a la lista
+                selectedItem = item
             } else {
                 lastCheckedPosition = -1
             }

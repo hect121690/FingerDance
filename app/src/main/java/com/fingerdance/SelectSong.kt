@@ -94,7 +94,6 @@ private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
 private lateinit var linearLvs: ConstraintLayout
 
-private var currentVideoPosition : Int = 0
 private lateinit var recyclerView: RecyclerView
 private lateinit var recyclerLvs: RecyclerView
 private lateinit var recyclerLvsVacios: RecyclerView
@@ -166,6 +165,14 @@ val padPositions = listOf(
     arrayOf(widthBtns, heightLayoutBtns + heightLayoutBtns / 4f),
     arrayOf(widthBtns * 2f, heightBtns * 2f),
     arrayOf(widthBtns * 2f, heightLayoutBtns + heightBtns)
+)
+
+val touchAreas = listOf(
+    arrayOf(widthBtns, heightLayoutBtns + heightBtns + (heightBtns / 2)), //leffDown
+    arrayOf(widthBtns + (widthBtns / 2), heightLayoutBtns + heightBtns + (heightBtns / 2)),  //rightDown
+
+    arrayOf(widthBtns, heightLayoutBtns), //leftUp
+    arrayOf(widthBtns + (widthBtns / 2), heightLayoutBtns) //rightUp
 )
 
 lateinit var arrayBestGrades : ArrayList<Bitmap>
@@ -908,7 +915,6 @@ class SelectSong : AppCompatActivity() {
         }
 
     private fun showOverlay(isBGA: Boolean) {
-        // Crear un fondo semitransparente
         overlayBG = View(this).apply {
             setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
             layoutParams = FrameLayout.LayoutParams(
@@ -959,8 +965,6 @@ class SelectSong : AppCompatActivity() {
         }
 
         buttonLayout.addView(btnAddBga)
-
-        // Separar los botones con un espacio
         val space = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -970,7 +974,6 @@ class SelectSong : AppCompatActivity() {
         buttonLayout.addView(space)
         buttonLayout.addView(btnCancel)
 
-        // Añadir el overlay y botones a la pantalla
         constraintMain.addView(overlayBG)
         constraintMain.addView(buttonLayout)
     }
@@ -1050,9 +1053,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun loadInterstitialAd() {
-        /*ID para anuncio real*/
-        //idAdd = "ca-app-pub-1525853918723620/4651716599"
-        /*De prueba para desarrollo*/
+
         idAdd = if(showAddActive) "ca-app-pub-1525853918723620/4651716599" else "ca-app-pub-3940256099942544/1033173712"
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, idAdd, adRequest, object : InterstitialAdLoadCallback() {
@@ -1373,9 +1374,7 @@ class SelectSong : AppCompatActivity() {
         }
 
         private fun moverLvs(positionActualLvs: Int) {
-            //val lv = listItems[oldValue].listLvs[positionActualLvs]
             val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
-            //lbLvActive.text = lv.lvl
             lbLvActive.text = lv.level
             moveIndicatorToPosition(positionActualLvs)
             currentLevel = lv.level

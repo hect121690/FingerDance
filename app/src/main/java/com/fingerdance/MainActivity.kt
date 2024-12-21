@@ -54,6 +54,11 @@ var countAdd = 0
 
 var showAddActive = false
 
+var showPadB : Int = 0
+var hideImagesPadA : Boolean = false
+var skinPad = ""
+var alphaPadB = 1f
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -84,6 +89,10 @@ class MainActivity : AppCompatActivity(), Serializable {
         skinSelected = themes.getString("skin", "").toString()
         speedSelected = themes.getString("speed", "").toString()
         countAdd = themes.getInt("countAdd", 0)
+        showPadB = themes.getInt("showPadB", 0)
+        hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
+        skinPad = themes.getString("skinPad", "default").toString()
+        alphaPadB = themes.getFloat("alphaPadB", 1f)
 
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
@@ -156,7 +165,6 @@ class MainActivity : AppCompatActivity(), Serializable {
     private fun mostrarDialogoSinConexion() {
         val noWifi = AlertDialog.Builder(this, R.style.TransparentDialog)
         noWifi.setMessage("No hay conexión a Internet. Reintentar?")
-        //noWifi.setView(R.layout.dialog_layout)
         noWifi.setPositiveButton("Reintentar") { dialog, which ->
             creaDescarga()
         }
@@ -228,7 +236,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 version = snapshot.child("value").getValue(String::class.java).toString()
                 showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
 
-                if(version == "1.0.3"){
+                if(version == "1.0.6"){
                     linearDownload.isVisible = false
                     imageIcon.isVisible = false
                     lbDescargando.isVisible = false
@@ -329,8 +337,9 @@ class MainActivity : AppCompatActivity(), Serializable {
                         val tiempoTranscurrir :Long = 500
                         val handler = Handler()
                         handler.postDelayed({
-                            val intent = Intent(applicationContext, Options::class.java)
+                            val intent = Intent(applicationContext, Options()::class.java)
                             startActivity(intent)
+                            this@MainActivity.finish()
                         }, tiempoTranscurrir)
                     }
 
@@ -421,6 +430,11 @@ class MainActivity : AppCompatActivity(), Serializable {
         soundPlayer!!.release()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        btnExit.performClick()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
@@ -441,7 +455,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun animar() {
-        val animation = AnimationUtils.loadAnimation(this, R.anim.scale);
+        val animation = AnimationUtils.loadAnimation(this, R.anim.scale)
         animLogo.startAnimation(animation)
 
     }

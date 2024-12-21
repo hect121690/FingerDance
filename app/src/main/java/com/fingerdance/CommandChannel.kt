@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 
-class   CommandChannel(private val channelList: ArrayList<Channels>, private val width: Int) :
+class CommandChannel(private val channelList: ArrayList<Channels>, private val width: Int) :
     RecyclerView.Adapter<CommandChannel.CarouselItemViewHolder>() {
 
     class CarouselItemViewHolder(view: View) : RecyclerView.ViewHolder(view)
@@ -19,7 +19,7 @@ class   CommandChannel(private val channelList: ArrayList<Channels>, private val
 
     override fun onBindViewHolder(holder: CarouselItemViewHolder, position: Int) {
         val imageView = holder.itemView.findViewById<ImageView>(R.id.image_channel)
-        var bit = BitmapFactory.decodeFile(channelList[position].banner)
+        val bit = BitmapFactory.decodeFile(channelList[position].banner)
         imageView.setImageBitmap(bit)
         imageView.layoutParams.width = width
 

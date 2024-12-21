@@ -62,12 +62,11 @@ private val interpolator = LinearInterpolator()
 private val animatorSet = AnimatorSet()
 private lateinit var expandX : ObjectAnimator
 private lateinit var expandY : ObjectAnimator
-//private lateinit var contractX : ObjectAnimator
-//private lateinit var contractY : ObjectAnimator
 private var fadeSet = AnimatorSet()
 private lateinit var fadeOut : ObjectAnimator
 private lateinit var flattenY : ObjectAnimator
 
+val timeToPlay = 2000L
 
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,7 +97,18 @@ open class GameScreenActivity : AndroidApplication() {
         }
         gdxContainer.addView(gdxView)
         initJugde()
-        imgJudgeCompleto.bringToFront()
+
+        thisHandler.postDelayed({
+            if (isVideo) {
+                videoViewBgaOn.start()
+            } else {
+                videoViewBgaoff.start()
+                videoViewBgaoff.setOnCompletionListener {
+                    videoViewBgaoff.start()
+                }
+            }
+            mediaPlayer.start()
+        }, timeToPlay)
 
     }
 
@@ -215,8 +225,6 @@ open class GameScreenActivity : AndroidApplication() {
         fadeOutRunnable = Runnable {
             fadeOut.duration = 500
             flattenY.duration = 500
-            //fadeOut.interpolator = AccelerateInterpolator()
-            //flattenY.interpolator = AccelerateInterpolator()
             fadeSet.playTogether(fadeOut, flattenY)
             fadeSet.start()
 
@@ -245,7 +253,7 @@ open class GameScreenActivity : AndroidApplication() {
         img_count_combo.layoutParams = RelativeLayout.LayoutParams(widthJudges, (heightJudges))
 
         imgJudgeCompleto.x = widthJudges - (widthJudges / 2f)
-        imgJudgeCompleto.y = height / 2f - heightJudges * 3
+        imgJudgeCompleto.y = height / 2f - heightJudges * 6
 
         imgJudgeCompleto.addView(img_JudgeLetter)
         imgJudgeCompleto.addView(img_combo)
@@ -270,7 +278,14 @@ open class GameScreenActivity : AndroidApplication() {
         videoViewBgaoff.isVisible = false
 
         videoViewBgaOn = findViewById(R.id.videoViewBgaOn)
-        videoViewBgaOn.y = medidaFlechas * 2.5f
+        videoViewBgaOn.y = medidaFlechas
+        val newWidth = (width * 1.2).toInt()
+        val newHeight = (newWidth * 9 / 16).toInt()
+        videoViewBgaOn.layoutParams = videoViewBgaOn.layoutParams.apply {
+            width = newWidth
+            height = newHeight
+        }
+
         mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
 
         if(isFileExists(File(playerSong.rutaVideo!!))){
@@ -301,17 +316,20 @@ open class GameScreenActivity : AndroidApplication() {
         }
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-
             thisHandler.postDelayed({
                 val intent = Intent(this, DanceGrade()::class.java)
                 startActivity(intent)
                 this.finish()
             }, 2500)
         }
+
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        //(gdxContainer.getChildAt(0) as? MyGameScreen)?.dispose()
+        gdxContainer.removeAllViews()
+        currentVideoPositionScreen = 0
         currentVideoPositionScreen = 0
         if (isVideo) {
             videoViewBgaOn.seekTo(0)
@@ -366,9 +384,16 @@ open class GameScreenActivity : AndroidApplication() {
 
 class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
     val gsa = gameScreenActivity
+    private var gameScreen: GameScreenKsf? = null
     override fun create() {
         lifeBar = LifeBar(height.toFloat(), gsa)
-        setScreen(GameScreenKsf(gsa))
+        gameScreen = GameScreenKsf(gsa)
+        setScreen(gameScreen)
+    }
+
+    override fun dispose() {
+        super.dispose()
+        gameScreen?.dispose()
     }
 }
 

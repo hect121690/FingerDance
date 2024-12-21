@@ -144,7 +144,7 @@ class LoadSongsKsf {
                                             songKsf.displayBpm = getValue(line)
                                         }
                                         line.startsWith("#STARTTIME:") ->{
-                                            songKsf.offset = getValue(line).trim().toLong()
+                                            songKsf.offset = getValue(line).trim().toDouble().toLong()
                                         }
                                         line.startsWith("#DIFFICULTY:") ->{
                                             var level = getValue(line)
