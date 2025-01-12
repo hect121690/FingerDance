@@ -105,10 +105,18 @@ class LoadSongsKsf {
                         if(it.toString().endsWith("Title.png", ignoreCase = true)){
                             songKsf.rutaTitle = it.absolutePath
                         }
-                        if(it.toString().endsWith("Song.mp3", ignoreCase = true)){
+                        if(it.toString().endsWith(".mp3", ignoreCase = true) || it.toString().endsWith(".ogg", ignoreCase = true)){
                             songKsf.rutaSong = it.absolutePath
-                            songKsf.rutaPreview = songKsf.rutaSong.replace(".mp3", "_p.mpg", ignoreCase = true)
-                            songKsf.rutaBGA = songKsf.rutaSong.replace(".mp3", ".mp4", ignoreCase = true)
+                            songKsf.rutaPreview = if(songKsf.rutaSong.endsWith(".mp3", ignoreCase = true)){
+                                songKsf.rutaSong.replace(".mp3", "_p.mpg", ignoreCase = true)
+                            }else{
+                                songKsf.rutaSong.replace(".ogg", "_p.mpg", ignoreCase = true)
+                            }
+                            songKsf.rutaBGA = if(songKsf.rutaSong.endsWith(".mp3", ignoreCase = true)){
+                                songKsf.rutaSong.replace(".mp3", ".mp4", ignoreCase = true)
+                            }else{
+                                songKsf.rutaSong.replace(".ogg", ".mp4", ignoreCase = true)
+                            }
 
                             if (isFileExists(File(songKsf.rutaPreview))) {
                                 val inputVideoPath = File(songKsf.rutaPreview)

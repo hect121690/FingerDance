@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.Sprite
@@ -8,11 +9,19 @@ import com.badlogic.gdx.scenes.scene2d.Actor
 
 class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
     private val a = activity
-    private val backgroundTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png"))
-    private val barLifeTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife.png"))
+    private val backgroundTexture =
+        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife0.png"))
+    private val barBlackTexture =
+        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png"))
+    private val barRedTexture =
+        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife2.png"))
+    private val barLifeTexture =
+        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife3.png"))
 
-    private val backgroundSprite = Sprite(backgroundTexture)
-    private val barLifeSprite = Sprite(barLifeTexture)
+    private val barFrame = Sprite(backgroundTexture)
+    private val barBlack = Sprite(barBlackTexture)
+    private val barRed = Sprite(barRedTexture)
+    private val barColors = Sprite(barLifeTexture)
 
     private val maxWidth = medidaFlechas * 5f
     private val minWidth = maxWidth / 20f
@@ -23,32 +32,72 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
 
     private val targetPercentageTexture = (maxLife * 0.1).toInt() // 10% del tamaño total
     private val targetPercentage = (maxWidth * 0.1).toInt() // 10% del tamaño total
-    private var currentLifeTexture = (maxLife * 0.5).toInt() // Comienza en 50%
-    var currentLife = maxWidth * 0.5f // Comienza en 50%
+    private var currentLifeTexture = (maxLife * 0.45).toInt() // Comienza en 50%
+    var currentLife = maxWidth * 0.45f // Comienza en 50%
 
-    var msPerBeat: Float = (60000f / displayBPM)
+    var msPerBeat: Float = (60000f / displayBPM) / 2
     private var elapsedTime: Float = 0f
     private var growing = true
-    private val shineDuration: Float = 500f
+
     init {
-        backgroundSprite.setSize(maxWidth, originalHeight)
-        barLifeSprite.setSize(currentLife, originalHeight)
+        barFrame.setSize(maxWidth, originalHeight)
+        barBlack.setSize(maxWidth, originalHeight)
+        barRed.setSize(maxWidth, originalHeight)
+        barColors.setSize(currentLife, originalHeight)
 
-        backgroundSprite.setPosition(medidaFlechas, screenHeight - (medidaFlechas / 2))
-        barLifeSprite.setPosition(medidaFlechas, screenHeight - (medidaFlechas / 2))
+        barFrame.setPosition(medidaFlechas, screenHeight - (medidaFlechas / 2))
+        barBlack.setPosition(medidaFlechas, screenHeight - (medidaFlechas / 2))
+        barRed.setPosition(medidaFlechas, screenHeight - (medidaFlechas / 2))
+        barColors.setPosition(medidaFlechas, screenHeight - (medidaFlechas / 2))
 
-        barLifeSprite.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
+        barColors.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
     }
 
     override fun draw(batch: Batch, parentAlpha: Float) {
-        backgroundSprite.draw(batch)
-        barLifeSprite.draw(batch)
+        val lifePercentage = currentLife / maxWidth
+
+        if (lifePercentage <= 0.1f) {
+            barRed.draw(batch)
+        } else {
+            barBlack.draw(batch)
+        }
+        barColors.draw(batch)
+        if (lifePercentage >= 1f) {
+            val currentTime = (System.currentTimeMillis() / 100L) % 2 == 0L
+
+            if (currentTime) {
+                val time = (System.currentTimeMillis() % 200L) / 200f
+                val shine = 1f + 0.5f * Math.sin(time * Math.PI).toFloat() // Oscilación del brillo
+                val previousSrcFunc = batch.blendSrcFunc
+                val previousDstFunc = batch.blendDstFunc
+                batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)  // Blending aditivo
+
+                barColors.setColor(shine, shine, shine,1f) // Aumentamos el brillo
+                barColors.draw(batch) // Dibujamos la barra con el brillo
+                batch.setBlendFunction(previousSrcFunc, previousDstFunc) // Restauramos la mezcla de blending
+            } else {
+                barColors.setColor(1f, 1f, 1f, 1f) // Sin efecto de brillo
+                barColors.draw(batch)
+            }
+        } else {
+            barColors.setColor(1f, 1f, 1f, 1f)
+            barColors.draw(batch)
+        }
+        barFrame.draw(batch)
+    }
+
+    fun dispose() {
+        backgroundTexture.dispose()
+        barBlackTexture.dispose()
+        barRedTexture.dispose()
+        barLifeTexture.dispose()
     }
 
     override fun act(delta: Float) {
         super.act(delta)
         elapsedTime += delta * 1000
 
+        // Incremento o decremento de vida
         if (currentLifeTexture < maxLife) {
             if (growing) {
                 val incrementAmount = ((targetPercentageTexture / msPerBeat) * delta * 1000).toInt()
@@ -60,18 +109,19 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
                 currentLife = (currentLife - (targetPercentage / msPerBeat) * delta * 1000).coerceAtLeast(0f)
             }
 
-            barLifeSprite.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
-            barLifeSprite.setSize(currentLife, originalHeight)
-            barLifeSprite.setColor(1f, 1f, 1f, 1f)
+            // Actualizar el tamaño y región de la barra de vida
+            barColors.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
+            barColors.setSize(currentLife, originalHeight)
 
+            // Alternar entre creciendo y decreciendo según el tiempo
             if (elapsedTime >= msPerBeat) {
                 elapsedTime = 0f
                 growing = !growing
             }
         } else {
-            val timeSinceShine = elapsedTime % shineDuration
-            val shineIntensity = Math.sin((timeSinceShine / shineDuration) * Math.PI * 2).toFloat()
-            barLifeSprite.setColor(1f + shineIntensity * 0.5f, 1f + shineIntensity * 0.5f, 1f + shineIntensity * 0.5f, 1.5f)
+            // Si la vida está al máximo, asegúrate de detener las oscilaciones
+            growing = false // Detener el cambio de dirección
+            elapsedTime = 0f // Resetear el tiempo para evitar ciclos innecesarios
         }
     }
 
@@ -87,10 +137,11 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
             currentLifeTexture = maxLife
             currentLife = maxWidth
             elapsedTime = 0f
+
         }
 
-        barLifeSprite.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
-        barLifeSprite.setSize(currentLife, originalHeight)
+        barColors.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
+        barColors.setSize(currentLife, originalHeight)
     }
 
     fun decreaseLife(percentage: Float) {
@@ -105,17 +156,16 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
             currentLife = minWidth
         }
 
-        barLifeSprite.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
-        barLifeSprite.setSize(currentLife, originalHeight)
+        barColors.setRegion(0, 0, currentLifeTexture, barLifeTexture.height)
+        barColors.setSize(currentLife, originalHeight)
 
 
-        if (currentLife <= 3) {
+        if (currentLife <= 4) {
             a.runOnUiThread {
-                a.finish()
+                //a.finish()
                 a.breakDance()
             }
         }
-
 
     }
 }

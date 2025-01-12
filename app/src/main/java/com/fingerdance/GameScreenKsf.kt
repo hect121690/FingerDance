@@ -2,6 +2,7 @@ package com.fingerdance
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
+import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Sprite
@@ -39,6 +40,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
     private val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
 
+    private val bgBarLife = Texture(Gdx.files.internal("bg_barlife.png"))
+
     val recept0Frames = getReceptsTexture(textureLD)
     val recept1Frames = getReceptsTexture(textureLU)
     val recept2Frames = getReceptsTexture(textureCE)
@@ -57,6 +60,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private var timer = 0f
     private var showOverlay = false
     private var intervalOverlay = 60000 / displayBPM
+
+    var currentBPM = 0f
 
     data class PadPositionC(val x: Float, val y: Float, val size: Float)
     val padPositionsC = listOf(
@@ -111,8 +116,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         if (!isPaused) {
             val currentTime = (elapsedTime * 1000).toLong()
             batch.begin()
+
+            batch.draw(bgBarLife, 0f, 0f, width.toFloat(), medidaFlechas)
+            //batch.color = Color(0f, 0f, 0f, 0f)
+
             elapsedTime += delta
-            intervalOverlay = 60 / player.m_fCurBPM
+            intervalOverlay = (60 / if(player.m_fCurBPM < 0) 0f else player.m_fCurBPM) / 2
             if(!playerSong.fd){
                 timer += delta
                 if (timer >= intervalOverlay) {
@@ -122,6 +131,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                 getReceptsAnimation()
             }
             showBgPads()
+
             player.updateStepData(currentTime)
             player.render(currentTime)
             batch.end()
@@ -166,7 +176,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             batch.draw(padB,width.toFloat() * 0.05f,  width.toFloat() * 1.1f, width.toFloat() * 0.9f, width.toFloat() * 0.9f)
         }
     }
-
+    private var aBatch = 0
+    private var bBatch = 0
     private fun getReceptsAnimation() {
         batch.draw(recept0Frames[0], medidaFlechas, targetTop, medidaFlechas, medidaFlechas)
         batch.draw(recept1Frames[0], medidaFlechas * 2, targetTop, medidaFlechas, medidaFlechas)
@@ -175,11 +186,15 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         batch.draw(recept4Frames[0], medidaFlechas * 5, targetTop, medidaFlechas, medidaFlechas)
 
         if (showOverlay) {
+            aBatch = batch.blendSrcFunc
+            bBatch = batch.blendDstFunc
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
             batch.draw(recept0Frames[1], medidaFlechas, targetTop, medidaFlechas, medidaFlechas)
             batch.draw(recept1Frames[1], medidaFlechas * 2, targetTop, medidaFlechas, medidaFlechas)
             batch.draw(recept2Frames[1], medidaFlechas * 3, targetTop, medidaFlechas, medidaFlechas)
             batch.draw(recept3Frames[1], medidaFlechas * 4, targetTop, medidaFlechas, medidaFlechas)
             batch.draw(recept4Frames[1], medidaFlechas * 5, targetTop, medidaFlechas, medidaFlechas)
+            batch.setBlendFunction(aBatch, bBatch)
         }
     }
 
@@ -212,6 +227,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         batch.dispose()
         stage.dispose()
         player.disposePlayer()
+        lifeBar.dispose()
         playerSong.values.notes.clear()
         elapsedTime = 0f
         rithymAnim = 0f
@@ -226,9 +242,9 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             padCenter.texture.dispose()
             padRightUp.texture.dispose()
             padRightDown.texture.dispose()
-        }else if(showPadB ==  1){
+        }else if(showPadB == 1){
             padB.texture.dispose()
-        }else {
+        }else if(showPadB == 2){
             padLefDownC.forEach { it.texture.dispose() }
             padLeftUpC.forEach { it.texture.dispose() }
             padCenterC.forEach { it.texture.dispose() }

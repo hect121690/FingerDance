@@ -258,6 +258,7 @@ class KsfProccess {
                     patterns.add(delayPtn)
                     patterns.add(curPtn)
                 }
+
                 STEPINFO_SPEED -> {
                     val speedPtn = Pattern(iSpeed = Pair(baseSpeed, 0))
                     if (patterns.last().vLine.isNotEmpty()) {
@@ -270,6 +271,7 @@ class KsfProccess {
                     patterns.add(speedPtn)
                     patterns.add(curPtn)
                 }
+
             }
         }
 

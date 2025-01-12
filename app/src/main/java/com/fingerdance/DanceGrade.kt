@@ -13,6 +13,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.util.TypedValue
 import android.view.View
 import android.view.animation.*
 import android.widget.ImageView
@@ -88,6 +89,8 @@ class DanceGrade : AppCompatActivity() {
         txNameChannel.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label channel.png")
         txNameSong.text = currentSong
         txNameChannel.text = if(currentChannel.contains("-")) currentChannel.split("-")[1] else currentChannel
+
+        //countSongsPlayed ++
 
         txNameSong.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
@@ -306,23 +309,33 @@ class DanceGrade : AppCompatActivity() {
         val imgBitActive = ImageView(this)
         imgBitActive.setImageBitmap(bitActiveLv)
         bgConstraint.addView(imgBitActive)
+
+        // Configuración del tamaño de la imagen
         imgBitActive.layoutParams.height = medidaFlechas.toInt() * 2
         imgBitActive.layoutParams.width = medidaFlechas.toInt() * 2
         imgBitActive.x = medidaFlechas * 4.5f
         imgBitActive.y = (height / 2f)
+
         val txtLv = TextView(this).apply {
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
-            textSize = medidaFlechas / 2.5f
             setTypeface(typeface, Typeface.BOLD)
             text = playerSong.level
         }
+
         bgConstraint.addView(txtLv)
-        txtLv.layoutParams.width = medidaFlechas.toInt() * 2
-        txtLv.x = medidaFlechas * 4.5f
-        txtLv.y = (height / 2f) + (medidaFlechas / 3f)
+
+        val textSize = (imgBitActive.layoutParams.width / 2.5f)
+        txtLv.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
+
+        txtLv.layoutParams.width = imgBitActive.layoutParams.width
+        txtLv.layoutParams.height = imgBitActive.layoutParams.height
+
+        txtLv.x = imgBitActive.x + (imgBitActive.layoutParams.width - txtLv.layoutParams.width) / 2
+        txtLv.y = imgBitActive.y + (txtLv.layoutParams.height / 4.5).toInt()
     }
+
 
     private fun getBestScore(imgMyBestGrade: ImageView, lbBestScoreDG: TextView) {
         imgMyBestGrade.setImageBitmap(currentBestGrade)

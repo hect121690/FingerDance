@@ -41,6 +41,7 @@ import java.io.InputStream
 import java.math.BigDecimal
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 private lateinit var binding: ActivitySelectSongBinding
 private lateinit var linearBG: LinearLayout
@@ -279,6 +280,9 @@ class SelectSong : AppCompatActivity() {
 
             linearLoading = findViewById(R.id.linearLoading)
             imgLoading = findViewById(R.id.imgLoading)
+            imgLoading.layoutParams.width = width
+            imgLoading.layoutParams.height = (width * 0.7).toInt()
+
             linearLoading.isVisible = false
             imgLoading.isVisible = false
 
@@ -319,7 +323,7 @@ class SelectSong : AppCompatActivity() {
             linearMenus.layoutParams.width = ancho
             linearBottom.layoutParams.width = ancho
 
-            linearLvs.layoutParams.width = commandWindow.layoutParams.width
+            linearLvs.layoutParams.width = (commandWindow.layoutParams.width / 10) * 11
             sizeLvs = linearLvs.layoutParams.width / 9
 
             imgContador = findViewById(R.id.imgContador)
@@ -465,7 +469,7 @@ class SelectSong : AppCompatActivity() {
             val listVacios = ArrayList<Ksf>()
             val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
 
-            for (index in 0..8) {
+            for (index in 0..11) {
                 listVacios.add(Ksf("", "",  rutaLvSelected))
             }
             llenaLvsVacios(null, listVacios)
@@ -542,19 +546,17 @@ class SelectSong : AppCompatActivity() {
                 if(!imgNoteSkin.isVisible){
                     imgNoteSkin.isVisible=true
                     imgNoteSkinFondo.isVisible=true
-                    val bm= BitmapFactory.decodeFile(themes.getString("skin", "").toString())
+                    val bm= BitmapFactory.decodeFile(skinSelected)
                     if(bm!=null){
                         imgNoteSkin.setImageBitmap(bm)
-                        playerSong.rutaNoteSkin = getRutaNoteSkin(themes.getString("skin", "").toString())
+                        playerSong.rutaNoteSkin = getRutaNoteSkin(skinSelected)
                     }
                 }
             }
             if(speedSelected != ""){
                 txVelocidadActual.text = speedSelected
-                //txAV.text = typeSpeedSelected
             }else{
                 txVelocidadActual.text = "2.0X"
-                //txAV.text = ""
             }
 
             nav_back_Izq.setOnLongClickListener {
@@ -718,6 +720,11 @@ class SelectSong : AppCompatActivity() {
                         showProgressBar(3000L)
                         mediPlayer.pause()
                         playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
+
+                        val tipsArray = resources.getStringArray(R.array.tips_array)
+                        val txTip = findViewById<TextView>(R.id.txTip)
+                        txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
+
                         playerSong.speed = txVelocidadActual.text.toString()
                         if(playerSong.rutaNoteSkin != ""){
                             ruta = playerSong.rutaNoteSkin!!
@@ -738,7 +745,22 @@ class SelectSong : AppCompatActivity() {
                         valueOffset = txOffset.text.toString().toLong()
                         load(playerSong.rutaKsf!!)
                         db.updateOffset(currentChannel, currentSong, listItemsKsf[oldValue].listKsf[positionActualLvs].level, txOffset.text.toString())
-                        showAddOurGS()
+                        //showAddActive = false
+                        if(!showAddActive){
+                            val handler = Handler(Looper.getMainLooper())
+                            handler.postDelayed({
+                                val intent = Intent(this, GameScreenActivity::class.java)
+                                startActivity(intent)
+                                handler.postDelayed({
+                                    linearLoading.isVisible = false
+                                    imgLoading.isVisible = false
+                                }, 1000L)
+                                ready = 0
+                                imgFloor.setImageBitmap(bmFloor)
+                            }, 3000L)
+                        }else {
+                            showAddOurGS()
+                        }
 
                     }
                     imgAceptar.isEnabled = true
@@ -979,7 +1001,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun saveFileToDestination(uri: Uri, fileName: String, isBGA: Boolean) {
-        val destinationPath = File(currentPathSong.replace("song.mp3", "", ignoreCase = true))
+        val destinationPath = File(currentPathSong.replace(File(currentPathSong).name, "", ignoreCase = true))
         val destinationFile = File(destinationPath, fileName)
         try {
             val inputStream: InputStream? = contentResolver.openInputStream(uri)
@@ -1053,8 +1075,8 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun loadInterstitialAd() {
-
-        idAdd = if(showAddActive) "ca-app-pub-1525853918723620/4651716599" else "ca-app-pub-3940256099942544/1033173712"
+        //ID de pruebas "ca-app-pub-3940256099942544/1033173712"
+        idAdd = "ca-app-pub-1525853918723620/4651716599"
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, idAdd, adRequest, object : InterstitialAdLoadCallback() {
             override fun onAdLoaded(ad: InterstitialAd) {
@@ -1376,7 +1398,7 @@ class SelectSong : AppCompatActivity() {
         private fun moverLvs(positionActualLvs: Int) {
             val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
             lbLvActive.text = lv.level
-            moveIndicatorToPosition(positionActualLvs)
+
             currentLevel = lv.level
             lbBestScore.text = listSongScores[positionActualLvs].puntaje
             currentScore = lbBestScore.text.toString()
@@ -1388,6 +1410,14 @@ class SelectSong : AppCompatActivity() {
             txOffset.text = if(listSongScores[positionActualLvs].offset != "0") listSongScores[positionActualLvs].offset else valueOffset.toString()
             //valueOffset = txOffset.text.toString().toLong()
 
+            val layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
+
+            recyclerLvs.post {
+                layoutManager.scrollToPositionWithOffset(positionActualLvs, 0)
+                recyclerLvs.post {
+                    moveIndicatorToPosition(positionActualLvs) // Asegura que el indicador se mueva después del desplazamiento
+                }
+            }
         }
 
         private fun isFocus (position: Int){
@@ -1724,8 +1754,10 @@ class SelectSong : AppCompatActivity() {
             if(arraylist.size in 11..50){
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
+                arraylist.addAll(arraylist)
             }
             if(arraylist.size in 6..10){
+                arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
@@ -1735,8 +1767,10 @@ class SelectSong : AppCompatActivity() {
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
+                arraylist.addAll(arraylist)
             }
             if(arraylist.size <= 3){
+                arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)
                 arraylist.addAll(arraylist)

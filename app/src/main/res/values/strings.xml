@@ -11,4 +11,19 @@
     <string name="latency_message"> 1- Presiona el botón Tap cada que escuches el sonido del tick.\n
                                     2- El círculo se sincronizará con cada Tap, cuando consideres que tus toques
                                       están sincronizados con el tick, presiona el botón SAVE LATENCY.</string>
+
+
+    <string-array name="tips_array">
+        <item>Entre mas canciones juegues, mas NoteSkin podras obtener.</item>
+        <item>Recuerda configurar el OFFSET en el CommnadWindow si sientes que las flechas no van a ritmo.</item>
+        <item>Puedes elegir o configurar otros Pads en la seccion Options</item>
+        <item>Puedes descargar mas packs disponibles de canciones en la seccion Option/Canciones.</item>
+        <item>Puedes cambiar de tema desde la seccion Options/Temas, alli encontraras los que estan disponibles para descargar.</item>
+        <item>El CommandWindow se muestra presionando los botones de navegacion Izq, Der, Izq, Der, Izq, Der en el selector de Nivel.</item>
+        <item>Ya probaste el efecto AP?, esta disponible en el CommandWindow/Display.</item>
+        <item>Sientes que esta muy facil el juego?, retate a ti mismo, activa el HJ, disponible en el CommandWindow/Judge</item>
+        <item>Eres capaz de calcular el momento exacto? Activa el FD, disponible en el CommandWindow/Display.</item>
+        <item>Agregaste un BGA y quieres jugar sin el?, desactivalo, Usa el CommandWindow/Display y selecciona la opcion BGA OFF.</item>
+        <item>Si te gusta la aplicación, compartela en tus redes y con amigos.</item>
+    </string-array>
 </resources>

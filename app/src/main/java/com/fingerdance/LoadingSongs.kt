@@ -1,7 +1,6 @@
 package com.fingerdance
 
 import android.content.Context
-import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.os.Bundle
@@ -20,8 +19,8 @@ private lateinit var songs :Cancion
 var listChannels : ArrayList<Channels> = ArrayList()
 var listCommands : ArrayList<Command> = ArrayList()
 
-var barLife1 : Drawable? = null
-var barLife : Drawable? = null
+//var barLife1 : Drawable? = null
+//var barLife : Drawable? = null
 
 private lateinit var soundPoolSelectSong: SoundPool
 
@@ -79,8 +78,8 @@ class LoadingSongs() : AppCompatActivity() {
     fun loadImages(c: Context) {
         bgaOff = c.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
 
-        barLife1 = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png").toString())
-        barLife = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife.png").toString())
+        //barLife1 = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png").toString())
+        //barLife = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife.png").toString())
 
     }
 
@@ -175,7 +174,6 @@ class LoadingSongs() : AppCompatActivity() {
         var nombre = ""
         var artist = ""
         var bpm = ""
-        var tick = ""
         var banner = ""
         var rutaBanner = ""
         var rutaPrevVideo = ""
@@ -206,26 +204,26 @@ class LoadingSongs() : AppCompatActivity() {
                             }
                         }
                         val arr  = listSecs[0].split("\r\n").toTypedArray()
-                        for (index in 0..arr.size -1){
-                            if (arr[index].contains("#BANNER:")){
-                                banner = arr[index].replace("#BANNER:", "",true)
+                        for (i in 0..arr.size -1){
+                            if (arr[i].contains("#BANNER:")){
+                                banner = arr[i].replace("#BANNER:", "",true)
                                 banner = banner.replace(";","")
                                 break
                             }
                         }
                         rutaBanner = listRutas[index] + "/" + banner
 
-                        for (index in 0..arr.size -1){
-                            if (arr[index].contains("#ARTIST")){
-                                artist = arr[index].replace("#ARTIST:", "",true)
+                        for (c in 0..arr.size -1){
+                            if (arr[c].contains("#ARTIST")){
+                                artist = arr[c].replace("#ARTIST:", "",true)
                                 artist = artist.replace(";","")
                                 artist = "     $artist"
                                 break
                             }
                         }
-                        for (index in 0..arr.size -1){
-                            if (arr[index].contains("#BPMS:")){
-                                bpm = arr[index].replace("#BPMS:0.000=", "",true)
+                        for (a in 0..arr.size -1){
+                            if (arr[a].contains("#BPMS:")){
+                                bpm = arr[a].replace("#BPMS:0.000=", "",true)
                                 bpm = bpm.replace(";","")
                                 val ar = bpm.split(".").toTypedArray()
                                 bpm = ar[0]
@@ -233,21 +231,21 @@ class LoadingSongs() : AppCompatActivity() {
                                 break
                             }
                         }
-                        for (index in 0 until arr.size -1){
-                            if (arr[index].contains("#TITLE:")){
-                                nombre = arr[index].replace("#TITLE:", "",true)
+                        for (e in 0 until arr.size -1){
+                            if (arr[e].contains("#TITLE:")){
+                                nombre = arr[e].replace("#TITLE:", "",true)
                                 nombre = nombre.replace(";","")
                                 break
                             }
                         }
-                        for (index in 0 until arr.size -1){
-                            if (arr[index].contains("#PREVIEWVID:")){
-                                prevVideo = arr[index].replace("#PREVIEWVID:", "",true)
+                        for (f in 0 until arr.size -1){
+                            if (arr[f].contains("#PREVIEWVID:")){
+                                prevVideo = arr[f].replace("#PREVIEWVID:", "",true)
                                 prevVideo = prevVideo.replace(";","")
                                 break
                             }
-                            if (arr[index].contains("#PREVIEW")){
-                                prevVideo = arr[index].replace("#PREVIEW:", "",true)
+                            if (arr[f].contains("#PREVIEW")){
+                                prevVideo = arr[f].replace("#PREVIEW:", "",true)
                                 prevVideo = prevVideo.replace(";","")
                                 break
                             }

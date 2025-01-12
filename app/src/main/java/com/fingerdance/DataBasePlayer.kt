@@ -11,8 +11,6 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val DATABASE_NAME = "game.db"
         private const val DATABASE_VERSION = 1
 
-        // Definir nombres de tablas y columnas
-
         const val TABLE_NIVELES = "niveles"
         const val COLUMN_CANAL = "canal"
         const val COLUMN_CANCION = "cancion"
