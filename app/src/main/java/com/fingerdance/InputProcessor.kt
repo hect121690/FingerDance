@@ -1,14 +1,15 @@
 package com.fingerdance
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 
-private val KEY_NONE = 0
-private val KEY_DOWN = 1
-private val KEY_PRESS = 2
-private val KEY_UP = 3
+private const val KEY_NONE = 0
+private const val KEY_DOWN = 1
+private const val KEY_PRESS = 2
+private const val KEY_UP = 3
 
 class InputProcessor : InputAdapter() {
     private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
@@ -17,6 +18,31 @@ class InputProcessor : InputAdapter() {
     val getKeyBoard = IntArray(padPositions.size) { KEY_NONE }
     private var pointerToPadMap = mutableMapOf<Int, Int>()
     private var hasStateChanged = false
+
+    // Map physical keys to pad positions
+    private val keyToPadMap = mapOf(
+        Keys.NUM_1 to 0,
+        Keys.NUM_7 to 1,
+        Keys.NUM_5 to 2,
+        Keys.NUM_9 to 3,
+        Keys.NUM_3 to 4
+    )
+
+    override fun keyDown(keycode: Int): Boolean {
+        keyToPadMap[keycode]?.let { padIndex ->
+            getKeyBoard[padIndex] = KEY_DOWN
+            hasStateChanged = true
+        }
+        return keyToPadMap.containsKey(keycode)
+    }
+
+    override fun keyUp(keycode: Int): Boolean {
+        keyToPadMap[keycode]?.let { padIndex ->
+            getKeyBoard[padIndex] = KEY_UP
+            hasStateChanged = true
+        }
+        return keyToPadMap.containsKey(keycode)
+    }
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
@@ -103,7 +129,7 @@ class InputProcessor : InputAdapter() {
         for (i in getKeyBoard.indices) {
             getKeyBoard[i] = KEY_NONE
         }
-        pointerToPadMap = mutableMapOf<Int, Int>()
+        pointerToPadMap.clear()
         hasStateChanged = true
     }
 
@@ -112,3 +138,4 @@ class InputProcessor : InputAdapter() {
         btnOnPress.dispose()
     }
 }
+

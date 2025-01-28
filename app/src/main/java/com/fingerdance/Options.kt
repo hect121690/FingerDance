@@ -149,7 +149,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
         recyclerViewListChannels.layoutManager = LinearLayoutManager(this)
         recyclerViewListChannels.adapter = adapterChannels
 
-
         val switchImagePadA = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.showImagePadA)
         switchImagePadA.visibility = View.GONE
         switchImagePadA.layoutParams.width = width / 2

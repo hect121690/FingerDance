@@ -61,8 +61,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private var showOverlay = false
     private var intervalOverlay = 60000 / displayBPM
 
-    var currentBPM = 0f
-
     data class PadPositionC(val x: Float, val y: Float, val size: Float)
     val padPositionsC = listOf(
         PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.61f, medidaFlechas * 3f),
@@ -113,8 +111,10 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         ScreenUtils.clear(0f, 0f, 0f, 0f)
         camera.update()
         batch.projectionMatrix = camera.combined
+
         if (!isPaused) {
-            val currentTime = (elapsedTime * 1000).toLong()
+            val currentTime = (elapsedTime * 1000).toLong() - 2000
+
             batch.begin()
 
             batch.draw(bgBarLife, 0f, 0f, width.toFloat(), medidaFlechas)
@@ -134,12 +134,14 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
             player.updateStepData(currentTime)
             player.render(currentTime)
+
             batch.end()
             stage.act(delta)
         }
 
         stage.draw()
     }
+
     private fun getPadC(texture: Texture) : Array<TextureRegion>{
         val tmp = TextureRegion.split(texture, texture.width, texture.height / 6)
         val frames = arrayOf(

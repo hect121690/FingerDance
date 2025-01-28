@@ -21,5 +21,6 @@ class PlayerSong(
     var ap: Boolean = false,
     var fd: Boolean = false,
     var vanish: Boolean = false,
-    var pathImgHJ: String = ""
+    var pathImgHJ: String = "",
+    var stepMaker: String = ""
 ) : Serializable

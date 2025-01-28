@@ -35,6 +35,7 @@ import com.fingerdance.databinding.ActivitySelectSongBinding
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.gson.Gson
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -745,7 +746,7 @@ class SelectSong : AppCompatActivity() {
                         valueOffset = txOffset.text.toString().toLong()
                         load(playerSong.rutaKsf!!)
                         db.updateOffset(currentChannel, currentSong, listItemsKsf[oldValue].listKsf[positionActualLvs].level, txOffset.text.toString())
-                        //showAddActive = false
+                        showAddActive = false
                         if(!showAddActive){
                             val handler = Handler(Looper.getMainLooper())
                             handler.postDelayed({
@@ -826,53 +827,47 @@ class SelectSong : AppCompatActivity() {
                         linearCurrent.isVisible = false
                         imgDisplay.isVisible=true
                         val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
-                        if(existEffect != null){
+                        if (existEffect != null) {
                             listEfectsDisplay.remove(existEffect)
-                            if(listEfectsDisplay.size == 0){
-                                imgDisplay.isVisible=false
-                            }else{
-                                //imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
-                                if(itemValues.value == "BGAOFF"){
-                                    playerSong.isBGAOff = false
-                                }
-                                if(itemValues.value == "FD"){
-                                    playerSong.fd = false
-                                }
-                                if(itemValues.value == "V"){
-                                    playerSong.vanish = false
-                                }
-                                if(itemValues.value == "AP"){
-                                    playerSong.ap = false
-                                }
-                                resetRunnable()
+                            when (existEffect.value) {
+                                "BGAOFF" -> playerSong.isBGAOff = false
+                                "FD" -> playerSong.fd = false
+                                "V" -> playerSong.vanish = false
+                                "AP" -> playerSong.ap = false
                             }
-                        }else{
-                            imgDisplay.setImageURI(Uri.parse(itemValues.rutaCommandImg))
-                            listEfectsDisplay.add(itemValues)
-                            if(itemValues.value == "BGAOFF"){
-                                playerSong.isBGAOff = true
-                            }
-                            if(itemValues.value == "FD"){
-                                playerSong.fd = true
-                            }
-                            if(itemValues.value == "V"){
-                                playerSong.vanish = true
-                                val isAp = listEfectsDisplay.find { it.value == "AP" }
-                                if(isAp != null){
-                                    playerSong.ap = false
-                                    listEfectsDisplay.remove(isAp)
+                        } else {
+                            when (itemValues.value) {
+                                "BGAOFF" -> {
+                                    listEfectsDisplay.add(itemValues)
+                                    playerSong.isBGAOff = true
                                 }
-                            }
-                            if(itemValues.value == "AP"){
-                                playerSong.ap = true
-                                val isVanish = listEfectsDisplay.find { it.value == "V" }
-                                if(isVanish != null){
-                                    playerSong.vanish = false
-                                    listEfectsDisplay.remove(isVanish)
+                                "FD" -> {
+                                    listEfectsDisplay.add(itemValues)
+                                    playerSong.fd = true
+                                }
+                                "V" -> {
+                                    listEfectsDisplay.add(itemValues)
+                                    playerSong.vanish = true
+                                    val isAp = listEfectsDisplay.find { it.value == "AP" }
+                                    if (isAp != null) {
+                                        listEfectsDisplay.remove(isAp)
+                                        playerSong.ap = false
+                                    }
+                                }
+                                "AP" -> {
+                                    listEfectsDisplay.add(itemValues)
+                                    playerSong.ap = true
+                                    val isVanish = listEfectsDisplay.find { it.value == "V" }
+                                    if (isVanish != null) {
+                                        listEfectsDisplay.remove(isVanish)
+                                        playerSong.vanish = false
+                                    }
                                 }
                             }
-                            resetRunnable()
+                            imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
                         }
+                        resetRunnable()
+                        imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
 
                     }
                     val bm= BitmapFactory.decodeFile(itemValues.rutaCommandImg)
@@ -1092,51 +1087,123 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
-            val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
-            return ArrayList<Bitmap>().apply {
-                var i = 0
-                for (a in 0 until 8) {
-                    add(Bitmap.createBitmap(bit, 0, i, bit.width, bit.height / 8))
-                    i += bit.height / 8
+        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
+        return ArrayList<Bitmap>().apply {
+            var i = 0
+            for (a in 0 until 8) {
+                add(Bitmap.createBitmap(bit, 0, i, bit.width, bit.height / 8))
+                i += bit.height / 8
+            }
+        }
+    }
+
+    fun load(filename: String) {
+        ksf = KsfProccess()
+        ksf.load(filename)
+    }
+
+    private fun iniciarContador() {
+        handlerContador.postDelayed(runnableContador, 0)
+    }
+    private val gson = Gson()
+    private val runnableContador: Runnable = object : Runnable {
+        override fun run() {
+            actualizarImagenNumero(reductor)
+            reductor--
+            handlerContador.postDelayed(this, 1000)
+            when(countSongsPlayed){
+                ONE_ADDITIONAL_NOTESKIN -> {
+                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[0])
+                    listCommands[0].listCommandValues.sortBy { it.value }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    showNewNoteSkin(listNoteSkinAdditionals[0])
+                    countSongsPlayed++
                 }
+                TWO_ADDITIONAL_NOTESKIN -> {
+                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[1])
+                    listCommands[0].listCommandValues.sortBy { it.value }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    showNewNoteSkin(listNoteSkinAdditionals[1])
+                    countSongsPlayed++
+                }
+                THREE_ADDITIONAL_NOTESKIN -> {
+                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[2])
+                    listCommands[0].listCommandValues.sortBy { it.value }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    showNewNoteSkin(listNoteSkinAdditionals[2])
+                    countSongsPlayed++
+                }
+            }
+
+            if(reductor < 0){
+                detenerContador()
+                if(ready == 1){
+                    if(commandWindow.isVisible){
+                        showCommandWindow(false)
+                    }
+                    imgAceptar.performClick()
+                }
+                if(ready == 0){
+                    if(commandWindow.isVisible){
+                        showCommandWindow(false)
+                    }
+                    imgAceptar.performClick()
+                    imgAceptar.performClick()
+                }
+
+            }
+        }
+    }
+
+    private fun showNewNoteSkin(newNoteSkin: CommandValues) {
+        val linearNewNoteSkin = LinearLayout(this).apply {
+            setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+            setOnTouchListener { _, _ -> true }
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
+
+        val imageView = ImageView(this).apply {
+            setPadding(20, 10, 20, 10)
+            setImageBitmap(BitmapFactory.decodeFile(newNoteSkin.rutaCommandImg))
+            layoutParams = LinearLayout.LayoutParams(
+                (medidaFlechas * 4).toInt(),
+                (medidaFlechas * 4).toInt()
+            )
+        }
+
+        val textView = TextView(this).apply {
+            text = "Felicidades!!! \n Has desbloqueado un nuevo NoteSkin \n ${newNoteSkin.value}"
+            setPadding(20, 30, 20, 30)
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            setTextColor(Color.parseColor("#FFEB3B"))
+            setTextIsSelectable(false)
+            textSize = medidaFlechas / 10f
+            setTypeface(typeface, Typeface.NORMAL)
+            setShadowLayer(1.6f, 1.5f, 1.3f, Color.WHITE)
+        }
+
+        val btnAceptar = Button(this).apply {
+            text = "Aceptar"
+            setBackgroundResource(android.R.color.transparent)
+            setTextColor(Color.WHITE)
+            setPadding(20, 50, 20, 10)
+            setOnClickListener {
+                constraintMain.removeView(linearNewNoteSkin)
             }
         }
 
-        fun load(filename: String) {
-            ksf = KsfProccess()
-            ksf.load(filename)
-        }
+        linearNewNoteSkin.addView(imageView)
+        linearNewNoteSkin.addView(textView)
+        linearNewNoteSkin.addView(btnAceptar)
+        constraintMain.addView(linearNewNoteSkin)
+    }
 
-        private fun iniciarContador() {
-            handlerContador.postDelayed(runnableContador, 0)
-        }
-
-        private val runnableContador: Runnable = object : Runnable {
-            override fun run() {
-                actualizarImagenNumero(reductor)
-                reductor--
-                handlerContador.postDelayed(this, 1000)
-
-                if(reductor < 0){
-                    detenerContador()
-                    if(ready == 1){
-                        if(commandWindow.isVisible){
-                            showCommandWindow(false)
-                        }
-                        imgAceptar.performClick()
-                    }
-                    if(ready == 0){
-                        if(commandWindow.isVisible){
-                            showCommandWindow(false)
-                        }
-                        imgAceptar.performClick()
-                        imgAceptar.performClick()
-                    }
-
-                }
-            }
-        }
-        private fun actualizarImagenNumero(numero: Int) {
+    private fun actualizarImagenNumero(numero: Int) {
             val unidad = numero % 10
             val decena = numero / 10
             val bitmapUnidad = dividirPNG(unidad)
@@ -1146,374 +1213,355 @@ class SelectSong : AppCompatActivity() {
             imgContador.setImageBitmap(bitmapNumeroCompleto)
         }
 
-        fun dividirPNG(digito: Int): Bitmap {
-            val anchoTotal = bitmapNumber.width
-            val anchoDigito = anchoTotal / 10
-            val x = anchoDigito * digito
-            return Bitmap.createBitmap(bitmapNumber, x, 0, anchoDigito, bitmapNumber.height)
-        }
+    private fun dividirPNG(digito: Int): Bitmap {
+        val anchoTotal = bitmapNumber.width
+        val anchoDigito = anchoTotal / 10
+        val x = anchoDigito * digito
+        return Bitmap.createBitmap(bitmapNumber, x, 0, anchoDigito, bitmapNumber.height)
+    }
 
-        private fun combinarBitmaps(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
-            val anchoTotal = bitmap1.width + bitmap2.width
-            val bitmapCombinado = Bitmap.createBitmap(anchoTotal, bitmap1.height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmapCombinado)
-            canvas.drawBitmap(bitmap1, 0f, 0f, null)
-            canvas.drawBitmap(bitmap2, bitmap1.width.toFloat(), 0f, null)
-            return bitmapCombinado
-        }
+    private fun combinarBitmaps(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
+        val anchoTotal = bitmap1.width + bitmap2.width
+        val bitmapCombinado = Bitmap.createBitmap(anchoTotal, bitmap1.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmapCombinado)
+        canvas.drawBitmap(bitmap1, 0f, 0f, null)
+        canvas.drawBitmap(bitmap2, bitmap1.width.toFloat(), 0f, null)
+        return bitmapCombinado
+    }
 
-        private fun detenerContador() {
-            handlerContador.removeCallbacks(runnableContador)
-            handlerContador.postDelayed(runnableContador, 1000)
-            reductor = 99
-        }
+    private fun detenerContador() {
+        handlerContador.removeCallbacks(runnableContador)
+        handlerContador.postDelayed(runnableContador, 1000)
+        reductor = 99
+    }
 
-        private val runnable: Runnable = object : Runnable {
-            override fun run() {
-                if (contador < listEfectsDisplay.size) {
-                    imgDisplay.setImageURI(Uri.parse(listEfectsDisplay[contador].rutaCommandImg))
-                    contador++
-                } else {
-                    contador = 0
-                }
-                handler.postDelayed(this, 1200)
+    private val runnable: Runnable = object : Runnable {
+        override fun run() {
+            if (contador < listEfectsDisplay.size) {
+                imgDisplay.setImageURI(Uri.parse(listEfectsDisplay[contador].rutaCommandImg))
+                contador++
+            } else {
+                contador = 0
+            }
+            handler.postDelayed(this, 1200)
+        }
+    }
+
+    private fun resetRunnable() {
+        handler.removeCallbacks(runnable)
+        handler.postDelayed(runnable, 0)
+    }
+
+    fun getRutaNoteSkin(rutaOriginal: String): String {
+        return rutaOriginal.removeSuffix("_Icon.png")
+    }
+
+    private fun moveIndicatorToPosition(position: Int) {
+        val layoutManager = recyclerLvs.layoutManager as? LinearLayoutManager
+        val itemView = layoutManager?.findViewByPosition(position)
+        val indicatorX = itemView?.left ?: 0
+        indicatorLayout.x = indicatorX.toFloat()
+
+    }
+
+    private fun performAction() {
+        openCommandWindow()
+        sequence.clear()
+    }
+
+    private fun handleButtonPress(isLeft: Boolean) {
+        sequence.add(isLeft)
+
+        if (sequence.size >= sequencePattern.size) {
+            val lastElements = sequence.takeLast(sequencePattern.size)
+            if (lastElements == sequencePattern) {
+                performAction()
             }
         }
 
-        private fun resetRunnable() {
-            handler.removeCallbacks(runnable)
-            handler.postDelayed(runnable, 0)
-        }
-
-        fun getRutaNoteSkin(rutaOriginal: String): String {
-            return rutaOriginal.removeSuffix("_Icon.png")
-        }
-
-        private fun moveIndicatorToPosition(position: Int) {
-            val layoutManager = recyclerLvs.layoutManager as? LinearLayoutManager
-            val itemView = layoutManager?.findViewByPosition(position)
-            val indicatorX = itemView?.left ?: 0
-            indicatorLayout.x = indicatorX.toFloat()
-
-        }
-
-        private fun performAction() {
-            openCommandWindow()
+        if (sequence != sequencePattern.take(sequence.size)) {
             sequence.clear()
         }
+    }
 
-        private fun handleButtonPress(isLeft: Boolean) {
-            sequence.add(isLeft)
+    private fun showProgressBar(duration: Long) {
+        var currentTime: Long
 
-            if (sequence.size >= sequencePattern.size) {
-                val lastElements = sequence.takeLast(sequencePattern.size)
-                if (lastElements == sequencePattern) {
-                    performAction()
-                }
+        val progressBar = findViewById<ProgressBar>(R.id.progressBar)
+        val maxProgress = progressBar.max
+
+        val timer = object : CountDownTimer(duration, 1) {
+            override fun onTick(millisUntilFinished: Long) {
+                currentTime = duration - millisUntilFinished
+
+                val progress = ((currentTime * maxProgress) / duration).toInt()
+                progressBar.progress = progress
             }
 
-            if (sequence != sequencePattern.take(sequence.size)) {
-                sequence.clear()
+            override fun onFinish() {
+                currentTime = duration
+                progressBar.progress = maxProgress
+            }
+        }
+        timer.start()
+    }
+
+    private fun goSelectLevel() {
+        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        recyclerView.startAnimation(animOff)
+        recyclerView.isVisible = false
+        imgSelected.clearAnimation()
+        imgSelected.visibility = View.INVISIBLE
+        imgLvSelected.isVisible = true
+        imgBestScore.isVisible = true
+        imgBestGrade.isVisible = true
+        lbLvActive.isVisible = true
+        lbBestScore.isVisible = true
+
+        imgLvSelected.startAnimation(animOn)
+        imgBestScore.startAnimation(animOn)
+        imgBestGrade.startAnimation(animOn)
+        lbLvActive.startAnimation(animOn)
+        lbBestScore.startAnimation(animOn)
+        moverLvs(positionActualLvs)
+    }
+
+    private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
+        var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+        if(listSongScores[positionActualLvs].grade == "SSS"){ //SSS
+            bestGrade = arrayBestGrades[0]
+        }
+        if(listSongScores[positionActualLvs].grade == "SS"){ //SS
+            bestGrade = arrayBestGrades[1]
+        }
+        if(listSongScores[positionActualLvs].grade == "S"){ //S
+            bestGrade = arrayBestGrades[2]
+        }
+        if(listSongScores[positionActualLvs].grade == "A"){ //A
+            bestGrade = arrayBestGrades[3]
+        }
+        if(listSongScores[positionActualLvs].grade == "B"){ //B
+            bestGrade = arrayBestGrades[4]
+        }
+        if(listSongScores[positionActualLvs].grade == "C"){ //C
+            bestGrade = arrayBestGrades[5]
+        }
+        if(listSongScores[positionActualLvs].grade == "D"){ //D
+            bestGrade = arrayBestGrades[6]
+        }
+        if(listSongScores[positionActualLvs].grade == "F"){ //F
+            bestGrade = arrayBestGrades[7]
+        }
+        return bestGrade
+    }
+
+    private fun openCommandWindow() {
+        if(!commandWindow.isVisible){
+            showCommandWindow(true)
+        }
+    }
+
+    private fun showCommandWindow(ver : Boolean){
+        if(ver){
+            commandWindow.visibility = View.VISIBLE
+            commandWindowBG.visibility = View.VISIBLE
+            linearMenus.visibility = View.VISIBLE
+            linearTop.visibility = View.VISIBLE
+            linearCommands.visibility = View.VISIBLE
+            linearInfo.visibility = View.VISIBLE
+            linearBottom.visibility = View.VISIBLE
+            lbCurrentBpm.visibility = View.VISIBLE
+            txCurrentBpm.visibility = View.VISIBLE
+
+            commandWindow.startAnimation(animOn)
+            commandWindowBG.startAnimation(animOn)
+            linearCommands.startAnimation(animOn)
+            linearInfo.startAnimation(animOn)
+            soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            oldValueCommand = 0
+            isFocusCommandWindow(oldValueCommand)
+        }else{
+            commandWindow.visibility = View.GONE
+            commandWindowBG.visibility = View.GONE
+            linearMenus.visibility = View.GONE
+            linearTop.visibility = View.GONE
+            linearCurrent.visibility = View.GONE
+            linearValues.visibility = View.GONE
+            linearCommands.visibility = View.GONE
+            linearInfo.visibility = View.GONE
+            linearBottom.visibility = View.GONE
+            lbCurrentBpm.visibility = View.GONE
+            txCurrentBpm.visibility = View.GONE
+
+            commandWindow.startAnimation(animOff)
+            commandWindowBG.startAnimation(animOff)
+            linearCurrent.startAnimation(animOff)
+            linearValues.startAnimation(animOff)
+            linearCommands.startAnimation(animOff)
+            linearInfo.startAnimation(animOff)
+            sequence.clear()
+        }
+    }
+
+    private fun goSelectChannel(){
+        soundPoolSelectSongKsf.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        nav_back_der.startAnimation(animOn)
+        if (mediPlayer.isPlaying){
+            mediPlayer.pause()
+            mediPlayer.stop()
+            mediPlayer.release()
+            if(mediaPlayerVideo.isPlaying){
+                mediaPlayerVideo.pause()
+                mediaPlayerVideo.stop()
+                mediaPlayerVideo.release()
             }
         }
 
-        private fun showProgressBar(duration: Long) {
-            var currentTime: Long
-
-            val progressBar = findViewById<ProgressBar>(R.id.progressBar)
-            val maxProgress = progressBar.max
-
-            val timer = object : CountDownTimer(duration, 1) {
-                override fun onTick(millisUntilFinished: Long) {
-                    currentTime = duration - millisUntilFinished
-
-                    val progress = ((currentTime * maxProgress) / duration).toInt()
-                    progressBar.progress = progress
-                }
-
-                override fun onFinish() {
-                    currentTime = duration
-                    progressBar.progress = maxProgress
-                }
-            }
-            timer.start()
-        }
-
-        private fun goSelectLevel() {
-            soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            recyclerView.startAnimation(animOff)
-            recyclerView.isVisible = false
-            imgSelected.clearAnimation()
-            imgSelected.visibility = View.INVISIBLE
-            imgLvSelected.isVisible = true
-            imgBestScore.isVisible = true
-            imgBestGrade.isVisible = true
-            lbLvActive.isVisible = true
-            lbBestScore.isVisible = true
-
-            imgLvSelected.startAnimation(animOn)
-            imgBestScore.startAnimation(animOn)
-            imgBestGrade.startAnimation(animOn)
-            lbLvActive.startAnimation(animOn)
-            lbBestScore.startAnimation(animOn)
-            moverLvs(positionActualLvs)
-        }
-
-        private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
-            var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-            if(listSongScores[positionActualLvs].grade == "SSS"){ //SSS
-                bestGrade = arrayBestGrades[0]
-            }
-            if(listSongScores[positionActualLvs].grade == "SS"){ //SS
-                bestGrade = arrayBestGrades[1]
-            }
-            if(listSongScores[positionActualLvs].grade == "S"){ //S
-                bestGrade = arrayBestGrades[2]
-            }
-            if(listSongScores[positionActualLvs].grade == "A"){ //A
-                bestGrade = arrayBestGrades[3]
-            }
-            if(listSongScores[positionActualLvs].grade == "B"){ //B
-                bestGrade = arrayBestGrades[4]
-            }
-            if(listSongScores[positionActualLvs].grade == "C"){ //C
-                bestGrade = arrayBestGrades[5]
-            }
-            if(listSongScores[positionActualLvs].grade == "D"){ //D
-                bestGrade = arrayBestGrades[6]
-            }
-            if(listSongScores[positionActualLvs].grade == "F"){ //F
-                bestGrade = arrayBestGrades[7]
-            }
-            return bestGrade
-        }
-
-        private fun openCommandWindow() {
-            if(!commandWindow.isVisible){
-                showCommandWindow(true)
-            }
-        }
-
-        private fun showCommandWindow(ver : Boolean){
-            if(ver){
-                commandWindow.visibility = View.VISIBLE
-                commandWindowBG.visibility = View.VISIBLE
-                linearMenus.visibility = View.VISIBLE
-                linearTop.visibility = View.VISIBLE
-                linearCommands.visibility = View.VISIBLE
-                linearInfo.visibility = View.VISIBLE
-                linearBottom.visibility = View.VISIBLE
-                lbCurrentBpm.visibility = View.VISIBLE
-                txCurrentBpm.visibility = View.VISIBLE
-
-                commandWindow.startAnimation(animOn)
-                commandWindowBG.startAnimation(animOn)
-                linearCommands.startAnimation(animOn)
-                linearInfo.startAnimation(animOn)
-                soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                oldValueCommand = 0
-                isFocusCommandWindow(oldValueCommand)
-            }else{
-                commandWindow.visibility = View.GONE
-                commandWindowBG.visibility = View.GONE
-                linearMenus.visibility = View.GONE
-                linearTop.visibility = View.GONE
-                linearCurrent.visibility = View.GONE
-                linearValues.visibility = View.GONE
-                linearCommands.visibility = View.GONE
-                linearInfo.visibility = View.GONE
-                linearBottom.visibility = View.GONE
-                lbCurrentBpm.visibility = View.GONE
-                txCurrentBpm.visibility = View.GONE
-
-                commandWindow.startAnimation(animOff)
-                commandWindowBG.startAnimation(animOff)
-                linearCurrent.startAnimation(animOff)
-                linearValues.startAnimation(animOff)
-                linearCommands.startAnimation(animOff)
-                linearInfo.startAnimation(animOff)
-                sequence.clear()
-            }
-        }
-
-        private fun goSelectChannel(){
-            soundPoolSelectSongKsf.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            nav_back_der.startAnimation(animOn)
-            if (mediPlayer.isPlaying){
-                mediPlayer.pause()
-                mediPlayer.stop()
-                mediPlayer.release()
-                if(mediaPlayerVideo.isPlaying){
-                    mediaPlayerVideo.pause()
-                    mediaPlayerVideo.stop()
-                    mediaPlayerVideo.release()
-                }
-            }
-
-            if(isTimerRunning()){
-                timer?.cancel()
-            }
-
-            resetRunnable()
-            detenerContador()
-            this.finish()
-            overridePendingTransition(0,R.anim.anim_command_window_off)
-        }
-
-        private fun isTimerRunning(): Boolean {
-            return isTimerRunning
-        }
-
-        private fun hideSelectLv(anim: Animation) {
-            recyclerView.isVisible = true
-            recyclerView.startAnimation(animOn)
-            imgSelected.visibility = View.VISIBLE
-            imgSelected.startAnimation(anim)
-
-            imgLvSelected.startAnimation(animOff)
-            imgBestScore.startAnimation(animOff)
-            lbLvActive.startAnimation(animOff)
-            lbBestScore.startAnimation(animOff)
-
-            imgLvSelected.isVisible = false
-            imgBestScore.isVisible = false
-            imgBestGrade.isVisible = false
-            lbLvActive.isVisible = false
-            lbBestScore.isVisible = false
-        }
-
-        private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int) {
-            soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            flecha.startAnimation(animation)
-            recyclerView.scrollToPosition(oldValue)
-            isFocus(oldValue)
-            val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
-            smoothScroller.targetPosition = oldValue
-            recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
-            positionActualLvs = 0
-            lbArtist.isSelected = true
-            lbNameSong.isSelected = true
-        }
-
-        private fun moverLvs(positionActualLvs: Int) {
-            val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
-            lbLvActive.text = lv.level
-
-            currentLevel = lv.level
-            lbBestScore.text = listSongScores[positionActualLvs].puntaje
-            currentScore = lbBestScore.text.toString()
-
-            currentBestGrade = getBitMapGrade(positionActualLvs)
-            imgBestGrade.setImageBitmap(currentBestGrade)
-            playerSong.level = lv.level
-
-            txOffset.text = if(listSongScores[positionActualLvs].offset != "0") listSongScores[positionActualLvs].offset else valueOffset.toString()
-            //valueOffset = txOffset.text.toString().toLong()
-
-            val layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
-
-            recyclerLvs.post {
-                layoutManager.scrollToPositionWithOffset(positionActualLvs, 0)
-                recyclerLvs.post {
-                    moveIndicatorToPosition(positionActualLvs) // Asegura que el indicador se mueva después del desplazamiento
-                }
-            }
-        }
-
-        private fun isFocus (position: Int){
-            val item = listItemsKsf[position]
-            currentPathSong = item.rutaSong
-            var isVideo = true
+        if(isTimerRunning()){
             timer?.cancel()
-            timer = object : CountDownTimer(10000, 1000) {
-                override fun onTick(millisUntilFinished: Long) {}
-                override fun onFinish() {
-                    mediPlayer.stop()
-                    isTimerRunning = false
-                }
+        }
+
+        resetRunnable()
+        detenerContador()
+        this.finish()
+        overridePendingTransition(0,R.anim.anim_command_window_off)
+    }
+
+    private fun isTimerRunning(): Boolean {
+        return isTimerRunning
+    }
+
+    private fun hideSelectLv(anim: Animation) {
+        recyclerView.isVisible = true
+        recyclerView.startAnimation(animOn)
+        imgSelected.visibility = View.VISIBLE
+        imgSelected.startAnimation(anim)
+
+        imgLvSelected.startAnimation(animOff)
+        imgBestScore.startAnimation(animOff)
+        lbLvActive.startAnimation(animOff)
+        lbBestScore.startAnimation(animOff)
+
+        imgLvSelected.isVisible = false
+        imgBestScore.isVisible = false
+        imgBestGrade.isVisible = false
+        lbLvActive.isVisible = false
+        lbBestScore.isVisible = false
+    }
+
+    private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int) {
+        soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        flecha.startAnimation(animation)
+        recyclerView.scrollToPosition(oldValue)
+        isFocus(oldValue)
+        val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
+        smoothScroller.targetPosition = oldValue
+        recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
+        positionActualLvs = 0
+        lbArtist.isSelected = true
+        lbNameSong.isSelected = true
+    }
+
+    private fun moverLvs(positionActualLvs: Int) {
+        val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
+        lbLvActive.text = lv.level
+
+        currentLevel = lv.level
+        lbBestScore.text = listSongScores[positionActualLvs].puntaje
+        currentScore = lbBestScore.text.toString()
+
+        currentBestGrade = getBitMapGrade(positionActualLvs)
+        imgBestGrade.setImageBitmap(currentBestGrade)
+        playerSong.level = lv.level
+        playerSong.stepMaker = lv.stepmaker
+
+        txOffset.text = if(listSongScores[positionActualLvs].offset != "0") listSongScores[positionActualLvs].offset else valueOffset.toString()
+        //valueOffset = txOffset.text.toString().toLong()
+
+        val layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
+
+        recyclerLvs.post {
+            layoutManager.scrollToPositionWithOffset(positionActualLvs, 0)
+            recyclerLvs.post {
+                moveIndicatorToPosition(positionActualLvs) // Asegura que el indicador se mueva después del desplazamiento
             }
+        }
+    }
 
-            //txOffset.text = "0"
-            //valueOffset = txOffset.text.toString().toLong()
+    private fun isFocus (position: Int){
+        val item = listItemsKsf[position]
+        currentPathSong = item.rutaSong
+        var isVideo = true
+        timer?.cancel()
+        timer = object : CountDownTimer(10000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {}
+            override fun onFinish() {
+                mediPlayer.stop()
+                isTimerRunning = false
+            }
+        }
 
-            txOffset.text = valueOffset.toString()
+        //txOffset.text = "0"
+        //valueOffset = txOffset.text.toString().toLong()
 
-            currentSong = item.title
+        txOffset.text = valueOffset.toString()
+
+        currentSong = item.title
+        listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
+        if(listSongScores.isEmpty()){
+            for (nivel in item.listKsf) {
+                db.insertNivel(
+                    canal = currentChannel,
+                    cancion = item.title,
+                    nivel = nivel.level,
+                    puntaje = "0",
+                    grade = "",
+                    offset = "0"
+                )
+            }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
-            if(listSongScores.isEmpty()){
-                for (nivel in item.listKsf) {
-                    db.insertNivel(
-                        canal = currentChannel,
-                        cancion = item.title,
-                        nivel = nivel.level,
-                        puntaje = "0",
-                        grade = "",
-                        offset = "0"
-                    )
-                }
-                listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
+        }
+
+        //if(isFileExists(File(item.rutaPrevVideo))){
+        if(isFileExists(File(item.rutaPreview))){
+            if(item.rutaPreview.endsWith(".png", ignoreCase = true)
+            || item.rutaPreview.endsWith(".jpg", ignoreCase = true)
+            || item.rutaPreview.endsWith(".bpm", ignoreCase = true)
+            || item.rutaPreview.endsWith(".mpg")
+            || item.rutaPreview == "") {
+                isVideo = false
             }
-
-            //if(isFileExists(File(item.rutaPrevVideo))){
-            if(isFileExists(File(item.rutaPreview))){
-                if(item.rutaPreview.endsWith(".png", ignoreCase = true)
-                || item.rutaPreview.endsWith(".jpg", ignoreCase = true)
-                || item.rutaPreview.endsWith(".bpm", ignoreCase = true)
-                || item.rutaPreview.endsWith(".mpg")
-                || item.rutaPreview == "") {
-                    isVideo = false
+            if(isVideo){
+                video_fondo.setVideoPath(item.rutaPreview)
+                video_fondo.setOnPreparedListener { mediaPlayer ->
+                    mediaPlayer.setVolume(0f, 0f)
                 }
-                if(isVideo){
-                    video_fondo.setVideoPath(item.rutaPreview)
-                    video_fondo.setOnPreparedListener { mediaPlayer ->
-                        mediaPlayer.setVolume(0f, 0f)
-                    }
-                    video_fondo.visibility = View.VISIBLE
-                    imgPrev.visibility = View.GONE
+                video_fondo.visibility = View.VISIBLE
+                imgPrev.visibility = View.GONE
 
-                    //val retriever = MediaMetadataRetriever()
-                    //retriever.setDataSource(item.rutaPreview)
+                //val retriever = MediaMetadataRetriever()
+                //retriever.setDataSource(item.rutaPreview)
+                video_fondo.start()
+                //val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
+                //if(hasAudio != null ){
+                    //video_fondo.setOnPreparedListener { mp -> mp.setVolume(0.0f, 0.0f) }
+                //}
+                video_fondo.setOnCompletionListener {
                     video_fondo.start()
-                    //val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
-                    //if(hasAudio != null ){
-                        //video_fondo.setOnPreparedListener { mp -> mp.setVolume(0.0f, 0.0f) }
-                    //}
-                    video_fondo.setOnCompletionListener {
-                        video_fondo.start()
-                    }
-                    if (mediPlayer.isPlaying){
-                        mediPlayer.release()
-                        mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                        mediPlayer.seekTo(startTimeMs)
-                        mediPlayer.start()
-                        timer?.start()
-                        isTimerRunning = true
-                    }else{
-                        mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaPreview)))
-                        mediPlayer.seekTo(startTimeMs)
-                        mediPlayer.start()
-                        timer?.start()
-                        isTimerRunning = true
-                    }
+                }
+                if (mediPlayer.isPlaying){
+                    mediPlayer.release()
+                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                    mediPlayer.seekTo(startTimeMs)
+                    mediPlayer.start()
+                    timer?.start()
+                    isTimerRunning = true
                 }else{
-                    val img = BitmapFactory.decodeFile(item.rutaDisc)
-                    imgPrev.setImageBitmap(img)
-                    video_fondo.visibility = View.GONE
-                    imgPrev.visibility = View.VISIBLE
-                    if (mediPlayer.isPlaying){
-                        mediPlayer.release()
-                        mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                        mediPlayer.seekTo(startTimeMs)
-                        mediPlayer.start()
-                        timer?.start()
-                        isTimerRunning = true
-                    }else{
-                        mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                        mediPlayer.seekTo(startTimeMs)
-                        mediPlayer.start()
-                        timer?.start()
-                        isTimerRunning = true
-                    }
+                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaPreview)))
+                    mediPlayer.seekTo(startTimeMs)
+                    mediPlayer.start()
+                    timer?.start()
+                    isTimerRunning = true
                 }
             }else{
                 val img = BitmapFactory.decodeFile(item.rutaDisc)
@@ -1535,317 +1583,337 @@ class SelectSong : AppCompatActivity() {
                     isTimerRunning = true
                 }
             }
-            /*
-            if(currentVideoPosition != 0){
-                mediPlayer.seekTo(currentVideoPosition)
+        }else{
+            val img = BitmapFactory.decodeFile(item.rutaDisc)
+            imgPrev.setImageBitmap(img)
+            video_fondo.visibility = View.GONE
+            imgPrev.visibility = View.VISIBLE
+            if (mediPlayer.isPlaying){
+                mediPlayer.release()
+                mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                mediPlayer.seekTo(startTimeMs)
                 mediPlayer.start()
-            }
-            */
-            if(item.title == ""){
-                lbNameSong.text = "NO TITLE"
+                timer?.start()
+                isTimerRunning = true
             }else{
-                lbNameSong.text = item.title
-            }
-            lbNameSong.startAnimation(animNameSong)
-
-            if(item.artist == ""){
-                lbArtist.text = "NO ARTIST"
-            }else{
-                lbArtist.text = item.artist
-            }
-
-            lbBpm.text = "BPM:" + String.format("%.2f", item.displayBpm.toDouble())
-            displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
-            binding.recyclerLvs.removeAllViews()
-            //llenaLvs(item.listKsf)
-            llenaLvsKsf(item.listKsf)
-        }
-
-        class CenterSmoothScroller(context: Context?) : LinearSmoothScroller(context) {
-            override fun calculateDtToFit(
-                viewStart: Int,
-                viewEnd: Int,
-                boxStart: Int,
-                boxEnd: Int,
-                snapPreference: Int,
-            ): Int {
-                return boxStart + (boxEnd - boxStart) / 2 - (viewStart + (viewEnd - viewStart) / 2)
+                mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                mediPlayer.seekTo(startTimeMs)
+                mediPlayer.start()
+                timer?.start()
+                isTimerRunning = true
             }
         }
+        /*
+        if(currentVideoPosition != 0){
+            mediPlayer.seekTo(currentVideoPosition)
+            mediPlayer.start()
+        }
+        */
+        if(item.title == ""){
+            lbNameSong.text = "NO TITLE"
+        }else{
+            lbNameSong.text = item.title
+        }
+        lbNameSong.startAnimation(animNameSong)
 
-        private fun isFocusCommandWindow (position: Int){
-            soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            val item = listCommands[position]
-            recyclerCommands.currentItem = position
-            if(item.value.contains("Speed", ignoreCase = true)){
-                lbCurrentBpm.text = "Velocidad"
-                txCurrentBpm.text = txVelocidadActual.text
-            }
-            if(item.value.contains("Offset", ignoreCase = true)){
-                lbCurrentBpm.text = "Offset"
-                txCurrentBpm.text = txOffset.text
-            }
-            if(item.value.contains("NoteSkin", ignoreCase = true) ||
-                item.value.contains("Display", ignoreCase = true) ||
-                item.value.contains("Judge", ignoreCase = true)){
-                linearCurrent.isVisible = false
-            }
-            txInfoCW.text = item.descripcion
-            llenaCommandsValues(listCommands[position].listCommandValues)
+        if(item.artist == ""){
+            lbArtist.text = "NO ARTIST"
+        }else{
+            lbArtist.text = item.artist
         }
 
-        private fun isFocusCommandWindowValues (position: Int){
-            soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            //listCommands[oldValueCommand].listCommandValues.sortedWith(compareBy { it.rutaCommandImg })
-            val item = listCommands[oldValueCommand].listCommandValues[position]
-            recyclerCommandsValues.setCurrentItem(position)
-            val reset = "por defecto"
+        lbBpm.text = "BPM:" + String.format("%.2f", item.displayBpm.toDouble())
+        displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
+        binding.recyclerLvs.removeAllViews()
+        //llenaLvs(item.listKsf)
+        llenaLvsKsf(item.listKsf)
+    }
 
-            if(!listCommands[oldValueCommand].value.contains("NoteSkins")){
-                if(item.value.matches(Regex(".*[0-9].*"))){
-                    if(item.value == "0"){
-                        txInfoCW.text = item.descripcion + reset
-                    }else {
-                        txInfoCW.text = item.descripcion + item.value
-                    }
-                }else{
-                    txInfoCW.text = item.descripcion
+    class CenterSmoothScroller(context: Context?) : LinearSmoothScroller(context) {
+        override fun calculateDtToFit(
+            viewStart: Int,
+            viewEnd: Int,
+            boxStart: Int,
+            boxEnd: Int,
+            snapPreference: Int,
+        ): Int {
+            return boxStart + (boxEnd - boxStart) / 2 - (viewStart + (viewEnd - viewStart) / 2)
+        }
+    }
+
+    private fun isFocusCommandWindow (position: Int){
+        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        val item = listCommands[position]
+        recyclerCommands.currentItem = position
+        if(item.value.contains("Speed", ignoreCase = true)){
+            lbCurrentBpm.text = "Velocidad"
+            txCurrentBpm.text = txVelocidadActual.text
+        }
+        if(item.value.contains("Offset", ignoreCase = true)){
+            lbCurrentBpm.text = "Offset"
+            txCurrentBpm.text = txOffset.text
+        }
+        if(item.value.contains("NoteSkin", ignoreCase = true) ||
+            item.value.contains("Display", ignoreCase = true) ||
+            item.value.contains("Judge", ignoreCase = true)){
+            linearCurrent.isVisible = false
+        }
+        txInfoCW.text = item.descripcion
+        llenaCommandsValues(listCommands[position].listCommandValues)
+    }
+
+    private fun isFocusCommandWindowValues (position: Int){
+        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        //listCommands[oldValueCommand].listCommandValues.sortedWith(compareBy { it.rutaCommandImg })
+        val item = listCommands[oldValueCommand].listCommandValues[position]
+        recyclerCommandsValues.setCurrentItem(position)
+        val reset = "por defecto"
+
+        if(!listCommands[oldValueCommand].value.contains("NoteSkins")){
+            if(item.value.matches(Regex(".*[0-9].*"))){
+                if(item.value == "0"){
+                    txInfoCW.text = item.descripcion + reset
+                }else {
+                    txInfoCW.text = item.descripcion + item.value
                 }
             }else{
                 txInfoCW.text = item.descripcion
             }
+        }else{
+            txInfoCW.text = item.descripcion
+        }
+    }
+
+    private fun llenaCommands( listCommands: ArrayList<Command>){
+        recyclerCommands.adapter = CommandAdapter(listCommands)
+        val compositePageTransformer = CompositePageTransformer()
+        compositePageTransformer.addTransformer(MarginPageTransformer((10 * Resources.getSystem().displayMetrics.density).toInt()))
+        recyclerCommands.setPageTransformer(compositePageTransformer)
+        compositePageTransformer.addTransformer { page, position ->
+            val r = 1 - abs(position)
+            page.scaleY = (0.80f + r * 0.60f)
+            page.scaleX = (0.80f + r * 0.60f)
+        }
+        recyclerCommands.setPageTransformer(compositePageTransformer)
+        recyclerCommands.apply {
+            clipChildren = false
+            clipToPadding = false
+            offscreenPageLimit = 3
+            (getChildAt(0) as RecyclerView).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
+        }
+    }
+
+    private fun llenaCommandsValues( listCommandsVales: ArrayList<CommandValues>){
+        recyclerCommandsValues.adapter = CommandValuesAdapter(listCommandsVales)
+        val compositePageTransformer = CompositePageTransformer()
+        compositePageTransformer.addTransformer { page, position ->
+            val r = 1 - abs(position)
+            page.scaleY = (0.80f + r * 0.20f)
+        }
+        recyclerCommandsValues.setPageTransformer(compositePageTransformer)
+        recyclerCommandsValues.apply {
+            clipChildren = false
+            clipToPadding = false
+            offscreenPageLimit = 3
+            (getChildAt(0) as RecyclerView).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
+        }
+    }
+
+    private fun llenaLvs(listLvs : MutableList<Lvs>){
+        binding.recyclerLvs.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = LvsAdapter(listLvs, null, sizeLvs)
+        }
+        recyclerLvs.onFlingListener = null
+    }
+
+    private fun llenaLvsKsf(listLvs : MutableList<Ksf>){
+        binding.recyclerLvs.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = LvsAdapter(null, listLvs, sizeLvs)
+        }
+        recyclerLvs.onFlingListener = null
+    }
+
+    private fun llenaLvsVacios(listLvs : ArrayList<Lvs>? = arrayListOf(), listLvsKsf:  ArrayList<Ksf>? = arrayListOf()){
+        binding.recyclerNoLvs.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            if(listLvs != null){
+                adapter = LvsAdapter(listLvs, null, (sizeLvs))
+            }else if(listLvsKsf != null){
+                adapter = LvsAdapter(null, listLvsKsf, (sizeLvs))
+            }
+
+        }
+    }
+
+    private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
+        binding.recyclerView.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = CustomAdapter(null, listItemsKsf, heightBanner, widhtBanner)
+        }
+    }
+
+    private fun createSongList(): ArrayList<Cancion> {
+        val arraylist=ArrayList<Cancion>()
+        for(index in 0 until listSongsChannel.size) {
+            arraylist.add(Cancion(
+                listSongsChannel[index].name,
+                listSongsChannel[index].artist,
+                listSongsChannel[index].bpm,
+                listSongsChannel[index].tickCount,
+                listSongsChannel[index].prevVideo,
+                listSongsChannel[index].rutaPrevVideo,
+                listSongsChannel[index].video,
+                listSongsChannel[index].song,
+                listSongsChannel[index].rutaBanner,
+                listSongsChannel[index].rutaCancion,
+                listSongsChannel[index].rutaSteps,
+                listSongsChannel[index].rutaVideo,
+                listSongsChannel[index].listLvs))
         }
 
-        private fun llenaCommands( listCommands: ArrayList<Command>){
-            recyclerCommands.adapter = CommandAdapter(listCommands)
-            val compositePageTransformer = CompositePageTransformer()
-            compositePageTransformer.addTransformer(MarginPageTransformer((10 * Resources.getSystem().displayMetrics.density).toInt()))
-            recyclerCommands.setPageTransformer(compositePageTransformer)
-            compositePageTransformer.addTransformer { page, position ->
-                val r = 1 - abs(position)
-                page.scaleY = (0.80f + r * 0.60f)
-                page.scaleX = (0.80f + r * 0.60f)
-            }
-            recyclerCommands.setPageTransformer(compositePageTransformer)
-            recyclerCommands.apply {
-                clipChildren = false
-                clipToPadding = false
-                offscreenPageLimit = 3
-                (getChildAt(0) as RecyclerView).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
-            }
+        if(arraylist.size > 50){
+            arraylist.addAll(arraylist)
+        }
+        if(arraylist.size > 10 && arraylist.size <= 50){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+        }
+        if(arraylist.size > 5 && arraylist.size <= 10){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+        }
+        if(arraylist.size > 3 && arraylist.size <= 5){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+        }
+        if(arraylist.size <= 3){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+        }
+        return arraylist
+    }
+
+    private fun createSongListKsf(): ArrayList<SongKsf> {
+        val arraylist=ArrayList<SongKsf>()
+        for(index in 0 until listSongsChannelKsf.size) {
+            arraylist.add(SongKsf(
+                listSongsChannelKsf[index].title,
+                listSongsChannelKsf[index].artist,
+                listSongsChannelKsf[index].displayBpm,
+                listSongsChannelKsf[index].rutaDisc,
+                listSongsChannelKsf[index].rutaTitle,
+                listSongsChannelKsf[index].rutaSong,
+                listSongsChannelKsf[index].rutaPreview,
+                listSongsChannelKsf[index].rutaBGA,
+                listSongsChannelKsf[index].listKsf))
         }
 
-        private fun llenaCommandsValues( listCommandsVales: ArrayList<CommandValues>){
-            recyclerCommandsValues.adapter = CommandValuesAdapter(listCommandsVales)
-            val compositePageTransformer = CompositePageTransformer()
-            compositePageTransformer.addTransformer { page, position ->
-                val r = 1 - abs(position)
-                page.scaleY = (0.80f + r * 0.20f)
-            }
-            recyclerCommandsValues.setPageTransformer(compositePageTransformer)
-            recyclerCommandsValues.apply {
-                clipChildren = false
-                clipToPadding = false
-                offscreenPageLimit = 3
-                (getChildAt(0) as RecyclerView).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
-            }
+        if(arraylist.size > 50){
+            arraylist.addAll(arraylist)
         }
-
-        private fun llenaLvs(listLvs : MutableList<Lvs>){
-            binding.recyclerLvs.apply {
-                layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                adapter = LvsAdapter(listLvs, null, sizeLvs)
-            }
-            recyclerLvs.onFlingListener = null
+        if(arraylist.size in 11..50){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
         }
-
-        private fun llenaLvsKsf(listLvs : MutableList<Ksf>){
-            binding.recyclerLvs.apply {
-                layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                adapter = LvsAdapter(null, listLvs, sizeLvs)
-            }
-            recyclerLvs.onFlingListener = null
+        if(arraylist.size in 6..10){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
         }
-
-        private fun llenaLvsVacios(listLvs : ArrayList<Lvs>? = arrayListOf(), listLvsKsf:  ArrayList<Ksf>? = arrayListOf()){
-            binding.recyclerNoLvs.apply {
-                layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                if(listLvs != null){
-                    adapter = LvsAdapter(listLvs, null, (sizeLvs))
-                }else if(listLvsKsf != null){
-                    adapter = LvsAdapter(null, listLvsKsf, (sizeLvs))
-                }
-
-            }
+        if(arraylist.size in 4..5){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
         }
-
-        private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
-            binding.recyclerView.apply {
-                layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                adapter = CustomAdapter(null, listItemsKsf, heightBanner, widhtBanner)
-            }
+        if(arraylist.size <= 3){
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
+            arraylist.addAll(arraylist)
         }
+        return arraylist
+    }
 
-        private fun createSongList(): ArrayList<Cancion> {
-            val arraylist=ArrayList<Cancion>()
-            for(index in 0 until listSongsChannel.size) {
-                arraylist.add(Cancion(
-                    listSongsChannel[index].name,
-                    listSongsChannel[index].artist,
-                    listSongsChannel[index].bpm,
-                    listSongsChannel[index].tickCount,
-                    listSongsChannel[index].prevVideo,
-                    listSongsChannel[index].rutaPrevVideo,
-                    listSongsChannel[index].video,
-                    listSongsChannel[index].song,
-                    listSongsChannel[index].rutaBanner,
-                    listSongsChannel[index].rutaCancion,
-                    listSongsChannel[index].rutaSteps,
-                    listSongsChannel[index].rutaVideo,
-                    listSongsChannel[index].listLvs))
+    private fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int, frameDuration : Int): AnimationDrawable{
+        val arrowSpritesRD = arrayOf(
+            Bitmap.createBitmap(bitmap, 0, 0, spriteWidth, spriteHeight),
+            Bitmap.createBitmap(bitmap, spriteWidth, 0, spriteWidth, spriteHeight),
+            Bitmap.createBitmap(bitmap, 0, spriteHeight, spriteWidth, spriteHeight),
+            Bitmap.createBitmap(bitmap, spriteWidth, spriteHeight, spriteWidth, spriteHeight))
+        val animation = AnimationDrawable().apply {
+            arrowSpritesRD.forEach {
+                addFrame(BitmapDrawable(it), frameDuration / 4)
             }
-
-            if(arraylist.size > 50){
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size > 10 && arraylist.size <= 50){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size > 5 && arraylist.size <= 10){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size > 3 && arraylist.size <= 5){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size <= 3){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            return arraylist
+            isOneShot = false
         }
+        return animation
+    }
 
-        private fun createSongListKsf(): ArrayList<SongKsf> {
-            val arraylist=ArrayList<SongKsf>()
-            for(index in 0 until listSongsChannelKsf.size) {
-                arraylist.add(SongKsf(
-                    listSongsChannelKsf[index].title,
-                    listSongsChannelKsf[index].artist,
-                    listSongsChannelKsf[index].displayBpm,
-                    listSongsChannelKsf[index].rutaDisc,
-                    listSongsChannelKsf[index].rutaTitle,
-                    listSongsChannelKsf[index].rutaSong,
-                    listSongsChannelKsf[index].rutaPreview,
-                    listSongsChannelKsf[index].rutaBGA,
-                    listSongsChannelKsf[index].listKsf))
-            }
+    private fun isFileExists(file: File): Boolean {
+        return file.exists() && !file.isDirectory
+    }
 
-            if(arraylist.size > 50){
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size in 11..50){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size in 6..10){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size in 4..5){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            if(arraylist.size <= 3){
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-                arraylist.addAll(arraylist)
-            }
-            return arraylist
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        //super.onBackPressed()
+        Toast.makeText(this, "Use los botones BACK", Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(runnable)
+        handlerContador.removeCallbacks(runnableContador)
+        //mediPlayer.pause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        //mediPlayer.start()
+        recyclerView.scrollToPosition(oldValue)
+        isFocus(oldValue)
+        val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
+        smoothScroller.targetPosition = oldValue
+        recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
+        resetRunnable()
+        detenerContador()
+        //mediPlayer.start()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemUI()
         }
+    }
 
-        private fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int, frameDuration : Int): AnimationDrawable{
-            val arrowSpritesRD = arrayOf(
-                Bitmap.createBitmap(bitmap, 0, 0, spriteWidth, spriteHeight),
-                Bitmap.createBitmap(bitmap, spriteWidth, 0, spriteWidth, spriteHeight),
-                Bitmap.createBitmap(bitmap, 0, spriteHeight, spriteWidth, spriteHeight),
-                Bitmap.createBitmap(bitmap, spriteWidth, spriteHeight, spriteWidth, spriteHeight))
-            val animation = AnimationDrawable().apply {
-                arrowSpritesRD.forEach {
-                    addFrame(BitmapDrawable(it), frameDuration / 4)
-                }
-                isOneShot = false
-            }
-            return animation
-        }
-
-        private fun isFileExists(file: File): Boolean {
-            return file.exists() && !file.isDirectory
-        }
-
-        @Deprecated("Deprecated in Java")
-        override fun onBackPressed() {
-            //super.onBackPressed()
-            Toast.makeText(this, "Use los botones BACK", Toast.LENGTH_SHORT).show()
-        }
-
-        override fun onPause() {
-            super.onPause()
-            handler.removeCallbacks(runnable)
-            handlerContador.removeCallbacks(runnableContador)
-            //mediPlayer.pause()
-        }
-
-        override fun onResume() {
-            super.onResume()
-            //mediPlayer.start()
-            recyclerView.scrollToPosition(oldValue)
-            isFocus(oldValue)
-            val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
-            smoothScroller.targetPosition = oldValue
-            recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
-            resetRunnable()
-            detenerContador()
-            //mediPlayer.start()
-        }
-
-        override fun onDestroy() {
-            super.onDestroy()
-        }
-
-        override fun onWindowFocusChanged(hasFocus: Boolean) {
-            super.onWindowFocusChanged(hasFocus)
-            if (hasFocus) {
-                hideSystemUI()
-            }
-        }
-
-        private fun hideSystemUI() {
-        val decorView: View = window.decorView
-        decorView.setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_FULLSCREEN)
-        }
+    private fun hideSystemUI() {
+    val decorView: View = window.decorView
+    decorView.setSystemUiVisibility(
+        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_FULLSCREEN)
+    }
 
 }
 

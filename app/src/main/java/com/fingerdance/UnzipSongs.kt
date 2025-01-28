@@ -60,19 +60,19 @@ class UnzipSongs (private val context: Context, private val nombreChannel: Strin
             //context.startActivity(intent)
 
             themes.edit().putString("allTunes", "").apply()
-            themes.edit().putString("efects", "").apply()
+            //themes.edit().putString("efects", "").apply()
             val ls = LoadingSongs()
             val gson = Gson()
             listChannels.clear()
-            listCommands.clear()
+            //listCommands.clear()
             listEfectsDisplay.clear()
             listChannels = ls.getChannels(context)
-            listCommands = ls.getFilesCW(context)
+            //listCommands = ls.getFilesCW(context)
             ls.loadImages(context)
             ls.loadSounds(context)
 
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+            //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
 
             val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance//Songs/Channels/" + nombreChannel)
             file.delete()

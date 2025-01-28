@@ -66,7 +66,7 @@ private var fadeSet = AnimatorSet()
 private lateinit var fadeOut : ObjectAnimator
 private lateinit var flattenY : ObjectAnimator
 
-val timeToPlay = 2000L
+private val timeToPlay = 2000L
 
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -327,7 +327,6 @@ open class GameScreenActivity : AndroidApplication() {
 
     override fun onDestroy() {
         super.onDestroy()
-        //(gdxContainer.getChildAt(0) as? MyGameScreen)?.dispose()
         gdxContainer.removeAllViews()
         currentVideoPositionScreen = 0
         currentVideoPositionScreen = 0
@@ -355,6 +354,8 @@ open class GameScreenActivity : AndroidApplication() {
         combo_miss = 0
         curCombo = 0
         isVideo = false
+        uiHandler.removeCallbacksAndMessages(null)
+        thisHandler.removeCallbacksAndMessages(null)
         this.finish()
     }
 
@@ -369,15 +370,37 @@ open class GameScreenActivity : AndroidApplication() {
         }
     }
 
+    private var hasWaitedForDelay = false
     override fun onResume() {
         super.onResume()
-        mediaPlayer.start()
+
+        if (!hasWaitedForDelay) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!mediaPlayer.isPlaying) {
+                    mediaPlayer.start()
+                }
+                startVideoFromPosition()
+                hasWaitedForDelay = true
+            }, 2000) // 2 segundos
+        } else {
+            if (!mediaPlayer.isPlaying) {
+                mediaPlayer.start()
+            }
+            startVideoFromPosition()
+        }
+    }
+
+    private fun startVideoFromPosition() {
         if (isVideo) {
             videoViewBgaOn.seekTo(currentVideoPositionScreen)
-            videoViewBgaOn.start()
+            if (!videoViewBgaOn.isPlaying) {
+                videoViewBgaOn.start()
+            }
         } else {
             videoViewBgaoff.seekTo(currentVideoPositionScreen)
-            videoViewBgaoff.start()
+            if (!videoViewBgaoff.isPlaying) {
+                videoViewBgaoff.start()
+            }
         }
     }
 }

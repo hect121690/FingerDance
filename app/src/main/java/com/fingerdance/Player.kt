@@ -330,7 +330,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     val GaugeIncNormal = floatArrayOf(5f, 4f, 3f, -4f, -5f)
 
     fun updateStepData(time: Long) {
-        val timeCom = SystemClock.uptimeMillis() //System.currentTimeMillis()
+        val timeCom = SystemClock.uptimeMillis()
         var iptn: Int
         val iptnc = ksf.patterns.size
         var line_num_s: Int
@@ -493,7 +493,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         }
                     }
                 }
-
             }
             else if (key[x] == KEY_UP){
                 if (LONGNOTE[x].pressed){

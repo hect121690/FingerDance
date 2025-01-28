@@ -84,13 +84,16 @@ class DanceGrade : AppCompatActivity() {
 
         val txNameSong = findViewById<TextView>(R.id.txNameSong)
         val txNameChannel = findViewById<TextView>(R.id.txNameChannel)
+        val txStepMaker = findViewById<TextView>(R.id.txStepMaker)
 
         txNameSong.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label name.png")
         txNameChannel.background = Drawable.createFromPath("$rutaGrades/Evaluation_Top label channel.png")
         txNameSong.text = currentSong
         txNameChannel.text = if(currentChannel.contains("-")) currentChannel.split("-")[1] else currentChannel
 
-        //countSongsPlayed ++
+        txStepMaker.text = if(playerSong.stepMaker != "") "STEPMAKER: ${playerSong.stepMaker}" else ""
+        countSongsPlayed ++
+        themes.edit().putInt("countSongsPlayed", countSongsPlayed).apply()
 
         txNameSong.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
@@ -101,6 +104,14 @@ class DanceGrade : AppCompatActivity() {
         }
 
         txNameChannel.apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor(ContextCompat.getColor(context, R.color.white))
+            textSize = medidaFlechas / 10f
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+        }
+
+        txStepMaker.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
             textSize = medidaFlechas / 10f
@@ -310,7 +321,6 @@ class DanceGrade : AppCompatActivity() {
         imgBitActive.setImageBitmap(bitActiveLv)
         bgConstraint.addView(imgBitActive)
 
-        // Configuración del tamaño de la imagen
         imgBitActive.layoutParams.height = medidaFlechas.toInt() * 2
         imgBitActive.layoutParams.width = medidaFlechas.toInt() * 2
         imgBitActive.x = medidaFlechas * 4.5f

@@ -4,7 +4,9 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -14,6 +16,7 @@
 
     <application
         android:allowBackup="true"
+        android:category="android.intent.category.GAME"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -21,8 +24,7 @@
         android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.FingerDance"
-        tools:targetApi="31"
-        android:category="android.intent.category.GAME">
+        tools:targetApi="31">
         <activity
             android:name=".CalibrationActivity"
             android:exported="false" />
@@ -37,7 +39,7 @@
             android:exported="false" />
         <activity
             android:name=".GameScreenActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"/>
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
         <activity
             android:name=".LoadingSongs"
             android:exported="false" />
@@ -69,9 +71,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-1525853918723620~7504447932"/>
+            android:value="ca-app-pub-1525853918723620~7504447932" />
     </application>
 
 </manifest>

@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.SoundPool
 import com.arthenica.mobileffmpeg.FFmpeg
@@ -154,6 +155,14 @@ class LoadSongsKsf {
                                         line.startsWith("#STARTTIME:") ->{
                                             songKsf.offset = getValue(line).trim().toDouble().toLong()
                                         }
+                                        line.startsWith("#STEP:") && line.trim().length > 6 ->{
+                                            ksf.stepmaker = getValue(line)
+                                        }
+                                        line.startsWith("#STEPMAKER:") ||
+                                        line.startsWith("#CREATOR") ||
+                                        line.startsWith("#RECREATOR:") ->{
+                                            ksf.stepmaker = getValue(line)
+                                        }
                                         line.startsWith("#DIFFICULTY:") ->{
                                             var level = getValue(line)
                                             if (level.length == 1) {
@@ -164,7 +173,7 @@ class LoadSongsKsf {
                                             ksf.rutaBitActive = rutaBitActive
                                             listKsf.add(ksf)
                                         }
-                                        line.startsWith("00000") ->{
+                                        line.startsWith("00000") || line.startsWith("|")->{
                                             break
                                         }
                                     }
@@ -303,10 +312,16 @@ class LoadSongsKsf {
                                 value = it.toString().removeRange(0, dirValues.toString().length + 1)
                             }
                         }
-                        if(it.toString().contains("_Icon", ignoreCase = true) /*&& !it.toString().contains("default", ignoreCase = true)*/){
+                        if(it.toString().contains("_Icon", ignoreCase = true)){
+                            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                            BitmapFactory.decodeFile(it.path, options)
                             val descripcion = "Usar $value NoteSkin"
                             rutaCommandValue = it.toString()
-                            listCommandsValues.add(CommandValues(value,descripcion, rutaCommandValue))
+                            if (options.outWidth == 128 || options.outWidth == 64) {
+                                listCommandsValues.add(CommandValues(value, descripcion, rutaCommandValue))
+                            }else{
+                                listNoteSkinAdditionals.add(CommandValues(value, descripcion, rutaCommandValue))
+                            }
                         }
                     }
                     listCommands.add(Command(
@@ -467,7 +482,7 @@ class LoadSongsKsf {
     }
 }
 
-data class Ksf(var rutaKsf: String, var level: String, var rutaBitActive: String)
+data class Ksf(var rutaKsf: String, var level: String, var rutaBitActive: String, var stepmaker: String = "")
 
 data class SongKsf(
     var title: String,

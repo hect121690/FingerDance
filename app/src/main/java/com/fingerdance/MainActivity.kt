@@ -58,12 +58,14 @@ var showPadB : Int = 0
 var hideImagesPadA : Boolean = false
 var skinPad = ""
 var alphaPadB = 1f
+var listNoteSkinAdditionals = ArrayList<CommandValues>()
 
-/*
 var countSongsPlayed = 0
-var noteSkinsAviables = 1
-var currentAviablesNsCount = 0
-*/
+
+const val ONE_ADDITIONAL_NOTESKIN = 30
+const val TWO_ADDITIONAL_NOTESKIN = 91
+const val THREE_ADDITIONAL_NOTESKIN = 152
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -98,28 +100,10 @@ class MainActivity : AppCompatActivity(), Serializable {
         hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
         skinPad = themes.getString("skinPad", "default").toString()
         alphaPadB = themes.getFloat("alphaPadB", 1f)
-        //countSongsPlayed = themes.getInt("countSongsPlayed", 0)
-        /*
-        when(countSongsPlayed){
-            in 1..5 ->{noteSkinsAviables = 2
-                currentAviablesNsCount = 5}
-            in 6..15 ->{noteSkinsAviables = 3
-                currentAviablesNsCount = 15}
-            in 16..35 ->{noteSkinsAviables = 4
-                currentAviablesNsCount = 35}
-            in 36..50 ->{noteSkinsAviables = 5
-                currentAviablesNsCount = 50}
-            in 51..70 ->{noteSkinsAviables = 6
-                currentAviablesNsCount = 70}
-        }
-        */
-        /*
-        when(countSongsPlayed){
-            in 1..5 ->{noteSkinsAviables = 22
-                currentAviablesNsCount = 2
-            }
-        }
-        */
+        countSongsPlayed = themes.getInt("countSongsPlayed", 0)
+
+
+
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
         width = metrics.widthPixels
@@ -219,6 +203,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         lbDescargando.isVisible = true
         progressBar.isVisible = true
 
+
         val storage = FirebaseStorage.getInstance()
         val storageReference = storage.reference
         val storageRef = storageReference.child("FingerDance.zip")
@@ -256,152 +241,138 @@ class MainActivity : AppCompatActivity(), Serializable {
     fun creaMain() {
         val databaseReference = FirebaseDatabase.getInstance().getReference("version")
         var version = ""
-        var needUpdate: Boolean
         databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 version = snapshot.child("value").getValue(String::class.java).toString()
                 showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
-                needUpdate = snapshot.child("needUpdate").getValue(Boolean::class.java) ?: false
 
-                if(!needUpdate && version == "1.1.1"){
-                    getMain()
-                }else if(version != "1.1.1"){
+                if(version == "1.1.2"){
+                    linearDownload.isVisible = false
+                    imageIcon.isVisible = false
+                    lbDescargando.isVisible = false
+                    progressBar.isVisible = false
+                    val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
+                    if (!them.exists()) {
+                        tema ="default"
+                    }
+
+                    btnPlay = findViewById(R.id.btnPlay)
+                    btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
+                    btnOptions = findViewById(R.id.btnOptions)
+                    btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
+                    btnExit = findViewById(R.id.btnExit)
+                    btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
+
+                    val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
+                    soundPlayer = sound
+                    soundPlayer!!.isLooping = true
+                    soundPlayer!!.start()
+
+                    animLogo = findViewById(R.id.imgLogo)
+                    val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
+                    animLogo.setImageBitmap(bmLogo)
+                    bgaOff = this@MainActivity.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
+                    video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
+
+                    video_fondo.start()
+                    video_fondo.setOnPreparedListener{ mp ->
+                        mediaPlayerMain = mp
+                        mediaPlayerMain.isLooping = true}
+                    if(currentVideoPosition != 0){
+                        mediaPlayerMain.seekTo(currentVideoPosition)
+                        mediaPlayerMain.start()
+                    }
+                    animar()
+                    val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
+                    val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
+                    btnPlay.setOnClickListener {
+                        btnPlay.isEnabled=false
+                        val ls = LoadSongsKsf()
+                        goSound.start()
+                        btnPlay.startAnimation(animation)
+                        val gson = Gson()
+                        if(themes.getString("allTunes", "").toString() != ""){
+                            val jsonListChannels = themes.getString("allTunes", "")
+                            listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+                            ls.loadSounds(this@MainActivity)
+                        }else{
+                            listChannels.clear()
+                            listEfectsDisplay.clear()
+                            listChannels = ls.getChannels(this@MainActivity)
+                            listCommands = ls.getFilesCW(this@MainActivity)
+
+                            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+                            ls.loadSounds(this@MainActivity)
+
+                            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+                            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+
+                        }
+                        if(themes.getString("efects", "").toString() != ""){
+                            val jsonEfects = themes.getString("efects", "")
+                            listCommands = gson.fromJson(jsonEfects, object : TypeToken<ArrayList<Command>>() {}.type)
+                            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+                        }else{
+                            listCommands = ls.getFilesCW(this@MainActivity)
+                            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+                        }
+                        val intent = Intent(applicationContext, SelectChannel::class.java)
+                        startActivity(intent)
+                        mediaPlayerMain.pause()
+                        soundPlayer!!.pause()
+                        btnPlay.isEnabled = true
+                    }
+                    val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
+                    btnOptions.setOnClickListener {
+                        //btnOptions.isEnabled = true
+                        Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
+                        btnOptions.startAnimation(animation)
+                        goOption.start()
+                        soundPlayer!!.pause()
+
+                        val tiempoTranscurrir :Long = 500
+                        val handler = Handler()
+                        handler.postDelayed({
+                            val intent = Intent(applicationContext, Options()::class.java)
+                            startActivity(intent)
+                            this@MainActivity.finish()
+                        }, tiempoTranscurrir)
+                    }
+
+                    val builder = AlertDialog.Builder(this@MainActivity)
+
+                    btnExit.setOnClickListener {
+                        builder.setTitle("Aviso")
+                        builder.setMessage("Deseas salir del juego?")
+                        builder.setPositiveButton(android.R.string.yes) { dialog, which ->
+                            val intent = Intent(Intent.ACTION_MAIN)
+                            intent.addCategory(Intent.CATEGORY_HOME)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            startActivity(intent)
+                            exitProcess(0)
+                        }
+                        builder.setNegativeButton(android.R.string.no) { dialog, which ->
+
+                        }
+                        builder.show()
+                    }
+                }else{
                     Toast.makeText(this@MainActivity, "Se requiere actualizar la aplicacion, descarga la ultima version", Toast.LENGTH_LONG).show()
-                }else {
-                    Toast.makeText(this@MainActivity, "Descargando recursos actualizados", Toast.LENGTH_LONG).show()
-                    iniciarDescarga()
                 }
             }
             override fun onCancelled(error: DatabaseError) {
                 println("Error al leer la versión: ${error.message}")
             }
         })
-    }
-
-    private fun getMain(){
-        linearDownload.isVisible = false
-        imageIcon.isVisible = false
-        lbDescargando.isVisible = false
-        progressBar.isVisible = false
-        val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
-        if (!them.exists()) {
-            tema ="default"
-        }
-
-        btnPlay = findViewById(R.id.btnPlay)
-        btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
-        btnOptions = findViewById(R.id.btnOptions)
-        btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
-        btnExit = findViewById(R.id.btnExit)
-        btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
-
-        val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
-        soundPlayer = sound
-        soundPlayer!!.isLooping = true
-        soundPlayer!!.start()
-
-        animLogo = findViewById(R.id.imgLogo)
-        val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
-        animLogo.setImageBitmap(bmLogo)
-        bgaOff = this@MainActivity.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
-        video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
-
-        video_fondo.start()
-        video_fondo.setOnPreparedListener{ mp ->
-            mediaPlayerMain = mp
-            mediaPlayerMain.isLooping = true}
-        if(currentVideoPosition != 0){
-            mediaPlayerMain.seekTo(currentVideoPosition)
-            mediaPlayerMain.start()
-        }
-        animar()
-        val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
-        val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
-        btnPlay.setOnClickListener {
-            btnPlay.isEnabled=false
-            goSound.start()
-            btnPlay.startAnimation(animation)
-            val gson = Gson()
-            if(themes.getString("allTunes", "").toString() != ""){
-                val jsonListChannels = themes.getString("allTunes", "")
-                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
-                if(themes.getString("efects", "").toString() != ""){
-                    val jsonEfects = themes.getString("efects", "")
-                    listCommands = gson.fromJson(jsonEfects, object : TypeToken<ArrayList<Command>>() {}.type)
-                    val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                    val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                    listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                }
-                //val ls = LoadingSongs()
-                val ls = LoadSongsKsf()
-                //ls.loadImages(this)
-                ls.loadSounds(this@MainActivity)
-                val intent = Intent(applicationContext, SelectChannel::class.java)
-                startActivity(intent)
-                mediaPlayerMain.pause()
-                soundPlayer!!.pause()
-                btnPlay.isEnabled = true
-            }else{
-                //val ls = LoadingSongs()
-                val ls = LoadSongsKsf()
-
-                listChannels.clear()
-                listCommands.clear()
-                listEfectsDisplay.clear()
-                listChannels = ls.getChannels(this@MainActivity)
-                listCommands = ls.getFilesCW(this@MainActivity)
-
-                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                ls.loadSounds(this@MainActivity)
-
-                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-
-                val intent = Intent(applicationContext, SelectChannel::class.java)
-                startActivity(intent)
-                mediaPlayerMain.pause()
-                soundPlayer!!.pause()
-                btnPlay.isEnabled = true
-            }
-        }
-        val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
-        btnOptions.setOnClickListener {
-            //btnOptions.isEnabled = true
-            Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
-            btnOptions.startAnimation(animation)
-            goOption.start()
-            soundPlayer!!.pause()
-
-            val tiempoTranscurrir :Long = 500
-            val handler = Handler()
-            handler.postDelayed({
-                val intent = Intent(applicationContext, Options()::class.java)
-                startActivity(intent)
-                this@MainActivity.finish()
-            }, tiempoTranscurrir)
-        }
-
-        val builder = AlertDialog.Builder(this@MainActivity)
-
-        btnExit.setOnClickListener {
-            builder.setTitle("Aviso")
-            builder.setMessage("Deseas salir del juego?")
-            builder.setPositiveButton(android.R.string.yes) { dialog, which ->
-                val intent = Intent(Intent.ACTION_MAIN)
-                intent.addCategory(Intent.CATEGORY_HOME)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(intent)
-                exitProcess(0)
-            }
-            builder.setNegativeButton(android.R.string.no) { dialog, which ->
-
-            }
-            builder.show()
-        }
     }
 
     fun isUsingWifi(context: Context): Boolean {
