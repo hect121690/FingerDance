@@ -47,6 +47,10 @@ var startKsf : Int = 0
 
 var tick : Int = 0
 
+
+var listChannels : ArrayList<Channels> = ArrayList()
+var listCommands : ArrayList<Command> = ArrayList()
+
 class LoadSongsKsf {
 
     private lateinit var channel: Channels
@@ -324,14 +328,11 @@ class LoadSongsKsf {
                             }
                         }
                     }
-                    listCommands.add(Command(
-                        dirValues.toString(),
-                        listDescripciones[index],
-                        rutaImagenNS,
-                        listCommandsValues))
+                    listCommands.add(Command(dirValues.toString(), listDescripciones[index], rutaImagenNS, listCommandsValues))
                 }
             }
         }
+        themes.edit().putString("listNoteSkinAdditionals", gson.toJson(listNoteSkinAdditionals)).apply()
         return listCommands
     }
 

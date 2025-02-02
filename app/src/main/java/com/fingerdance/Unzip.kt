@@ -14,13 +14,13 @@ import java.util.zip.ZipInputStream
 class Unzip (private val context: Context) {
     private val BUFFER_SIZE = 1024
 
-    fun performUnzip(rutaZip: String) {
+    fun performUnzip(rutaZip: String, fileToUnzip: String) {
         val zipFile = File(rutaZip)
         val zipInputStream = ZipInputStream(FileInputStream(zipFile))
         var zipEntry: ZipEntry?
 
         while (zipInputStream.nextEntry.also { zipEntry = it } != null) {
-            val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/" + zipEntry?.name)
+            val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/" + zipEntry?.name!!.replace("-Update", ""))
 
             if (zipEntry?.isDirectory == true) {
                 file.mkdirs()
@@ -48,7 +48,7 @@ class Unzip (private val context: Context) {
         handler.post {
             val intent = Intent(context, MainActivity::class.java)
             context.startActivity(intent)
-            val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip")
+            val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/$fileToUnzip")
             file.delete()
         }
 

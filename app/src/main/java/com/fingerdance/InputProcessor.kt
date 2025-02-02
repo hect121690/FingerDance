@@ -21,11 +21,11 @@ class InputProcessor : InputAdapter() {
 
     // Map physical keys to pad positions
     private val keyToPadMap = mapOf(
-        Keys.NUM_1 to 0,
-        Keys.NUM_7 to 1,
-        Keys.NUM_5 to 2,
-        Keys.NUM_9 to 3,
-        Keys.NUM_3 to 4
+        Keys.NUMPAD_1 to 0,
+        Keys.NUMPAD_7 to 1,
+        Keys.NUMPAD_5 to 2,
+        Keys.NUMPAD_9 to 3,
+        Keys.NUMPAD_3 to 4
     )
 
     override fun keyDown(keycode: Int): Boolean {

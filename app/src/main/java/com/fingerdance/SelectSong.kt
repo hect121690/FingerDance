@@ -35,7 +35,6 @@ import com.fingerdance.databinding.ActivitySelectSongBinding
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
-import com.google.gson.Gson
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -746,7 +745,7 @@ class SelectSong : AppCompatActivity() {
                         valueOffset = txOffset.text.toString().toLong()
                         load(playerSong.rutaKsf!!)
                         db.updateOffset(currentChannel, currentSong, listItemsKsf[oldValue].listKsf[positionActualLvs].level, txOffset.text.toString())
-                        showAddActive = false
+                        //showAddActive = false
                         if(!showAddActive){
                             val handler = Handler(Looper.getMainLooper())
                             handler.postDelayed({
@@ -786,24 +785,26 @@ class SelectSong : AppCompatActivity() {
                                 txCurrentBpm.text.toString().replace("X", "").toBigDecimal()
                             }
                             val result = valorActual + itemValues.value.toBigDecimal()
+                            val formattedResult = result.stripTrailingZeros().toPlainString() + "X"
 
                             if(itemValues.value.toDouble()<0){
                                 if(result <= BigDecimal(0.5)) {
                                     txCurrentBpm.text = "0.5X"
-                                    txVelocidadActual.text = txCurrentBpm.text
+                                    //txVelocidadActual.text = txCurrentBpm.text
                                 }else{
-                                    txCurrentBpm.text = result.toString() + "X"
-                                    txVelocidadActual.text = txCurrentBpm.text
+                                    txCurrentBpm.text = formattedResult //result.toString() + "X"
+                                    //txVelocidadActual.text = txCurrentBpm.text
                                 }
                             }else{
                                 if(result >= BigDecimal(8.0)) {
                                     txCurrentBpm.text = "8.0X"
-                                    txVelocidadActual.text = txCurrentBpm.text
+                                    //txVelocidadActual.text = txCurrentBpm.text
                                 }else{
-                                    txCurrentBpm.text = result.toString() + "X"
-                                    txVelocidadActual.text = txCurrentBpm.text
+                                    txCurrentBpm.text = formattedResult //result.toString() + "X"
+                                    //txVelocidadActual.text = txCurrentBpm.text
                                 }
                             }
+                            txVelocidadActual.text = txCurrentBpm.text
                             speedSelected = txVelocidadActual.text.toString()
                             themes.edit().putString("speed", txVelocidadActual.text.toString()).apply()
                             themes.edit().putString("typeSpeed", "").apply()
@@ -1105,7 +1106,6 @@ class SelectSong : AppCompatActivity() {
     private fun iniciarContador() {
         handlerContador.postDelayed(runnableContador, 0)
     }
-    private val gson = Gson()
     private val runnableContador: Runnable = object : Runnable {
         override fun run() {
             actualizarImagenNumero(reductor)
@@ -1131,6 +1131,27 @@ class SelectSong : AppCompatActivity() {
                     listCommands[0].listCommandValues.sortBy { it.value }
                     themes.edit().putString("efects", gson.toJson(listCommands)).apply()
                     showNewNoteSkin(listNoteSkinAdditionals[2])
+                    countSongsPlayed++
+                }
+                FOUR_ADDITIONAL_NOTESKIN -> {
+                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[3])
+                    listCommands[0].listCommandValues.sortBy { it.value }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    showNewNoteSkin(listNoteSkinAdditionals[3])
+                    countSongsPlayed++
+                }
+                FIVE_ADDITIONAL_NOTESKIN -> {
+                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[4])
+                    listCommands[0].listCommandValues.sortBy { it.value }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    showNewNoteSkin(listNoteSkinAdditionals[4])
+                    countSongsPlayed++
+                }
+                SIX_ADDITIONAL_NOTESKIN -> {
+                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[5])
+                    listCommands[0].listCommandValues.sortBy { it.value }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    showNewNoteSkin(listNoteSkinAdditionals[5])
                     countSongsPlayed++
                 }
             }

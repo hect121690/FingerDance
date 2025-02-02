@@ -15,6 +15,24 @@ private val chkPtnNum = IntArray(10)
 private val chkLineNum = IntArray(10)
 
 class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : GameScreenKsf(activity) {
+
+    private val siseScale = medidaFlechas * 1.2f
+    private val topPos = medidaFlechas * 0.9f
+    private val posX = medidaFlechas * 0.1f
+    private var aBatch = 0
+    private var bBatch = 0
+    private val xFlare1 = medidaFlechas * 2.1f
+    private val xFlare2 = medidaFlechas * 2.15f
+    private val xFlare3 = medidaFlechas * 2.1f
+    private val xFlare4 = medidaFlechas * 2.05f
+    private val xFlare5 = medidaFlechas * 2.05f
+    private val animationDuration: Long = 300L
+    private var elapsedTimeToExpands = 0L
+
+    private val timeToBpm = 360
+    private val timeToCalculate = 360
+    private var timeToPresiscion = 360
+
     companion object {
         val STEPSIZE = medidaFlechas.toInt()
         val MEASURE = height * .35
@@ -170,9 +188,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
         inputProcessor.resetState()
     }
-    val timeToBpm = 360
-    val timeToCalculate = 360
-    var timeToPresiscion = 360
+
     fun render(delta: Long) {
         var time = delta
         val timeCom = SystemClock.uptimeMillis() //System.currentTimeMillis()
@@ -612,9 +628,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
         return 0
     }
-    private val siseScale = medidaFlechas * 1.2f
-    private val topPos = medidaFlechas * 0.9f
-    private val posX = medidaFlechas * 0.1f
+
     fun showExpand(position: Int) {
         currentTimeToExpands = SystemClock.uptimeMillis()
         batch.setColor(1f, 1f, 1f, 0.7f)
@@ -798,15 +812,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
-    private var aBatch = 0
-    private var bBatch = 0
-    private val xFlare1 = medidaFlechas * 2.1f
-    private val xFlare2 = medidaFlechas * 2.15f
-    private val xFlare3 = medidaFlechas * 2.1f
-    private val xFlare4 = medidaFlechas * 2.05f
-    private val xFlare5 = medidaFlechas * 2.05f
-    val animationDuration: Long = 300L // Duración total de la animación (300 ms)
-    var elapsedTimeToExpands = 0L
     private fun drawLongNotePress(x: Int) {
         val frame = (SystemClock.uptimeMillis() % 299 * 6 / 300).toInt()
         aBatch = batch.blendSrcFunc

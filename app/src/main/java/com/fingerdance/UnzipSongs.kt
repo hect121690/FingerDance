@@ -8,7 +8,6 @@ import android.os.Looper
 import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.lifecycle.MutableLiveData
-import com.google.gson.Gson
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -59,17 +58,16 @@ class UnzipSongs (private val context: Context, private val nombreChannel: Strin
             //val intent = Intent(context, MainActivity::class.java)
             //context.startActivity(intent)
 
-            themes.edit().putString("allTunes", "").apply()
+            //themes.edit().putString("allTunes", "").apply()
             //themes.edit().putString("efects", "").apply()
-            val ls = LoadingSongs()
-            val gson = Gson()
+            val ls = LoadSongsKsf()
             listChannels.clear()
             //listCommands.clear()
             listEfectsDisplay.clear()
             listChannels = ls.getChannels(context)
             //listCommands = ls.getFilesCW(context)
-            ls.loadImages(context)
-            ls.loadSounds(context)
+            //ls.loadImages(context)
+            //ls.loadSounds(context)
 
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             //themes.edit().putString("efects", gson.toJson(listCommands)).apply()

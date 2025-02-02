@@ -8,6 +8,7 @@ import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.LayerDrawable
@@ -16,6 +17,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
 import android.util.TypedValue
@@ -337,6 +339,97 @@ class Options() : AppCompatActivity(), ItemClickListener {
             btnGuardarPads.visibility = View.INVISIBLE
         }
 
+        val constraintBG = findViewById<ConstraintLayout>(R.id.constraintBG)
+
+        // Crear el TextView para txVersionNoteSkins
+        val txVersionNoteSkins = findViewById<TextView>(R.id.txVersionNoteSkin).apply {
+            id = View.generateViewId()
+            text = "Ultima versión de NoteSkins: $numberUpdate"
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor(ContextCompat.getColor(context, R.color.white))
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+
+        }
+        //txVersionNoteSkins.textSize = medidaFlechas / 10f
+
+        // Crear el TextView para txMyVersionNoteSkins
+        val txMyVersionNoteSkins =  findViewById<TextView>(R.id.txMyVersionNoteSkin).apply {
+            id = View.generateViewId()
+            text = "Tu versión de NoteSkins: $versionUpdate"
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor(ContextCompat.getColor(context, R.color.white))
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+        }
+        //txMyVersionNoteSkins.textSize = medidaFlechas / 10f
+
+        // Crear el TextView para lbDescargando
+        val lbDescargando = TextView(this).apply {
+            id = View.generateViewId()
+            text = "Descargando:"
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor(Color.WHITE)
+            visibility = View.INVISIBLE
+        }
+        lbDescargando.textSize = 16f
+
+
+        // Crear la ProgressBar
+        val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            id = View.generateViewId()
+            layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
+            visibility = View.INVISIBLE
+        }
+
+        // Crear el botón btnUpdateNoteskins
+        val btnUpdateNoteskins =  findViewById<Button>(R.id.btnUptadeNoteSkin).apply {
+            visibility = if (numberUpdate != versionUpdate) View.VISIBLE else View.INVISIBLE
+
+            setOnClickListener {
+                lbDescargando.visibility = View.VISIBLE
+                progressBar.visibility = View.VISIBLE
+                val storage = FirebaseStorage.getInstance()
+                val storageReference = storage.reference
+                val storageRef = storageReference.child("FingerDance-Update.zip")
+
+                val localFile = File(getExternalFilesDir(null), "FingerDance-Update.zip")
+                val fallo = AlertDialog.Builder(this@Options)
+                fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+
+                storageRef.getFile(localFile).addOnSuccessListener {
+                    val unzip = Unzip(this@Options)
+                    val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance-Update.zip"
+                    unzip.performUnzip(rutaZip, "FingerDance-Update.zip")
+                }.addOnProgressListener { taskSnapshot ->
+                    val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
+                    progressBar.progress = progress
+                    lbDescargando.text = "Descargando $progress%"
+
+                    if (progress == 100) {
+                        lbDescargando.text = "Descarga finalizada, espere por favor..."
+                        themes.edit().putString("versionUpdate", numberUpdate).apply()
+                        versionUpdate = numberUpdate
+                    }
+                }.addOnFailureListener {
+                    fallo.show()
+                }
+            }
+        }
+        //btnUpdateNoteskins.textSize = medidaFlechas / 10f
+
+        // Agregar vistas al ConstraintLayout
+        constraintBG.addView(lbDescargando)
+        constraintBG.addView(progressBar)
+
+        lbDescargando.x = width / 7f
+        lbDescargando.y = (height / 2f)
+        lbDescargando.layoutParams.width = ((width / 7f) * 5).toInt()
+
+        progressBar.x = width / 7f
+        progressBar.y = (height / 2f)  - ((width / 14f))
+        progressBar.layoutParams.width = ((width / 7) * 5)
+
         /*
         btnCalibrity.setOnClickListener {
             val intent = Intent(this, CalibrationActivity::class.java)
@@ -397,6 +490,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
             showInputNameChannel()
         }
     }
+
+
+    private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private var nameNewChannel = ""
     private var descriptionNewChannel = ""

@@ -54,6 +54,11 @@ var countAdd = 0
 
 var showAddActive = false
 
+val gson = Gson()
+
+var numberUpdate = ""
+var versionUpdate = ""
+
 var showPadB : Int = 0
 var hideImagesPadA : Boolean = false
 var skinPad = ""
@@ -62,9 +67,18 @@ var listNoteSkinAdditionals = ArrayList<CommandValues>()
 
 var countSongsPlayed = 0
 
+//PHOENIX
 const val ONE_ADDITIONAL_NOTESKIN = 30
+//MISILE
 const val TWO_ADDITIONAL_NOTESKIN = 91
+//INIFINITY
 const val THREE_ADDITIONAL_NOTESKIN = 152
+//NEW EXTRA
+const val FOUR_ADDITIONAL_NOTESKIN = 233
+//NEXT XENESIS 2
+const val FIVE_ADDITIONAL_NOTESKIN = 284
+//INTERFERENCE
+const val SIX_ADDITIONAL_NOTESKIN = 345
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -101,8 +115,16 @@ class MainActivity : AppCompatActivity(), Serializable {
         skinPad = themes.getString("skinPad", "default").toString()
         alphaPadB = themes.getFloat("alphaPadB", 1f)
         countSongsPlayed = themes.getInt("countSongsPlayed", 0)
+        versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
 
+        val jsonListCommandsValues = themes.getString("listNoteSkinAdditionals", "")
+        listNoteSkinAdditionals = if (!jsonListCommandsValues.isNullOrEmpty()) {
+            gson.fromJson(jsonListCommandsValues, object : TypeToken<List<CommandValues>>() {}.type)
+        } else {
+            ArrayList()
+        }
 
+        //themes.edit().putString("versionUpdate", "0.0.0").apply()
 
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
@@ -113,8 +135,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             tema ="default"
         }
 
-        themes.edit().putString("allTunes", "").apply()
-        themes.edit().putString("efects", "").apply()
+        //themes.edit().putString("allTunes", "").apply()
+        //themes.edit().putString("efects", "").apply()
 
         linearDownload = findViewById(R.id.linearDownload)
 
@@ -203,7 +225,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         lbDescargando.isVisible = true
         progressBar.isVisible = true
 
-
         val storage = FirebaseStorage.getInstance()
         val storageReference = storage.reference
         val storageRef = storageReference.child("FingerDance.zip")
@@ -216,7 +237,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         storageRef.getFile(localFile).addOnSuccessListener {
             val unzip = Unzip(this)
             val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-            unzip.performUnzip(rutaZip)
+            unzip.performUnzip(rutaZip, "FingerDance.zip")
         }.addOnProgressListener { taskSnapshot ->
             val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
             progressBar.progress = progress
@@ -245,6 +266,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             override fun onDataChange(snapshot: DataSnapshot) {
                 version = snapshot.child("value").getValue(String::class.java).toString()
                 showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
+                numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java).toString()
 
                 if(version == "1.1.2"){
                     linearDownload.isVisible = false
@@ -290,41 +312,32 @@ class MainActivity : AppCompatActivity(), Serializable {
                         val ls = LoadSongsKsf()
                         goSound.start()
                         btnPlay.startAnimation(animation)
-                        val gson = Gson()
                         if(themes.getString("allTunes", "").toString() != ""){
                             val jsonListChannels = themes.getString("allTunes", "")
                             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
-                            ls.loadSounds(this@MainActivity)
                         }else{
-                            listChannels.clear()
-                            listEfectsDisplay.clear()
-                            listChannels = ls.getChannels(this@MainActivity)
                             listCommands = ls.getFilesCW(this@MainActivity)
-
                             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
                             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
                             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
 
-                            ls.loadSounds(this@MainActivity)
-
+                            listChannels = ls.getChannels(this@MainActivity)
                             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
                             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
 
                         }
-                        if(themes.getString("efects", "").toString() != ""){
-                            val jsonEfects = themes.getString("efects", "")
-                            listCommands = gson.fromJson(jsonEfects, object : TypeToken<ArrayList<Command>>() {}.type)
-                            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                        }else{
+                        if(themes.getString("efects", "").toString() == ""){
                             listCommands = ls.getFilesCW(this@MainActivity)
                             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
                             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
                             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
+                            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                        }else{
+                            val jsonListCommands = themes.getString("efects", "")
+                            listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
+                            //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
                         }
+                        ls.loadSounds(this@MainActivity)
                         val intent = Intent(applicationContext, SelectChannel::class.java)
                         startActivity(intent)
                         mediaPlayerMain.pause()

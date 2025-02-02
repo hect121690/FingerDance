@@ -16,8 +16,7 @@ import java.nio.file.Paths
 
 private lateinit var channels: Channels
 private lateinit var songs :Cancion
-var listChannels : ArrayList<Channels> = ArrayList()
-var listCommands : ArrayList<Command> = ArrayList()
+
 
 //var barLife1 : Drawable? = null
 //var barLife : Drawable? = null
@@ -48,28 +47,13 @@ class LoadingSongs() : AppCompatActivity() {
         songs = Cancion("","","","","","","","",
              "", "", "","", arrayListOf())
 
-        /*
-        bgLoadingSongs = findViewById(R.id.bgLoadingSongs)
-        val bit = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg.jpg").toString())
-        bgLoadingSongs.foreground = BitmapDrawable(bit)
-
-        imgCargando = findViewById(R.id.imgCargando)
-        imgCargando.layoutParams.width = width / 6
-        val cargando = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/loading.png").toString())
-        imgCargando.setImageBitmap(cargando)
-        val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
-        imgCargando.startAnimation(animatorSetRotation)
-
-        txCargando = findViewById(R.id.txCargando)
-        */
-
-        listChannels.clear()
-        listCommands.clear()
+        //listChannels.clear()
+        //listCommands.clear()
         listEfectsDisplay.clear()
-        listChannels = getChannels(this)
-        listCommands = getFilesCW(this)
+        //listChannels = getChannels(this)
+        //listCommands = getFilesCW(this)
 
-        loadSounds(this)
+        //loadSounds(this)
         loadImages(this)
         //val intent = Intent(this, SelectChannel()::class.java)
         //startActivity(intent)
