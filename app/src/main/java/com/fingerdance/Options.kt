@@ -299,6 +299,12 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
         }
 
+        btnCanciones.setOnLongClickListener{
+            themes.edit().putString("allTunes", "").apply()
+            Toast.makeText(this, "Canales reiniciados", Toast.LENGTH_SHORT).show()
+            true
+        }
+
         btnCanciones.setOnClickListener {
             if(!isUsingWifi(this) && !isUsingMobileData(this)){
                 mostrarDialogoSinConexion()
@@ -351,9 +357,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
 
         }
-        //txVersionNoteSkins.textSize = medidaFlechas / 10f
 
-        // Crear el TextView para txMyVersionNoteSkins
         val txMyVersionNoteSkins =  findViewById<TextView>(R.id.txMyVersionNoteSkin).apply {
             id = View.generateViewId()
             text = "Tu versión de NoteSkins: $versionUpdate"
@@ -676,7 +680,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
         }
     }
-    fun createPathNewChannel(context: Context, nameFolder: String) : Boolean {
+    private fun createPathNewChannel(context: Context, nameFolder: String) : Boolean {
         var existFolder = true
         val folderPath = context.getExternalFilesDir("/FingerDance/Songs/Channels/$nameFolder/")
         if (folderPath != null && !folderPath.exists()) {
@@ -722,9 +726,13 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
     private fun downloadChannel(){
         downloadButtonChannel.isEnabled = false
+        getDownloadChannel()
+    }
+
+    private fun getDownloadChannel(){
         val storage = FirebaseStorage.getInstance()
         val storageReference = storage.reference
-        val fileRef = storageReference.child("Channels/" + selectedValueChannel)
+        val fileRef = storageReference.child("Channels/$selectedValueChannel")
 
         val localDirectory = File(getExternalFilesDir(null), "FingerDance/Songs/Channels/")
         localDirectory.mkdirs()
@@ -787,7 +795,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         datosMoviles.show()
     }
 
-    fun isUsingWifi(context: Context): Boolean {
+    private fun isUsingWifi(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -800,7 +808,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
     }
 
-    fun isUsingMobileData(context: Context): Boolean {
+    private fun isUsingMobileData(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -876,7 +884,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
         filePath = item
     }
 
-    fun getListOfThemesItems(): MutableList<String> {
+    val apiKey = "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
+    private fun getListOfThemesItems(): MutableList<String> {
         val storage = FirebaseStorage.getInstance()
         val storageReference = storage.reference
         val themesRef = storageReference.child("Themes")
@@ -896,7 +905,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         return listThemes
     }
 
-    fun getListChannels(): MutableList<String> {
+    private fun getListChannels(): MutableList<String> {
         val storage = FirebaseStorage.getInstance()
         val storageReference = storage.reference
         val channelsRef = storageReference.child("Channels")
@@ -964,7 +973,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
     }
 
-    fun pxToSp(px: Float, context: Context): Float {
+    private fun pxToSp(px: Float, context: Context): Float {
         val scaledDensity = context.resources.displayMetrics.scaledDensity
         return px / scaledDensity
     }

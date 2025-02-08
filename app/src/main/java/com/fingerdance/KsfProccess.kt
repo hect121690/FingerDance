@@ -36,7 +36,7 @@ class KsfProccess {
         var iLastMissCheck: Int = 0,
         var fBPM: Float = 0f,
         val vLine: MutableList<Line> = mutableListOf(),
-        var iSpeed: Pair<Float, Long> = Pair(0f, 0)
+        var iSpeed: Triple<String, Float, Long> = Triple("", 0f, 0)
     )
 
     data class LoadingInfo(val tag: String, val value: String)
@@ -260,14 +260,14 @@ class KsfProccess {
                 }
 
                 STEPINFO_SPEED -> {
-                    val speedPtn = Pattern(iSpeed = Pair(baseSpeed, 0))
+                    val speedPtn = Pattern(iSpeed = Triple("", baseSpeed, 0))
                     if (patterns.last().vLine.isNotEmpty()) {
                         curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
                         patterns.removeLast()
                     }
                     val pair = info.step.split("=")
-                    speedPtn.iSpeed = Pair(pair[0].toFloat(), pair[1].toLong())
+                    speedPtn.iSpeed = Triple(pair[0], pair[1].toFloat(), pair[2].toLong())
                     patterns.add(speedPtn)
                     patterns.add(curPtn)
                 }

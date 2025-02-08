@@ -266,6 +266,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         for (iPtnNo in iPtnNowNo until ksf.patterns.size) {
             if (iPtnBottom > Gdx.graphics.height) break
             val pPtnCur = ksf.patterns[iPtnNo]
+
             val fPtnTick = pPtnCur.iTick.toFloat()
             val iLineCnt = pPtnCur.vLine.size
             iPtnTop = iPtnBottom
@@ -345,6 +346,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private var stepWidth = 5
     val GaugeIncNormal = floatArrayOf(5f, 4f, 3f, -4f, -5f)
 
+
     fun updateStepData(time: Long) {
         val timeCom = SystemClock.uptimeMillis()
         var iptn: Int
@@ -355,7 +357,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         var line_mpos: Long
         var line_num : Int
         var judge: Int
-        val key = IntArray(10)
+        val key = IntArray(5)
 
         var ptn_now : KsfProccess.Pattern
         val keyBoard = inputProcessor.getKeyBoard
@@ -509,6 +511,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         }
                     }
                 }
+
             }
             else if (key[x] == KEY_UP){
                 if (LONGNOTE[x].pressed){
@@ -609,6 +612,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
         }
     }
+
 
 
     private fun getLongNoteEndTime(x: Int): Long {
@@ -739,17 +743,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
-    fun adaptValue(valorOriginal: Long): Long {
+    private fun adaptValue(valorOriginal: Long): Long {
         return (valorOriginal * STEPSIZE) / 60
     }
 
-    fun setSpeed(type: SetSpeedType, spd: Float) {
+    private fun setSpeed(type: SetSpeedType, spd: Float) {
         when (type) {
             SetSpeedType.SET -> speed = spd
             SetSpeedType.ADD -> speed += spd
             SetSpeedType.SUB -> speed -= spd
         }
-        speed = speed.coerceIn(1f, 8f)
+        speed = speed.coerceIn(0.5f, 8f)
     }
 
     fun makeRandom() {

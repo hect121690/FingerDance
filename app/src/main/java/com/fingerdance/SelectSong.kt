@@ -1179,10 +1179,7 @@ class SelectSong : AppCompatActivity() {
     private fun showNewNoteSkin(newNoteSkin: CommandValues) {
         val linearNewNoteSkin = LinearLayout(this).apply {
             setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
             setOnTouchListener { _, _ -> true }
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
