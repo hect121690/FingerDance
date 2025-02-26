@@ -266,8 +266,9 @@ class KsfProccess {
                     } else {
                         patterns.removeLast()
                     }
-                    val pair = info.step.split("=")
-                    speedPtn.iSpeed = Triple(pair[0], pair[1].toFloat(), pair[2].toLong())
+                    //!|S+ = 2 = 500| x3 -> x2 in 500 2.9, 2.8 , 2.7 .... 1
+                    val third = info.step.split("=")
+                    speedPtn.iSpeed = Triple(third[0], third[1].toFloat(), third[2].toLong())
                     patterns.add(speedPtn)
                     patterns.add(curPtn)
                 }

@@ -19,6 +19,9 @@ import android.media.MediaPlayer
 import android.media.SoundPool
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -28,9 +31,15 @@ import android.view.animation.TranslateAnimation
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager2.widget.ViewPager2
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import java.io.File
 import java.io.FileInputStream
 
@@ -59,7 +68,7 @@ private lateinit var indicatorDer: ImageView
 private lateinit var imageCircle : ImageView
 private lateinit var channel : String
 
-var listSongsChannel: ArrayList<Cancion> = ArrayList()
+var listSongsChannel: ArrayList<Song> = ArrayList()
 var listSongsChannelKsf: ArrayList<SongKsf> = ArrayList()
 
 private lateinit var recyclerChannels: ViewPager2
@@ -74,8 +83,6 @@ var currentSong = ""
 var currentLevel = ""
 lateinit var db : DataBasePlayer
 var positionCurrentChannel = 0
-
-var valueOffset = 0L
 
 class SelectChannel : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -263,22 +270,58 @@ class SelectChannel : AppCompatActivity() {
         builder.setPositiveButton("OK") { dialog, _ ->
             dialog.dismiss()
         }
-
+        val thisHandler = Handler(Looper.getMainLooper())
         imgAceptar.setOnClickListener(){
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
             if(listChannels[position].listCanciones.size > 0 || listChannels[position].listCancionesKsf.size > 0){
+
+                /*
+                val gson = GsonBuilder().setPrettyPrinting().create()
+                val newList = arrayListOf<Canal>()
+
+                for(i in 0 until listChannels.size){
+                    val listCancion = arrayListOf<Cancion>()
+                    for(a in 0 until listChannels[i].listCancionesKsf.size){
+                        val listNivel = arrayListOf<Nivel>()
+                        for(b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size){
+                            val n = Nivel(listChannels[i].listCancionesKsf[a].listKsf[b].level, "", "0", "")
+                            listNivel.add(n)
+                        }
+                        val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNivel)
+                        listCancion.add(cancion)
+                    }
+                    val canal = Canal(listChannels[i].nombre, listCancion)
+                    newList.add(canal)
+                }
+
+                val json = gson.toJson(newList)
+                */
+                escucharPuntajesPorNombre(listChannels[position].nombre) { listaCanciones ->
+                    listGlobalRanking = listaCanciones
+                }
+
                 listSongsChannel = listChannels[position].listCanciones
                 listSongsChannelKsf = listChannels[position].listCancionesKsf
 
                 currentChannel = listChannels[position].nombre
 
-                val intent = Intent(this, SelectSong()::class.java)
-                startActivity(intent)
-                overridePendingTransition(R.anim.anim_command_window_on, 0)
-                imgAceptar.isEnabled=true
-                soundSelecctChannel.pause()
+                val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
+                if(deviceFree != null){
+                    showAddActive = false
+                }
+
+                Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
+                thisHandler.postDelayed({
+                    val intent = Intent(this, SelectSong()::class.java)
+                    startActivity(intent)
+                    overridePendingTransition(R.anim.anim_command_window_on, 0)
+                    imgAceptar.isEnabled=true
+                    soundSelecctChannel.pause()
+                }, 2000)
+
+
             }else{
                 builder.show()
                 imgAceptar.isEnabled=true
@@ -333,6 +376,43 @@ class SelectChannel : AppCompatActivity() {
         themes.edit().putString("efects", gson.toJson(listCommands)).apply()
 
     }
+
+    private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
+        val databaseRef = firebaseDatabase.getReference("channels")
+        val listResult = arrayListOf<Cancion>()
+        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (canalSnapshot in snapshot.children) {
+                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
+                    if (canal == canalNombre) {
+                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
+                            val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+
+                            val niveles = arrayListOf<Nivel>()
+                            for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
+                                val grade = nivelSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                val nivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                                val nombre = nivelSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                val puntaje = nivelSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+
+                                niveles.add(Nivel(nivel, nombre, puntaje, grade))
+                            }
+
+                            listResult.add(Cancion(nombreCancion, niveles))
+                        }
+                        callback(listResult)
+                        return
+                    }
+                }
+                callback(arrayListOf())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer datos", error.toException())
+            }
+        })
+    }
+
 
     private fun iluminaIndicador(imageView: ImageView?) {
         val originalColorFilter = imageView!!.colorFilter
@@ -441,3 +521,20 @@ class SelectChannel : AppCompatActivity() {
         )
     }
 }
+
+data class Nivel(
+    val nivel: String,
+    val nombre: String,
+    val puntaje: String,
+    val grade: String
+)
+
+data class Cancion(
+    val cancion: String,
+    val niveles: ArrayList<Nivel>
+)
+
+data class Canal(
+    val canal: String,
+    val canciones: ArrayList<Cancion>
+)

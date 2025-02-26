@@ -81,7 +81,7 @@ class LoadSongsKsf {
                 banner = listRutasChannels[index] + "/banner.png"
                 rutaChannel = listRutasChannels[index]
                 listSongs = getSongs(rutaChannel, context)
-                channel = Channels(nombre, descripcion, banner, rutaChannel, arrayListOf() , listSongs)
+                channel = Channels(nombre, descripcion, banner, arrayListOf(), listSongs)
 
                 listChannels.add(channel)
             }
@@ -157,7 +157,7 @@ class LoadSongsKsf {
                                             songKsf.displayBpm = getValue(line)
                                         }
                                         line.startsWith("#STARTTIME:") ->{
-                                            songKsf.offset = getValue(line).trim().toDouble().toLong()
+                                            songKsf.offset = if(getValue(line) != "") getValue(line).trim().toDouble().toLong() else 0
                                         }
                                         line.startsWith("#STEP:") && line.trim().length > 6 ->{
                                             ksf.stepmaker = getValue(line)

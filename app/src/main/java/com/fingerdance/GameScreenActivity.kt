@@ -28,7 +28,6 @@ import java.io.File
 
 var isVideo = false
 
-lateinit var mediaPlayer : MediaPlayer
 private var currentVideoPositionScreen : Int = 0
 var isMediaPlayerPrepared = false
 
@@ -66,7 +65,7 @@ private var fadeSet = AnimatorSet()
 private lateinit var fadeOut : ObjectAnimator
 private lateinit var flattenY : ObjectAnimator
 
-private val timeToPlay = 2000L
+private val timeToPlay = 1000L
 
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -286,8 +285,6 @@ open class GameScreenActivity : AndroidApplication() {
             height = newHeight
         }
 
-        mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
-
         if(isFileExists(File(playerSong.rutaVideo!!))){
             if(playerSong.isBGAOff == false){
                 videoViewBgaoff.isVisible = false
@@ -338,8 +335,13 @@ open class GameScreenActivity : AndroidApplication() {
         curCombo = 0
         combo = 0
         combo_miss = 0
+
         uiHandler.removeCallbacksAndMessages(null)
         thisHandler.removeCallbacksAndMessages(null)
+        mediaPlayer.setOnCompletionListener(null)
+        if(mediaPlayer.isPlaying){
+            mediaPlayer.stop()
+        }
     }
 
     fun breakDance(){
@@ -354,8 +356,8 @@ open class GameScreenActivity : AndroidApplication() {
         combo_miss = 0
         curCombo = 0
         isVideo = false
-        uiHandler.removeCallbacksAndMessages(null)
-        thisHandler.removeCallbacksAndMessages(null)
+
+
         this.finish()
     }
 

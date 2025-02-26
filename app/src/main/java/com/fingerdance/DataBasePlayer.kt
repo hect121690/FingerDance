@@ -9,7 +9,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "game.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 3
 
         const val TABLE_NIVELES = "niveles"
         const val COLUMN_CANAL = "canal"
@@ -17,7 +17,6 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         const val COLUMN_NIVEL = "nivel"
         const val COLUMN_PUNTAJE = "puntaje"
         const val COLUMN_GRADE = "grade"
-        const val COLUMN_OFFSET = "column_offset"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -27,23 +26,23 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COLUMN_CANCION TEXT,
                 $COLUMN_NIVEL TEXT,
                 $COLUMN_PUNTAJE TEXT,
-                $COLUMN_GRADE TEXT,
-                $COLUMN_OFFSET TEXT
+                $COLUMN_GRADE TEXT
             )
         """
         db.execSQL(createNivelesTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_NIVELES")
-        onCreate(db)
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_NIVELES") // Elimina la tabla
+        onCreate(db) // Vuelve a crear la tabla vacía
     }
 
-    fun insertNivel(canal: String, cancion: String, nivel: String, puntaje: String, grade: String, offset: String) {
+
+    fun insertNivel(canal: String, cancion: String, nivel: String, puntaje: String, grade: String) {
         val db = this.writableDatabase
         val cursor = db.rawQuery(
-            "SELECT 1 FROM $TABLE_NIVELES WHERE $COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ? AND $COLUMN_GRADE = ? AND $COLUMN_OFFSET = ?",
-            arrayOf(canal, cancion, nivel, grade, offset)
+            "SELECT 1 FROM $TABLE_NIVELES WHERE $COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ? AND $COLUMN_GRADE = ?",
+            arrayOf(canal, cancion, nivel, grade)
         )
 
         if (!cursor.moveToFirst()) {
@@ -53,26 +52,11 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 put(COLUMN_NIVEL, nivel)
                 put(COLUMN_PUNTAJE, puntaje)
                 put(COLUMN_GRADE, grade)
-                put(COLUMN_OFFSET, offset)
             }
             db.insert(TABLE_NIVELES, null, values)
         }
 
         cursor.close()
-        db.close()
-    }
-
-    fun updateOffset(canal: String, cancion: String, nivel: String, offset: String) {
-        val db = this.writableDatabase
-        val values = ContentValues().apply {
-            put(COLUMN_OFFSET, offset)
-        }
-        db.update(
-            TABLE_NIVELES, values,
-            "$COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ?",
-            arrayOf(canal, cancion, nivel)
-        )
-
         db.close()
     }
 
@@ -95,7 +79,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val puntajes = arrayListOf<ObjPuntaje>()
 
         val cursor = db.rawQuery(
-            "SELECT puntaje, grade, column_offset FROM niveles WHERE canal = ? AND cancion = ?",
+            "SELECT puntaje, grade FROM niveles WHERE canal = ? AND cancion = ?",
             arrayOf(canal, cancion)
         )
 
@@ -104,8 +88,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             do {
                 val punt = cursor.getString(cursor.getColumnIndexOrThrow("puntaje")).toString()
                 val grad = cursor.getString(cursor.getColumnIndexOrThrow("grade")).toString()
-                val offs = cursor.getString(cursor.getColumnIndexOrThrow("column_offset")).toString()
-                val obj = ObjPuntaje(puntaje = punt, grade = grad, offset = offs)
+                val obj = ObjPuntaje(puntaje = punt, grade = grad)
                 puntajes.add(obj)
             } while (cursor.moveToNext())
         }

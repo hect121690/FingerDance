@@ -1,5 +1,7 @@
 package com.fingerdance
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -37,10 +39,18 @@ import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ActivityOptionsBinding
 import com.google.firebase.FirebaseApp
 import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
+
+var fileName = ""
 class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var bgOptions : LinearLayout
     private lateinit var titleOptions : TextView
@@ -136,17 +146,40 @@ class Options() : AppCompatActivity(), ItemClickListener {
         downloadButtonChannel = findViewById(R.id.download_button_channel)
         recyclerViewListChannels = findViewById(R.id.recycler_view_list_channels)
         //layoutCanciones.layoutParams.height = (height / 2)
+        val arrowIndicator = findViewById<ImageView>(R.id.arrowIndicator)
+        val txSlide = findViewById<TextView>(R.id.txSlide)
         recyclerViewListChannels.layoutParams.height = (width * 0.7).toInt()
         recyclerViewListChannels.layoutParams.width = (width * 0.7).toInt()
+
+        recyclerViewListChannels.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                if (dy > 0) {
+                    arrowIndicator.visibility = View.GONE
+                    txSlide.visibility = View.GONE
+                }
+            }
+        })
+
+        val animator = ObjectAnimator.ofFloat(arrowIndicator, View.ALPHA, 0f, 1f)
+        animator.duration = 800 // Duración de cada ciclo (0.8 segundos)
+        animator.repeatMode = ValueAnimator.REVERSE // Hace fade in y fade out
+        animator.repeatCount = ValueAnimator.INFINITE // Se repite infinitamente
+        animator.start()
 
         txProgressDownloadChannel = findViewById(R.id.textViewDownloadChannel)
         txProgressDownloadChannel.layoutParams.width = (width / 10) * 9
 
         txProgressDownloadChannel.isVisible = false
         downloadButtonChannel.isEnabled = false
-        val itemsChannels = getListChannels()
-        val adapterChannels = ListChannelsAdapter(downloadButtonChannel, itemsChannels) { selectedItem ->
+
+
+
+        //val itemsChannels = getListChannels()
+        val adapterChannels = ListChannelsAdapter(downloadButtonChannel, listFilesDrive) { selectedItem ->
             selectedValueChannel = selectedItem
+            arrowIndicator.visibility = View.GONE
+            txSlide.visibility = View.GONE
         }
         recyclerViewListChannels.layoutManager = LinearLayoutManager(this)
         recyclerViewListChannels.adapter = adapterChannels
@@ -156,16 +189,12 @@ class Options() : AppCompatActivity(), ItemClickListener {
         switchImagePadA.layoutParams.width = width / 2
 
         val thumbColor = ColorStateList(arrayOf(
-                intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)
-        ),
-                intArrayOf(Color.GREEN, Color.RED)
-        )
+                intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
+                intArrayOf(Color.GREEN, Color.RED))
 
         val trackColor = ColorStateList(
-            arrayOf( intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)
-            ),
-            intArrayOf(Color.parseColor("#80FF00"),Color.parseColor("#808080"))
-        )
+            arrayOf( intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
+            intArrayOf(Color.parseColor("#80FF00"),Color.parseColor("#808080")))
 
         switchImagePadA.thumbTintList = thumbColor
         switchImagePadA.trackTintList = trackColor
@@ -347,7 +376,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val constraintBG = findViewById<ConstraintLayout>(R.id.constraintBG)
 
-        // Crear el TextView para txVersionNoteSkins
         val txVersionNoteSkins = findViewById<TextView>(R.id.txVersionNoteSkin).apply {
             id = View.generateViewId()
             text = "Ultima versión de NoteSkins: $numberUpdate"
@@ -366,9 +394,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             setTypeface(typeface, Typeface.BOLD)
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
         }
-        //txMyVersionNoteSkins.textSize = medidaFlechas / 10f
 
-        // Crear el TextView para lbDescargando
         val lbDescargando = TextView(this).apply {
             id = View.generateViewId()
             text = "Descargando:"
@@ -378,51 +404,46 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
         lbDescargando.textSize = 16f
 
-
-        // Crear la ProgressBar
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             id = View.generateViewId()
             layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
             visibility = View.INVISIBLE
         }
 
-        // Crear el botón btnUpdateNoteskins
         val btnUpdateNoteskins =  findViewById<Button>(R.id.btnUptadeNoteSkin).apply {
             visibility = if (numberUpdate != versionUpdate) View.VISIBLE else View.INVISIBLE
 
             setOnClickListener {
                 lbDescargando.visibility = View.VISIBLE
-                progressBar.visibility = View.VISIBLE
-                val storage = FirebaseStorage.getInstance()
-                val storageReference = storage.reference
-                val storageRef = storageReference.child("FingerDance-Update.zip")
+                lbDescargando.text = "Conectando..."
 
-                val localFile = File(getExternalFilesDir(null), "FingerDance-Update.zip")
-                val fallo = AlertDialog.Builder(this@Options)
-                fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+                CoroutineScope(Dispatchers.Main).launch {
+                    val downloadedFile = iniciarDescargaDrive() { progress ->
+                        runOnUiThread {
+                            progressBar.visibility = View.VISIBLE
+                            progressBar.progress = progress
+                            lbDescargando.text = "Descargando $progress%"
 
-                storageRef.getFile(localFile).addOnSuccessListener {
-                    val unzip = Unzip(this@Options)
-                    val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance-Update.zip"
-                    unzip.performUnzip(rutaZip, "FingerDance-Update.zip")
-                }.addOnProgressListener { taskSnapshot ->
-                    val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
-                    progressBar.progress = progress
-                    lbDescargando.text = "Descargando $progress%"
-
-                    if (progress == 100) {
-                        lbDescargando.text = "Descarga finalizada, espere por favor..."
-                        themes.edit().putString("versionUpdate", numberUpdate).apply()
-                        versionUpdate = numberUpdate
+                            if (progress == 100) {
+                                lbDescargando.text = "Descarga finalizada, espere por favor..."
+                                themes.edit().putString("versionUpdate", numberUpdate).apply()
+                                themes.edit().putString("efects", "").apply()
+                                versionUpdate = numberUpdate
+                            }
+                        }
                     }
-                }.addOnFailureListener {
-                    fallo.show()
+                    if (downloadedFile != null) {
+                        val unzip = Unzip(this@Options)
+                        val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                        unzip.performUnzip(rutaZip, "FingerDance.zip")
+                    } else {
+                        Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
+                    }
                 }
+
             }
         }
-        //btnUpdateNoteskins.textSize = medidaFlechas / 10f
 
-        // Agregar vistas al ConstraintLayout
         constraintBG.addView(lbDescargando)
         constraintBG.addView(progressBar)
 
@@ -493,6 +514,52 @@ class Options() : AppCompatActivity(), ItemClickListener {
         btnCreateChannel.setOnClickListener {
             showInputNameChannel()
         }
+    }
+
+    private suspend fun iniciarDescargaDrive(progressCallback: (Int) -> Unit): File? {
+        val fallo = AlertDialog.Builder(this)
+        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://www.googleapis.com/drive/v3/files/1D4sMohVuJ7aGOcSzNCijsdFGHUsAf-2R?alt=media&key=$API_KEY"
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+
+                if (connection.responseCode == 200) {
+                    val localFile = File(getExternalFilesDir(null), "FingerDance.zip")
+
+                    val inputStream = connection.inputStream
+                    val outputStream = FileOutputStream(localFile)
+                    val buffer = ByteArray(1024)
+                    var bytesRead: Int
+                    var totalBytes = 0
+                    val totalSize = connection.contentLength
+
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytes += bytesRead
+                        val progress = (100.0 * totalBytes / totalSize).toInt()
+                        progressCallback(progress)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    connection.disconnect()
+
+                    return@withContext localFile
+                } else {
+                    //println("Error en la descarga: Código ${connection.responseCode}")
+                    fallo.show()
+                    return@withContext null
+                }
+            } catch (e: Exception) {
+                //println("Error descargando archivo: ${e.message}")
+                fallo.show()
+                return@withContext null
+            }
+        }
+
     }
 
 
@@ -660,6 +727,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 targetSubFolder.mkdirs()
 
                 copyFolderContent(context, file, targetSubFolder)
+                themes.edit().putString("allTunes", "").apply()
             }
         }
         Toast.makeText(this, "Se creó el canal correctamente", Toast.LENGTH_SHORT).show()
@@ -726,7 +794,100 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
     private fun downloadChannel(){
         downloadButtonChannel.isEnabled = false
-        getDownloadChannel()
+        txProgressDownloadChannel.text = "Conectando..."
+        //getDownloadChannel()
+        getDownloadChannelDrive()
+    }
+
+    private fun getDownloadChannelDrive(){
+        val localDirectory = File(getExternalFilesDir(null), "FingerDance/Songs/Channels/")
+        localDirectory.mkdirs()
+        val localFile = File(localDirectory, fileName)
+
+        val progressBackground = txProgressDownloadChannel.background as LayerDrawable
+        val progressLayer = progressBackground.findDrawableByLayerId(R.id.progress) as ClipDrawable
+
+        CoroutineScope(Dispatchers.Main).launch {
+            linearTextProgressChannel.setOnClickListener(object : View.OnClickListener {
+                override fun onClick(v: View?) {
+                    // No hace nada
+                }
+            })
+            txProgressDownloadChannel.isVisible = true
+
+            val downloadedFile = downloadFileFromDrive(selectedValueChannel!!, this@Options) { progress ->
+                runOnUiThread {
+                    txProgressDownloadChannel.text = "Descargando $progress%"
+                    progressLayer.level = progress * 100
+                    if(progress > 98){
+                        txProgressDownloadChannel.text = "Iniciando descompresión..."
+                        txProgressDownloadChannel.setTextColor(ContextCompat.getColor(this@Options, R.color.fondo_textview_vibrante))
+                    }
+                    if (progress == 100) {
+                        txProgressDownloadChannel.text = "Recargando canales. Este proceso puede tomar varios minutos, no cierre esta pantalla."
+
+                    }
+                }
+            }
+
+            if (downloadedFile != null) {
+                //Toast.makeText(this@Options, "Descarga completa: ${downloadedFile.absolutePath}", Toast.LENGTH_LONG).show()
+                val unzipTheme = UnzipSongs(this@Options, fileName!!, txProgressDownloadChannel)
+                unzipTheme.performUnzip(localFile.absolutePath)
+                unzipTheme.finishActivity.observe(this@Options) { shouldFinish ->
+                    if (shouldFinish) finish()
+                }
+            } else {
+                Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private suspend fun downloadFileFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
+        val fallo = AlertDialog.Builder(context)
+        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+
+                if (connection.responseCode == 200) {
+                    val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Songs/Channels/")
+                    localDirectory.mkdirs()
+                    val localFile = File(localDirectory, fileName)
+
+                    val inputStream = connection.inputStream
+                    val outputStream = FileOutputStream(localFile)
+                    val buffer = ByteArray(1024)
+                    var bytesRead: Int
+                    var totalBytes = 0
+                    val totalSize = connection.contentLength
+
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytes += bytesRead
+                        val progress = (100.0 * totalBytes / totalSize).toInt()
+                        progressCallback(progress)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    connection.disconnect()
+
+                    return@withContext localFile
+                } else {
+                    //println("Error en la descarga: Código ${connection.responseCode}")
+                    fallo.show()
+                    return@withContext null
+                }
+            } catch (e: Exception) {
+                //println("Error descargando archivo: ${e.message}")
+                fallo.show()
+                return@withContext null
+            }
+        }
     }
 
     private fun getDownloadChannel(){
@@ -736,7 +897,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val localDirectory = File(getExternalFilesDir(null), "FingerDance/Songs/Channels/")
         localDirectory.mkdirs()
-        val localFile = File(localDirectory, selectedValueChannel)
+        val localFile = File(localDirectory, selectedValueChannel!!)
 
         val fallo = AlertDialog.Builder(this)
         fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
@@ -884,7 +1045,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
         filePath = item
     }
 
-    val apiKey = "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
     private fun getListOfThemesItems(): MutableList<String> {
         val storage = FirebaseStorage.getInstance()
         val storageReference = storage.reference
@@ -979,6 +1139,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     }
 
     override fun onBackPressed() {
+        //listFilesDrive.clear()
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
     }

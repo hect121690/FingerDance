@@ -2,6 +2,7 @@ package com.fingerdance
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
@@ -26,7 +27,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private val padRightDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_down.png")))
 
     private lateinit var padB : TextureRegion
-    private lateinit var spritePadB: Sprite
+    lateinit var spritePadB: Sprite
 
     lateinit var padLefDownC : Array<TextureRegion>
     lateinit var padLeftUpC : Array<TextureRegion>
@@ -113,7 +114,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
-            val currentTime = (elapsedTime * 1000).toLong() - 2000
+            val currentTime = (elapsedTime * 1000).toLong() - 1000
 
             batch.begin()
 

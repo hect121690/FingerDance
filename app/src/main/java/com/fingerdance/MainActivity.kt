@@ -1,10 +1,11 @@
 package com.fingerdance
 
-import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
+//import com.google.firebase.auth.FirebaseAuth
+
+import android.content.*
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
@@ -14,7 +15,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
+import android.provider.Settings
+import android.text.Editable
 import android.util.DisplayMetrics
+import android.util.Log
+import android.util.TypedValue
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
@@ -29,11 +34,19 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.storage.FirebaseStorage
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.io.Serializable
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import kotlin.system.exitProcess
 
 
@@ -51,6 +64,7 @@ var bgaOff : String = ""
 var latency = 0L
 var configLatency = false
 var countAdd = 0
+var valueOffset = 0L
 
 var showAddActive = false
 
@@ -79,6 +93,19 @@ const val FOUR_ADDITIONAL_NOTESKIN = 233
 const val FIVE_ADDITIONAL_NOTESKIN = 284
 //INTERFERENCE
 const val SIX_ADDITIONAL_NOTESKIN = 345
+
+
+val API_KEY = "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
+private val FOLDER_ID = "19cM-WcAJyzo7w-7sbrPUzufMu_-gi9bS"
+var listFilesDrive = arrayListOf<Pair<String, String>>()
+
+var userName = ""
+val firebaseDatabase = FirebaseDatabase.getInstance()
+var listGlobalRanking = arrayListOf<Cancion>()
+
+var freeDevices = arrayListOf<String>()
+
+var deviceIdFind = ""
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -116,6 +143,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         alphaPadB = themes.getFloat("alphaPadB", 1f)
         countSongsPlayed = themes.getInt("countSongsPlayed", 0)
         versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
+        valueOffset = themes.getLong("valueOffset", 0)
+        userName = themes.getString("userName","").toString()
 
         val jsonListCommandsValues = themes.getString("listNoteSkinAdditionals", "")
         listNoteSkinAdditionals = if (!jsonListCommandsValues.isNullOrEmpty()) {
@@ -137,6 +166,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         //themes.edit().putString("allTunes", "").apply()
         //themes.edit().putString("efects", "").apply()
+        //themes.edit().putString("userName", "").apply()
 
         linearDownload = findViewById(R.id.linearDownload)
 
@@ -211,12 +241,43 @@ class MainActivity : AppCompatActivity(), Serializable {
         datosMoviles.setMessage("Está utilizando datos móviles. ¿Desea continuar?")
         datosMoviles.setPositiveButton("Aceptar") { dialog, which ->
             iniciarDescarga()
+
         }
         datosMoviles.setNegativeButton("Cancelar", null)
         datosMoviles.show()
     }
 
     private fun iniciarDescarga() {
+        CoroutineScope(Dispatchers.Main).launch {
+            val downloadedFile = iniciarDescargaDrive() { progress ->
+                runOnUiThread {
+                    descargando = false
+                    linearDownload.setOnClickListener {
+
+                    }
+                    imageIcon.isVisible = true
+                    lbDescargando.isVisible = true
+                    progressBar.isVisible = true
+
+                    progressBar.progress = progress
+                    lbDescargando.text = "Descargando $progress%"
+
+                    if (progress == 100) {
+                        lbDescargando.text = "Descarga finalizada, espere por favor..."
+                    }
+                }
+            }
+            if (downloadedFile != null) {
+                val unzip = Unzip(this@MainActivity)
+                val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                unzip.performUnzip(rutaZip, "FingerDance.zip")
+            } else {
+                Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private suspend fun iniciarDescargaDrive(progressCallback: (Int) -> Unit): File? {
         descargando = false
         linearDownload.setOnClickListener {
 
@@ -224,31 +285,49 @@ class MainActivity : AppCompatActivity(), Serializable {
         imageIcon.isVisible = true
         lbDescargando.isVisible = true
         progressBar.isVisible = true
-
-        val storage = FirebaseStorage.getInstance()
-        val storageReference = storage.reference
-        val storageRef = storageReference.child("FingerDance.zip")
-
-        val localFile = File(getExternalFilesDir(null), "FingerDance.zip")
-
         val fallo = AlertDialog.Builder(this)
         fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://www.googleapis.com/drive/v3/files/1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI?alt=media&key=$API_KEY"
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
 
-        storageRef.getFile(localFile).addOnSuccessListener {
-            val unzip = Unzip(this)
-            val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-            unzip.performUnzip(rutaZip, "FingerDance.zip")
-        }.addOnProgressListener { taskSnapshot ->
-            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
-            progressBar.progress = progress
-            lbDescargando.text = "Descargando $progress%"
+                if (connection.responseCode == 200) {
+                    val localFile = File(getExternalFilesDir(null), "FingerDance.zip")
 
-            if (progress == 100) {
-                lbDescargando.text = "Descarga finalizada, espere por favor..."
+                    val inputStream = connection.inputStream
+                    val outputStream = FileOutputStream(localFile)
+                    val buffer = ByteArray(1024)
+                    var bytesRead: Int
+                    var totalBytes = 0
+                    val totalSize = connection.contentLength
+
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytes += bytesRead
+                        val progress = (100.0 * totalBytes / totalSize).toInt()
+                        progressCallback(progress)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    connection.disconnect()
+
+                    return@withContext localFile
+                } else {
+                    //println("Error en la descarga: Código ${connection.responseCode}")
+                    fallo.show()
+                    return@withContext null
+                }
+            } catch (e: Exception) {
+                //println("Error descargando archivo: ${e.message}")
+                fallo.show()
+                return@withContext null
             }
-        }.addOnFailureListener {
-            fallo.show()
         }
+
     }
 
     private fun cerrarApp() {
@@ -259,14 +338,20 @@ class MainActivity : AppCompatActivity(), Serializable {
         exitProcess(0)
     }
 
-    fun creaMain() {
-        val databaseReference = FirebaseDatabase.getInstance().getReference("version")
+
+    private fun creaMain() {
+        val databaseReference = firebaseDatabase.getReference("version")
         var version = ""
         databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 version = snapshot.child("value").getValue(String::class.java).toString()
                 showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
                 numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java).toString()
+
+                 CoroutineScope(Dispatchers.Main).launch {
+                    getFilesDrive()
+                    listFilesDrive.sortBy { it.first }
+                }
 
                 if(version == "1.1.2"){
                     linearDownload.isVisible = false
@@ -338,7 +423,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                             //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
                         }
                         ls.loadSounds(this@MainActivity)
-                        val intent = Intent(applicationContext, SelectChannel::class.java)
+                        val intent = Intent(this@MainActivity, SelectChannel::class.java)
                         startActivity(intent)
                         mediaPlayerMain.pause()
                         soundPlayer!!.pause()
@@ -352,7 +437,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                         goOption.start()
                         soundPlayer!!.pause()
 
-                        val tiempoTranscurrir :Long = 500
+                        val tiempoTranscurrir :Long = 1000
                         val handler = Handler()
                         handler.postDelayed({
                             val intent = Intent(applicationContext, Options()::class.java)
@@ -381,14 +466,147 @@ class MainActivity : AppCompatActivity(), Serializable {
                 }else{
                     Toast.makeText(this@MainActivity, "Se requiere actualizar la aplicacion, descarga la ultima version", Toast.LENGTH_LONG).show()
                 }
+
+                deviceIdFind = getDeviceId(this@MainActivity)
+
+                btnExit.setOnLongClickListener {
+                    val txDeviceId = TextView(this@MainActivity).apply {
+                        setTextColor(Color.BLACK)
+                        textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                        setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
+                        text = deviceIdFind + "-$userName"
+                    }
+
+                    val dialog = AlertDialog.Builder(this@MainActivity)
+                        .setTitle("ID COMPRA")
+                        .setMessage("Por favor envia esta clave al desarrollador")
+                        .setView(txDeviceId)
+                        .setCancelable(false)
+                        .setPositiveButton("Copiar") { _, _ ->
+                            val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("", txDeviceId.text.toString() + "-$userName")
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
+                        }
+                        .create()
+                    dialog.show()
+
+
+                    true
+                }
+
             }
             override fun onCancelled(error: DatabaseError) {
                 println("Error al leer la versión: ${error.message}")
             }
         })
+
+        if(userName == ""){
+            ingresaNameUser()
+        }else{
+            Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
+        }
+
+        getFreeDevices { toListFreeDevices ->
+            freeDevices = toListFreeDevices
+        }
     }
 
-    fun isUsingWifi(context: Context): Boolean {
+    private fun getFreeDevices(callback: (ArrayList<String>) -> Unit) {
+        val databaseRef = firebaseDatabase.getReference("freeDevices")
+        val listResult = arrayListOf<String>()
+        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (devices in snapshot.children) {
+                    listResult.add(devices.value.toString())
+                }
+                callback(listResult)
+                return
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer datos", error.toException())
+            }
+        })
+    }
+
+
+    fun getDeviceId(context: Context): String {
+        return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+    }
+
+    private fun ingresaNameUser(){
+        val editTextName = EditText(this).apply {
+            hint = "Nombre de perfil"
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+        }
+        val dialogError = AlertDialog.Builder(this)
+            .setTitle("Aviso!")
+            .setMessage("Tu nombre debe ser minimo de 8 carácteres, contener al menos una mayuscula, un carácter especial y 2 numeros. \n  \n Por favor intentalo de nuevo")
+            .setCancelable(false)
+            .setPositiveButton("Aceptar") { d, _ ->
+                d.dismiss()
+                ingresaNameUser()
+            }
+            .create()
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Registrate")
+            .setMessage("Por favor ingresa el nombre con el que te identeificaras en Finger Dance")
+            .setView(editTextName)
+            .setCancelable(false)
+            .setPositiveButton("Aceptar") { _, _ ->
+                if(validarNombre(editTextName.text.toString())){
+                    themes.edit().putString("userName", editTextName.text.toString()).apply()
+                    userName = editTextName.text.toString()
+                    Toast.makeText(this, "Nombre registrado con exito", Toast.LENGTH_SHORT).show()
+                }else{
+                    dialogError.show()
+                }
+            }
+            .create()
+        dialog.show()
+    }
+
+    private fun validarNombre(nombre: String): Boolean {
+        val regex = Regex("^(?=.*[A-Z])(?=.*\\d.*\\d)(?=.*[!@#\$%^&*()-+=])[A-Za-z\\d!@#\$%^&*()-+=]{8,}$")
+        return regex.matches(nombre)
+    }
+
+    suspend fun getFilesDrive() {
+        return withContext(Dispatchers.IO) {
+            try {
+                val encodedQuery = URLEncoder.encode("'$FOLDER_ID' in parents", "UTF-8")
+                val url = "https://www.googleapis.com/drive/v3/files?q=$encodedQuery&key=$API_KEY"
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+
+                val responseCode = connection.responseCode
+                if (responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    connection.disconnect()
+
+                    val jsonResponse = JSONObject(response)
+                    val files = jsonResponse.getJSONArray("files")
+                    listFilesDrive.clear()
+                    for (i in 0 until files.length()) {
+                        val file = files.getJSONObject(i)
+                        val fileName = file.getString("name")
+                        val fileId = file.getString("id")
+                        listFilesDrive.add(Pair(fileName, fileId))
+                    }
+                } else {
+                    Log.d("Drive Files","Error en la petición: Código $responseCode")
+                }
+            } catch (e: Exception) {
+                Log.d("Drive Files","Error: ${e.message}")
+            }
+        }
+    }
+
+
+    private fun isUsingWifi(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -401,7 +619,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    fun isUsingMobileData(context: Context): Boolean {
+    private fun isUsingMobileData(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -479,4 +697,4 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 }
 
-class ObjPuntaje(var puntaje: String = "", var grade: String = "", var offset: String = "0")
+class ObjPuntaje(var puntaje: String = "", var grade: String = "")

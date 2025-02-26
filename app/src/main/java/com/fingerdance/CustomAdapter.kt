@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ItemBinding
 
-class CustomAdapter(private val songList: ArrayList<Cancion>?,
+class CustomAdapter(private val songList: ArrayList<Song>?,
                     private val songListKsf: ArrayList<SongKsf>?,
                     private val heightBanners : Int, private val widthBanners: Int) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
@@ -32,11 +32,11 @@ class CustomAdapter(private val songList: ArrayList<Cancion>?,
         RecyclerView.ViewHolder(itemBinding.root) {
         val height = heightBanners
         val width = widthBanners
-        fun bindItem(cancion: Cancion?, songKsf: SongKsf?) {
+        fun bindItem(song: Song?, songKsf: SongKsf?) {
             itemBinding.image.layoutParams.height = height
             itemBinding.image.layoutParams.width = width
-            if(cancion != null){
-                itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(cancion.rutaBanner))
+            if(song != null){
+                itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(song.rutaBanner))
             }else if(songKsf != null){
                 itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(songKsf.rutaDisc))
             }

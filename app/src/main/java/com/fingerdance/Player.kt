@@ -649,25 +649,29 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 if(showPadB == 2){
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
-                }            }
+                }
+            }
             2 -> {
                 batch.draw(recept2Frames[2], (medidaFlechas * 3) - posX, topPos, siseScale, siseScale)
                 if(showPadB == 2){
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
-                }            }
+                }
+            }
             3 -> {
                 batch.draw(recept3Frames[2], (medidaFlechas * 4) - posX, topPos, siseScale, siseScale)
                 if(showPadB == 2){
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
-                }            }
+                }
+            }
             4 -> {
                 batch.draw(recept4Frames[2], (medidaFlechas * 5) - posX, topPos, siseScale, siseScale)
                 if(showPadB == 2){
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
-                }            }
+                }
+            }
         }
         batch.setColor(1f, 1f, 1f, 1f)
     }

@@ -13,6 +13,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.animation.*
@@ -24,8 +25,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.*
 import java.io.File
+import kotlin.random.Random
 
 private lateinit var bgConstraint: ConstraintLayout
 private lateinit var mediaPlayerEvaluation: MediaPlayer
@@ -128,14 +133,34 @@ class DanceGrade : AppCompatActivity() {
         val noteWeighs = perfect + great + good + bad + miss
         totalScore = (((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000
 
-        imgMyBestScore.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body.png").toString()))
+        imgMyBestScore.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body_dance_grade.png").toString()))
 
         val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
         imgNewRecord.setImageBitmap(bitNR)
 
         showGrade(arrayBestGrades)
 
-        getBtnAceptar(handlerDG)
+        if(totalScore.toInt() > currentWorldScore.toInt()){
+            updateRanking(currentChannel,
+                currentSong,
+                currentLevel,
+                totalScore.toInt().toString(),
+                userName,
+                newGrade,
+                imgNewRecord,
+                handlerDG)
+        }
+
+        val bg_wait = findViewById<ConstraintLayout>(R.id.bg_wait)
+        val img_wait = findViewById<ImageView>(R.id.img_wait)
+        bg_wait.isVisible = false
+        img_wait.isVisible = false
+        bg_wait.setOnClickListener(object : View.OnClickListener {
+            override fun onClick(v: View?) {
+                // No hace nada
+            }
+        })
+        getBtnAceptar(handlerDG, bg_wait, img_wait)
 
         mediaPlayerEvaluation = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation.mp3")!!.absolutePath)))
         mediaPlayerEvaluation.start()
@@ -210,7 +235,7 @@ class DanceGrade : AppCompatActivity() {
                         )
                         imgMyBestGrade.setImageBitmap(grade)
                         lbBestScoreDG.text = totalScore.toInt().toString()
-                        showNewRecord(imgNewRecord, handlerDG)
+                        //showNewRecord(imgNewRecord, handlerDG)
                     } else {
                         getBestScore(imgMyBestGrade, lbBestScoreDG)
                     }
@@ -220,7 +245,63 @@ class DanceGrade : AppCompatActivity() {
         },750)
     }
 
-    private fun getBtnAceptar(handlerDG: Handler) {
+    fun updateRanking(
+        channel: String,
+        song: String,
+        level: String,
+        newScore: String,
+        namePlayer: String,
+        grade: String,
+        imgNewRecord: ImageView,
+        handlerDG: Handler
+    ) {
+        val databaseRef = firebaseDatabase.getReference("channels")
+        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (canalSnapshot in snapshot.children) {
+                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
+                    if (canal == channel) {
+                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
+                            val cancion = cancionSnapshot.child("cancion").getValue(String::class.java)
+                            if (cancion == song) {
+                                for ((index, nivelSnapshot) in cancionSnapshot.child("niveles").children.withIndex()) {
+                                    val nivel = nivelSnapshot.child("nivel").getValue(String::class.java)
+                                    val puntajeActual = nivelSnapshot.child("puntaje").getValue(String::class.java)?.toIntOrNull() ?: 0
+
+                                    if (nivel == level && newScore.toInt() > puntajeActual) {
+                                        val nivelRef = databaseRef.child(canalSnapshot.key!!)
+                                            .child("canciones").child(cancionSnapshot.key!!)
+                                            .child("niveles").child(index.toString())
+
+                                        val updateData = mapOf(
+                                            "puntaje" to newScore,
+                                            "nombre" to namePlayer,
+                                            "grade" to grade
+                                        )
+
+                                        nivelRef.updateChildren(updateData)
+                                            .addOnSuccessListener {
+                                                showNewRecord(imgNewRecord, handlerDG)
+                                                Log.d("Ranking", "Puntaje actualizado correctamente")
+                                            }
+                                            .addOnFailureListener { e -> Log.e("Ranking", "Error al actualizar ranking", e) }
+
+                                        return
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer datos", error.toException())
+            }
+        })
+    }
+
+    private fun getBtnAceptar(handlerDG: Handler, bg_wait: ConstraintLayout, img_wait: ImageView) {
         val imgFloor = findViewById<ImageView>(R.id.floorDG)
         val bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
         imgFloor.setImageBitmap(bmFloor)
@@ -228,6 +309,9 @@ class DanceGrade : AppCompatActivity() {
         val imgAceptar = findViewById<ImageView>(R.id.aceptDG)
         val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
         imgAceptar.setImageBitmap(bm)
+
+        val numberWait = Random.nextInt(1,10)
+        img_wait.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/img_dance_grade ($numberWait).png")!!.absolutePath))
 
         imgAceptar.layoutParams.width = (width / 2.5).toInt()
 
@@ -240,16 +324,60 @@ class DanceGrade : AppCompatActivity() {
         imgAceptar.bringToFront()
 
         imgAceptar.setOnClickListener {
+            escucharPuntajesPorNombre(currentChannel) { listaCanciones ->
+                listGlobalRanking = listaCanciones
+            }
             mediaPlayerEvaluation.stop()
             soundPoolSelectSongKsf.stop(isPlayingRankA)
             soundPoolSelectSongKsf.stop(isPlayingRankB)
             soundPoolSelectSongKsf.stop(isPlayingNewRecord)
             handlerDG.removeCallbacksAndMessages(null)
-            this.finish()
+            img_wait.isVisible = true
+            bg_wait.isVisible = true
+
+            thisHandler.postDelayed({
+                this.finish()
+            }, 2500)
+
         }
         imgFloor.setOnLongClickListener {
             imgAceptar.performClick()
         }
+    }
+
+    private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
+        val databaseRef = firebaseDatabase.getReference("channels")
+        val listResult = arrayListOf<Cancion>()
+        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (canalSnapshot in snapshot.children) {
+                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
+                    if (canal == canalNombre) {
+                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
+                            val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+                            val niveles = arrayListOf<Nivel>()
+                            for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
+                                val grade = nivelSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                val nivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                                val nombre = nivelSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                val puntaje = nivelSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+
+                                niveles.add(Nivel(nivel, nombre, puntaje, grade))
+                            }
+
+                            listResult.add(Cancion(nombreCancion, niveles))
+                        }
+                        callback(listResult)
+                        return
+                    }
+                }
+                callback(arrayListOf())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer datos", error.toException())
+            }
+        })
     }
 
     private fun getEfects(pathCommandEffect: String) {
@@ -400,7 +528,7 @@ class DanceGrade : AppCompatActivity() {
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
             isPlayingNewRecord = soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
-        }, 1500)
+        }, 2000)
     }
 
     private fun animateImageView(view: ImageView) {

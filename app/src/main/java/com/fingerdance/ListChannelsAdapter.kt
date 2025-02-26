@@ -9,7 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 // MyAdapter.kt
-class ListChannelsAdapter(private val btnDownload: Button, private val items: List<String>, private val onItemSelected: (String) -> Unit) :
+class ListChannelsAdapter(private val btnDownload: Button, private val items: ArrayList<Pair<String, String>>, private val onItemSelected: (String) -> Unit) :
     RecyclerView.Adapter<ListChannelsAdapter.ListChannelsViewHolder>() {
 
     private var selectedPosition: Int = -1
@@ -26,7 +26,8 @@ class ListChannelsAdapter(private val btnDownload: Button, private val items: Li
 
     override fun onBindViewHolder(holder: ListChannelsViewHolder, position: Int) {
         val item = items[position]
-        holder.textView.text = item
+        fileName = item.first
+        holder.textView.text = item.first
         holder.radioButton.isChecked = position == selectedPosition
 
         holder.itemView.setOnClickListener {
@@ -34,7 +35,7 @@ class ListChannelsAdapter(private val btnDownload: Button, private val items: Li
             selectedPosition = holder.adapterPosition
             notifyItemChanged(previousPosition)
             notifyItemChanged(selectedPosition)
-            onItemSelected(item)
+            onItemSelected(item.second)
             btnDownload.isEnabled = selectedPosition != -1
         }
     }

@@ -133,6 +133,29 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <TextView
+            android:id="@+id/txSlide"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Desliza hacia abajo"
+            android:textColor="#F9A825"
+            android:textStyle="italic"
+            app:layout_constraintEnd_toEndOf="@+id/recycler_view_list_channels"
+            app:layout_constraintStart_toStartOf="@+id/recycler_view_list_channels"
+            app:layout_constraintTop_toBottomOf="@+id/recycler_view_list_channels" />
+
+        <ImageView
+            android:id="@+id/arrowIndicator"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center_horizontal"
+            android:alpha="0.9"
+            android:visibility="visible"
+            app:layout_constraintEnd_toEndOf="@+id/recycler_view_list_channels"
+            app:layout_constraintStart_toStartOf="@+id/recycler_view_list_channels"
+            app:layout_constraintTop_toBottomOf="@+id/txSlide"
+            app:srcCompat="@android:drawable/arrow_down_float" />
+
         <Button
             android:id="@+id/download_button_channel"
             android:layout_width="wrap_content"

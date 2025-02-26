@@ -15,7 +15,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 private lateinit var channels: Channels
-private lateinit var songs :Cancion
+private lateinit var songs :Song
 
 
 //var barLife1 : Drawable? = null
@@ -44,7 +44,7 @@ class LoadingSongs() : AppCompatActivity() {
         //setContentView(R.layout.activity_loading_songs)
         onWindowFocusChanged(true)
 
-        songs = Cancion("","","","","","","","",
+        songs = Song("","","","","","","","",
              "", "", "","", arrayListOf())
 
         //listChannels.clear()
@@ -138,14 +138,14 @@ class LoadingSongs() : AppCompatActivity() {
             var descripcion: String
             var banner: String
             var rutaChannel: String
-            var listSongs: ArrayList<Cancion>
+            var listSongs: ArrayList<Song>
             for (index in 0 until listRutasChannels.size) {
                 nombre = listRutasChannels[index].removeRange(0, 82)
                 descripcion = readFile(listRutasChannels[index] + "/info/text.ini")
                 banner = listRutasChannels[index] + "/banner.png"
                 rutaChannel = listRutasChannels[index]
                 listSongs = getSongs(rutaChannel, c)
-                channels = Channels(nombre, descripcion, banner, rutaChannel, listSongs) //, listCommands)
+                channels = Channels(nombre, descripcion, banner, listSongs) //, listCommands)
 
                 listChannels.add(channels)
             }
@@ -153,7 +153,7 @@ class LoadingSongs() : AppCompatActivity() {
         return listChannels
     }
 
-    private fun getSongs(rutaChannel: String, c: Context): ArrayList<Cancion> {
+    private fun getSongs(rutaChannel: String, c: Context): ArrayList<Song> {
         var ssc = ""
         var nombre = ""
         var artist = ""
@@ -167,7 +167,7 @@ class LoadingSongs() : AppCompatActivity() {
         var rutaCancion = ""
         var textLvs  = ""
         var rutaSteps = ""
-        val listSongs = ArrayList<Cancion>()
+        val listSongs = ArrayList<Song>()
         val rutaBitActive = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
 
         val listRutas = getRutasSongs(rutaChannel)
@@ -312,7 +312,7 @@ class LoadingSongs() : AppCompatActivity() {
                         for(i in 0 until listNumLv.size){
                             listLvs.add(Lvs(listNumLv[i] , rutaBitActive))
                         }
-                        songs = Cancion(nombre, artist, bpm, "",prevVideo, rutaPrevVideo, "", song, rutaBanner, rutaCancion, rutaSteps,rutaVideo, listLvs)
+                        songs = Song(nombre, artist, bpm, "",prevVideo, rutaPrevVideo, "", song, rutaBanner, rutaCancion, rutaSteps,rutaVideo, listLvs)
                         listSongs.add(songs)
                     }
                 }
