@@ -2,14 +2,19 @@
 <resources>
     <style name="TransparentDialog" parent="Theme.AppCompat.Dialog">
         <item name="android:windowIsFloating">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowBackground">@drawable/rounded_dialog</item>
         <item name="android:textColorPrimary">@color/white</item>
         <item name="android:textColor">@color/white</item>
-        <item name="buttonBarPositiveButtonStyle">@style/DialogButtonStyle</item>
-        <item name="buttonBarNegativeButtonStyle">@style/DialogButtonStyle</item>
+        <item name="buttonBarPositiveButtonStyle">@style/DialogButtonStylePositive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/DialogButtonStyleNegative</item>
     </style>
-    <style name="DialogButtonStyle" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
-        <item name="android:textColor">@color/white</item>
+    <style name="DialogButtonStylePositive" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/positive_green</item>
+        <item name="android:gravity">center</item>
+    </style>
+    <style name="DialogButtonStyleNegative" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/negative_red</item>
+        <item name="android:gravity">center</item>
     </style>
 </resources>
 

@@ -3,4 +3,5 @@
     <external-path
         name="images"
         path="AppName" />
+    <external-files-path name="downloaded_apks" path="." />
 </paths>

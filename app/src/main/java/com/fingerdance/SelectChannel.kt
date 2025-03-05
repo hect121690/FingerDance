@@ -298,6 +298,7 @@ class SelectChannel : AppCompatActivity() {
 
                 val json = gson.toJson(newList)
                 */
+
                 escucharPuntajesPorNombre(listChannels[position].nombre) { listaCanciones ->
                     listGlobalRanking = listaCanciones
                 }

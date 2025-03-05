@@ -295,7 +295,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         downloadButtonChannel.setOnClickListener {
             val builder = AlertDialog.Builder(this, R.style.TransparentDialog)
             builder.setTitle("Aviso")
-            builder.setMessage("Se descargara el canal seleccionado. Se recomienda usar una conexión Wi-Fi")
+            builder.setMessage("Se descargara el canal seleccionado. Se recomienda usar una conexión Wi-Fi \n")
             builder.setCancelable(false)
             builder.setPositiveButton("Aceptar") { dialog, which ->
                 when {
@@ -418,7 +418,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 lbDescargando.text = "Conectando..."
 
                 CoroutineScope(Dispatchers.Main).launch {
-                    val downloadedFile = iniciarDescargaDrive() { progress ->
+                    val downloadedFile = iniciarDescargaDrive { progress ->
                         runOnUiThread {
                             progressBar.visibility = View.VISIBLE
                             progressBar.progress = progress

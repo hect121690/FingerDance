@@ -29,5 +29,8 @@
     <color name="primaryColor">#4CAF50</color> <!-- Verde tipo Material Design -->
     <color name="pressedColor">#388E3C</color> <!-- Color más oscuro al presionar -->
 
+    <color name="positive_green">#4CAF50</color> <!-- Verde -->
+    <color name="negative_red">#F44336</color> <!-- Rojo -->
+
 
 </resources>

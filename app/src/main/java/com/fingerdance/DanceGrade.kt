@@ -140,7 +140,7 @@ class DanceGrade : AppCompatActivity() {
 
         showGrade(arrayBestGrades)
 
-        if(totalScore.toInt() > currentWorldScore.toInt()){
+        if(totalScore.toInt() > currentWorldScore.toInt() || currentScore.toInt() > currentWorldScore.toInt()){
             updateRanking(currentChannel,
                 currentSong,
                 currentLevel,
@@ -214,7 +214,7 @@ class DanceGrade : AppCompatActivity() {
                 }
 
                 jobs.joinAll()
-                setCounts(resultSong, textViews)
+                setCounts(textViews)
 
                 handlerDG.postDelayed({
                     imgGrade.setImageBitmap(grade)
@@ -324,6 +324,7 @@ class DanceGrade : AppCompatActivity() {
         imgAceptar.bringToFront()
 
         imgAceptar.setOnClickListener {
+            soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             escucharPuntajesPorNombre(currentChannel) { listaCanciones ->
                 listGlobalRanking = listaCanciones
             }
@@ -601,7 +602,7 @@ class DanceGrade : AppCompatActivity() {
         }
     }
 
-    private suspend fun setCounts(resultSong: ResultSong, textViews: List<TextView>) {
+    private suspend fun setCounts(textViews: List<TextView>) {
 
         coroutineScope {
             textViews[0].text = resultSong.perfect.toString()

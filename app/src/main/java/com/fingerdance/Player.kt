@@ -584,7 +584,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 }else if(gauge < 0){
                                     lifeBar.decreaseLife(abs(gauge))
                                 }
-                            }else if(nnote == NOTE_LSTART){
+                            }else if(nnote == NOTE_LSTART /*|| nnote == NOTE_LNOTE*/){
                                 ptn_now.vLine[c].step[x] = NOTE_LSTART_MISS
                                 ksf.patterns[i].vLine[c].step[x] = NOTE_LSTART_MISS
                                 getJudge(JUDGE_MISS)

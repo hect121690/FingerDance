@@ -2,6 +2,7 @@ package com.fingerdance
 
 //import com.google.firebase.auth.FirebaseAuth
 
+import android.app.Dialog
 import android.content.*
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
@@ -20,6 +21,7 @@ import android.text.Editable
 import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
@@ -28,6 +30,7 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
@@ -47,6 +50,7 @@ import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Objects
 import kotlin.system.exitProcess
 
 
@@ -249,7 +253,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     private fun iniciarDescarga() {
         CoroutineScope(Dispatchers.Main).launch {
-            val downloadedFile = iniciarDescargaDrive() { progress ->
+            val downloadedFile = iniciarDescargaDrive("1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI") { progress ->
                 runOnUiThread {
                     descargando = false
                     linearDownload.setOnClickListener {
@@ -277,7 +281,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private suspend fun iniciarDescargaDrive(progressCallback: (Int) -> Unit): File? {
+    private suspend fun iniciarDescargaDrive(idDonwnload: String, progressCallback: (Int) -> Unit): File? {
         descargando = false
         linearDownload.setOnClickListener {
 
@@ -289,12 +293,12 @@ class MainActivity : AppCompatActivity(), Serializable {
         fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
         return withContext(Dispatchers.IO) {
             try {
-                val url = "https://www.googleapis.com/drive/v3/files/1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI?alt=media&key=$API_KEY"
+                val url = "https://www.googleapis.com/drive/v3/files/$idDonwnload?alt=media&key=$API_KEY"
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
 
                 if (connection.responseCode == 200) {
-                    val localFile = File(getExternalFilesDir(null), "FingerDance.zip")
+                    val localFile = File(getExternalFilesDir(null), "FingerDance.apk")
 
                     val inputStream = connection.inputStream
                     val outputStream = FileOutputStream(localFile)
@@ -330,6 +334,22 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     }
 
+    private fun instalarAPK(filePath: String) {
+        val file = File(filePath)
+        val uri: Uri = FileProvider.getUriForFile(
+            this,
+            "${applicationContext.packageName}.provider", // Asegúrate de definir un FileProvider en el Manifest
+            file
+        )
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(intent)
+    }
+
+
     private fun cerrarApp() {
         val intent = Intent(Intent.ACTION_MAIN)
         intent.addCategory(Intent.CATEGORY_HOME)
@@ -353,7 +373,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     listFilesDrive.sortBy { it.first }
                 }
 
-                if(version == "1.1.2"){
+                if(version == "1.1.3"){
                     linearDownload.isVisible = false
                     imageIcon.isVisible = false
                     lbDescargando.isVisible = false
@@ -463,37 +483,98 @@ class MainActivity : AppCompatActivity(), Serializable {
                         }
                         builder.show()
                     }
-                }else{
-                    Toast.makeText(this@MainActivity, "Se requiere actualizar la aplicacion, descarga la ultima version", Toast.LENGTH_LONG).show()
-                }
 
-                deviceIdFind = getDeviceId(this@MainActivity)
+                    deviceIdFind = getDeviceId(this@MainActivity)
+                    btnExit.setOnLongClickListener {
+                        val txDeviceId = TextView(this@MainActivity).apply {
+                            setTextColor(Color.BLACK)
+                            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                            setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
+                            text = deviceIdFind + "-$userName"
+                        }
 
-                btnExit.setOnLongClickListener {
-                    val txDeviceId = TextView(this@MainActivity).apply {
-                        setTextColor(Color.BLACK)
-                        textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                        setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-                        text = deviceIdFind + "-$userName"
+                        val dialog = AlertDialog.Builder(this@MainActivity)
+                            .setTitle("ID COMPRA")
+                            .setMessage("Por favor envia esta clave al desarrollador")
+                            .setView(txDeviceId)
+                            .setCancelable(false)
+                            .setPositiveButton("Copiar") { _, _ ->
+                                val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("", txDeviceId.text.toString() + "-$userName")
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
+                            }
+                            .create()
+                        dialog.show()
+
+
+                        true
                     }
 
-                    val dialog = AlertDialog.Builder(this@MainActivity)
-                        .setTitle("ID COMPRA")
-                        .setMessage("Por favor envia esta clave al desarrollador")
-                        .setView(txDeviceId)
-                        .setCancelable(false)
-                        .setPositiveButton("Copiar") { _, _ ->
-                            val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("", txDeviceId.text.toString() + "-$userName")
-                            clipboard.setPrimaryClip(clip)
-                            Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
+                }else{
+                    val lbDescargando = TextView(this@MainActivity).apply {
+                        id = View.generateViewId()
+                        text = "Descargando:"
+                        textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                        setTextColor(Color.BLACK)
+                        visibility = View.GONE
+                    }
+                    lbDescargando.textSize = 16f
+
+                    val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                        id = View.generateViewId()
+                        layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
+                        visibility = View.GONE
+                    }
+
+                    val btnAceptarDownload = Button(this@MainActivity).apply {
+                        text = "Descargar"
+                        setOnClickListener {
+                            lbDescargando.visibility = View.VISIBLE
+                            progressBar.visibility = View.VISIBLE
+                            CoroutineScope(Dispatchers.Main).launch {
+                                val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM") { progress ->
+                                    runOnUiThread {
+                                        progressBar.progress = progress
+                                        lbDescargando.text = "Descargando $progress%"
+                                        if (progress == 100) {
+                                            lbDescargando.text = "Descarga finalizada, espere por favor..."
+
+                                        }
+                                    }
+                                }
+                                if (packageApp != null) {
+                                    instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
+                                }
+                            }
                         }
-                        .create()
-                    dialog.show()
+                    }
+
+                    val linearDowload = LinearLayout(this@MainActivity)
+                    linearDowload.orientation = LinearLayout.VERTICAL // Alineación vertical
+                    linearDowload.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+                    linearDowload.layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+
+                    linearDowload.addView(lbDescargando)
+                    linearDowload.addView(progressBar)
+                    linearDowload.addView(btnAceptarDownload)
+
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Actualizar")
+                        .setMessage("Se requiere actualizar la aplicacion, descargar?")
+                        .setView(linearDowload)
+                        .setCancelable(false)
+
+                        .show()
 
 
-                    true
+                    //Toast.makeText(this@MainActivity, "Se requiere actualizar la aplicacion, descarga la ultima version", Toast.LENGTH_LONG).show()
                 }
+
+
 
             }
             override fun onCancelled(error: DatabaseError) {
@@ -511,6 +592,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             freeDevices = toListFreeDevices
         }
     }
+
+    private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun getFreeDevices(callback: (ArrayList<String>) -> Unit) {
         val databaseRef = firebaseDatabase.getReference("freeDevices")

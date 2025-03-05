@@ -221,7 +221,9 @@ class SelectSong : AppCompatActivity() {
             onWindowFocusChanged(true)
 
             MobileAds.initialize(this) {}
-            loadInterstitialAd()
+            if(showAddActive) {
+                loadInterstitialAd()
+            }
 
             binding = ActivitySelectSongBinding.inflate(layoutInflater)
             setContentView(binding.root)
@@ -1053,9 +1055,11 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun showAddOurGS() {
-        if(countAdd == 2 && interstitialAd == null) loadInterstitialAd()
+         if(countAdd == 0 && interstitialAd == null){
+             loadInterstitialAd()
+         }
 
-        if (countAdd <= 2) {
+        if (countAdd < 1) {
             val handler = Handler(Looper.getMainLooper())
             handler.postDelayed({
                 val intent = Intent(this, GameScreenActivity::class.java)
@@ -1099,7 +1103,9 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun loadInterstitialAd() {
-        //ID de pruebas "ca-app-pub-3940256099942544/1033173712"
+        //ID de pruebas
+        //idAdd ="ca-app-pub-3940256099942544/1033173712"
+        //ID Real
         idAdd = "ca-app-pub-1525853918723620/4651716599"
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, idAdd, adRequest, object : InterstitialAdLoadCallback() {
