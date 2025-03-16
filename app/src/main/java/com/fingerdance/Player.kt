@@ -57,7 +57,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_MISS_CHK: Byte = 32
 
         private var ZONE_PERFECT: Long = if(playerSong.hj) 20 else 70
-        private var ZONE_GREAT: Long = if(playerSong.hj) 50 else 100
+        private var ZONE_GREAT: Long = if(playerSong.hj) 40 else 100
         private var ZONE_GOOD: Long = if(playerSong.hj) 80 else 120
         private var ZONE_BAD: Long = if(playerSong.hj) 100 else 150
 
@@ -122,6 +122,9 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private var speed = playerSong.speed.replace("X", "").toFloat()
 
     private var currentTimeToExpands = 0L
+
+    private var stepWidth = 5
+    private val GaugeIncNormal = if(playerSong.hj) floatArrayOf(3f, 2f, 1f, -5f, -7f) else floatArrayOf(5f, 4f, 3f, -4f, -5f)
 
     init {
         currentTimeToExpands = SystemClock.uptimeMillis()
@@ -342,10 +345,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         var ptn: Int = 0,
         var line: Int = 0,
     )
-
-    private var stepWidth = 5
-    val GaugeIncNormal = floatArrayOf(5f, 4f, 3f, -4f, -5f)
-
 
     fun updateStepData(time: Long) {
         val timeCom = SystemClock.uptimeMillis()

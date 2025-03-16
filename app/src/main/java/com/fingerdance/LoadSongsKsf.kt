@@ -1,7 +1,6 @@
 package com.fingerdance
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.SoundPool
 import com.arthenica.mobileffmpeg.FFmpeg
@@ -49,6 +48,7 @@ var tick : Int = 0
 
 
 var listChannels : ArrayList<Channels> = ArrayList()
+var listChannelsOnline : ArrayList<Channels> = ArrayList()
 var listCommands : ArrayList<Command> = ArrayList()
 
 class LoadSongsKsf {
@@ -89,6 +89,50 @@ class LoadSongsKsf {
         }
         return listChannels
     }
+
+    fun getChannelsOnline(context: Context): ArrayList<Channels> {
+        val baseDir = context.getExternalFilesDir("/FingerDance/Songs/Channels/")
+        val listChannels = ArrayList<Channels>()
+
+        val validFolders = setOf(
+            "000-FingerDance",
+            "03-SHORTCUT",
+            "14-FIESTA~FIESTA 2",
+            "17-PRIME",
+            "18-PRIME 2",
+            "19 - XX ANIVERSARY",
+            "20-FULL SONGS",
+            "21-PHOENIX"
+        )
+
+        if (baseDir?.exists() == true && baseDir.isDirectory) {
+            val listRutasChannels = mutableListOf<String>()
+
+            // Filtrar solo las carpetas que coincidan con la lista
+            baseDir.listFiles()?.forEach { file ->
+                if (file.isDirectory && validFolders.contains(file.name)) {
+                    val infoDir = File(file, "info")
+                    if (infoDir.exists() && infoDir.isDirectory) {
+                        listRutasChannels.add(file.absolutePath)
+                    }
+                }
+            }
+
+            listRutasChannels.sort()
+
+            for (rutaChannel in listRutasChannels) {
+                val nombre = rutaChannel.substringAfterLast("/") // Nombre de la carpeta
+                val descripcion = readFile("$rutaChannel/info/text.ini")
+                val banner = "$rutaChannel/banner.png"
+                val listSongs = getSongs(rutaChannel, context)
+
+                val channel = Channels(nombre, descripcion, banner, arrayListOf(), listSongs)
+                listChannels.add(channel)
+            }
+        }
+        return listChannels
+    }
+
 
     private fun getSongs(rutaChannel: String, c: Context): ArrayList<SongKsf> {
 
@@ -192,6 +236,7 @@ class LoadSongsKsf {
             }
             listSongs.add(songKsf)
         }
+        listSongs.sortBy { it.title }
         return listSongs
     }
 
@@ -317,22 +362,22 @@ class LoadSongsKsf {
                             }
                         }
                         if(it.toString().contains("_Icon", ignoreCase = true)){
-                            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                            BitmapFactory.decodeFile(it.path, options)
+                            //val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                            //BitmapFactory.decodeFile(it.path, options)
                             val descripcion = "Usar $value NoteSkin"
                             rutaCommandValue = it.toString()
-                            if (options.outWidth == 128 || options.outWidth == 64) {
+                            //if (options.outWidth == 128 || options.outWidth == 64) {
                                 listCommandsValues.add(CommandValues(value, descripcion, rutaCommandValue))
-                            }else{
-                                listNoteSkinAdditionals.add(CommandValues(value, descripcion, rutaCommandValue))
-                            }
+                            //}else{
+                            //    listNoteSkinAdditionals.add(CommandValues(value, descripcion, rutaCommandValue))
+                            //}
                         }
                     }
                     listCommands.add(Command(dirValues.toString(), listDescripciones[index], rutaImagenNS, listCommandsValues))
                 }
             }
         }
-        themes.edit().putString("listNoteSkinAdditionals", gson.toJson(listNoteSkinAdditionals)).apply()
+        //themes.edit().putString("listNoteSkinAdditionals", gson.toJson(listNoteSkinAdditionals)).apply()
         return listCommands
     }
 

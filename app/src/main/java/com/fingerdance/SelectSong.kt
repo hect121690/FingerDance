@@ -39,6 +39,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.math.BigDecimal
+import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -202,14 +204,16 @@ class SelectSong : AppCompatActivity() {
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            saveFileToDestination(it, "song_p.mp4", false)
+            val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
+            saveFileToDestination(it, namePreview + "_p.mp4", false)
         }
 
     }
 
     private val pickBgaFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            saveFileToDestination(it, "song.mp4", true)
+            val nameBGA = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
+            saveFileToDestination(it, nameBGA + ".mp4", true)
         }
     }
         @RequiresApi(Build.VERSION_CODES.S)
@@ -241,11 +245,7 @@ class SelectSong : AppCompatActivity() {
 
             mediaPlayer = MediaPlayer()
 
-            val levels = Levels(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f,
-                mutableListOf(), mutableListOf(), mutableListOf(),
-                mutableListOf(),mutableListOf(), mutableListOf(),
-                mutableListOf(), mutableListOf(), mutableListOf(),
-                mutableListOf(), mutableListOf(), mutableListOf())
+            val levels = Levels()
 
             playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
                                      false,"", "", levels, "")
@@ -490,7 +490,7 @@ class SelectSong : AppCompatActivity() {
             val listVacios = ArrayList<Ksf>()
             val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
 
-            for (index in 0..11) {
+            for (index in 0..19) {
                 listVacios.add(Ksf("", "",  rutaLvSelected))
             }
             llenaLvsVacios(null, listVacios)
@@ -1145,6 +1145,8 @@ class SelectSong : AppCompatActivity() {
             actualizarImagenNumero(reductor)
             reductor--
             handlerContador.postDelayed(this, 1000)
+
+            /*
             when(countSongsPlayed){
                 ONE_ADDITIONAL_NOTESKIN -> {
                     listCommands[0].listCommandValues.add(listNoteSkinAdditionals[0])
@@ -1189,6 +1191,7 @@ class SelectSong : AppCompatActivity() {
                     countSongsPlayed++
                 }
             }
+            */
 
             if(reductor < 0){
                 detenerContador()
@@ -1210,6 +1213,7 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
+    /*
     private fun showNewNoteSkin(newNoteSkin: CommandValues) {
         val linearNewNoteSkin = LinearLayout(this).apply {
             setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
@@ -1254,6 +1258,7 @@ class SelectSong : AppCompatActivity() {
         linearNewNoteSkin.addView(btnAceptar)
         constraintMain.addView(linearNewNoteSkin)
     }
+    */
 
     private fun actualizarImagenNumero(numero: Int) {
             val unidad = numero % 10
@@ -1599,16 +1604,20 @@ class SelectSong : AppCompatActivity() {
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
 
+        val rankingItem = listGlobalRanking.find { it.cancion == item.title }
+        niveles = rankingItem?.niveles ?: ArrayList(List(listSongScores.size) { Nivel() })
+        //val salaId = UUID.randomUUID().toString()
+        /*
         niveles = if(listGlobalRanking.find { it.cancion == item.title } != null) {
             listGlobalRanking.find { it.cancion == item.title }!!.niveles
         } else {
-            val listEmpty = arrayListOf<Nivel>()
-            for(i in 0 until listSongScores.size){
-                listEmpty.add(Nivel("??", "NO DATA", "0", ""))
-            }
-            listEmpty
+            /*val listEmpty = */ ArrayList(List(listSongScores.size) { Nivel() }) //arrayListOf<Nivel>()
+            //for(i in 0 until listSongScores.size){
+            //    listEmpty.add(Nivel("??", "NO DATA", "0", ""))
+            //}
+            //listEmpty
         }
-
+        */
         //if(isFileExists(File(item.rutaPrevVideo))){
         if(isFileExists(File(item.rutaPreview))){
             if(item.rutaPreview.endsWith(".png", ignoreCase = true)

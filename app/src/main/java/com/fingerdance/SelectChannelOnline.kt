@@ -38,8 +38,6 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import java.io.File
 import java.io.FileInputStream
 
@@ -68,8 +66,8 @@ private lateinit var indicatorDer: ImageView
 private lateinit var imageCircle : ImageView
 private lateinit var channel : String
 
-var listSongsChannel: ArrayList<Song> = ArrayList()
-var listSongsChannelKsf: ArrayList<SongKsf> = ArrayList()
+//var listSongsChannel: ArrayList<Song> = ArrayList()
+var listSongsChannelKsfOnline: ArrayList<SongKsf> = ArrayList()
 
 private lateinit var recyclerChannels: ViewPager2
 
@@ -78,17 +76,17 @@ private lateinit var objectAnimator : ObjectAnimator
 private var animIndicator: Animation? = null
 private var position : Int = 0
 
-var currentChannel = ""
-var currentSong = ""
-var currentLevel = ""
-lateinit var db : DataBasePlayer
-var positionCurrentChannel = 0
+var currentChannelOnline = ""
+var currentSongOnline = ""
+var currentLevelOnline = ""
+//lateinit var db : DataBasePlayer
+var positionCurrentChannelOnline = 0
 
-class SelectChannel : AppCompatActivity() {
+class SelectChannelOnline : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_select_channel)
+        setContentView(R.layout.activity_select_channel_online)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
 
@@ -182,7 +180,7 @@ class SelectChannel : AppCompatActivity() {
         recyclerChannels.isUserInputEnabled = false
 
         recyclerChannels.clipToPadding = false
-        recyclerChannels.adapter = CommandChannel(listChannels, ancho)
+        recyclerChannels.adapter = CommandChannel(listChannelsOnline, ancho)
         recyclerChannels.offscreenPageLimit = 3
 
         objectAnimator = ObjectAnimator.ofFloat(recyclerChannels.getChildAt(position), "rotationY", 180f, 360f)
@@ -246,7 +244,7 @@ class SelectChannel : AppCompatActivity() {
 
             position --
             if(position < 0){
-                position = listChannels.size - 1
+                position = listChannelsOnline.size - 1
             }
             isFocusChannel(position)
         }
@@ -258,7 +256,7 @@ class SelectChannel : AppCompatActivity() {
             iluminaIndicador(indicatorDer)
 
             position++
-            if(position > listChannels.size - 1){
+            if(position > listChannelsOnline.size - 1){
                 position = 0
             }
             isFocusChannel(position)
@@ -275,45 +273,23 @@ class SelectChannel : AppCompatActivity() {
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
-            if(listChannels[position].listCanciones.size > 0 || listChannels[position].listCancionesKsf.size > 0){
+            if(listChannelsOnline[position].listCanciones.size > 0 || listChannelsOnline[position].listCancionesKsf.size > 0){
 
-                /*
-                val gson = GsonBuilder().setPrettyPrinting().create()
-                val newList = arrayListOf<Canal>()
-
-                for(i in 0 until listChannels.size){
-                    val listCancion = arrayListOf<Cancion>()
-                    for(a in 0 until listChannels[i].listCancionesKsf.size){
-                        val listNivel = arrayListOf<Nivel>()
-                        for(b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size){
-                            val n = Nivel(listChannels[i].listCancionesKsf[a].listKsf[b].level, "", "0", "")
-                            listNivel.add(n)
-                        }
-                        val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNivel)
-                        listCancion.add(cancion)
-                    }
-                    val canal = Canal(listChannels[i].nombre, listCancion)
-                    newList.add(canal)
-                }
-
-                val json = gson.toJson(newList)
-                */
-
-                escucharPuntajesPorNombre(listChannels[position].nombre) { listaCanciones ->
+                escucharPuntajesPorNombre(listChannelsOnline[position].nombre) { listaCanciones ->
                     listGlobalRanking = listaCanciones
                 }
 
-                listSongsChannel = listChannels[position].listCanciones
-                listSongsChannelKsf = listChannels[position].listCancionesKsf
+                listSongsChannel = listChannelsOnline[position].listCanciones
+                listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
 
-                currentChannel = listChannels[position].nombre
+                currentChannel = listChannelsOnline[position].nombre
 
                 val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
                 if(deviceFree != null){
                     showAddActive = false
                 }
 
-                Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
                 thisHandler.postDelayed({
                     val intent = Intent(this, SelectSong()::class.java)
                     startActivity(intent)
@@ -335,48 +311,6 @@ class SelectChannel : AppCompatActivity() {
 
         linearLayout = findViewById(R.id.background)
         linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
-
-        /*
-        when {
-            countSongsPlayed >= SIX_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[5].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[5])
-                }
-            }
-            countSongsPlayed >= FIVE_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[4].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[4])
-                }
-            }
-            countSongsPlayed >= FOUR_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[3].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[3])
-                }
-            }
-            countSongsPlayed >= THREE_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[2].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[2])
-                }
-            }
-            countSongsPlayed >= TWO_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[1].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[1])
-                }
-            }
-            countSongsPlayed >= ONE_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[0].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[0])
-                }
-            }
-        }
-        themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-        */
 
     }
 
@@ -451,7 +385,7 @@ class SelectChannel : AppCompatActivity() {
     }
 
     private fun isFocusChannel (position: Int){
-        val item = listChannels[position]
+        val item = listChannelsOnline[position]
         recyclerChannels.setCurrentItem(position, false)
         channel = item.nombre
         lbNombreChannel.text = item.descripcion
@@ -524,20 +458,3 @@ class SelectChannel : AppCompatActivity() {
         )
     }
 }
-
-data class Nivel(
-    val nivel: String = "??",
-    val nombre: String = "NO DATA",
-    val puntaje: String = "0",
-    val grade: String = ""
-)
-
-data class Cancion(
-    val cancion: String,
-    val niveles: ArrayList<Nivel>
-)
-
-data class Canal(
-    val canal: String,
-    val canciones: ArrayList<Cancion>
-)

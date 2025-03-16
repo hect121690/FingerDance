@@ -412,36 +412,37 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val btnUpdateNoteskins =  findViewById<Button>(R.id.btnUptadeNoteSkin).apply {
             visibility = if (numberUpdate != versionUpdate) View.VISIBLE else View.INVISIBLE
+        }
 
-            setOnClickListener {
-                lbDescargando.visibility = View.VISIBLE
-                lbDescargando.text = "Conectando..."
+        btnUpdateNoteskins.setOnClickListener {
+            btnUpdateNoteskins.isEnabled = false
+            lbDescargando.visibility = View.VISIBLE
+            lbDescargando.text = "Conectando..."
 
-                CoroutineScope(Dispatchers.Main).launch {
-                    val downloadedFile = iniciarDescargaDrive { progress ->
-                        runOnUiThread {
-                            progressBar.visibility = View.VISIBLE
-                            progressBar.progress = progress
-                            lbDescargando.text = "Descargando $progress%"
+            CoroutineScope(Dispatchers.Main).launch {
+                val downloadedFile = iniciarDescargaDrive { progress ->
+                    runOnUiThread {
+                        progressBar.visibility = View.VISIBLE
+                        progressBar.progress = progress
+                        lbDescargando.text = "Descargando $progress%"
 
-                            if (progress == 100) {
-                                lbDescargando.text = "Descarga finalizada, espere por favor..."
-                                themes.edit().putString("versionUpdate", numberUpdate).apply()
-                                themes.edit().putString("efects", "").apply()
-                                versionUpdate = numberUpdate
-                            }
+                        if (progress == 100) {
+                            lbDescargando.text = "Descarga finalizada, espere por favor..."
+                            themes.edit().putString("versionUpdate", numberUpdate).apply()
+                            themes.edit().putString("efects", "").apply()
+                            versionUpdate = numberUpdate
                         }
                     }
-                    if (downloadedFile != null) {
-                        val unzip = Unzip(this@Options)
-                        val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-                        unzip.performUnzip(rutaZip, "FingerDance.zip")
-                    } else {
-                        Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
-                    }
                 }
-
+                if (downloadedFile != null) {
+                    val unzip = Unzip(this@Options)
+                    val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                    unzip.performUnzip(rutaZip, "FingerDance.zip")
+                } else {
+                    Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
+                }
             }
+
         }
 
         constraintBG.addView(lbDescargando)
@@ -887,50 +888,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 fallo.show()
                 return@withContext null
             }
-        }
-    }
-
-    private fun getDownloadChannel(){
-        val storage = FirebaseStorage.getInstance()
-        val storageReference = storage.reference
-        val fileRef = storageReference.child("Channels/$selectedValueChannel")
-
-        val localDirectory = File(getExternalFilesDir(null), "FingerDance/Songs/Channels/")
-        localDirectory.mkdirs()
-        val localFile = File(localDirectory, selectedValueChannel!!)
-
-        val fallo = AlertDialog.Builder(this)
-        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
-        val progressBackground = txProgressDownloadChannel.background as LayerDrawable
-        val progressLayer = progressBackground.findDrawableByLayerId(R.id.progress) as ClipDrawable
-
-        fileRef.getFile(localFile).addOnSuccessListener {
-
-        }.addOnProgressListener { taskSnapshot ->
-            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
-            linearTextProgressChannel.setOnClickListener(object : View.OnClickListener {
-                override fun onClick(v: View?) {
-                    // No hace nada
-                }
-            })
-            txProgressDownloadChannel.isVisible = true
-            txProgressDownloadChannel.text = "Descargando $progress%"
-            progressLayer.level = progress * 100
-
-            if(progress > 98){
-                txProgressDownloadChannel.text = "Iniciando descompresión..."
-                txProgressDownloadChannel.setTextColor(ContextCompat.getColor(this, R.color.fondo_textview_vibrante))
-            }
-            if (progress == 100) {
-                txProgressDownloadChannel.text = "Recargando canales. Este proceso puede tomar varios minutos, no cierre esta pantalla."
-                val unzipTheme = UnzipSongs(this, selectedValueChannel!!, txProgressDownloadChannel)
-                unzipTheme.finishActivity.observe(this) { shouldFinish ->
-                    if (shouldFinish) finish()
-                }
-                unzipTheme.performUnzip(localFile.absolutePath)
-            }
-        }.addOnFailureListener {
-            fallo.show()
         }
     }
 

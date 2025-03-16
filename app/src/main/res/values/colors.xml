@@ -32,5 +32,7 @@
     <color name="positive_green">#4CAF50</color> <!-- Verde -->
     <color name="negative_red">#F44336</color> <!-- Rojo -->
 
+    <color name="button_background">#6750A4</color>
+
 
 </resources>

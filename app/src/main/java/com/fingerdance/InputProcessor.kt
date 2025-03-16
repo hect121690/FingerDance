@@ -25,7 +25,12 @@ class InputProcessor : InputAdapter() {
         Keys.NUMPAD_7 to 1,
         Keys.NUMPAD_5 to 2,
         Keys.NUMPAD_9 to 3,
-        Keys.NUMPAD_3 to 4
+        Keys.NUMPAD_3 to 4,
+        Keys.Q to 0,
+        Keys.E to 1,
+        Keys.S to 2,
+        Keys.Z to 3,
+        Keys.C to 4 
     )
 
     override fun keyDown(keycode: Int): Boolean {

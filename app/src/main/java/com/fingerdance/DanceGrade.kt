@@ -97,8 +97,8 @@ class DanceGrade : AppCompatActivity() {
         txNameChannel.text = if(currentChannel.contains("-")) currentChannel.split("-")[1] else currentChannel
 
         txStepMaker.text = if(playerSong.stepMaker != "") "STEPMAKER: ${playerSong.stepMaker}" else ""
-        countSongsPlayed ++
-        themes.edit().putInt("countSongsPlayed", countSongsPlayed).apply()
+        //countSongsPlayed ++
+        //themes.edit().putInt("countSongsPlayed", countSongsPlayed).apply()
 
         txNameSong.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER

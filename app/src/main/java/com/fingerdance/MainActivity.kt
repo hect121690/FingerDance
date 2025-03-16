@@ -2,7 +2,6 @@ package com.fingerdance
 
 //import com.google.firebase.auth.FirebaseAuth
 
-import android.app.Dialog
 import android.content.*
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
@@ -17,7 +16,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.provider.Settings
-import android.text.Editable
 import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
@@ -30,6 +28,7 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import com.google.firebase.FirebaseApp
@@ -50,7 +49,9 @@ import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.util.Objects
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.system.exitProcess
 
 
@@ -81,10 +82,11 @@ var showPadB : Int = 0
 var hideImagesPadA : Boolean = false
 var skinPad = ""
 var alphaPadB = 1f
-var listNoteSkinAdditionals = ArrayList<CommandValues>()
+//var listNoteSkinAdditionals = ArrayList<CommandValues>()
 
-var countSongsPlayed = 0
+//var countSongsPlayed = 0
 
+/*
 //PHOENIX
 const val ONE_ADDITIONAL_NOTESKIN = 30
 //MISILE
@@ -97,7 +99,7 @@ const val FOUR_ADDITIONAL_NOTESKIN = 233
 const val FIVE_ADDITIONAL_NOTESKIN = 284
 //INTERFERENCE
 const val SIX_ADDITIONAL_NOTESKIN = 345
-
+*/
 
 val API_KEY = "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
 private val FOLDER_ID = "19cM-WcAJyzo7w-7sbrPUzufMu_-gi9bS"
@@ -111,6 +113,8 @@ var freeDevices = arrayListOf<String>()
 
 var deviceIdFind = ""
 
+var idSala = ""
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -119,6 +123,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private var currentVideoPosition : Int = 0
     private lateinit var animLogo : ImageView
     private lateinit var btnPlay : Button
+    private lateinit var btnPlayOnline : Button
     private lateinit var btnOptions : Button
     private lateinit var btnExit : Button
 
@@ -126,6 +131,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var imageIcon : ImageView
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
+    private var versionApp = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,19 +151,9 @@ class MainActivity : AppCompatActivity(), Serializable {
         hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
         skinPad = themes.getString("skinPad", "default").toString()
         alphaPadB = themes.getFloat("alphaPadB", 1f)
-        countSongsPlayed = themes.getInt("countSongsPlayed", 0)
         versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
         valueOffset = themes.getLong("valueOffset", 0)
         userName = themes.getString("userName","").toString()
-
-        val jsonListCommandsValues = themes.getString("listNoteSkinAdditionals", "")
-        listNoteSkinAdditionals = if (!jsonListCommandsValues.isNullOrEmpty()) {
-            gson.fromJson(jsonListCommandsValues, object : TypeToken<List<CommandValues>>() {}.type)
-        } else {
-            ArrayList()
-        }
-
-        //themes.edit().putString("versionUpdate", "0.0.0").apply()
 
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
@@ -253,7 +249,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     private fun iniciarDescarga() {
         CoroutineScope(Dispatchers.Main).launch {
-            val downloadedFile = iniciarDescargaDrive("1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI") { progress ->
+            val downloadedFile = iniciarDescargaDrive("1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI", "zip") { progress ->
                 runOnUiThread {
                     descargando = false
                     linearDownload.setOnClickListener {
@@ -271,6 +267,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     }
                 }
             }
+
             if (downloadedFile != null) {
                 val unzip = Unzip(this@MainActivity)
                 val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
@@ -278,10 +275,11 @@ class MainActivity : AppCompatActivity(), Serializable {
             } else {
                 Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
             }
+
         }
     }
 
-    private suspend fun iniciarDescargaDrive(idDonwnload: String, progressCallback: (Int) -> Unit): File? {
+    private suspend fun iniciarDescargaDrive(idDonwnload: String, typeFile: String, progressCallback: (Int) -> Unit): File? {
         descargando = false
         linearDownload.setOnClickListener {
 
@@ -298,7 +296,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 connection.requestMethod = "GET"
 
                 if (connection.responseCode == 200) {
-                    val localFile = File(getExternalFilesDir(null), "FingerDance.apk")
+                    val localFile = File(getExternalFilesDir(null), "FingerDance.$typeFile")
 
                     val inputStream = connection.inputStream
                     val outputStream = FileOutputStream(localFile)
@@ -338,7 +336,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         val file = File(filePath)
         val uri: Uri = FileProvider.getUriForFile(
             this,
-            "${applicationContext.packageName}.provider", // Asegúrate de definir un FileProvider en el Manifest
+            "${applicationContext.packageName}.provider",
             file
         )
 
@@ -367,13 +365,17 @@ class MainActivity : AppCompatActivity(), Serializable {
                 version = snapshot.child("value").getValue(String::class.java).toString()
                 showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
                 numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java).toString()
+                val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
 
-                 CoroutineScope(Dispatchers.Main).launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     getFilesDrive()
                     listFilesDrive.sortBy { it.first }
                 }
 
-                if(version == "1.1.3"){
+                val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                versionApp = packageInfo.versionName
+
+                if(version == versionApp){
                     linearDownload.isVisible = false
                     imageIcon.isVisible = false
                     lbDescargando.isVisible = false
@@ -383,8 +385,24 @@ class MainActivity : AppCompatActivity(), Serializable {
                         tema ="default"
                     }
 
+                    val linearButtons = findViewById<LinearLayout>(R.id.linearButtons)
+                    linearButtons.orientation = LinearLayout.VERTICAL // Alineación vertical
+                    linearButtons.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+                    linearButtons.layoutParams = LinearLayout.LayoutParams(
+                        width,
+                        height / 2
+                    )
+                    linearButtons.y = height / 4f
+
                     btnPlay = findViewById(R.id.btnPlay)
                     btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
+                    btnPlayOnline = findViewById(R.id.btnPlayOnline)
+                    btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
+
+                    if(!startOnline){
+                        btnPlayOnline.visibility = View.GONE
+                    }
+
                     btnOptions = findViewById(R.id.btnOptions)
                     btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
                     btnExit = findViewById(R.id.btnExit)
@@ -449,7 +467,144 @@ class MainActivity : AppCompatActivity(), Serializable {
                         soundPlayer!!.pause()
                         btnPlay.isEnabled = true
                     }
+
+                    btnPlayOnline.setOnClickListener{
+                        btnPlayOnline.isEnabled=false
+                        goSound.start()
+                        btnPlayOnline.startAnimation(animation)
+                        val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        btnParams.setMargins(16, 16, 16, 16)
+                        val btnCreateRoom = Button(this@MainActivity).apply {
+                            text = "Crear Sala"
+                            setPadding(20, 10, 20, 10)
+                            background = ContextCompat.getDrawable(context, R.drawable.button_online)
+                            setTextColor(Color.WHITE)
+                        }
+                        val btnJoinRoom = Button(this@MainActivity).apply {
+                            text = "Unirme a Sala"
+                            setPadding(20, 10, 20, 10)
+                            background = ContextCompat.getDrawable(context, R.drawable.button_online)
+                            setTextColor(Color.WHITE)
+                        }
+
+                        val btnGetRoom = Button(this@MainActivity).apply {
+                            text = "Entrar"
+                            setPadding(20, 10, 20, 10)
+                            background = ContextCompat.getDrawable(context, R.drawable.button_pink)
+                            setTextColor(Color.WHITE)
+                        }
+
+                        val editTextRoom = EditText(this@MainActivity).apply {
+                            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                            hint = "Ingresar clave"
+                        }
+
+                        val linearOnline = LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                        }
+
+                        btnCreateRoom.layoutParams = btnParams
+                        btnJoinRoom.layoutParams = btnParams
+
+                        linearOnline.addView(btnCreateRoom)
+                        linearOnline.addView(btnJoinRoom)
+
+                        val linearClave = LinearLayout(this@MainActivity)
+                        linearClave.orientation = LinearLayout.VERTICAL // Alineación vertical
+                        linearClave.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+                        linearClave.layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+
+                        linearClave.addView(editTextRoom)
+                        linearClave.addView(btnGetRoom)
+                        linearClave.visibility = View.GONE
+
+                        val linearLayouts = LinearLayout(this@MainActivity)
+                        linearLayouts.orientation = LinearLayout.VERTICAL // Alineación vertical
+                        linearLayouts.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+                        linearLayouts.layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        linearLayouts.addView(linearOnline)
+                        linearLayouts.addView(linearClave)
+
+                        val dialog = AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Modo Online 1 vs 1")
+                            .setMessage("Elige una opción:")
+                            .setView(linearLayouts)
+                            .setCancelable(false)
+                            .setNegativeButton("Cancelar") { d, _ ->
+                                d.dismiss()
+                                btnPlayOnline.isEnabled = true
+                            }
+                            .show()
+
+                        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+                            textSize = 18f
+                            setTextColor(Color.RED)
+                            val layoutParams = this.layoutParams as LinearLayout.LayoutParams
+                            layoutParams.gravity = Gravity.CENTER
+                            layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
+                            this.layoutParams = layoutParams
+                        }
+
+                        btnJoinRoom.setOnClickListener {
+                            dialog.setMessage("Ingresa la clave para entrar a la sala")
+                            linearOnline.visibility = View.GONE
+                            linearClave.visibility = View.VISIBLE
+                        }
+
+                        btnCreateRoom.setOnClickListener {
+                            idSala = UUID.randomUUID().toString()
+                            val salaRef = firebaseDatabase.getReference("rooms/$idSala")
+                            val jugador1 = Jugador(id = userName)
+                            val formato = SimpleDateFormat("dd-MM-yyyy-HH-mm", Locale.getDefault())
+
+                            val nuevaSala = Sala(turno = "jugador1", jugador1 = jugador1, date = formato.format(Date()))
+
+                            salaRef.setValue(nuevaSala).addOnSuccessListener {
+                                mostrarCodigoSala(dialog)
+                            }
+                        }
+
+                        btnGetRoom.setOnClickListener {
+                            if(editTextRoom.text.toString() != ""){
+                                val ls = LoadSongsKsf()
+                                val salaRef = firebaseDatabase.getReference("rooms/${editTextRoom.text}")
+                                salaRef.child("jugador2/id").setValue(userName)
+                                listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
+                                if(themes.getString("efects", "").toString() == ""){
+                                    listCommands = ls.getFilesCW(this@MainActivity)
+                                    val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                                    val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                                    listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+                                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                                }else{
+                                    val jsonListCommands = themes.getString("efects", "")
+                                    listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
+                                }
+                                ls.loadSounds(this@MainActivity)
+                                val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
+                                startActivity(intent)
+                                mediaPlayerMain.pause()
+                                soundPlayer!!.pause()
+                                btnPlayOnline.isEnabled = true
+                            }else{
+                                Toast.makeText(this@MainActivity, "Debe ingresa la clave de la sala", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+
+                    }
+
                     val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
+
                     btnOptions.setOnClickListener {
                         //btnOptions.isEnabled = true
                         Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
@@ -465,7 +620,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                             this@MainActivity.finish()
                         }, tiempoTranscurrir)
                     }
-
                     val builder = AlertDialog.Builder(this@MainActivity)
 
                     btnExit.setOnClickListener {
@@ -500,15 +654,23 @@ class MainActivity : AppCompatActivity(), Serializable {
                             .setCancelable(false)
                             .setPositiveButton("Copiar") { _, _ ->
                                 val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("", txDeviceId.text.toString() + "-$userName")
+                                val clip = ClipData.newPlainText("", txDeviceId.text.toString())
                                 clipboard.setPrimaryClip(clip)
                                 Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
                             }
                             .create()
                         dialog.show()
-
-
                         true
+                    }
+
+                    if(userName == ""){
+                        ingresaNameUser()
+                    }else{
+                        Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
+                    }
+
+                    getFreeDevices { toListFreeDevices ->
+                        freeDevices = toListFreeDevices
                     }
 
                 }else{
@@ -523,31 +685,16 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
                         id = View.generateViewId()
-                        layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
+                        layoutParams = ConstraintLayout.LayoutParams(
+                            ConstraintLayout.LayoutParams.MATCH_PARENT,
+                            25.dpToPx()
+                        )
                         visibility = View.GONE
                     }
-
                     val btnAceptarDownload = Button(this@MainActivity).apply {
                         text = "Descargar"
-                        setOnClickListener {
-                            lbDescargando.visibility = View.VISIBLE
-                            progressBar.visibility = View.VISIBLE
-                            CoroutineScope(Dispatchers.Main).launch {
-                                val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM") { progress ->
-                                    runOnUiThread {
-                                        progressBar.progress = progress
-                                        lbDescargando.text = "Descargando $progress%"
-                                        if (progress == 100) {
-                                            lbDescargando.text = "Descarga finalizada, espere por favor..."
-
-                                        }
-                                    }
-                                }
-                                if (packageApp != null) {
-                                    instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
-                                }
-                            }
-                        }
+                        setBackgroundColor(Color.BLUE)
+                        setTextColor(Color.WHITE)
                     }
 
                     val linearDowload = LinearLayout(this@MainActivity)
@@ -562,35 +709,93 @@ class MainActivity : AppCompatActivity(), Serializable {
                     linearDowload.addView(progressBar)
                     linearDowload.addView(btnAceptarDownload)
 
-                    AlertDialog.Builder(this@MainActivity)
+                    val dialog = AlertDialog.Builder(this@MainActivity)
                         .setTitle("Actualizar")
                         .setMessage("Se requiere actualizar la aplicacion, descargar?")
                         .setView(linearDowload)
                         .setCancelable(false)
-
                         .show()
 
-
-                    //Toast.makeText(this@MainActivity, "Se requiere actualizar la aplicacion, descarga la ultima version", Toast.LENGTH_LONG).show()
+                    btnAceptarDownload.setOnClickListener {
+                        lbDescargando.visibility = View.VISIBLE
+                        progressBar.visibility = View.VISIBLE
+                        btnAceptarDownload.visibility = View.GONE
+                        dialog.setMessage("Espere por favor")
+                        CoroutineScope(Dispatchers.Main).launch {
+                            val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM", "apk") { progress ->
+                                runOnUiThread {
+                                    progressBar.progress = progress
+                                    lbDescargando.text = "Descargando $progress%"
+                                    if (progress == 100) {
+                                        lbDescargando.text = "Descarga finalizada, espere por favor..."
+                                        dialog.dismiss()
+                                    }
+                                }
+                            }
+                            if (packageApp != null) {
+                                instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
+                                //versionApp = version
+                            }
+                        }
+                    }
                 }
-
-
-
             }
             override fun onCancelled(error: DatabaseError) {
                 println("Error al leer la versión: ${error.message}")
             }
         })
+    }
 
-        if(userName == ""){
-            ingresaNameUser()
-        }else{
-            Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
+    private fun mostrarCodigoSala(alertDialog: AlertDialog) {
+        val ls = LoadSongsKsf()
+        val txSalaId = TextView(this@MainActivity).apply {
+            setTextColor(Color.BLACK)
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
+            text = idSala
         }
 
-        getFreeDevices { toListFreeDevices ->
-            freeDevices = toListFreeDevices
+        val dialog = AlertDialog.Builder(this@MainActivity)
+            .setTitle("Crear sala")
+            .setMessage("Envia esta clave al jugador que quieras invitar a la sala")
+            .setView(txSalaId)
+            .setCancelable(false)
+            .setPositiveButton("Compartir") { d, _ ->
+                alertDialog.dismiss()
+                d.dismiss()
+
+                listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
+                if(themes.getString("efects", "").toString() == ""){
+                    listCommands = ls.getFilesCW(this@MainActivity)
+                    val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                    val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                    listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                }else{
+                    val jsonListCommands = themes.getString("efects", "")
+                    listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
+                }
+                ls.loadSounds(this@MainActivity)
+                val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
+                startActivity(intent)
+                mediaPlayerMain.pause()
+                soundPlayer!!.pause()
+                btnPlayOnline.isEnabled = true
+                mostrarDialogoCompartir(this)
+            }
+            .setNegativeButton("Cancelar"){_, _ ->
+                firebaseDatabase.getReference("rooms/$idSala").removeValue()
+            }
+            .create()
+        dialog.show()
+    }
+
+    private fun mostrarDialogoCompartir(context: Context) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, idSala)
         }
+        context.startActivity(Intent.createChooser(intent, "Compartir con"))
     }
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
@@ -625,7 +830,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
         val dialogError = AlertDialog.Builder(this)
             .setTitle("Aviso!")
-            .setMessage("Tu nombre debe ser minimo de 8 carácteres, contener al menos una mayuscula, un carácter especial y 2 numeros. \n  \n Por favor intentalo de nuevo")
+            .setMessage("Tu nombre debe tener al menos 8 caracteres, una letra mayuscula y al menos 1 número. \n  \n Por favor intentalo de nuevo")
             .setCancelable(false)
             .setPositiveButton("Aceptar") { d, _ ->
                 d.dismiss()
@@ -652,9 +857,10 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun validarNombre(nombre: String): Boolean {
-        val regex = Regex("^(?=.*[A-Z])(?=.*\\d.*\\d)(?=.*[!@#\$%^&*()-+=])[A-Za-z\\d!@#\$%^&*()-+=]{8,}$")
+        val regex = Regex("^(?=.*[A-Z])(?=.*\\d)[A-Za-z\\d]{8,}$")
         return regex.matches(nombre)
     }
+
 
     suspend fun getFilesDrive() {
         return withContext(Dispatchers.IO) {
@@ -781,3 +987,30 @@ class MainActivity : AppCompatActivity(), Serializable {
 }
 
 class ObjPuntaje(var puntaje: String = "", var grade: String = "")
+
+data class Resultado(
+    val bad: String = "",
+    val good: String = "",
+    val grade: String = "",
+    val great: String = "",
+    val maxCombo: String = "",
+    val miss: String = "",
+    val perfect: String = "",
+    val score: String = ""
+)
+
+data class Jugador(
+    val id: String = "",
+    val listo: Boolean = false,
+    val result: Resultado = Resultado(),
+    val winner: Boolean = false
+)
+
+data class Sala(
+    val cancion: String = "",
+    val jugador1: Jugador = Jugador(),
+    val jugador2: Jugador = Jugador(),
+    val nivel: String = "",
+    val turno: String = "",
+    val date: String = ""
+)
