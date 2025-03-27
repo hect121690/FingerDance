@@ -14,7 +14,7 @@ import java.util.zip.ZipInputStream
 class Unzip (private val context: Context) {
     private val BUFFER_SIZE = 1024
 
-    fun performUnzip(rutaZip: String, fileToUnzip: String) {
+    fun performUnzip(rutaZip: String, fileToUnzip: String, closeMain: Boolean) {
         val zipFile = File(rutaZip)
         val zipInputStream = ZipInputStream(FileInputStream(zipFile))
         var zipEntry: ZipEntry?
@@ -46,8 +46,10 @@ class Unzip (private val context: Context) {
 
         val handler = Handler(Looper.getMainLooper())
         handler.post {
-            val intent = Intent(context, MainActivity::class.java)
-            context.startActivity(intent)
+            if(closeMain) {
+                val intent = Intent(context, MainActivity::class.java)
+                context.startActivity(intent)
+            }
             val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/$fileToUnzip")
             file.delete()
         }

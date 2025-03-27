@@ -161,9 +161,11 @@ class LifeBar(screenHeight: Float, activity: GameScreenActivity) : Actor() {
 
 
         if (currentLife <= 4) {
-            a.runOnUiThread {
-                //a.finish()
-                a.breakDance()
+            if(!isOnline) {
+                a.runOnUiThread {
+                    //a.finish()
+                    a.breakDance()
+                }
             }
         }
 

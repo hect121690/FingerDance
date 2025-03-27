@@ -95,7 +95,7 @@ class LoadSongsKsf {
         val listChannels = ArrayList<Channels>()
 
         val validFolders = setOf(
-            "000-FingerDance",
+            "000-Finger Dance",
             "03-SHORTCUT",
             "14-FIESTA~FIESTA 2",
             "17-PRIME",

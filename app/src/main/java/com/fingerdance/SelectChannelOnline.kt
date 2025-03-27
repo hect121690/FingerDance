@@ -4,13 +4,11 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
+import android.graphics.*
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -31,9 +29,10 @@ import android.view.animation.TranslateAnimation
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -76,11 +75,14 @@ private lateinit var objectAnimator : ObjectAnimator
 private var animIndicator: Animation? = null
 private var position : Int = 0
 
-var currentChannelOnline = ""
-var currentSongOnline = ""
-var currentLevelOnline = ""
-//lateinit var db : DataBasePlayer
-var positionCurrentChannelOnline = 0
+private lateinit var valueEventListener: ValueEventListener
+
+private lateinit var linearWaitPlayer : LinearLayout
+private lateinit var txWaitForPlayer: TextView
+
+var selectionSongOnline = true
+
+var getSelectChannel = false
 
 class SelectChannelOnline : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -206,8 +208,8 @@ class SelectChannelOnline : AppCompatActivity() {
         nav_der.layoutParams.width = medidaNavs
         nav_der.layoutParams.height = medidaNavs
 
-        val textSize = width / 20
-        lbNombreChannel.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+        val textSizeLbls = width / 20
+        lbNombreChannel.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSizeLbls.toFloat())
         lbNombreChannel.layoutParams.width = (width * 0.8).toInt()
 
         indicatorDer.layoutParams.width = height / 10
@@ -226,7 +228,90 @@ class SelectChannelOnline : AppCompatActivity() {
         imgAceptar.startAnimation(animateSetTraslation)
         imgAceptar.bringToFront()
 
+        txWaitForPlayer = TextView(this).apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            setTextColor((Color.WHITE))
+            textSize = textSizeLbls / 2f
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(2.6f, 2.5f, 1.3f, Color.GREEN)
+        }
+        linearWaitPlayer = findViewById(R.id.linearWaitPlayer)
+        linearWaitPlayer.setBackgroundColor(Color.parseColor("#CC000000"))
+        linearWaitPlayer.addView(txWaitForPlayer)
+        linearWaitPlayer.bringToFront()
+
         db = DataBasePlayer(this)
+
+        val txPlayer1 = findViewById<TextView>(R.id.txPlayer1)
+        val txPlayer2 = findViewById<TextView>(R.id.txPlayer2)
+
+        val handler = Handler()
+        valueEventListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                activeSala = snapshot.getValue(Sala::class.java)!!
+                if(selectionSongOnline){
+
+                    if(activeSala.jugador1.listo && activeSala.turno != userName){
+                        val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        startActivity(intent)
+                    }
+                    if(activeSala.jugador2.listo && activeSala.turno != userName){
+                        val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        startActivity(intent)
+                    }
+
+                    if (!snapshot.hasChild("jugador1/id") && !snapshot.hasChild("jugador2/id")) {
+                        salaRef.removeValue()
+                    }
+
+                    if(activeSala.jugador1.id == "" && activeSala.jugador2.id == ""){
+                        firebaseDatabase.getReference("rooms/$idSala").removeValue()
+                    }
+
+                    /*
+                    if(activeSala.jugador1.listo && activeSala.turno == userName){
+                        val intent = Intent(this@SelectChannelOnline, SelectSongOnline()::class.java)
+                        startActivity(intent)
+                    }
+                    if(activeSala.jugador2.listo && activeSala.turno == userName){
+                        val intent = Intent(this@SelectChannelOnline, SelectSongOnline()::class.java)
+                        startActivity(intent)
+                    }
+                    */
+                }
+
+                if(activeSala.jugador1.listo && activeSala.jugador2.listo){
+                    handler.postDelayed({
+                        getSelectChannel = false
+                        val intent = Intent(this@SelectChannelOnline, GameScreenActivity::class.java)
+                        startActivity(intent)
+                    }, 3000L)
+                }
+                if(isPlayer1){
+                    txPlayer1.text = "Player 1 \n $userName"
+                    txPlayer2.text = "Player 2 \n ${activeSala.jugador2.id}"
+                }else{
+                    txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
+                    txPlayer2.text = "Player 2 \n $userName"
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al obtener datos: ${error.message}")
+            }
+        }
+
+        if(isPlayer1){
+            txPlayer1.text = "Player 1 \n $userName"
+            txPlayer2.text = "Player 2 \n ${activeSala.jugador2.id}"
+        }else{
+            txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
+            txPlayer2.text = "Player 2 \n $userName"
+        }
+
+        salaRef.addValueEventListener(valueEventListener)
 
         nav_back_Izq.setOnClickListener {
             goMain(nav_back_Izq)
@@ -275,9 +360,9 @@ class SelectChannelOnline : AppCompatActivity() {
 
             if(listChannelsOnline[position].listCanciones.size > 0 || listChannelsOnline[position].listCancionesKsf.size > 0){
 
-                escucharPuntajesPorNombre(listChannelsOnline[position].nombre) { listaCanciones ->
-                    listGlobalRanking = listaCanciones
-                }
+                //escucharPuntajesPorNombre(listChannelsOnline[position].nombre) { listaCanciones ->
+                //    listGlobalRanking = listaCanciones
+                //}
 
                 listSongsChannel = listChannelsOnline[position].listCanciones
                 listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
@@ -289,14 +374,14 @@ class SelectChannelOnline : AppCompatActivity() {
                     showAddActive = false
                 }
 
-                Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
+                //Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
                 thisHandler.postDelayed({
-                    val intent = Intent(this, SelectSong()::class.java)
+                    val intent = Intent(this, SelectSongOnline()::class.java)
                     startActivity(intent)
                     overridePendingTransition(R.anim.anim_command_window_on, 0)
                     imgAceptar.isEnabled=true
                     soundSelecctChannel.pause()
-                }, 2000)
+                }, 500)
 
 
             }else{
@@ -313,43 +398,27 @@ class SelectChannelOnline : AppCompatActivity() {
         linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
 
     }
+    private fun mostrarNotificacion(context: Context, titulo: String, mensaje: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
 
-    private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("channels")
-        val listResult = arrayListOf<Cancion>()
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (canalSnapshot in snapshot.children) {
-                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
-                    if (canal == canalNombre) {
-                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
-                            val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-                            val niveles = arrayListOf<Nivel>()
-                            for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
-                                val grade = nivelSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                val nivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                                val nombre = nivelSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                val puntaje = nivelSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+        val builder = NotificationCompat.Builder(context, "jugador2_listo")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(titulo)
+            .setContentText(mensaje)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
 
-                                niveles.add(Nivel(nivel, nombre, puntaje, grade))
-                            }
-
-                            listResult.add(Cancion(nombreCancion, niveles))
-                        }
-                        callback(listResult)
-                        return
-                    }
-                }
-                callback(arrayListOf())
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
-            }
-        })
+        with(NotificationManagerCompat.from(context)) {
+            notify(1, builder.build())
+        }
     }
-
 
     private fun iluminaIndicador(imageView: ImageView?) {
         val originalColorFilter = imageView!!.colorFilter
@@ -414,9 +483,28 @@ class SelectChannelOnline : AppCompatActivity() {
         soundPool.play(channel_back, 1.0f, 1.0f, 1, 0, 1.0f)
         flecha.startAnimation(animIndicator)
         soundSelecctChannel.pause()
-        //val intent = Intent(this, MainActivity::class.java)
-        //startActivity(intent)
-        this.finish()
+
+        val dialog = AlertDialog.Builder(this@SelectChannelOnline)
+            .setTitle("Aviso")
+            .setMessage("Deseas abandonar la sala?")
+            .setPositiveButton("Aceptar"){d, _ ->
+                val jugador = Jugador()
+                if(activeSala.jugador1.id == userName){
+                    activeSala.jugador1 = jugador
+                    salaRef.setValue(activeSala)
+                }
+                if(activeSala.jugador2.id == userName){
+                    activeSala.jugador2 = jugador
+                    salaRef.setValue(activeSala)
+                }
+                isOnline = false
+                this.finish()
+            }
+            .setNegativeButton("Cancelar"){d, _ ->
+                d.dismiss()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     override fun onBackPressed() {
@@ -426,6 +514,17 @@ class SelectChannelOnline : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         soundSelecctChannel.start()
+
+        if (activeSala.turno != userName){
+            txWaitForPlayer.text = "Esperando selección de \n ${activeSala.turno}"
+            linearWaitPlayer.visibility = View.VISIBLE
+            linearWaitPlayer.setOnClickListener {
+                // No hace nada
+            }
+        }else{
+            linearWaitPlayer.visibility = View.GONE
+        }
+        getSelectChannel = false
     }
 
     override fun onPause() {

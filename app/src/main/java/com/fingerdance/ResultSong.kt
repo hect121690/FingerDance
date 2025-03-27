@@ -9,7 +9,6 @@ class ResultSong: Serializable {
     var bad: Int = 0
     var miss: Int = 0
     var maxCombo: Int = 0
-    var score: Int = 0
     var level: String = ""
     var banner: String? = null
     var listEfects: MutableList<String>? = null

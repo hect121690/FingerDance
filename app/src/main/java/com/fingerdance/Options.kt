@@ -38,7 +38,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ActivityOptionsBinding
 import com.google.firebase.FirebaseApp
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,6 +63,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var btnDescargar : Button
     private lateinit var txTitle : TextView
     private var filePath = ""
+    private var fileNameChannel = ""
 
     private lateinit var btnTemas : Button
     private lateinit var btnCanciones : Button
@@ -74,8 +74,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var linearTextProgressChannel : LinearLayout
     private lateinit var layoutCanciones : ConstraintLayout
     private lateinit var layoutPads : ConstraintLayout
-
-    private lateinit var items: MutableList<String>
 
     private lateinit var recyclerViewListChannels: RecyclerView
     private lateinit var downloadButtonChannel: Button
@@ -140,8 +138,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val open = ResourcesCompat.getDrawable(resources, android.R.drawable.arrow_down_float, null)
         val close = ResourcesCompat.getDrawable(resources, android.R.drawable.arrow_up_float, null)
-
-        items = getListOfThemesItems()
 
         downloadButtonChannel = findViewById(R.id.download_button_channel)
         recyclerViewListChannels = findViewById(R.id.recycler_view_list_channels)
@@ -437,12 +433,11 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 if (downloadedFile != null) {
                     val unzip = Unzip(this@Options)
                     val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-                    unzip.performUnzip(rutaZip, "FingerDance.zip")
+                    unzip.performUnzip(rutaZip, "FingerDance.zip", true)
                 } else {
                     Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
                 }
             }
-
         }
 
         constraintBG.addView(lbDescargando)
@@ -485,7 +480,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 nombre = listRutasThemes[index].removeRange(0, 74)
                 rutaBanner = listRutasThemes[index] + "/logo_theme.png"
                 val themes = ThemeItem(rutaBanner, nombre, false)
-
                 listThemes.add(themes)
             }
         }
@@ -499,6 +493,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         btnGuardar.setOnClickListener{
             val theme = ThemesAdapter.getSelectedItem()
             themes.edit().putString("theme", theme.text).apply()
+            themes.edit().putString("efects", "").apply()
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
             this.finish()
@@ -562,7 +557,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
 
     }
-
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
@@ -826,7 +820,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
                     }
                     if (progress == 100) {
                         txProgressDownloadChannel.text = "Recargando canales. Este proceso puede tomar varios minutos, no cierre esta pantalla."
-
                     }
                 }
             }
@@ -958,7 +951,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         recyclerFireBase.layoutManager = LinearLayoutManager(this)
 
-        val adapter = ThemesItemsAdapter(items, btnDescargar, this)
+        val adapter = ThemesItemsAdapter(listThemesDrive, btnDescargar, this)
         recyclerFireBase.adapter = adapter
 
         dialog.show()
@@ -968,81 +961,99 @@ class Options() : AppCompatActivity(), ItemClickListener {
             txProgress.visibility = View.VISIBLE
             progressDownload.visibility = View.VISIBLE
             btnDescargar.isEnabled = false
+            txProgress.text = "Conetando..."
+            downloadThemeDrive()
 
-            val storage = FirebaseStorage.getInstance()
-            val storageReference = storage.reference
-            val fileRef = storageReference.child("Themes/" + filePath)
+        }
+    }
 
-            val localDirectory = File(getExternalFilesDir(null), "FingerDance/Themes")
-            localDirectory.mkdirs()
-            val localFile = File(localDirectory, filePath)
+    override fun onItemClick(item: Pair<String, String>) {
+        filePath = item.second
+        fileNameChannel = item.first
+    }
 
-            val fallo = AlertDialog.Builder(this)
-            fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+    private fun downloadThemeDrive(){
+        val localDirectory = File(getExternalFilesDir(null), "FingerDance/Themes/")
+        localDirectory.mkdirs()
+        val localFile = File(localDirectory, fileNameChannel)
 
-            fileRef.getFile(localFile).addOnSuccessListener {
-                themes.edit().putString("theme", filePath.replace(".zip", "", ignoreCase = true)).apply()
-                val unzipTheme = UnzipTheme(this, filePath)
-                unzipTheme.performUnzip(localFile.absolutePath)
-            }.addOnProgressListener { taskSnapshot ->
-                val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
-                progressDownload.progress = progress
-                txProgress.text = "Descargando $progress%"
-
-                if (progress == 100) {
-                    txProgress.text = "Descarga finalizada, espere por favor..."
+        CoroutineScope(Dispatchers.Main).launch {
+            val downloadedFile = downloadThemeFromDrive(filePath, this@Options) { progress ->
+                runOnUiThread {
+                    txProgress.text = "Descargando $progress%"
+                    progressDownload.progress = progress
+                    if(progress > 98){
+                        txProgress.text = "Iniciando descompresión..."
+                        txProgress.setTextColor(ContextCompat.getColor(this@Options, R.color.fondo_textview_vibrante))
+                    }
+                    if (progress == 100) {
+                        txProgress.text = "Descarga completada"
+                    }
                 }
-            }.addOnFailureListener {
-                fallo.show()
+            }
+
+            if (downloadedFile != null) {
+                //Toast.makeText(this@Options, "Descarga completa: ${downloadedFile.absolutePath}", Toast.LENGTH_LONG).show()
+                themes.edit().putString("theme", fileNameChannel.replace(".zip", "", ignoreCase = true)).apply()
+                val unzipTheme = UnzipTheme(this@Options, fileNameChannel)
+                unzipTheme.performUnzip(localFile.absolutePath)
+                themes.edit().putString("theme", fileNameChannel.replace(".zip", "", ignoreCase = true)).apply()
+
+            } else {
+                Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    override fun onItemClick(item: String) {
-        filePath = item
-    }
+    private suspend fun downloadThemeFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
+        val fallo = AlertDialog.Builder(context)
+        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
 
-    private fun getListOfThemesItems(): MutableList<String> {
-        val storage = FirebaseStorage.getInstance()
-        val storageReference = storage.reference
-        val themesRef = storageReference.child("Themes")
-        val listThemes = mutableListOf<String>()
+                if (connection.responseCode == 200) {
+                    val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Themes/")
+                    localDirectory.mkdirs()
+                    val localFile = File(localDirectory, fileNameChannel)
 
-        themesRef.listAll().addOnSuccessListener { listResult ->
-                val itemsList = listResult.items.map { item ->
-                    item.name
+                    val inputStream = connection.inputStream
+                    val outputStream = FileOutputStream(localFile)
+                    val buffer = ByteArray(1024)
+                    var bytesRead: Int
+                    var totalBytes = 0
+                    val totalSize = connection.contentLength
+
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytes += bytesRead
+                        val progress = (100.0 * totalBytes / totalSize).toInt()
+                        progressCallback(progress)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    connection.disconnect()
+
+                    return@withContext localFile
+                } else {
+                    //println("Error en la descarga: Código ${connection.responseCode}")
+                    fallo.show()
+                    return@withContext null
                 }
-                for (itemName in itemsList) {
-                    listThemes.add(itemName)
-                }
+            } catch (e: Exception) {
+                //println("Error descargando archivo: ${e.message}")
+                fallo.show()
+                return@withContext null
             }
-            .addOnFailureListener { exception ->
-                //println("Error al obtener la lista de archivos: ${exception.message}")
-            }
-        return listThemes
-    }
-
-    private fun getListChannels(): MutableList<String> {
-        val storage = FirebaseStorage.getInstance()
-        val storageReference = storage.reference
-        val channelsRef = storageReference.child("Channels")
-        val listChannels = mutableListOf<String>()
-
-        channelsRef.listAll().addOnSuccessListener { listResult ->
-            val itemsList = listResult.items.map { item ->
-                item.name
-            }
-            for (itemName in itemsList) {
-                listChannels.add(itemName)
-            }
-        }.addOnFailureListener { exception ->
-                println("Error al obtener la lista de archivos: ${exception.message}")
-            }
-        return listChannels
+        }
     }
 
     private class ThemesItemsAdapter(
-        private val items: List<String>,
+        private val items: ArrayList<Pair<String, String>>,
         private val btnDescargar: Button,
         private val itemClickListener: ItemClickListener) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
         private var selectedItemPosition = RecyclerView.NO_POSITION
@@ -1063,8 +1074,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val textViewItem: TextView = itemView.findViewById(R.id.textViewItem)
 
-            fun bind(item: String) {
-                textViewItem.text = item
+            fun bind(item: Pair<String, String>) {
+                textViewItem.text = item.first
                 if (absoluteAdapterPosition == selectedItemPosition) {
                     textViewItem.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.teal_200))
                     btnDescargar.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.progreso_textview_moderno))
@@ -1082,8 +1093,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
                     notifyItemChanged(selectedItemPosition)
 
-                    val selectedItemText = textViewItem.text.toString()
-                    itemClickListener.onItemClick(selectedItemText)
+                    //val selectedItemText = item.second//textViewItem.text.toString()
+                    itemClickListener.onItemClick(item)
                     btnDescargar.isEnabled = true
                 }
             }
@@ -1122,5 +1133,5 @@ class Options() : AppCompatActivity(), ItemClickListener {
 }
 
 interface ItemClickListener {
-    fun onItemClick(item: String)
+    fun onItemClick(item: Pair<String, String>)
 }

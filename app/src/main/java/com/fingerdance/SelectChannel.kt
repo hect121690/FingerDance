@@ -308,11 +308,6 @@ class SelectChannel : AppCompatActivity() {
 
                 currentChannel = listChannels[position].nombre
 
-                val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
-                if(deviceFree != null){
-                    showAddActive = false
-                }
-
                 Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
                 thisHandler.postDelayed({
                     val intent = Intent(this, SelectSong()::class.java)
@@ -335,48 +330,6 @@ class SelectChannel : AppCompatActivity() {
 
         linearLayout = findViewById(R.id.background)
         linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
-
-        /*
-        when {
-            countSongsPlayed >= SIX_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[5].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[5])
-                }
-            }
-            countSongsPlayed >= FIVE_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[4].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[4])
-                }
-            }
-            countSongsPlayed >= FOUR_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[3].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[3])
-                }
-            }
-            countSongsPlayed >= THREE_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[2].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[2])
-                }
-            }
-            countSongsPlayed >= TWO_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[1].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[1])
-                }
-            }
-            countSongsPlayed >= ONE_ADDITIONAL_NOTESKIN -> {
-                val existNS = listCommands[0].listCommandValues.find { it.value == listNoteSkinAdditionals[0].value }
-                if(existNS == null){
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[0])
-                }
-            }
-        }
-        themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-        */
 
     }
 

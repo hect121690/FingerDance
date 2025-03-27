@@ -7,8 +7,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.PixelFormat
-import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -313,6 +311,18 @@ open class GameScreenActivity : AndroidApplication() {
         }
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
+            if(isOnline) {
+                activeSala.jugador1.listo = false
+                activeSala.jugador2.listo = false
+                salaRef.setValue(activeSala)
+                /*
+                val currentTurn = activeSala.turno
+                if(currentTurn != userName){
+                    activeSala.turno = userName
+                    salaRef.child("turno").setValue(activeSala.turno)
+                }
+                */
+            }
             thisHandler.postDelayed({
                 val intent = Intent(this, DanceGrade()::class.java)
                 startActivity(intent)
@@ -352,13 +362,13 @@ open class GameScreenActivity : AndroidApplication() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        combo = 0
-        combo_miss = 0
-        curCombo = 0
-        isVideo = false
-
-
-        this.finish()
+        if(!isOnline) {
+            combo = 0
+            combo_miss = 0
+            curCombo = 0
+            isVideo = false
+            this.finish()
+        }
     }
 
     override fun onPause() {

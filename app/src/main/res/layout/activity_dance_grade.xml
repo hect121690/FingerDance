@@ -55,6 +55,28 @@
             app:layout_constraintVertical_bias="0.04" />
 
         <ImageView
+            android:id="@+id/imgGradeP1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.04" />
+
+        <ImageView
+            android:id="@+id/imgGradeP2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.85"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.04" />
+
+        <ImageView
             android:id="@+id/imgPerfect"
             android:layout_width="match_parent"
             android:layout_height="25dp"
@@ -119,14 +141,103 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/imgMaxCombo" />
 
-
         <TextView
-            android:id="@+id/txPerfect"
+            android:id="@+id/txPerfectP1"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/imgPerfect" />
+
+        <TextView
+            android:id="@+id/txGreatP1"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/imgGreat" />
+
+        <TextView
+            android:id="@+id/txGoodP1"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgGood" />
+
+        <TextView
+            android:id="@+id/txBadP1"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgBad" />
+
+        <TextView
+            android:id="@+id/txMissP1"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgMiss" />
+
+        <TextView
+            android:id="@+id/txMaxComboP1"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgMaxCombo" />
+
+        <TextView
+            android:id="@+id/txScoreP1"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.15"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgScore" />
+
+        <TextView
+            android:id="@+id/txPerfectP2"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:inputType="none"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -135,12 +246,11 @@
             app:layout_constraintTop_toTopOf="@+id/imgPerfect" />
 
         <TextView
-            android:id="@+id/txGreat"
+            android:id="@+id/txGreatP2"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -149,12 +259,11 @@
             app:layout_constraintTop_toTopOf="@+id/imgGreat" />
 
         <TextView
-            android:id="@+id/txGood"
+            android:id="@+id/txGoodP2"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -163,12 +272,11 @@
             app:layout_constraintTop_toTopOf="@id/imgGood" />
 
         <TextView
-            android:id="@+id/txBad"
+            android:id="@+id/txBadP2"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -177,12 +285,11 @@
             app:layout_constraintTop_toTopOf="@id/imgBad" />
 
         <TextView
-            android:id="@+id/txMiss"
+            android:id="@+id/txMissP2"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -191,12 +298,11 @@
             app:layout_constraintTop_toTopOf="@id/imgMiss" />
 
         <TextView
-            android:id="@+id/txMaxCombo"
+            android:id="@+id/txMaxComboP2"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -205,18 +311,43 @@
             app:layout_constraintTop_toTopOf="@id/imgMaxCombo" />
 
         <TextView
-            android:id="@+id/txScore"
+            android:id="@+id/txScoreP2"
             android:layout_width="wrap_content"
             android:layout_height="20dp"
-            android:gravity="center"
             android:inputType="none"
-            android:textAlignment="center"
+            android:textAlignment="viewEnd"
             android:textSize="18dp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.85"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="@id/imgScore" />
+
+        <ImageView
+            android:id="@+id/imgWinP2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.90"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgGradeP2" />
+
+        <ImageView
+            android:id="@+id/imgWinP1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.10"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgGradeP1" />
+
+        <ImageView
+            android:id="@+id/imgDraw"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imgGradeP1" />
 
         <ImageView
             android:id="@+id/imgNewRecord"
@@ -312,6 +443,32 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
+
+        <TextView
+            android:id="@+id/txPlayer1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_p1"
+            android:textAlignment="viewStart"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.02"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/txNameChannel" />
+
+        <TextView
+            android:id="@+id/txPlayer2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_p2"
+            android:textAlignment="viewEnd"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.98"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/txNameChannel" />
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>
