@@ -73,6 +73,8 @@ open class GameScreenActivity : AndroidApplication() {
         gdxContainer = findViewById(R.id.gdxContainer)
         gdxContainer.layoutParams = RelativeLayout.LayoutParams(width, height)
 
+        readyPlay = false
+
         if(mediPlayer.isPlaying){
             mediPlayer.stop()
         }
@@ -306,23 +308,12 @@ open class GameScreenActivity : AndroidApplication() {
         }
 
         mediaPlayer.isLooping = false
-        mediaPlayer.setOnPreparedListener { mp ->
+        mediaPlayer.setOnPreparedListener {
             isMediaPlayerPrepared = true
         }
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-            if(isOnline) {
-                activeSala.jugador1.listo = false
-                activeSala.jugador2.listo = false
-                salaRef.setValue(activeSala)
-                /*
-                val currentTurn = activeSala.turno
-                if(currentTurn != userName){
-                    activeSala.turno = userName
-                    salaRef.child("turno").setValue(activeSala.turno)
-                }
-                */
-            }
+
             thisHandler.postDelayed({
                 val intent = Intent(this, DanceGrade()::class.java)
                 startActivity(intent)

@@ -133,7 +133,7 @@ private lateinit var btnAddPreview: Button
 private lateinit var btnAddBga: Button
 private var currentPathSong: String = ""
 class SelectSongOnline : AppCompatActivity() {
-
+    private lateinit var adView: AdView
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
@@ -156,8 +156,13 @@ class SelectSongOnline : AppCompatActivity() {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             onWindowFocusChanged(true)
 
-            //binding = ActivitySelectSongBinding.inflate(layoutInflater)
-            //setContentView(binding.root)
+            MobileAds.initialize(this) {}
+            adView = findViewById(R.id.adView)
+            if(showAddActive){
+                val adRequest = AdRequest.Builder().build()
+                adView.loadAd(adRequest)
+            }
+
             recyclerView = findViewById(R.id.recyclerViewSelectSongOnline) //binding.recyclerView
 
             medidaFlechas = (width / 7f)
@@ -175,7 +180,6 @@ class SelectSongOnline : AppCompatActivity() {
                 txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
                 txPlayer2.text = "Player 2 \n $userName"
             }
-
 
             recyclerCommands = findViewById(R.id.recyclerCommands)
             recyclerCommands.isUserInputEnabled = false
@@ -279,8 +283,6 @@ class SelectSongOnline : AppCompatActivity() {
 
             imgContador = findViewById(R.id.imgContador)
             imgContador.layoutParams.height = (sizeLvs * .45).toInt()
-
-            //iniciarContador()
 
             indicatorLayout = findViewById(R.id.indicatorImageView)
             val bmIndicator= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator_lv.png")!!.absolutePath)
@@ -688,7 +690,7 @@ class SelectSongOnline : AppCompatActivity() {
                         mediPlayer.pause()
                         playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
 
-                        selectionSongOnline = false
+                        //selectionSongOnline = false
                         if(isPlayer1){
                             activeSala.jugador1.listo = true
                         }else{
@@ -707,24 +709,15 @@ class SelectSongOnline : AppCompatActivity() {
                             bpm = displayBPM.toString(),
                             nivel = lbLvActive.text.toString()
                         )
+                        readyPlay = true
                         salaRef.setValue(activeSala)
                         txTip.text = "Espera por favor."
-
-                        handler.postDelayed({
-                            val turnoActual = activeSala.turno
-                            if (turnoActual == activeSala.jugador1.id) {
-                                salaRef.child("turno").setValue(activeSala.jugador2.id)
-                            } else {
-                                salaRef.child("turno").setValue(activeSala.jugador1.id)
-                            }
-                        }, 10000L)
 
                         playerSong.speed = txVelocidadActual.text.toString()
                         if (playerSong.rutaNoteSkin != "") {
                             ruta = playerSong.rutaNoteSkin!!
                         } else {
-                            val directorioBase =
-                                getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
+                            val directorioBase = getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
                             val directorios = File(directorioBase).listFiles { file ->
                                 file.isDirectory && file.name.contains(
                                     "default",
@@ -742,6 +735,7 @@ class SelectSongOnline : AppCompatActivity() {
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
                         mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
                         load(playerSong.rutaKsf!!)
+                        //readyPlay = true
 
                     }
                     imgAceptar.isEnabled = true
@@ -1509,7 +1503,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun llenaLvsVacios(listLvs : ArrayList<Lvs>? = arrayListOf(), listLvsKsf:  ArrayList<Ksf>? = arrayListOf()){
-        /*binding.*/recyclerLvsVacios.apply {
+        recyclerLvsVacios.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
             if(listLvs != null){
                 adapter = LvsAdapter(listLvs, null, (sizeLvs))
@@ -1521,7 +1515,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
-        /*binding.*/recyclerView.apply {
+        recyclerView.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
             adapter = CustomAdapter(null, listItemsKsf, heightBanner, widhtBanner)
         }

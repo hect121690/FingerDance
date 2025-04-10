@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="fill_parent"
     android:textAlignment="center"
-    tools:context=".SelectSong">
+    tools:context=".SelectSongOnlineWait">
 
     <LinearLayout
         android:id="@+id/linearBG"
@@ -606,5 +606,16 @@
             android:max="100"
             android:progress="0" />
     </LinearLayout>
+
+    <com.google.android.gms.ads.AdView
+        android:id="@+id/adView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        app:adSize="BANNER"
+        app:adUnitId="@string/ad_unit_id"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"  />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

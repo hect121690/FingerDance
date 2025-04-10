@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
@@ -53,7 +52,7 @@ private var up_sound : Int = 0
 
 private var press_start : Int = 0
 
-private lateinit var context: Context
+//private lateinit var context: Context
 private lateinit var lbNombreChannel: TextView
 private lateinit var linearLayout: LinearLayout
 private lateinit var nav_izq: ImageView
@@ -175,7 +174,7 @@ class SelectChannel : AppCompatActivity() {
         nav_back_Izq.setImageDrawable(navBackIzq)
         nav_back_der.setImageDrawable(navBackDer)
 
-        context = this
+        //context = this
 
         val ancho = (width * 0.7).toInt()
         recyclerChannels = findViewById(R.id.recyclerChannels)
@@ -279,9 +278,9 @@ class SelectChannel : AppCompatActivity() {
 
                 /*
                 val gson = GsonBuilder().setPrettyPrinting().create()
+                val i = position
                 val newList = arrayListOf<Canal>()
-
-                for(i in 0 until listChannels.size){
+                //for(i in 0 until listChannels.size){
                     val listCancion = arrayListOf<Cancion>()
                     for(a in 0 until listChannels[i].listCancionesKsf.size){
                         val listNivel = arrayListOf<Nivel>()
@@ -294,13 +293,13 @@ class SelectChannel : AppCompatActivity() {
                     }
                     val canal = Canal(listChannels[i].nombre, listCancion)
                     newList.add(canal)
-                }
+                //}
 
-                val json = gson.toJson(newList)
+                val json = gson.toJson(canal)
                 */
 
-                escucharPuntajesPorNombre(listChannels[position].nombre) { listaCanciones ->
-                    listGlobalRanking = listaCanciones
+                escucharPuntajesPorNombre(listChannels[position].nombre) { listSongs ->
+                    listGlobalRanking = listSongs
                 }
 
                 listSongsChannel = listChannels[position].listCanciones
@@ -315,7 +314,7 @@ class SelectChannel : AppCompatActivity() {
                     overridePendingTransition(R.anim.anim_command_window_on, 0)
                     imgAceptar.isEnabled=true
                     soundSelecctChannel.pause()
-                }, 2000)
+                }, 1500)
 
 
             }else{

@@ -632,7 +632,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         return 0
     }
 
-    fun showExpand(position: Int) {
+    private fun showExpand(position: Int) {
         currentTimeToExpands = SystemClock.uptimeMillis()
         batch.setColor(1f, 1f, 1f, 0.7f)
         when (position) {
@@ -642,12 +642,20 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
                 }
+                if(showPadB == 3){
+                    batch.setColor(1f, 1f, 1f, 1f)
+                    batch.draw(arrayPad4[position], padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
+                }
             }
             1 -> {
                 batch.draw(recept1Frames[2], (medidaFlechas * 2) - posX, topPos, siseScale, siseScale)
                 if(showPadB == 2){
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
+                }
+                if(showPadB == 3){
+                    batch.setColor(1f, 1f, 1f, 1f)
+                    batch.draw(arrayPad4[position], padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
                 }
             }
             2 -> {
@@ -656,6 +664,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
                 }
+                if(showPadB == 3){
+                    batch.setColor(1f, 1f, 1f, 1f)
+                    batch.draw(arrayPad4[position], padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
+                }
             }
             3 -> {
                 batch.draw(recept3Frames[2], (medidaFlechas * 4) - posX, topPos, siseScale, siseScale)
@@ -663,12 +675,20 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
                 }
+                if(showPadB == 3){
+                    batch.setColor(1f, 1f, 1f, 1f)
+                    batch.draw(arrayPad4[position], padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
+                }
             }
             4 -> {
                 batch.draw(recept4Frames[2], (medidaFlechas * 5) - posX, topPos, siseScale, siseScale)
                 if(showPadB == 2){
                     batch.setColor(1f, 1f, 1f, 1f)
                     batch.draw(arrPadsC[position][arrowFrame], padPositionsC[position].x, padPositionsC[position].y, padPositionsC[position].size, padPositionsC[position].size)
+                }
+                if(showPadB == 3){
+                    batch.setColor(1f, 1f, 1f, 1f)
+                    batch.draw(arrayPad4[position], padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
                 }
             }
         }
@@ -730,6 +750,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         if (resultSong.maxCombo < curCombo) {
             resultSong.maxCombo = curCombo
         }
+
     }
 
     private fun getJudgement(judgeTime: Long): Int {

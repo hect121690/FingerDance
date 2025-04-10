@@ -271,6 +271,15 @@ class Options() : AppCompatActivity(), ItemClickListener {
                     showPadB = 2
                     themes.edit().putInt("showPadB", showPadB).apply()
                 }
+                R.id.rbPadD -> {
+                    switchImagePadA.visibility = View.GONE
+                    txPercentAlpha.visibility = View.GONE
+                    seekBarAlphaPadB.visibility = View.GONE
+                    recyclerPadsB.visibility = View.GONE
+                    recyclerPadsC.visibility = View.GONE
+                    showPadB = 3
+                    themes.edit().putInt("showPadB", showPadB).apply()
+                }
             }
         }
 

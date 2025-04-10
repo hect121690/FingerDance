@@ -8,7 +8,8 @@ import com.fingerdance.databinding.ItemBinding
 
 class CustomAdapter(private val songList: ArrayList<Song>?,
                     private val songListKsf: ArrayList<SongKsf>?,
-                    private val heightBanners : Int, private val widthBanners: Int) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+                    private val heightBanners : Int,
+                    private val widthBanners: Int) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val v = ItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -21,7 +22,6 @@ class CustomAdapter(private val songList: ArrayList<Song>?,
         }else if(songListKsf != null){
             holder.bindItem(null, songListKsf[position])
         }
-
     }
 
     override fun getItemCount(): Int {

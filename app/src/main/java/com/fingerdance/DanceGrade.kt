@@ -25,6 +25,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -55,11 +58,21 @@ private val handlerDG = Handler()
 private var readyToFireBase = false
 
 class DanceGrade : AppCompatActivity() {
+    private lateinit var adView: AdView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dance_grade)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
+
+        MobileAds.initialize(this) {}
+        adView = findViewById(R.id.adView)
+        if(isOnline) {
+            if (showAddActive) {
+                val adRequest = AdRequest.Builder().build()
+                adView.loadAd(adRequest)
+            }
+        }
 
         DGContext = this
         bgConstraint = findViewById(R.id.bgContraint)
@@ -76,6 +89,7 @@ class DanceGrade : AppCompatActivity() {
                 txPlayer1.text = activeSala.jugador1.id
                 txPlayer2.text = userName
             }
+
         }else{
             txPlayer1.visibility = View.GONE
             txPlayer2.visibility = View.GONE
@@ -177,7 +191,6 @@ class DanceGrade : AppCompatActivity() {
             txNameChannel.text = if(currentChannel.contains("-")) currentChannel.split("-")[1] else currentChannel
         }else{
             txNameSong.text = activeSala.cancion.nameSong
-
             if(isPlayer1){
                 activeSala.jugador1.result.perfect = resultSong.perfect.toString()
                 activeSala.jugador1.result.great = resultSong.great.toString()
@@ -341,9 +354,9 @@ class DanceGrade : AppCompatActivity() {
 
                         soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
-                }, 2000L)
+                }, 1000L)
             }
-        },2000L)
+        },1000L)
     }
 
     private fun getWinner(imgWinP1: ImageView, imgWinP2: ImageView, imgDraw: ImageView, txNameChannel: TextView){
@@ -351,28 +364,28 @@ class DanceGrade : AppCompatActivity() {
             if(isPlayer1){
                 if(activeSala.jugador1.result.score.toInt() > activeSala.jugador2.result.score.toInt()){
                     imgWinP1.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
-                    activeSala.jugador1.victories = (activeSala.jugador1.victories.toInt() + 1).toString()
+                    victoriesP1 ++
                 }else if(activeSala.jugador1.result.score.toInt() < activeSala.jugador2.result.score.toInt()){
                     imgWinP2.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
+                    victoriesP2 ++
                 }else{
                     imgDraw.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/draw.png").toString()))
                 }
-                salaRef.child("jugador1/result/victories").setValue(activeSala.jugador1.victories)
             }else{
                 if(activeSala.jugador2.result.score.toInt() > activeSala.jugador1.result.score.toInt()){
                     imgWinP2.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
-                    activeSala.jugador2.victories = (activeSala.jugador2.victories.toInt() + 1).toString()
+                    victoriesP2 ++
                 }else if(activeSala.jugador2.result.score.toInt() < activeSala.jugador1.result.score.toInt()){
                     imgWinP1.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
+                    victoriesP1 ++
                 }else{
                     imgDraw.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/draw.png").toString()))
                 }
-                salaRef.child("jugador2/result/victories").setValue(activeSala.jugador2.victories)
             }
-            txNameChannel.text = "${activeSala.jugador1.victories}          VICTORIAS          ${activeSala.jugador2.victories}"
+            txNameChannel.text = getString(R.string.victories_text, victoriesP1.toString(), victoriesP2.toString())
             showGradeP1(activeSala.jugador1.result.score.toInt())
             showGradeP2(activeSala.jugador2.result.score.toInt())
-        }, 500L)
+        }, 2500L)
     }
 
     private fun updateRanking(

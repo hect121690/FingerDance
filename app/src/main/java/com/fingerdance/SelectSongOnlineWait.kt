@@ -115,7 +115,7 @@ private lateinit var btnAddBga: Button
 private var currentPathSong: String = ""
 
 class SelectSongOnlineWait : AppCompatActivity() {
-
+    private lateinit var adView: AdView
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
@@ -137,6 +137,13 @@ class SelectSongOnlineWait : AppCompatActivity() {
         setContentView(R.layout.activity_select_song_online_wait)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
+
+        MobileAds.initialize(this) {}
+        adView = findViewById(R.id.adView)
+        if(showAddActive){
+            val adRequest = AdRequest.Builder().build()
+            adView.loadAd(adRequest)
+        }
 
         medidaFlechas = (width / 7f)
 
@@ -623,62 +630,73 @@ class SelectSongOnlineWait : AppCompatActivity() {
         //val tipsArray = resources.getStringArray(R.array.tips_array)
         val txTip = findViewById<TextView>(R.id.txTip)
 
+        linearLoading.setOnClickListener(object : View.OnClickListener {
+            override fun onClick(v: View?) {
+                // No hace nada
+            }
+        })
+
         imgAceptar.setOnClickListener() {
-            if(imgLvSelected.isVisible && !commandWindow.isVisible){
+            if(!commandWindow.isVisible){
                 if(ready == 1){
                     soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     imgAceptar.isEnabled = false
 
                     val bit = BitmapFactory.decodeFile(activeSala.cancion.rutaBanner)
                     imgLoading.setImageBitmap(bit)
-                    linearLoading.isVisible = true
-                    linearLoading.setOnClickListener(object : View.OnClickListener {
-                        override fun onClick(v: View?) {
-                            // No hace nada
-                        }
-                    })
-                    imgLoading.isVisible = true
-                    showProgressBar(3000L)
-                    mediPlayer.pause()
+                    if(!linearLoading.isVisible){
+                        linearLoading.isVisible = true
+                        imgLoading.isVisible = true
+                        showProgressBar(3000L)
+                        mediPlayer.pause()
 
-                    txTip.text = "Espera por favor" //tipsArray[Random.nextInt(tipsArray.size)]
+                        txTip.text = "Espera por favor"
 
-                    playerSong.speed = txVelocidadActual.text.toString()
-                    if (playerSong.rutaNoteSkin != "") {
-                        ruta = playerSong.rutaNoteSkin!!
-                    } else {
-                        val directorioBase =
-                            getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
-                        val directorios = File(directorioBase).listFiles { file ->
-                            file.isDirectory && file.name.contains(
-                                "default",
-                                ignoreCase = true
-                            )
+                        playerSong.speed = txVelocidadActual.text.toString()
+                        if (playerSong.rutaNoteSkin != "") {
+                            ruta = playerSong.rutaNoteSkin!!
+                        }else{
+                            val directorioBase = getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
+                            val directorios = File(directorioBase).listFiles { file ->
+                                file.isDirectory && file.name.contains(
+                                    "default",
+                                    ignoreCase = true
+                                )
+                            }
+                            if (directorios != null) {
+                                ruta = directorios.firstOrNull().toString()
+                                playerSong.rutaNoteSkin = ruta
+                            }
                         }
-                        if (directorios != null) {
-                            ruta = directorios.firstOrNull().toString()
-                            playerSong.rutaNoteSkin = ruta
+
+                        playerSong.rutaBanner = activeSala.cancion.rutaBanner
+                        playerSong.rutaVideo = activeSala.cancion.rutaBGA
+                        playerSong.rutaCancion = activeSala.cancion.rutaCancion
+                        playerSong.rutaKsf = activeSala.cancion.rutaKsf
+                        mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
+                        load(playerSong.rutaKsf!!)
+
+                        if(isPlayer1){
+                            activeSala.jugador1.listo = true
+                        }else{
+                            activeSala.jugador2.listo = true
                         }
+
+                        val turnoActual = activeSala.turno
+                        if (turnoActual == activeSala.jugador1.id) {
+                            activeSala.turno = activeSala.jugador2.id
+                        }else{
+                            activeSala.turno = activeSala.jugador1.id
+                        }
+                        //salaRef.child("turno").setValue(activeSala.turno)
+                        readyPlay = true
+                        salaRef.setValue(activeSala)
+
+                        activeSala.jugador1.listo = false
+                        activeSala.jugador2.listo = false
+                        salaRef.setValue(activeSala)
+
                     }
-
-                    playerSong.rutaBanner = activeSala.cancion.rutaBanner
-                    playerSong.rutaVideo = activeSala.cancion.rutaBGA
-                    playerSong.rutaCancion = activeSala.cancion.rutaCancion
-                    playerSong.rutaKsf = activeSala.cancion.rutaKsf
-                    mediaPlayer = MediaPlayer.create(
-                        this,
-                        Uri.fromFile(File(playerSong.rutaCancion!!))
-                    )
-                    load(playerSong.rutaKsf!!)
-
-                    if(isPlayer1){
-                        activeSala.jugador1.listo = true
-                    }else{
-                        activeSala.jugador2.listo = true
-                    }
-                    selectionSongOnline = false
-                    salaRef.setValue(activeSala)
-
                 }
                 imgAceptar.isEnabled = true
                 if(ready == 0){
@@ -796,18 +814,14 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         if(bm!=null){
                             imgNoteSkin.setImageBitmap(bm)
                             playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
-                            //themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
-
                         }
                     }else{
                         imgNoteSkin.setImageBitmap(bm)
                         playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
-
                     }
                     themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
                     skinSelected = itemValues.rutaCommandImg
                 }
-
                 if(itemCommand.value.contains("Judge", ignoreCase = true)){
                     linearCurrent.isVisible = false
                     if(!imgJudge.isVisible){
@@ -1171,7 +1185,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
             if(mediPlayer.isPlaying){
                 mediPlayer.stop()
             }
-
         }
     }
 

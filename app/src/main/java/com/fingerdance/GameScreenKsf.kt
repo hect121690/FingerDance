@@ -2,7 +2,6 @@ package com.fingerdance
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
@@ -40,6 +39,9 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
     private val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
     private val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
+
+    lateinit var arrayPad4Bg : Array<TextureRegion>
+    lateinit var arrayPad4 : Array<TextureRegion>
 
     private val bgBarLife = Texture(Gdx.files.internal("bg_barlife.png"))
 
@@ -86,7 +88,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             padRightDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownRight.png")))
 
             arrPadsC = arrayOf(padLefDownC, padLeftUpC, padCenterC, padRightUpC, padRightDownC)
+        }else if(showPadB == 3){
+            arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")))
+            arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")))
         }
+
     }
     override fun show() {
         batch = SpriteBatch()
@@ -100,11 +106,13 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechas
 
-        padLefDown.flip(false, true)
-        padLeftUp.flip(false, true)
-        padCenter.flip(false, true)
-        padRightUp.flip(false, true)
-        padRightDown.flip(false, true)
+        if(showPadB == 0){
+            padLefDown.flip(false, true)
+            padLeftUp.flip(false, true)
+            padCenter.flip(false, true)
+            padRightUp.flip(false, true)
+            padRightDown.flip(false, true)
+        }
 
     }
 
@@ -142,6 +150,23 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
         stage.draw()
     }
+    private fun getTexturePad4(texture: Texture): Array<TextureRegion> {
+        val tmp = TextureRegion.split(texture, texture.width / 5, texture.height)
+        val frames = arrayOf(
+            tmp[0][0],
+            tmp[0][1],
+            tmp[0][2],
+            tmp[0][3],
+            tmp[0][4],
+        )
+        frames[0].flip(false, true)
+        frames[1].flip(false, true)
+        frames[2].flip(false, true)
+        frames[3].flip(false, true)
+        frames[4].flip(false, true)
+
+        return frames
+    }
 
     private fun getPadC(texture: Texture) : Array<TextureRegion>{
         val tmp = TextureRegion.split(texture, texture.width, texture.height / 6)
@@ -175,8 +200,14 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             spritePadB.setAlpha(alphaPadB)
             spritePadB.setBounds(0f, posYpadB, width.toFloat(), width.toFloat() * 1.1f)
             spritePadB.draw(batch)
-        }else{
+        }else if (showPadB == 2){
             batch.draw(padB,width.toFloat() * 0.05f,  width.toFloat() * 1.1f, width.toFloat() * 0.9f, width.toFloat() * 0.9f)
+        }else if (showPadB == 3){
+            batch.draw(arrayPad4Bg[0], padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
+            batch.draw(arrayPad4Bg[1], padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
+            batch.draw(arrayPad4Bg[2], padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
+            batch.draw(arrayPad4Bg[3], padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
+            batch.draw(arrayPad4Bg[4], padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
         }
     }
     private var aBatch = 0

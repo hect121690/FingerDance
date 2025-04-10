@@ -96,7 +96,7 @@ class LoadSongsKsf {
 
         val validFolders = setOf(
             "000-Finger Dance",
-            "03-SHORTCUT",
+            "03-SHORT CUT",
             "14-FIESTA~FIESTA 2",
             "17-PRIME",
             "18-PRIME 2",

@@ -26,6 +26,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,6 +35,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.viewpager2.widget.ViewPager2
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -80,17 +85,27 @@ private lateinit var valueEventListener: ValueEventListener
 private lateinit var linearWaitPlayer : LinearLayout
 private lateinit var txWaitForPlayer: TextView
 
-var selectionSongOnline = true
+var victoriesP1 = 0
+var victoriesP2 = 0
 
 var getSelectChannel = false
+var readyPlay = false
 
 class SelectChannelOnline : AppCompatActivity() {
+    private lateinit var adView: AdView
     override fun onCreate(savedInstanceState: Bundle?) {
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_select_channel_online)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
+
+        MobileAds.initialize(this) {}
+        adView = findViewById(R.id.adView)
+        if(showAddActive){
+            val adRequest = AdRequest.Builder().build()
+            adView.loadAd(adRequest)
+        }
 
         soundSelecctChannel = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)))
         soundSelecctChannel.isLooping = true
@@ -239,6 +254,9 @@ class SelectChannelOnline : AppCompatActivity() {
         linearWaitPlayer.setBackgroundColor(Color.parseColor("#CC000000"))
         linearWaitPlayer.addView(txWaitForPlayer)
         linearWaitPlayer.bringToFront()
+        linearWaitPlayer.setOnClickListener {
+            // No hace nada
+        }
 
         db = DataBasePlayer(this)
 
@@ -249,40 +267,18 @@ class SelectChannelOnline : AppCompatActivity() {
         valueEventListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 activeSala = snapshot.getValue(Sala::class.java)!!
-                if(selectionSongOnline){
-
-                    if(activeSala.jugador1.listo && activeSala.turno != userName){
-                        val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        startActivity(intent)
-                    }
-                    if(activeSala.jugador2.listo && activeSala.turno != userName){
-                        val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        startActivity(intent)
-                    }
-
-                    if (!snapshot.hasChild("jugador1/id") && !snapshot.hasChild("jugador2/id")) {
-                        salaRef.removeValue()
-                    }
-
-                    if(activeSala.jugador1.id == "" && activeSala.jugador2.id == ""){
-                        firebaseDatabase.getReference("rooms/$idSala").removeValue()
-                    }
-
-                    /*
-                    if(activeSala.jugador1.listo && activeSala.turno == userName){
-                        val intent = Intent(this@SelectChannelOnline, SelectSongOnline()::class.java)
-                        startActivity(intent)
-                    }
-                    if(activeSala.jugador2.listo && activeSala.turno == userName){
-                        val intent = Intent(this@SelectChannelOnline, SelectSongOnline()::class.java)
-                        startActivity(intent)
-                    }
-                    */
+                if(activeSala.jugador1.listo && activeSala.turno != userName && !readyPlay){
+                    val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    startActivity(intent)
+                }
+                if(activeSala.jugador2.listo && activeSala.turno != userName && !readyPlay){
+                    val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    startActivity(intent)
                 }
 
-                if(activeSala.jugador1.listo && activeSala.jugador2.listo){
+                if(activeSala.jugador1.listo && activeSala.jugador2.listo && readyPlay){
                     handler.postDelayed({
                         getSelectChannel = false
                         val intent = Intent(this@SelectChannelOnline, GameScreenActivity::class.java)
@@ -296,6 +292,24 @@ class SelectChannelOnline : AppCompatActivity() {
                     txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
                     txPlayer2.text = "Player 2 \n $userName"
                 }
+
+                if (!snapshot.hasChild("jugador1") && !snapshot.hasChild("jugador2")) {
+                    firebaseDatabase.getReference("rooms/$idSala").removeValue()
+                }
+
+                if (isPlayer1 && activeSala.jugador2.id == "") {
+                    txWaitForPlayer.text = "Esperando jugador 2"
+                    linearWaitPlayer.visibility = View.VISIBLE
+                    return
+                }
+
+                if (activeSala.turno != userName) {
+                    txWaitForPlayer.text = "Esperando selección de \n ${activeSala.turno}"
+                    linearWaitPlayer.visibility = View.VISIBLE
+                } else {
+                    linearWaitPlayer.visibility = View.GONE
+                }
+
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -358,25 +372,13 @@ class SelectChannelOnline : AppCompatActivity() {
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
-            if(listChannelsOnline[position].listCanciones.size > 0 || listChannelsOnline[position].listCancionesKsf.size > 0){
-
-                //escucharPuntajesPorNombre(listChannelsOnline[position].nombre) { listaCanciones ->
-                //    listGlobalRanking = listaCanciones
-                //}
-
-                listSongsChannel = listChannelsOnline[position].listCanciones
+            if(listChannelsOnline[position].listCancionesKsf.size > 0){
                 listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
-
                 currentChannel = listChannelsOnline[position].nombre
 
-                val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
-                if(deviceFree != null){
-                    showAddActive = false
-                }
-
-                //Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
                 thisHandler.postDelayed({
                     val intent = Intent(this, SelectSongOnline()::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     startActivity(intent)
                     overridePendingTransition(R.anim.anim_command_window_on, 0)
                     imgAceptar.isEnabled=true
@@ -488,6 +490,7 @@ class SelectChannelOnline : AppCompatActivity() {
             .setTitle("Aviso")
             .setMessage("Deseas abandonar la sala?")
             .setPositiveButton("Aceptar"){d, _ ->
+                /*
                 val jugador = Jugador()
                 if(activeSala.jugador1.id == userName){
                     activeSala.jugador1 = jugador
@@ -497,7 +500,10 @@ class SelectChannelOnline : AppCompatActivity() {
                     activeSala.jugador2 = jugador
                     salaRef.setValue(activeSala)
                 }
+                */
                 isOnline = false
+                victoriesP1 = 0
+                victoriesP2 = 0
                 this.finish()
             }
             .setNegativeButton("Cancelar"){d, _ ->
@@ -514,7 +520,7 @@ class SelectChannelOnline : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         soundSelecctChannel.start()
-
+        /*
         if (activeSala.turno != userName){
             txWaitForPlayer.text = "Esperando selección de \n ${activeSala.turno}"
             linearWaitPlayer.visibility = View.VISIBLE
@@ -524,6 +530,20 @@ class SelectChannelOnline : AppCompatActivity() {
         }else{
             linearWaitPlayer.visibility = View.GONE
         }
+
+        if(isPlayer1){
+            if (activeSala.jugador2.id == "" && !firstOpen){
+                txWaitForPlayer.text = "Esperando jugador 2"
+                linearWaitPlayer.visibility = View.VISIBLE
+                linearWaitPlayer.setOnClickListener {
+                    // No hace nada
+                }
+            }else{
+                firstOpen = true
+                linearWaitPlayer.visibility = View.GONE
+            }
+        }
+        */
         getSelectChannel = false
     }
 

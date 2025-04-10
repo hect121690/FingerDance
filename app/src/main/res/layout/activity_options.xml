@@ -256,6 +256,15 @@
                 android:textColor="#FAFAFA"
                 android:textSize="20sp"
                 android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/rbPadD"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Usar Pad D"
+                android:textColor="#FAFAFA"
+                android:textSize="20sp"
+                android:textStyle="bold" />
         </RadioGroup>
 
         <Button

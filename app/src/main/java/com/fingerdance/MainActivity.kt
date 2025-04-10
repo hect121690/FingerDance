@@ -24,6 +24,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
@@ -32,7 +33,12 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.*
 import com.google.gson.Gson
@@ -80,24 +86,6 @@ var showPadB : Int = 0
 var hideImagesPadA : Boolean = false
 var skinPad = ""
 var alphaPadB = 1f
-//var listNoteSkinAdditionals = ArrayList<CommandValues>()
-
-//var countSongsPlayed = 0
-
-/*
-//PHOENIX
-const val ONE_ADDITIONAL_NOTESKIN = 30
-//MISILE
-const val TWO_ADDITIONAL_NOTESKIN = 91
-//INIFINITY
-const val THREE_ADDITIONAL_NOTESKIN = 152
-//NEW EXTRA
-const val FOUR_ADDITIONAL_NOTESKIN = 233
-//NEXT XENESIS 2
-const val FIVE_ADDITIONAL_NOTESKIN = 284
-//INTERFERENCE
-const val SIX_ADDITIONAL_NOTESKIN = 345
-*/
 
 val API_KEY = "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
 private val FOLDER_ID = "19cM-WcAJyzo7w-7sbrPUzufMu_-gi9bS"
@@ -174,6 +162,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
     private var versionApp = ""
+    private var rewardedAd: RewardedAd? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -184,7 +173,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        createChannelNotification(this)
+        //createChannelNotification(this)
+        MobileAds.initialize(this) {}
 
         themes = getPreferences(Context.MODE_PRIVATE)
         tema = themes.getString("theme", "default").toString()
@@ -207,6 +197,11 @@ class MainActivity : AppCompatActivity(), Serializable {
         if(tema == ""){
             tema ="default"
         }
+
+        getFreeDevices { toListFreeDevices ->
+            freeDevices = toListFreeDevices
+        }
+        deviceIdFind = getDeviceId(this@MainActivity)
 
         medidaFlechas = (width / 7f)
 
@@ -440,14 +435,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                 val packageInfo = packageManager.getPackageInfo(packageName, 0)
                 versionApp = packageInfo.versionName
-                getFreeDevices { toListFreeDevices ->
-                    freeDevices = toListFreeDevices
-                }
-
-                val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
-                if(deviceFree != null){
-                    showAddActive = false
-                }
 
                 if(version == versionApp){
                     if(versionUpdate != numberUpdate){
@@ -530,10 +517,16 @@ class MainActivity : AppCompatActivity(), Serializable {
                         btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
                         btnPlayOnline = findViewById(R.id.btnPlayOnline)
                         btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
+
+                        val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
+                        if(deviceFree != null){
+                            showAddActive = false
+                        }else{
+                            loadRewardedAd()
+                        }
+
                         if(!startOnline){
-                            if(showAddActive){
-                                btnPlayOnline.visibility = View.GONE
-                            }
+                            btnPlayOnline.visibility = View.GONE
                         }
 
                         btnOptions = findViewById(R.id.btnOptions)
@@ -603,166 +596,22 @@ class MainActivity : AppCompatActivity(), Serializable {
                         }
 
                         btnPlayOnline.setOnClickListener{
-                            btnPlayOnline.isEnabled=false
-                            btnPlayOnline.startAnimation(animation)
-                            val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                            btnParams.setMargins(16, 16, 16, 16)
-                            val btnCreateRoom = Button(this@MainActivity).apply {
-                                text = "Crear Sala"
-                                setPadding(20, 10, 20, 10)
-                                background = ContextCompat.getDrawable(context, R.drawable.button_online)
-                                setTextColor(Color.WHITE)
-                            }
-                            val btnJoinRoom = Button(this@MainActivity).apply {
-                                text = "Unirme a Sala"
-                                setPadding(20, 10, 20, 10)
-                                background = ContextCompat.getDrawable(context, R.drawable.button_online)
-                                setTextColor(Color.WHITE)
-                            }
-
-                            val btnGetRoom = Button(this@MainActivity).apply {
-                                text = "Entrar"
-                                setPadding(20, 10, 20, 10)
-                                background = ContextCompat.getDrawable(context, R.drawable.button_pink)
-                                setTextColor(Color.WHITE)
-                            }
-
-                            val editTextRoom = EditText(this@MainActivity).apply {
-                                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                                hint = "Ingresar clave"
-                            }
-
-                            val linearOnline = LinearLayout(this@MainActivity).apply {
-                                orientation = LinearLayout.HORIZONTAL
-                                layoutParams = LinearLayout.LayoutParams(
-                                    LinearLayout.LayoutParams.MATCH_PARENT,
-                                    LinearLayout.LayoutParams.WRAP_CONTENT
-                                )
-                            }
-
-                            btnCreateRoom.layoutParams = btnParams
-                            btnJoinRoom.layoutParams = btnParams
-
-                            linearOnline.addView(btnCreateRoom)
-                            linearOnline.addView(btnJoinRoom)
-
-                            val linearClave = LinearLayout(this@MainActivity)
-                            linearClave.orientation = LinearLayout.VERTICAL // Alineación vertical
-                            linearClave.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-                            linearClave.layoutParams = LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-
-                            linearClave.addView(editTextRoom)
-                            linearClave.addView(btnGetRoom)
-                            linearClave.visibility = View.GONE
-
-                            val linearLayouts = LinearLayout(this@MainActivity)
-                            linearLayouts.orientation = LinearLayout.VERTICAL // Alineación vertical
-                            linearLayouts.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-                            linearLayouts.layoutParams = LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-                            linearLayouts.addView(linearOnline)
-                            linearLayouts.addView(linearClave)
-
-                            val dialog = AlertDialog.Builder(this@MainActivity)
-                                .setTitle("Modo Online 1 vs 1")
-                                .setMessage("Elige una opción:")
-                                .setView(linearLayouts)
-                                .setCancelable(false)
-                                .setNegativeButton("Cancelar") { d, _ ->
-                                    d.dismiss()
-                                    btnPlayOnline.isEnabled = true
-                                }
-                                .show()
-
-                            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
-                                textSize = 18f
-                                setTextColor(Color.RED)
-                                val layoutParams = this.layoutParams as LinearLayout.LayoutParams
-                                layoutParams.gravity = Gravity.CENTER
-                                layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
-                                this.layoutParams = layoutParams
-                            }
-                            var listSalas = arrayListOf<String>()
-                            btnJoinRoom.setOnClickListener {
-                                getSalas { toListSalas ->
-                                    listSalas = toListSalas
-                                }
-                                dialog.setMessage("Ingresa la clave para entrar a la sala")
-                                linearOnline.visibility = View.GONE
-                                linearClave.visibility = View.VISIBLE
-                            }
-
-                            btnCreateRoom.setOnClickListener {
-                                goSound.start()
-                                isPlayer1 = true
-                                isOnline = true
-                                idSala =  UUID.randomUUID().toString().substring(0, 8)
-                                salaRef = firebaseDatabase.getReference("rooms/$idSala")
-                                salaRef.child("jugador1/id").onDisconnect().removeValue()
-                                val jugador1 = Jugador(id = userName)
-                                val formato = SimpleDateFormat("dd-MM-yyyy-HH-mm", Locale.getDefault())
-
-                                activeSala = Sala(turno = userName, jugador1 = jugador1, date = formato.format(Date()))
-                                salaRef.setValue(activeSala).addOnSuccessListener {
-                                    mostrarCodigoSala(dialog)
-                                }
-                            }
-
-                            val dialogNoSala = AlertDialog.Builder(this@MainActivity)
-                                .setTitle("Aviso")
-                                .setCancelable(false)
-                                .setPositiveButton("Aceptar"){d ,_ ->
-                                    d.dismiss()
-                                }
-
-                            btnGetRoom.setOnClickListener {
-                                if(editTextRoom.text.toString() != ""){
-                                    if(listSalas.find { it == editTextRoom.text.toString() } != null){
-                                        idSala = editTextRoom.text.toString()
-                                        goSound.start()
-                                        isOnline = true
-                                        isPlayer1 = false
-                                        val ls = LoadSongsKsf()
-                                        salaRef = firebaseDatabase.getReference("rooms/${editTextRoom.text}")
-                                        salaRef.child("jugador2/id").setValue(userName)
-                                        salaRef.child("jugador2/id").onDisconnect().removeValue()
-                                        salaRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                                            override fun onDataChange(snapshot: DataSnapshot) {
-                                                activeSala = snapshot.getValue(Sala::class.java)!!
-                                            }
-                                            override fun onCancelled(error: DatabaseError) {}
-                                        })
-                                        listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
-                                        if(themes.getString("efects", "").toString() == ""){
-                                            listCommands = ls.getFilesCW(this@MainActivity)
-                                            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                                            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                                            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-                                            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                                        }else{
-                                            val jsonListCommands = themes.getString("efects", "")
-                                            listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-                                        }
-                                        ls.loadSounds(this@MainActivity)
-                                        val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
-                                        startActivity(intent)
-                                        mediaPlayerMain.pause()
-                                        soundPlayer!!.pause()
-                                        btnPlayOnline.isEnabled = true
-                                        dialog.dismiss()
-                                    }else{
-                                        dialogNoSala.setMessage("La clave de la sala no existe")
-                                        dialogNoSala.show()
+                            if(showAddActive){
+                                if (rewardedAd != null) {
+                                    rewardedAd?.show(this@MainActivity) {
+                                        // El usuario ha visto el anuncio
+                                        //val rewardAmount = rewardItem.amount
+                                        //val rewardType = rewardItem.type
+                                        showOnlineMode(animation, goSound)
+                                        rewardedAd = null
+                                        loadRewardedAd()
+                                        //Toast.makeText(this@MainActivity, "¡Ganaste $rewardAmount $rewardType!", Toast.LENGTH_SHORT).show()
                                     }
-                                }else{
-                                    dialogNoSala.setMessage("Debe ingresa la clave de la sala")
-                                    dialogNoSala.show()
+                                } else {
+                                    Toast.makeText(this@MainActivity, "El anuncio aún no está listo", Toast.LENGTH_SHORT).show()
                                 }
+                            }else{
+                                showOnlineMode(animation, goSound)
                             }
 
                         }
@@ -802,7 +651,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                             builder.show()
                         }
 
-                        deviceIdFind = getDeviceId(this@MainActivity)
                         btnExit.setOnLongClickListener {
                             val txDeviceId = TextView(this@MainActivity).apply {
                                 setTextColor(Color.BLACK)
@@ -907,6 +755,191 @@ class MainActivity : AppCompatActivity(), Serializable {
         })
     }
 
+    private fun showOnlineMode(animation: Animation, goSound: MediaPlayer) {
+        btnPlayOnline.isEnabled=false
+        btnPlayOnline.startAnimation(animation)
+        val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        btnParams.setMargins(16, 16, 16, 16)
+        val btnCreateRoom = Button(this@MainActivity).apply {
+            text = "Crear Sala"
+            setPadding(20, 10, 20, 10)
+            background = ContextCompat.getDrawable(context, R.drawable.button_online)
+            setTextColor(Color.WHITE)
+        }
+        val btnJoinRoom = Button(this@MainActivity).apply {
+            text = "Unirme a Sala"
+            setPadding(20, 10, 20, 10)
+            background = ContextCompat.getDrawable(context, R.drawable.button_online)
+            setTextColor(Color.WHITE)
+        }
+
+        val btnGetRoom = Button(this@MainActivity).apply {
+            text = "Entrar"
+            setPadding(20, 10, 20, 10)
+            background = ContextCompat.getDrawable(context, R.drawable.button_pink)
+            setTextColor(Color.WHITE)
+        }
+
+        val editTextRoom = EditText(this@MainActivity).apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            hint = "Ingresar clave"
+        }
+
+        val linearOnline = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        btnCreateRoom.layoutParams = btnParams
+        btnJoinRoom.layoutParams = btnParams
+
+        linearOnline.addView(btnCreateRoom)
+        linearOnline.addView(btnJoinRoom)
+
+        val linearClave = LinearLayout(this@MainActivity)
+        linearClave.orientation = LinearLayout.VERTICAL // Alineación vertical
+        linearClave.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+        linearClave.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        linearClave.addView(editTextRoom)
+        linearClave.addView(btnGetRoom)
+        linearClave.visibility = View.GONE
+
+        val linearLayouts = LinearLayout(this@MainActivity)
+        linearLayouts.orientation = LinearLayout.VERTICAL // Alineación vertical
+        linearLayouts.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+        linearLayouts.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        linearLayouts.addView(linearOnline)
+        linearLayouts.addView(linearClave)
+
+        val dialog = AlertDialog.Builder(this@MainActivity)
+            .setTitle("Modo Online 1 vs 1")
+            .setMessage("Elige una opción:")
+            .setView(linearLayouts)
+            .setCancelable(false)
+            .setNegativeButton("Cancelar") { d, _ ->
+                d.dismiss()
+                btnPlayOnline.isEnabled = true
+            }
+            .show()
+
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+            textSize = 18f
+            setTextColor(Color.RED)
+            val layoutParams = this.layoutParams as LinearLayout.LayoutParams
+            layoutParams.gravity = Gravity.CENTER
+            layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
+            this.layoutParams = layoutParams
+        }
+        var listSalas = arrayListOf<String>()
+        btnJoinRoom.setOnClickListener {
+            getSalas { toListSalas ->
+                listSalas = toListSalas
+            }
+            dialog.setMessage("Ingresa la clave para entrar a la sala")
+            linearOnline.visibility = View.GONE
+            linearClave.visibility = View.VISIBLE
+        }
+
+        btnCreateRoom.setOnClickListener {
+            goSound.start()
+            isPlayer1 = true
+            isOnline = true
+            idSala =  UUID.randomUUID().toString().substring(0, 8)
+            salaRef = firebaseDatabase.getReference("rooms/$idSala")
+            salaRef.child("jugador1").onDisconnect().removeValue()
+            val jugador1 = Jugador(id = userName)
+            val formato = SimpleDateFormat("dd-MM-yyyy-HH-mm", Locale.getDefault())
+
+            activeSala = Sala(turno = userName, jugador1 = jugador1, date = formato.format(Date()))
+            salaRef.setValue(activeSala).addOnSuccessListener {
+                mostrarCodigoSala(dialog)
+            }
+        }
+
+        val dialogNoSala = AlertDialog.Builder(this@MainActivity)
+            .setTitle("Aviso")
+            .setCancelable(false)
+            .setPositiveButton("Aceptar"){d ,_ ->
+                d.dismiss()
+            }
+
+        btnGetRoom.setOnClickListener {
+            if(editTextRoom.text.toString() != ""){
+                if(listSalas.find { it == editTextRoom.text.toString() } != null){
+                    idSala = editTextRoom.text.toString()
+                    goSound.start()
+                    isOnline = true
+                    isPlayer1 = false
+                    val ls = LoadSongsKsf()
+                    salaRef = firebaseDatabase.getReference("rooms/${editTextRoom.text}")
+                    salaRef.child("jugador2/id").setValue(userName)
+                    salaRef.child("jugador2").onDisconnect().removeValue()
+                    salaRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(snapshot: DataSnapshot) {
+                            activeSala = snapshot.getValue(Sala::class.java)!!
+                        }
+                        override fun onCancelled(error: DatabaseError) {}
+                    })
+                    listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
+                    if(themes.getString("efects", "").toString() == ""){
+                        listCommands = ls.getFilesCW(this@MainActivity)
+                        val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                        val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                        listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+                        themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+                    }else{
+                        val jsonListCommands = themes.getString("efects", "")
+                        listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
+                    }
+                    ls.loadSounds(this@MainActivity)
+                    val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    startActivity(intent)
+                    mediaPlayerMain.pause()
+                    soundPlayer!!.pause()
+                    btnPlayOnline.isEnabled = true
+                    dialog.dismiss()
+                }else{
+                    dialogNoSala.setMessage("La clave de la sala no existe")
+                    dialogNoSala.show()
+                }
+            }else{
+                dialogNoSala.setMessage("Debe ingresa la clave de la sala")
+                dialogNoSala.show()
+            }
+        }
+    }
+
+    private fun loadRewardedAd() {
+        val adRequest = AdRequest.Builder().build()
+        //id Real
+        val unitId = "ca-app-pub-1525853918723620/9617945079"
+        //id Prueba
+        //val unitId = "ca-app-pub-3940256099942544/5224354917"
+        RewardedAd.load(this, unitId, adRequest, object :
+            RewardedAdLoadCallback() {
+            override fun onAdLoaded(ad: RewardedAd) {
+                rewardedAd = ad
+                //Toast.makeText(this@MainActivity, "Anuncio cargado", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onAdFailedToLoad(error: LoadAdError) {
+                rewardedAd = null
+                Toast.makeText(this@MainActivity, "Error al cargar el anuncio: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
     private suspend fun iniciarDescargaUpdate(progressCallback: (Int) -> Unit): File? {
         val fallo = AlertDialog.Builder(this)
         fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
@@ -1002,6 +1035,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 }
                 ls.loadSounds(this@MainActivity)
                 val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 startActivity(intent)
                 mediaPlayerMain.pause()
                 soundPlayer!!.pause()
@@ -1043,7 +1077,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         })
     }
 
-    fun getDeviceId(context: Context): String {
+    private fun getDeviceId(context: Context): String {
         return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
     }
 
@@ -1148,7 +1182,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
     }
-
 
     private fun isUsingWifi(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -1270,8 +1303,7 @@ data class Resultado(
 data class Jugador(
     var id: String = "",
     var listo: Boolean = false,
-    var result: Resultado = Resultado(),
-    var victories: String = "0"
+    var result: Resultado = Resultado()
 )
 
 data class Sala(
