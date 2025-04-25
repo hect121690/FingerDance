@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:background="@drawable/bg_ranking_values">
+
+    <TextView
+        android:id="@+id/position_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAlignment="viewStart"
+        style="@style/size_font_ranking"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:shadowColor="#FF00FF"
+        android:shadowDx="0"
+        android:shadowDy="0"/>
+
+    <TextView
+        android:id="@+id/name_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAlignment="viewStart"
+        style="@style/size_font_ranking"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:shadowColor="#FF00FF"
+        android:shadowDx="0"
+        android:shadowDy="0"/>
+
+    <TextView
+        android:id="@+id/puntaje_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAlignment="viewEnd"
+        style="@style/size_font_ranking"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:shadowColor="#FF00FF"
+        android:shadowDx="0"
+        android:shadowDy="0"/>
+
+    <TextView
+        android:id="@+id/grade_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAlignment="viewEnd"
+        style="@style/size_font_ranking"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:shadowColor="#FF00FF"
+        android:shadowDx="0"
+        android:shadowDy="0"/>
+
+</LinearLayout>
+
+
+
+
+
+

@@ -145,6 +145,8 @@ var interstitialAd: InterstitialAd? = null
 lateinit var salaRef: DatabaseReference
 lateinit var activeSala : Sala
 
+lateinit var db : DataBasePlayer
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -175,7 +177,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         //createChannelNotification(this)
         MobileAds.initialize(this) {}
-
+        db = DataBasePlayer(this)
         themes = getPreferences(Context.MODE_PRIVATE)
         tema = themes.getString("theme", "default").toString()
         skinSelected = themes.getString("skin", "").toString()
@@ -619,6 +621,21 @@ class MainActivity : AppCompatActivity(), Serializable {
                         val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
 
                         btnOptions.setOnClickListener {
+                            val ls = LoadSongsKsf()
+                            if(themes.getString("allTunes", "").toString() != ""){
+                                val jsonListChannels = themes.getString("allTunes", "")
+                                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+                            }else{
+                                listCommands = ls.getFilesCW(this@MainActivity)
+                                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+                                listChannels = ls.getChannels(this@MainActivity)
+                                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+                                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+
+                            }
                             //btnOptions.isEnabled = true
                             Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
                             btnOptions.startAnimation(animation)

@@ -26,7 +26,6 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -36,7 +35,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.database.DataSnapshot
@@ -257,8 +255,6 @@ class SelectChannelOnline : AppCompatActivity() {
         linearWaitPlayer.setOnClickListener {
             // No hace nada
         }
-
-        db = DataBasePlayer(this)
 
         val txPlayer1 = findViewById<TextView>(R.id.txPlayer1)
         val txPlayer2 = findViewById<TextView>(R.id.txPlayer2)

@@ -16,6 +16,7 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
@@ -141,7 +142,7 @@ private var ready = 0
 
 lateinit var arrayBestGrades : ArrayList<Bitmap>
 var currentScore = ""
-var currentWorldScore = ""
+var currentWorldScore = listOf<String>()
 lateinit var currentBestGrade : Bitmap
 
 //private var idAdd = ""
@@ -153,6 +154,7 @@ private lateinit var overlayBG: View
 private lateinit var btnAddPreview: Button
 private lateinit var btnAddBga: Button
 private var currentPathSong: String = ""
+private var niveles = arrayListOf<Nivel>()
 
 class SelectSong : AppCompatActivity() {
 
@@ -521,6 +523,47 @@ class SelectSong : AppCompatActivity() {
             imgFloor.layoutParams.width = (width * 0.6).toInt()
             imgAceptar.layoutParams.width = (width * 0.3).toInt()
 
+            val rankingView = findViewById<TopRankingView>(R.id.topRankingView)
+            rankingView.layoutParams.width = (width * 0.9).toInt()
+            rankingView.visibility = View.INVISIBLE
+
+            val linearRanking = LinearLayout(this).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundColor(0xAA000000.toInt())
+                setOnClickListener(object : View.OnClickListener {
+                    override fun onClick(v: View?) {
+                        // No hace nada
+                    }
+                })
+            }
+
+            /*
+            val btnCloseRanking = findViewById<Button>(R.id.btn_close_ranking)
+            btnCloseRanking.setOnClickListener {
+                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                rankingView.visibility = View.INVISIBLE
+                rankingView.startAnimation(animOff)
+                constraintMain.removeView(linearRanking)
+            }
+            */
+            //var isRankingFocus = false
+            imgBestScore.setOnClickListener{
+                if(!commandWindow.isVisible){
+                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    rankingView.visibility = View.VISIBLE
+                    rankingView.startAnimation(animOn)
+                    rankingView.setIconDrawable(imgLvSelected.drawable)
+                    rankingView.setNiveles(niveles[positionActualLvs])
+                    constraintMain.addView(linearRanking)
+                    nav_back_der.bringToFront()
+                    nav_back_Izq.bringToFront()
+                    rankingView.bringToFront()
+                }
+            }
+
             if(skinSelected != ""){
                 if(!imgNoteSkin.isVisible){
                     imgNoteSkin.isVisible=true
@@ -560,11 +603,17 @@ class SelectSong : AppCompatActivity() {
                     Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
                     soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
-                if (imgLvSelected.isVisible && !commandWindow.isVisible) {
+                if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
                     soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     hideSelectLv(anim)
                 }
-                if (commandWindow.isVisible && !linearValues.isVisible) {
+                if(rankingView.visibility == View.VISIBLE){
+                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    rankingView.visibility = View.INVISIBLE
+                    rankingView.startAnimation(animOff)
+                    constraintMain.removeView(linearRanking)
+                }
+                if (commandWindow.isVisible && !linearValues.isVisible ) {
                     soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     showCommandWindow(false)
                 }
@@ -583,9 +632,15 @@ class SelectSong : AppCompatActivity() {
                     Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
                     soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
-                if (imgLvSelected.isVisible && !commandWindow.isVisible) {
+                if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
                     soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     hideSelectLv(anim)
+                }
+                if(rankingView.visibility == View.VISIBLE){
+                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    rankingView.visibility = View.INVISIBLE
+                    rankingView.startAnimation(animOff)
+                    constraintMain.removeView(linearRanking)
                 }
                 if (commandWindow.isVisible && !linearValues.isVisible) {
                     soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -871,7 +926,6 @@ class SelectSong : AppCompatActivity() {
                         themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
                         skinSelected = itemValues.rutaCommandImg
                     }
-
                     if(itemCommand.value.contains("Judge", ignoreCase = true)){
                         linearCurrent.isVisible = false
                         if(!imgJudge.isVisible){
@@ -1360,7 +1414,7 @@ class SelectSong : AppCompatActivity() {
 
     private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
         var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-        when (niveles[positionActualLvs].grade){
+        when (niveles[positionActualLvs].fisrtRank[0].grade){
             "SSS" ->{bestGrade = arrayBestGrades[0]}
             "SS" ->{bestGrade = arrayBestGrades[1]}
             "S" ->{bestGrade = arrayBestGrades[2]}
@@ -1502,9 +1556,12 @@ class SelectSong : AppCompatActivity() {
         val currentBestWorldGrade = getWorldBitMapGrade(positionActualLvs)
         imgWorldGrade.setImageBitmap(currentBestWorldGrade)
 
-        lbWorldName.text = if(niveles[positionActualLvs].nombre != "") niveles[positionActualLvs].nombre else "NO DATA"
-        lbWorldScore.text = if(niveles[positionActualLvs].puntaje != "") niveles[positionActualLvs].puntaje else "0"
-        currentWorldScore = lbWorldScore.text.toString()
+        lbWorldName.text = if(niveles[positionActualLvs].fisrtRank[0].nombre != "") niveles[positionActualLvs].fisrtRank[0].nombre else "---------"
+        lbWorldScore.text = if(niveles[positionActualLvs].fisrtRank[0].puntaje != "") niveles[positionActualLvs].fisrtRank[0].puntaje else "0"
+        currentWorldScore = listOf(niveles[positionActualLvs].fisrtRank[0].puntaje,
+            niveles[positionActualLvs].fisrtRank[1].puntaje,
+            niveles[positionActualLvs].fisrtRank[2].puntaje
+        )
 
         playerSong.level = lv.level
         playerSong.stepMaker = lv.stepmaker
@@ -1522,7 +1579,6 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private var niveles = arrayListOf<Nivel>()
     private fun isFocus (position: Int){
         val item = listItemsKsf[position]
         currentPathSong = item.rutaSong
@@ -1535,11 +1591,6 @@ class SelectSong : AppCompatActivity() {
                 isTimerRunning = false
             }
         }
-
-        //txOffset.text = "0"
-        //valueOffset = txOffset.text.toString().toLong()
-
-        //txOffset.text = valueOffset.toString()
 
         currentSong = item.title
         listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
@@ -1559,17 +1610,7 @@ class SelectSong : AppCompatActivity() {
         val rankingItem = listGlobalRanking.find { it.cancion == item.title }
         niveles = rankingItem?.niveles ?: ArrayList(List(listSongScores.size) { Nivel() })
         //val salaId = UUID.randomUUID().toString()
-        /*
-        niveles = if(listGlobalRanking.find { it.cancion == item.title } != null) {
-            listGlobalRanking.find { it.cancion == item.title }!!.niveles
-        } else {
-            /*val listEmpty = */ ArrayList(List(listSongScores.size) { Nivel() }) //arrayListOf<Nivel>()
-            //for(i in 0 until listSongScores.size){
-            //    listEmpty.add(Nivel("??", "NO DATA", "0", ""))
-            //}
-            //listEmpty
-        }
-        */
+
         //if(isFileExists(File(item.rutaPrevVideo))){
         if(isFileExists(File(item.rutaPreview))){
             if(item.rutaPreview.endsWith(".png", ignoreCase = true)

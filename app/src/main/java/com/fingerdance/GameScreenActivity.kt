@@ -81,7 +81,6 @@ open class GameScreenActivity : AndroidApplication() {
 
         resultSong = ResultSong()
         addVideoBackground()
-
         thisHandler.postDelayed({
             countAdd ++
             themes.edit().putInt("countAdd", countAdd).apply()

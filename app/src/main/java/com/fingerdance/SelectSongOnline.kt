@@ -44,11 +44,6 @@ private lateinit var constraintMain: ConstraintLayout
 private lateinit var lbNameSong: TextView
 private lateinit var lbArtist: TextView
 private lateinit var lbLvActive: TextView
-private lateinit var lbBestScore: TextView
-
-private lateinit var imgWorldGrade: ImageView
-private lateinit var lbWorldScore: TextView
-private lateinit var lbWorldName: TextView
 
 private lateinit var lbCurrentBpm: TextView
 private lateinit var txCurrentBpm: TextView
@@ -82,8 +77,6 @@ private lateinit var imgLoading: ImageView
 private lateinit var imgAceptar: ImageView
 private lateinit var imgFloor: ImageView
 private lateinit var imgLvSelected: ImageView
-private lateinit var imgBestScore: ImageView
-private lateinit var imgBestGrade: ImageView
 private lateinit var video_fondo : VideoView
 private lateinit var imgPrev: ImageView
 private lateinit var indicatorLayout: ImageView
@@ -303,15 +296,6 @@ class SelectSongOnline : AppCompatActivity() {
             txInfoCW.layoutParams.width = anchoTxInfo
             lbLvActive = findViewById(R.id.lbLvActive)
             lbLvActive.isVisible = false
-            lbBestScore = findViewById(R.id.lbBestScore)
-            lbBestScore.isVisible = false
-
-            imgWorldGrade = findViewById(R.id.imgWorldGrade)
-            imgWorldGrade.isVisible = false
-            lbWorldScore = findViewById(R.id.lbWorldScore)
-            lbWorldScore.isVisible = false
-            lbWorldName = findViewById(R.id.lbWorldName)
-            lbWorldName.isVisible = false
 
             imgSelected = findViewById(R.id.imgSelected)
             val bmSelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/imgSelect.png")!!.absolutePath)
@@ -334,15 +318,6 @@ class SelectSongOnline : AppCompatActivity() {
             val selected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
             imgLvSelected.setImageBitmap(selected)
             imgLvSelected.isVisible = false
-
-            imgBestScore = findViewById(R.id.imgBestScore)
-            val bestScore = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body_select_song.png")!!.absolutePath)
-            imgBestScore.setImageBitmap(bestScore)
-            imgBestScore.isVisible = false
-
-            imgBestGrade = findViewById(R.id.imgBestGrade)
-            imgBestGrade.isVisible = false
-            imgBestScore.layoutParams.width = (width * 0.6).toInt()
 
             val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
             arrayBestGrades = getGrades(rutaGrades)
@@ -487,9 +462,6 @@ class SelectSongOnline : AppCompatActivity() {
             lbNameSong.layoutParams.width = (width /2)
 
             textSize = width / 32
-            lbBestScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbWorldScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbWorldName.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
             textSize = width / 28
 
@@ -1075,55 +1047,11 @@ class SelectSongOnline : AppCompatActivity() {
         imgSelected.clearAnimation()
         imgSelected.visibility = View.INVISIBLE
         imgLvSelected.isVisible = true
-        imgBestScore.isVisible = true
-        imgBestGrade.isVisible = true
         lbLvActive.isVisible = true
-        lbBestScore.isVisible = true
-
-        imgWorldGrade.isVisible = true
-        lbWorldScore.isVisible = true
-        lbWorldName.isVisible = true
-
         imgLvSelected.startAnimation(animOn)
-        imgBestScore.startAnimation(animOn)
-        imgBestGrade.startAnimation(animOn)
         lbLvActive.startAnimation(animOn)
-        lbBestScore.startAnimation(animOn)
-        imgWorldGrade.startAnimation(animOn)
-        lbWorldScore.startAnimation(animOn)
-        lbWorldName.startAnimation(animOn)
 
         moverLvs(positionActualLvs)
-    }
-
-    private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
-        var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-        when (listSongScores[positionActualLvs].grade){
-            "SSS" ->{bestGrade = arrayBestGrades[0]}
-            "SS" ->{bestGrade = arrayBestGrades[1]}
-            "S" ->{bestGrade = arrayBestGrades[2]}
-            "A" ->{bestGrade = arrayBestGrades[3]}
-            "B" ->{bestGrade = arrayBestGrades[4]}
-            "C" ->{bestGrade = arrayBestGrades[5]}
-            "D" ->{bestGrade = arrayBestGrades[6]}
-            "F" ->{bestGrade = arrayBestGrades[7]}
-        }
-        return bestGrade
-    }
-
-    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
-        var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-        when (niveles[positionActualLvs].grade){
-            "SSS" ->{bestGrade = arrayBestGrades[0]}
-            "SS" ->{bestGrade = arrayBestGrades[1]}
-            "S" ->{bestGrade = arrayBestGrades[2]}
-            "A" ->{bestGrade = arrayBestGrades[3]}
-            "B" ->{bestGrade = arrayBestGrades[4]}
-            "C" ->{bestGrade = arrayBestGrades[5]}
-            "D" ->{bestGrade = arrayBestGrades[6]}
-            "F" ->{bestGrade = arrayBestGrades[7]}
-        }
-        return bestGrade
     }
 
     private fun openCommandWindow() {
@@ -1207,23 +1135,11 @@ class SelectSongOnline : AppCompatActivity() {
         imgSelected.startAnimation(anim)
 
         imgLvSelected.startAnimation(animOff)
-        imgBestScore.startAnimation(animOff)
         lbLvActive.startAnimation(animOff)
-        lbBestScore.startAnimation(animOff)
-
-        imgWorldGrade.startAnimation(animOff)
-        lbWorldScore.startAnimation(animOff)
-        lbWorldName.startAnimation(animOff)
 
         imgLvSelected.isVisible = false
-        imgBestScore.isVisible = false
-        imgBestGrade.isVisible = false
         lbLvActive.isVisible = false
-        lbBestScore.isVisible = false
 
-        imgWorldGrade.isVisible = false
-        lbWorldScore.isVisible = false
-        lbWorldName.isVisible = false
     }
 
     private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int) {
@@ -1242,21 +1158,7 @@ class SelectSongOnline : AppCompatActivity() {
     private fun moverLvs(positionActualLvs: Int) {
         val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
         lbLvActive.text = lv.level
-
         currentLevel = lv.level
-        lbBestScore.text = listSongScores[positionActualLvs].puntaje
-        currentScore = lbBestScore.text.toString()
-
-
-        currentBestGrade = getBitMapGrade(positionActualLvs)
-        imgBestGrade.setImageBitmap(currentBestGrade)
-        val currentBestWorldGrade = getWorldBitMapGrade(positionActualLvs)
-        imgWorldGrade.setImageBitmap(currentBestWorldGrade)
-
-        lbWorldName.text = if(niveles[positionActualLvs].nombre != "") niveles[positionActualLvs].nombre else "NO DATA"
-        lbWorldScore.text = if(niveles[positionActualLvs].puntaje != "") niveles[positionActualLvs].puntaje else "0"
-        currentWorldScore = lbWorldScore.text.toString()
-
         playerSong.level = lv.level
         playerSong.stepMaker = lv.stepmaker
 
@@ -1270,7 +1172,6 @@ class SelectSongOnline : AppCompatActivity() {
         }
     }
 
-    private var niveles = arrayListOf<Nivel>()
     private fun isFocus (position: Int){
         val item = listItemsKsf[position]
         currentPathSong = item.rutaSong
@@ -1298,9 +1199,6 @@ class SelectSongOnline : AppCompatActivity() {
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
-
-        val rankingItem = listGlobalRanking.find { it.cancion == item.title }
-        niveles = rankingItem?.niveles ?: ArrayList(List(listSongScores.size) { Nivel() })
 
         //if(isFileExists(File(item.rutaPrevVideo))){
         if(isFileExists(File(item.rutaPreview))){

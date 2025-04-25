@@ -33,6 +33,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.*
 import java.io.File
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 private lateinit var bgConstraint: ConstraintLayout
@@ -180,7 +181,8 @@ class DanceGrade : AppCompatActivity() {
         val miss = 0
         val totalNotes = resultSong.perfect + resultSong.great + resultSong.good + resultSong.bad + resultSong.miss
         val noteWeighs = perfect + great + good + bad + miss
-        totalScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000).toInt()
+        val rawScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000)
+        totalScore = if (rawScore > 999998) 1000000 else rawScore.roundToInt()
 
         val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
         imgNewRecord.setImageBitmap(bitNR)
@@ -217,7 +219,8 @@ class DanceGrade : AppCompatActivity() {
         }
 
         if(!isOnline) {
-            if (totalScore > currentWorldScore.toInt() || currentScore.toInt() > currentWorldScore.toInt()) {
+            val posicion = currentWorldScore.indexOfFirst{ totalScore > it.toInt() }
+            if (posicion != -1) {
                 updateRanking(
                     currentChannel,
                     currentSong,
@@ -408,25 +411,46 @@ class DanceGrade : AppCompatActivity() {
                             if (cancion == song) {
                                 for ((index, nivelSnapshot) in cancionSnapshot.child("niveles").children.withIndex()) {
                                     val nivel = nivelSnapshot.child("nivel").getValue(String::class.java)
-                                    val puntajeActual = nivelSnapshot.child("puntaje").getValue(String::class.java)?.toIntOrNull() ?: 0
+                                    if (nivel == level) {
+                                        val rankList = mutableListOf<Map<String, Any>>()
+                                        for (rankSnapshot in nivelSnapshot.child("fisrtRank").children) {
+                                            val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                            val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java)?.toIntOrNull() ?: 0
+                                            val gradeValue = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
 
-                                    if (nivel == level && newScore.toInt() > puntajeActual) {
+                                            rankList.add(
+                                                mapOf(
+                                                    "nombre" to nombre,
+                                                    "puntaje" to puntaje,
+                                                    "grade" to gradeValue
+                                                )
+                                            )
+                                        }
+                                        rankList.add(
+                                            mapOf(
+                                                "nombre" to namePlayer,
+                                                "puntaje" to newScore.toInt(),
+                                                "grade" to grade
+                                            )
+                                        )
+
+                                        val nuevosTop3 = rankList.sortedByDescending { it["puntaje"] as Int }.take(3)
+
                                         val nivelRef = databaseRef.child(canalSnapshot.key!!)
                                             .child("canciones").child(cancionSnapshot.key!!)
                                             .child("niveles").child(index.toString())
-
-                                        val updateData = mapOf(
-                                            "puntaje" to newScore,
-                                            "nombre" to namePlayer,
-                                            "grade" to grade
-                                        )
-
-                                        nivelRef.updateChildren(updateData)
+                                            .child("fisrtRank")
+                                        val nuevosTop3Strings = nuevosTop3.map { rank ->
+                                            mapOf(
+                                                "nombre" to rank["nombre"],
+                                                "puntaje" to rank["puntaje"].toString(),
+                                                "grade" to rank["grade"]
+                                            )
+                                        }
+                                        nivelRef.setValue(nuevosTop3Strings)
                                             .addOnSuccessListener {
                                                 showNewRecord(imgNewRecord)
-                                                Log.d("Ranking", "Puntaje actualizado correctamente")
                                             }
-                                            .addOnFailureListener { e -> Log.e("Ranking", "Error al actualizar ranking", e) }
 
                                         return
                                     }
@@ -441,6 +465,7 @@ class DanceGrade : AppCompatActivity() {
                 Log.e("Firebase", "Error al leer datos", error.toException())
             }
         })
+
     }
 
     private fun getBtnAceptar(bg_wait: ConstraintLayout, img_wait: ImageView) {
@@ -502,13 +527,16 @@ class DanceGrade : AppCompatActivity() {
                         for (cancionSnapshot in canalSnapshot.child("canciones").children) {
                             val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
                             val niveles = arrayListOf<Nivel>()
-                            for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
-                                val grade = nivelSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                val nivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                                val nombre = nivelSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                val puntaje = nivelSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-
-                                niveles.add(Nivel(nivel, nombre, puntaje, grade))
+                            for (nivelesSnapshot in cancionSnapshot.child("niveles").children) {
+                                val numberNivel = nivelesSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                                val rankings = arrayListOf<FirstRank>()
+                                for(rankingSnapshot in  nivelesSnapshot.child("fisrtRank").children){
+                                    val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                    val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                                    val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                    rankings.add(FirstRank(nombre, puntaje, grade))
+                                }
+                                niveles.add(Nivel(numberNivel, rankings))
                             }
 
                             listResult.add(Cancion(nombreCancion, niveles))
@@ -731,7 +759,7 @@ class DanceGrade : AppCompatActivity() {
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
             isPlayingNewRecord = soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
-        }, 2000)
+        }, 3000)
     }
 
     private fun animateImageView(view: ImageView) {

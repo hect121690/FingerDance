@@ -80,7 +80,7 @@ private var position : Int = 0
 var currentChannel = ""
 var currentSong = ""
 var currentLevel = ""
-lateinit var db : DataBasePlayer
+
 var positionCurrentChannel = 0
 
 class SelectChannel : AppCompatActivity() {
@@ -227,8 +227,6 @@ class SelectChannel : AppCompatActivity() {
         imgAceptar.startAnimation(animateSetTraslation)
         imgAceptar.bringToFront()
 
-        db = DataBasePlayer(this)
-
         nav_back_Izq.setOnClickListener {
             goMain(nav_back_Izq)
         }
@@ -285,7 +283,7 @@ class SelectChannel : AppCompatActivity() {
                     for(a in 0 until listChannels[i].listCancionesKsf.size){
                         val listNivel = arrayListOf<Nivel>()
                         for(b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size){
-                            val n = Nivel(listChannels[i].listCancionesKsf[a].listKsf[b].level, "", "0", "")
+                            val n = Nivel(listChannels[i].listCancionesKsf[a].listKsf[b].level, ArrayList(List(3) { FirstRank() }))
                             listNivel.add(n)
                         }
                         val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNivel)
@@ -296,6 +294,68 @@ class SelectChannel : AppCompatActivity() {
                 //}
 
                 val json = gson.toJson(canal)
+                */
+
+                /*
+                //Funcion para agregar niveles
+                function ordenarPorCancion(objetoCanal) {
+                  // Clonamos el objeto para no modificar el original (opcional)
+                  const nuevoObjeto = { ...objetoCanal };
+
+                  // Ordenamos las canciones por el campo "cancion"
+                  nuevoObjeto.canciones = [...objetoCanal.canciones].sort((a, b) =>
+                    a.cancion.localeCompare(b.cancion)
+                  );
+
+                  return nuevoObjeto;
+                }
+
+                const objeArreglado = ordenarPorCancion(objetoCanal)
+                console.log(JSON.stringify(objeArreglado, null, 2));
+
+                */
+
+                /*
+                //Funcion para crear los array de niveles para rankings
+                    const newChannel = reestructurarNiveles(objChannel)
+                    console.log(JSON.stringify(newChannel, null, 2));
+
+                    function reestructurarNiveles(objetoCanal) {
+                      const nuevoObjeto = { ...objetoCanal };
+
+                      nuevoObjeto.canciones = objetoCanal.canciones.map(cancion => {
+                        const nuevosNiveles = cancion.niveles.map(nivel => {
+                          return {
+                            nivel: nivel.nivel,
+                            fisrtRank: [
+                              {
+                                nombre: nivel.nombre || "",
+                                puntaje: nivel.puntaje || "0",
+                                grade: nivel.grade || ""
+                              },
+                              {
+                                nombre: "",
+                                puntaje: "0",
+                                grade: ""
+                              },
+                              {
+                                nombre: "",
+                                puntaje: "0",
+                                grade: ""
+                              }
+                            ]
+                          };
+                        });
+
+                        return {
+                          ...cancion,
+                          niveles: nuevosNiveles
+                        };
+                      });
+
+                      return nuevoObjeto;
+                    }
+
                 */
 
                 escucharPuntajesPorNombre(listChannels[position].nombre) { listSongs ->
@@ -342,15 +402,17 @@ class SelectChannel : AppCompatActivity() {
                     if (canal == canalNombre) {
                         for (cancionSnapshot in canalSnapshot.child("canciones").children) {
                             val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
-
                             val niveles = arrayListOf<Nivel>()
-                            for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
-                                val grade = nivelSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                val nivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                                val nombre = nivelSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                val puntaje = nivelSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-
-                                niveles.add(Nivel(nivel, nombre, puntaje, grade))
+                            for (nivelesSnapshot in cancionSnapshot.child("niveles").children) {
+                                val numberNivel = nivelesSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                                val rankings = arrayListOf<FirstRank>()
+                                for(rankingSnapshot in  nivelesSnapshot.child("fisrtRank").children){
+                                    val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                    val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                                    val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                    rankings.add(FirstRank(nombre, puntaje, grade))
+                                }
+                                niveles.add(Nivel(numberNivel, rankings))
                             }
 
                             listResult.add(Cancion(nombreCancion, niveles))
@@ -477,11 +539,15 @@ class SelectChannel : AppCompatActivity() {
     }
 }
 
+data class FirstRank(
+    val nombre: String = "---------",
+    val puntaje: String = "0",
+    val grade: String = "?"
+)
+
 data class Nivel(
     val nivel: String = "??",
-    val nombre: String = "NO DATA",
-    val puntaje: String = "0",
-    val grade: String = ""
+    val fisrtRank: ArrayList<FirstRank> = arrayListOf()
 )
 
 data class Cancion(

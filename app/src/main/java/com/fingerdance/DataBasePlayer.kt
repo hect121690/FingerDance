@@ -33,8 +33,8 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_NIVELES") // Elimina la tabla
-        onCreate(db) // Vuelve a crear la tabla vacía
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_NIVELES")
+        onCreate(db)
     }
 
 
@@ -94,6 +94,12 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         }
         cursor.close()
         return puntajes.toTypedArray()
+    }
+
+    fun deleteCanal(canal: String) {
+        val db = this.writableDatabase
+        db.delete(TABLE_NIVELES, "$COLUMN_CANAL = ?", arrayOf(canal))
+        db.close()
     }
 
 }

@@ -16,5 +16,8 @@
         <item name="android:textColor">@color/negative_red</item>
         <item name="android:gravity">center</item>
     </style>
+    <style name="size_font_ranking">
+        <item name = "android:textSize">14dp</item>
+    </style>
 </resources>
 

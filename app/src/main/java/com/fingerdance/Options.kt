@@ -1,7 +1,5 @@
 package com.fingerdance
 
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -126,9 +124,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
         titleOptions.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
         titleOptions.paintFlags = titleOptions.paintFlags or Paint.UNDERLINE_TEXT_FLAG
 
-        //textSize = pxToSp((width/18).toFloat(), this)
-        //titleTemas.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
         layoutTemas.visibility = View.GONE
         layoutCanciones.visibility = View.GONE
         layoutPads.visibility = View.GONE
@@ -157,21 +152,66 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
         })
 
-        val animator = ObjectAnimator.ofFloat(arrowIndicator, View.ALPHA, 0f, 1f)
-        animator.duration = 800 // Duración de cada ciclo (0.8 segundos)
-        animator.repeatMode = ValueAnimator.REVERSE // Hace fade in y fade out
-        animator.repeatCount = ValueAnimator.INFINITE // Se repite infinitamente
-        animator.start()
-
         txProgressDownloadChannel = findViewById(R.id.textViewDownloadChannel)
         txProgressDownloadChannel.layoutParams.width = (width / 10) * 9
 
         txProgressDownloadChannel.isVisible = false
         downloadButtonChannel.isEnabled = false
 
+        val btnDeleteChannel = findViewById<Button>(R.id.deleteChannel)
+        btnDeleteChannel.setOnClickListener {
+            var nameChannelDelete = ""
+            val layoutOptionsDelete = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(50, 40, 50, 10)
+            }
 
+            val radioChannelsDelete = RadioGroup(this).apply {
+                removeAllViews()
+            }
 
-        //val itemsChannels = getListChannels()
+            listChannels.forEach { channel ->
+                val radioButton = RadioButton(this)
+                radioButton.text = channel.nombre
+                radioButton.id = View.generateViewId()
+                radioChannelsDelete.addView(radioButton)
+            }
+
+            radioChannelsDelete.setOnCheckedChangeListener { group, checkedId ->
+                val channelSelected = group.findViewById<RadioButton>(checkedId)
+                nameChannelDelete = channelSelected.text.toString()
+            }
+
+            layoutOptionsDelete.addView(radioChannelsDelete)
+
+            val dialogEliminar = AlertDialog.Builder(this)
+                .setCancelable(false)
+                .setTitle("Eliminar Canal")
+                .setMessage("Selecciona el canal que deseas eliminar. Una vez eliminado, volverás a la pantalla principal")
+                .setView(layoutOptionsDelete)
+                .setPositiveButton("Eliminar") { _, _ ->
+                    val dialogConfirmar = AlertDialog.Builder(this)
+                        .setCancelable(false)
+                        .setTitle("Confirmar")
+                        .setMessage("¿Seguro que desea eliminar el canal $nameChannelDelete? Esta acción no se puede revertir.")
+                        .setPositiveButton("Aceptar") { d, _ ->
+                            deleteChannelFolder(nameChannelDelete)
+                            db.deleteCanal(nameChannelDelete)
+                            Toast.makeText(this, "El canal: $nameChannelDelete se ha eliminado", Toast.LENGTH_SHORT).show()
+                            themes.edit().putString("allTunes", "").apply()
+                            startActivity(Intent(this, MainActivity()::class.java))
+                            this.finish()
+                        }
+                        .setNegativeButton("Cancelar") { d, _ -> d.dismiss() }
+                        .create()
+                    dialogConfirmar.show()
+                }
+                .setNegativeButton("Cancelar") { d, _ -> d.dismiss() }
+                .create()
+
+            dialogEliminar.show()
+        }
+
         val adapterChannels = ListChannelsAdapter(downloadButtonChannel, listFilesDrive) { selectedItem ->
             selectedValueChannel = selectedItem
             arrowIndicator.visibility = View.GONE
@@ -312,7 +352,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                     }
                 }
             }
-            builder.setNegativeButton("Cerrar") { dialog, which ->
+            builder.setNegativeButton("Cerrar") { dialog, _ ->
                 dialog.dismiss()
             }
             builder.show()
@@ -575,7 +615,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private fun showInputNameChannel() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(50, 40, 50, 10) // Añade algo de margen alrededor
+            setPadding(50, 40, 50, 10)
         }
 
         val editTextChannel = EditText(this).apply {
@@ -598,7 +638,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                     nameNewChannel = idNewChannel.toString() + " - " + editTextChannel.text.toString().uppercase()
                     descriptionNewChannel = editTextDescription.text.toString()
                     if (getChannelExist()) {
-                        deleteChannelFolder()
+                        deleteChannelFolder(nameNewChannel)
                     }
                     if (createPathNewChannel(this, nameNewChannel)) {
                         createTextIni(this)
@@ -631,7 +671,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 pickPreviewFile.launch(arrayOf("image/png"))
             }
             .setNegativeButton("Cancelar") { dialog, _ ->
-                deleteChannelFolder()
+                deleteChannelFolder(nameNewChannel)
                 dialog.dismiss()
             }
             .create()
@@ -695,7 +735,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 openFolderPicker()
             }
             .setNegativeButton("Cancelar") { dialog, _ ->
-                deleteChannelFolder()
+                deleteChannelFolder(nameNewChannel)
                 dialog.dismiss()
             }
             .create()
@@ -760,8 +800,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
         return existFolder
     }
-    private fun deleteChannelFolder() {
-        val folderPath = getExternalFilesDir("/FingerDance/Songs/Channels/$nameNewChannel/")
+    private fun deleteChannelFolder(nameChannel: String) {
+        val folderPath = getExternalFilesDir("/FingerDance/Songs/Channels/$nameChannel/")
         folderPath?.deleteRecursively()
     }
     private fun getlistPadsB() : ArrayList<ThemeItem>{
@@ -810,13 +850,13 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val progressBackground = txProgressDownloadChannel.background as LayerDrawable
         val progressLayer = progressBackground.findDrawableByLayerId(R.id.progress) as ClipDrawable
-
+        linearTextProgressChannel.setOnClickListener(object : View.OnClickListener {
+            override fun onClick(v: View?) {
+                // No hace nada
+            }
+        })
         CoroutineScope(Dispatchers.Main).launch {
-            linearTextProgressChannel.setOnClickListener(object : View.OnClickListener {
-                override fun onClick(v: View?) {
-                    // No hace nada
-                }
-            })
+
             txProgressDownloadChannel.isVisible = true
 
             val downloadedFile = downloadFileFromDrive(selectedValueChannel!!, this@Options) { progress ->
@@ -944,7 +984,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private fun showCustomDialog() {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_more_themes)
-
+        dialog.setCancelable(false)
         recyclerFireBase = dialog.findViewById(R.id.listThemesDropBox)
         txProgress = dialog.findViewById(R.id.txProgress)
         progressDownload = dialog.findViewById(R.id.progressMoreThemes)
@@ -956,6 +996,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         txProgress.visibility = View.INVISIBLE
         progressDownload.visibility = View.INVISIBLE
+        btnDescargar.visibility = View.VISIBLE
         btnDescargar.isEnabled = false
 
         recyclerFireBase.layoutManager = LinearLayoutManager(this)
@@ -966,10 +1007,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
         dialog.show()
 
         btnDescargar.setOnClickListener {
-            btnDescargar.isEnabled = false
+            btnDescargar.visibility = View.INVISIBLE
             txProgress.visibility = View.VISIBLE
             progressDownload.visibility = View.VISIBLE
-            btnDescargar.isEnabled = false
             txProgress.text = "Conetando..."
             downloadThemeDrive()
 
@@ -1002,7 +1042,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
 
             if (downloadedFile != null) {
-                //Toast.makeText(this@Options, "Descarga completa: ${downloadedFile.absolutePath}", Toast.LENGTH_LONG).show()
                 themes.edit().putString("theme", fileNameChannel.replace(".zip", "", ignoreCase = true)).apply()
                 val unzipTheme = UnzipTheme(this@Options, fileNameChannel)
                 unzipTheme.performUnzip(localFile.absolutePath)

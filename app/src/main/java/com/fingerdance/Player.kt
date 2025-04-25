@@ -119,7 +119,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
     private val inputProcessor = InputProcessor()
 
-    private var speed = playerSong.speed.replace("X", "").toFloat()
+    private var speed = playerSong.speed.replace("X", "").toFloat() + 1f
 
     private var currentTimeToExpands = 0L
 
@@ -259,7 +259,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         val fGapPerStep  = (STEPSIZE * speed)
         var iPtnTop: Long
         var iPtnBottom: Long
-
         if(ksf.patterns[iPtnNowNo].timeDelay != 0L){
             time = ksf.patterns[iPtnNowNo].timePos + timeToBpm
         }
