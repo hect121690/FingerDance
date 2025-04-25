@@ -42,7 +42,6 @@ import com.google.gson.GsonBuilder
 import java.io.File
 import java.io.FileInputStream
 
-
 private lateinit var soundSelecctChannel : MediaPlayer
 
 private lateinit var soundPool: SoundPool
