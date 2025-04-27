@@ -43,8 +43,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     lateinit var arrayPad4Bg : Array<TextureRegion>
     lateinit var arrayPad4 : Array<TextureRegion>
 
-    private val bgBarLife = Texture(Gdx.files.internal("bg_barlife.png"))
-
     val recept0Frames = getReceptsTexture(textureLD)
     val recept1Frames = getReceptsTexture(textureLU)
     val recept2Frames = getReceptsTexture(textureCE)
@@ -126,7 +124,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
             batch.begin()
 
-            batch.draw(bgBarLife, 0f, 0f, width.toFloat(), medidaFlechas)
             //batch.color = Color(0f, 0f, 0f, 0f)
 
             elapsedTime += delta

@@ -551,16 +551,18 @@ class SelectSong : AppCompatActivity() {
             */
             //var isRankingFocus = false
             imgBestScore.setOnClickListener{
-                if(!commandWindow.isVisible){
-                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    rankingView.visibility = View.VISIBLE
-                    rankingView.startAnimation(animOn)
-                    rankingView.setIconDrawable(imgLvSelected.drawable)
-                    rankingView.setNiveles(niveles[positionActualLvs])
-                    constraintMain.addView(linearRanking)
-                    nav_back_der.bringToFront()
-                    nav_back_Izq.bringToFront()
-                    rankingView.bringToFront()
+                if(niveles[positionActualLvs].fisrtRank.size > 0){
+                    if(!commandWindow.isVisible){
+                        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                        rankingView.visibility = View.VISIBLE
+                        rankingView.startAnimation(animOn)
+                        rankingView.setIconDrawable(imgLvSelected.drawable)
+                        rankingView.setNiveles(niveles[positionActualLvs])
+                        constraintMain.addView(linearRanking)
+                        nav_back_der.bringToFront()
+                        nav_back_Izq.bringToFront()
+                        rankingView.bringToFront()
+                    }
                 }
             }
 
@@ -1414,17 +1416,21 @@ class SelectSong : AppCompatActivity() {
 
     private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
         var bestGrade = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-        when (niveles[positionActualLvs].fisrtRank[0].grade){
-            "SSS" ->{bestGrade = arrayBestGrades[0]}
-            "SS" ->{bestGrade = arrayBestGrades[1]}
-            "S" ->{bestGrade = arrayBestGrades[2]}
-            "A" ->{bestGrade = arrayBestGrades[3]}
-            "B" ->{bestGrade = arrayBestGrades[4]}
-            "C" ->{bestGrade = arrayBestGrades[5]}
-            "D" ->{bestGrade = arrayBestGrades[6]}
-            "F" ->{bestGrade = arrayBestGrades[7]}
+        return if(niveles[positionActualLvs].fisrtRank.size > 0){
+            when (niveles[positionActualLvs].fisrtRank[0].grade){
+                "SSS" ->{bestGrade = arrayBestGrades[0]}
+                "SS" ->{bestGrade = arrayBestGrades[1]}
+                "S" ->{bestGrade = arrayBestGrades[2]}
+                "A" ->{bestGrade = arrayBestGrades[3]}
+                "B" ->{bestGrade = arrayBestGrades[4]}
+                "C" ->{bestGrade = arrayBestGrades[5]}
+                "D" ->{bestGrade = arrayBestGrades[6]}
+                "F" ->{bestGrade = arrayBestGrades[7]}
+            }
+            bestGrade
+        }else{
+            bestGrade
         }
-        return bestGrade
     }
 
     private fun openCommandWindow() {
@@ -1556,18 +1562,26 @@ class SelectSong : AppCompatActivity() {
         val currentBestWorldGrade = getWorldBitMapGrade(positionActualLvs)
         imgWorldGrade.setImageBitmap(currentBestWorldGrade)
 
-        lbWorldName.text = if(niveles[positionActualLvs].fisrtRank[0].nombre != "") niveles[positionActualLvs].fisrtRank[0].nombre else "---------"
-        lbWorldScore.text = if(niveles[positionActualLvs].fisrtRank[0].puntaje != "") niveles[positionActualLvs].fisrtRank[0].puntaje else "0"
-        currentWorldScore = listOf(niveles[positionActualLvs].fisrtRank[0].puntaje,
-            niveles[positionActualLvs].fisrtRank[1].puntaje,
-            niveles[positionActualLvs].fisrtRank[2].puntaje
-        )
+        if(niveles[positionActualLvs].fisrtRank.size > 0) {
+            lbWorldName.text = if (niveles[positionActualLvs].fisrtRank[0].nombre != "") niveles[positionActualLvs].fisrtRank[0].nombre else "---------"
+            lbWorldScore.text = if (niveles[positionActualLvs].fisrtRank[0].puntaje != "") niveles[positionActualLvs].fisrtRank[0].puntaje else "0"
+            currentWorldScore = listOf(
+                niveles[positionActualLvs].fisrtRank[0].puntaje,
+                niveles[positionActualLvs].fisrtRank[1].puntaje,
+                niveles[positionActualLvs].fisrtRank[2].puntaje
+            )
+        }else{
+            lbWorldName.text = "---------"
+            lbWorldScore.text = "0"
+            currentWorldScore = listOf(
+                "1000000",
+                "1000000",
+                "1000000"
+            )
+        }
 
         playerSong.level = lv.level
         playerSong.stepMaker = lv.stepmaker
-
-        //txOffset.text = if(listSongScores[positionActualLvs].offset != "0") listSongScores[positionActualLvs].offset else valueOffset.toString()
-        //valueOffset = txOffset.text.toString().toLong()
 
         val layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
 

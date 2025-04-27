@@ -107,7 +107,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     var gauge = 0f
     var m_fCurBPM  = 0F
     private var arrowFrame = 0
-    private var iCurPtnNum = 0
+    private var mCurPtnNum = 0
     private var m_iStepWidth = 5
     var curCombo = 0
     private var bBpmFound = false
@@ -192,6 +192,14 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         inputProcessor.resetState()
     }
 
+    private data class LongNotePress(
+        var pressed: Boolean = false,
+        var time: Long = 0,
+        var ptn: Int = 0,
+        var line: Int = 0,
+    )
+
+
     fun render(delta: Long) {
         var time = delta
         val timeCom = SystemClock.uptimeMillis() //System.currentTimeMillis()
@@ -219,7 +227,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             iPtnNowNo = ksf.patterns.size - 1
         } else {
             bBpmFound = false
-            for (iPtnNo in iCurPtnNum until ksf.patterns.size) {
+            for (iPtnNo in mCurPtnNum until ksf.patterns.size) {
                 val pPtnCur = ksf.patterns[iPtnNo]
                 if (time >= pPtnCur.timePos + timeToBpm && time < pPtnCur.timePos + timeToBpm + pPtnCur.timeLen) {
                     var currentPattern = pPtnCur
@@ -254,7 +262,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
         }
 
-        iCurPtnNum = iPtnNowNo
+        mCurPtnNum = iPtnNowNo
 
         val fGapPerStep  = (STEPSIZE * speed)
         var iPtnTop: Long
@@ -338,12 +346,237 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
-    private data class LongNotePress(
-        var pressed: Boolean = false,
-        var time: Long = 0,
-        var ptn: Int = 0,
-        var line: Int = 0,
-    )
+    /*
+    fun render(time: Long) {
+        val timeCom = System.currentTimeMillis()
+        val bDrawLong = BooleanArray(5) { false }
+        val bDrawLongPress = BooleanArray(5) { false }
+        val iLongTop = LongArray(5) { 0 }
+        var iPtnNo: Int
+        var iPtnNowNo = 0
+        var iLineNo: Int
+        var iStepNo: Int
+
+        if(showPadB == 0){
+            inputProcessor.render(batch)
+        }
+        inputProcessor.update()
+
+        arrowFrame = ((timeCom % 1000) / 200).toInt()
+
+        val pPtnFirst = ksf.patterns.first()
+        val pPtnLast = ksf.patterns.last()
+
+        // Find current BPM
+        if (time < pPtnFirst.timePos + timeToBpm) {
+            m_fCurBPM = pPtnFirst.fBPM
+            iPtnNowNo = 0
+        } else if (time > pPtnLast.timePos + timeToBpm) {
+            m_fCurBPM = pPtnLast.fBPM
+            iPtnNowNo = ksf.patterns.size - 1
+        } else {
+            var bBpmFound = false
+            iPtnNo = mCurPtnNum
+            while (iPtnNo < ksf.patterns.size) {
+                // Check if time is within this pattern's music range
+                val pPtnCur = ksf.patterns[iPtnNo]
+                if (time >= pPtnCur.timePos + timeToBpm && time < pPtnCur.timePos + timeToBpm + pPtnCur.timeLen) {
+                    var tempPtnCur = pPtnCur
+                    var tempPtnNo = iPtnNo
+                    while (tempPtnCur.fBPM == 0f) {
+                        tempPtnCur = ksf.patterns[--tempPtnNo]
+                    }
+                    m_fCurBPM = tempPtnCur.fBPM
+                    iPtnNowNo = iPtnNo
+                    bBpmFound = true
+                    break
+                }
+                iPtnNo++
+            }
+
+            if (!bBpmFound) {
+                iPtnNo = 0
+                while (iPtnNo < ksf.patterns.size - 1) {
+                    // Check if time is between this pattern and the next
+                    val pPtnCur = ksf.patterns[iPtnNo]
+                    val pPtnNext = ksf.patterns[iPtnNo + 1]
+                    if (time >= pPtnCur.timePos && time < pPtnNext.timePos) {
+                        var tempPtnCur = pPtnCur
+                        var tempPtnNo = iPtnNo
+                        while (tempPtnCur.fBPM == 0f) {
+                            tempPtnCur = ksf.patterns[--tempPtnNo]
+                        }
+                        m_fCurBPM = tempPtnCur.fBPM
+                        iPtnNowNo = iPtnNo
+                        break
+                    }
+                    iPtnNo++
+                }
+            }
+        }
+        mCurPtnNum = iPtnNowNo
+
+        iLineNo = arrowFrame
+
+        arrowFrame = iLineNo
+
+        val fGapPerStep = (STEPSIZE * speed)
+        var iPtnTop: Int
+        var iPtnBottom: Int // Actual output coordinates of the first and last steps of the pattern
+
+        var timeToUse = time
+        if (ksf.patterns[iPtnNowNo].timeDelay != 0L) {
+            timeToUse = ksf.patterns[iPtnNowNo].timePos + timeToBpm
+        }
+        iPtnTop = ((ksf.patterns[iPtnNowNo].timePos - timeToUse) * m_fCurBPM * speed * 0.001f).toInt()
+
+        // Process patterns before current pattern
+        iPtnNo = iPtnNowNo - 1
+        while (iPtnNo >= 0) {
+            if (iPtnTop < -STEPSIZE) {
+                break
+            }
+
+            val pPtnCur = ksf.patterns[iPtnNo]
+            val fPtnTick = pPtnCur.iTick.toFloat()
+            val iLineCnt = pPtnCur.vLine.size
+            iPtnBottom = iPtnTop
+            iPtnTop = iPtnBottom - ((iLineCnt * fGapPerStep / fPtnTick).toInt())
+
+            for (iLineNo in 0 until iLineCnt) {
+                val iNoteTop = iPtnTop + ((iLineNo * fGapPerStep / fPtnTick).toInt()) + STEPSIZE
+                if (iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height) {
+                    for (iStepNo in 0 until m_iStepWidth) {
+                        val nowstep = pPtnCur.vLine[iLineNo].step[iStepNo]
+                        if ((nowstep and NOTE_NOTE_CHK) != 0.toByte()) {
+                            drawNote(iStepNo, iNoteTop)
+                        } else if ((nowstep and NOTE_LONG_CHK) != 0.toByte()) {
+                            if ((nowstep and NOTE_START_CHK) != 0.toByte()) {
+                                if ((nowstep and NOTE_PRESS_CHK) != 0.toByte()) {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = STEPSIZE.toLong()
+                                    bDrawLongPress[iStepNo] = true
+                                } else {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = iNoteTop.toLong()
+                                }
+                                drawNote(iStepNo, iLongTop[iStepNo].toInt())
+                            } else if ((nowstep and NOTE_END_CHK) != 0.toByte()) {
+                                if ((nowstep and NOTE_PRESS_CHK) != 0.toByte()) {
+                                    drawNote(iStepNo, STEPSIZE)
+                                    drawNote(iStepNo, iNoteTop)
+                                    drawLongNote(iStepNo, STEPSIZE, iNoteTop)
+                                    bDrawLongPress[iStepNo] = true
+                                } else {
+                                    if (bDrawLong[iStepNo]) {
+                                        bDrawLong[iStepNo] = false
+                                    }
+                                    drawNote(iStepNo, iNoteTop)
+                                    drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
+                                }
+                            } else {
+                                if (!bDrawLong[iStepNo]) {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = (-STEPSIZE).toLong()
+                                }
+                            }
+                        }
+                    }
+                } else if (iNoteTop >= Gdx.graphics.height) {
+                    break
+                }
+            }
+            iPtnNo--
+        }
+
+        // Process current and future patterns
+        iPtnBottom = ((ksf.patterns[iPtnNowNo].timePos - timeToUse) * m_fCurBPM * speed * 0.001f).toInt()
+        iPtnNo = iPtnNowNo
+        while (iPtnNo < ksf.patterns.size) {
+            if (iPtnBottom > Gdx.graphics.height) {
+                break
+            }
+
+            val pPtnCur = ksf.patterns[iPtnNo]
+            val fPtnTick = pPtnCur.iTick.toFloat()
+            val iLineCnt = pPtnCur.vLine.size
+            iPtnTop = iPtnBottom
+            iPtnBottom = iPtnTop + ((iLineCnt * fGapPerStep / fPtnTick).toInt())
+
+            for (iLineNo in 0 until iLineCnt) {
+                val iNoteTop = iPtnTop + ((iLineNo * fGapPerStep / fPtnTick).toInt()) + STEPSIZE
+                if (iNoteTop > -STEPSIZE && iNoteTop < Gdx.graphics.height) {
+                    for (iStepNo in 0 until m_iStepWidth) {
+                        val nowstep = pPtnCur.vLine[iLineNo].step[iStepNo]
+                        if ((nowstep and NOTE_NOTE_CHK) != 0.toByte()) {
+                            drawNote(iStepNo, iNoteTop)
+                        } else if ((nowstep and NOTE_LONG_CHK) != 0.toByte()) {
+                            if ((nowstep and NOTE_START_CHK) != 0.toByte()) {
+                                if ((nowstep and NOTE_PRESS_CHK) != 0.toByte()) {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = STEPSIZE.toLong()
+                                    bDrawLongPress[iStepNo] = true
+                                } else {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = iNoteTop.toLong()
+                                }
+                                drawNote(iStepNo, iLongTop[iStepNo].toInt())
+                            } else if ((nowstep and NOTE_END_CHK) != 0.toByte()) {
+                                if ((nowstep and NOTE_PRESS_CHK) != 0.toByte()) {
+                                    drawNote(iStepNo, STEPSIZE)
+                                    drawNote(iStepNo, iNoteTop)
+                                    drawLongNote(iStepNo, STEPSIZE, iNoteTop)
+                                    bDrawLongPress[iStepNo] = true
+                                } else {
+                                    if (bDrawLong[iStepNo]) {
+                                        bDrawLong[iStepNo] = false
+                                    }
+                                    drawNote(iStepNo, iNoteTop)
+                                    drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
+                                }
+                            } else {
+                                if (!bDrawLong[iStepNo]) {
+                                    bDrawLong[iStepNo] = true
+                                    iLongTop[iStepNo] = (-STEPSIZE).toLong()
+                                }
+                            }
+                        }
+                    }
+                } else if (iNoteTop >= Gdx.graphics.height) {
+                    break
+                }
+            }
+            iPtnNo++
+        }
+
+        // Draw remaining long notes
+        for (iStepNo in 0 until m_iStepWidth) {
+            if (bDrawLong[iStepNo]) {
+                drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), Gdx.graphics.height)
+            }
+        }
+
+        // Draw flares and long note presses
+        for (iStepNo in 0 until m_iStepWidth) {
+            if (bDrawLongPress[iStepNo]) {
+                drawLongNotePress(iStepNo)
+            }
+
+            if (flare[iStepNo].startTime == 0L) {
+                continue
+            }
+
+            val flareTime = timeCom - flare[iStepNo].startTime // Temporary use
+            val flareFrame = flareTime.shr(6).toInt()
+            if (flareFrame >= 6) {
+                flare[iStepNo].startTime = 0
+                continue
+            }
+            drawFlare(iStepNo, flareFrame)
+        }
+
+    }
+    */
 
     fun updateStepData(time: Long) {
         val timeCom = SystemClock.uptimeMillis()
@@ -611,7 +844,296 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
+    /*
+    fun updateStepData(time: Long) {
+        //var x: Int                // Key number
+        var iptn: Int             // Pattern number
+        val iptnc = ksf.patterns.size  // Pattern count
+        var lineNumS: Int         // Start line number in the pattern
+        var lineNumC: Int         // Line count in the pattern
+        var judgeTime: Long        // Time difference between current time and step time
+        var lineMpos: Long         // Time position of the line
+        var lineNum: Int          // Line number in the pattern
+        var judge: Int            // Judgment
+        val key = IntArray(5)   // Key information
+        var ptnNow: KsfProccess.Pattern
 
+        val keyboard = inputProcessor.getKeyBoard
+        for (i in 0 until m_iStepWidth) {
+            key[i] = keyboard[i]
+        }
+
+        for (x in 0 until stepWidth)  {
+            if (key[x] == KEY_DOWN) {
+                showExpand(x)
+                iptn = 0
+                while (iptn < iptnc) {
+                    ptnNow = ksf.patterns[iptn]
+                    val timepos = ptnNow.timePos + timeToPresiscion
+                    if (time < timepos - ZONE_BAD) {
+                        break
+                    }
+                    if (time > (timepos + ptnNow.timeLen + ZONE_BAD)) {
+                        iptn++
+                        continue
+                    }
+                    if (ptnNow.fBPM == 0f) {
+                        iptn++
+                        continue
+                    }
+
+                    lineNumS = ((time - timepos - ZONE_BAD) / 60000f * ptnNow.fBPM * ptnNow.iTick).toInt()
+                    lineNumC = ptnNow.vLine.size
+                    if (lineNumS < 0) {
+                        lineNumS = 0
+                    }
+
+                    lineNum = lineNumS
+                    while (lineNum < lineNumC) {
+                        lineMpos = (60000 / ptnNow.fBPM * lineNum / ptnNow.iTick).toLong().toInt() + timepos
+                        judgeTime = abs(lineMpos - time)
+                        if (judgeTime < ZONE_BAD) {
+                            val nnote = ptnNow.vLine[lineNum].step[x]
+                            if ((nnote and NOTE_MISS_CHK) != 0.toByte()) {
+                                lineNum++
+                                continue
+                            }
+
+                            if (nnote == NOTE_NOTE) {
+                                ptnNow.vLine[lineNum].step[x] = NOTE_NONE
+                                ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_NONE
+
+                                judge = getJudgement(judgeTime)
+                                getJudge(judge)
+                                gauge = GaugeIncNormal[judge]
+                                newFlare(x, System.currentTimeMillis())
+                                if(gauge >= 3){
+                                    lifeBar.increaseLife(gauge)
+                                }else if(gauge < 0){
+                                    lifeBar.decreaseLife(abs(gauge))
+                                }
+                                key[x] = KEY_NONE  // Exit
+                            } else if (nnote == NOTE_LSTART || nnote == NOTE_LNOTE) {
+                                var stepToChange: Byte
+                                ptnNow.vLine[lineNum].step[x] = NOTE_NONE
+                                ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_NONE
+
+                                if (lineNum + 1 == lineNumC) {
+                                    var nextLongPtn = iptn + 1
+                                    while (ksf.patterns[nextLongPtn].vLine.isEmpty()) {
+                                        nextLongPtn++
+                                    }
+                                    stepToChange = ksf.patterns[nextLongPtn].vLine.first().step[x]
+                                    LONGNOTE[x].ptn = nextLongPtn
+                                    LONGNOTE[x].line = 0
+                                } else {
+                                    stepToChange = ptnNow.vLine[lineNum + 1].step[x]
+                                    LONGNOTE[x].ptn = iptn
+                                    LONGNOTE[x].line = lineNum + 1
+                                }
+
+                                if (stepToChange == NOTE_LNOTE) {
+                                    ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
+                                    ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
+                                } else if (stepToChange == NOTE_LEND) {
+                                    ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LEND_PRESS
+                                    ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LEND_PRESS
+                                }
+
+                                LONGNOTE[x].pressed = true
+                                LONGNOTE[x].time = judgeTime
+                                key[x] = KEY_NONE  // Exit
+
+                                // PENIL section
+                                judgeTime = LONGNOTE[x].time shr 1
+
+                                newFlare(x, System.currentTimeMillis())
+                                judge = getJudgement(judgeTime)
+                                getJudge(judge)
+                                gauge = GaugeIncNormal[judge]
+                                if(gauge >= 3){
+                                    lifeBar.increaseLife(gauge)
+                                }else if(gauge < 0){
+                                    lifeBar.decreaseLife(abs(gauge))
+                                }
+                            }
+                        } else if (lineMpos > time) {
+                            key[x] = KEY_NONE
+                        }
+
+                        if (key[x] == KEY_NONE) {
+                            break
+                        }
+                        lineNum++
+                    }
+
+                    if (key[x] == KEY_NONE) {
+                        break
+                    }
+                    iptn++
+                }
+            } else if (key[x] == KEY_PRESS) {  // Long note
+                showExpand(x)
+                if (LONGNOTE[x].pressed) {
+                    lineNum = LONGNOTE[x].line
+                    iptn = LONGNOTE[x].ptn
+                    ptnNow = ksf.patterns[iptn]
+                    lineMpos = (60000 / ptnNow.fBPM * lineNum / ptnNow.iTick).toLong().toInt() + ptnNow.timePos + timeToPresiscion
+
+                    if (lineMpos <= time) {
+                        ptnNow.vLine[lineNum].step[x] = NOTE_NONE
+                        ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_NONE
+                        if (lineNum + 1 == ptnNow.vLine.size) {
+                            var nextLongPtn = LONGNOTE[x].ptn + 1
+                            while (ksf.patterns[nextLongPtn].vLine.isEmpty()) {
+                                nextLongPtn++
+                            }
+                            LONGNOTE[x].ptn = nextLongPtn
+                            LONGNOTE[x].line = 0
+                        } else {
+                            LONGNOTE[x].line++
+                        }
+
+                        lineNum = LONGNOTE[x].line
+                        iptn = LONGNOTE[x].ptn
+                        ptnNow = ksf.patterns[iptn]
+
+                        if (ptnNow.vLine[lineNum].step[x] == NOTE_LEND) {
+                            ptnNow.vLine[lineNum].step[x] = NOTE_LEND_PRESS
+                            ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LEND_PRESS
+                        } else if (ptnNow.vLine[lineNum].step[x] == NOTE_LNOTE || ptnNow.vLine[lineNum].step[x] == NOTE_LSTART_PRESS ) {
+                            getJudge(0)
+                            ptnNow.vLine[lineNum].step[x] = NOTE_LSTART_PRESS
+                            ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
+                        } else {
+                            // It explodes
+                            judgeTime = LONGNOTE[x].time shr 1
+
+                            judge = getJudgement(judgeTime)
+                            getJudge(judge)
+                            gauge = GaugeIncNormal[judge]
+                            if(gauge >= 3){
+                                lifeBar.increaseLife(gauge)
+                            }else if(gauge < 0){
+                                lifeBar.decreaseLife(abs(gauge))
+                            }
+                            newFlare(x, System.currentTimeMillis())
+                            LONGNOTE[x].pressed = false
+                        }
+                    }
+                }
+            } else if (key[x] == KEY_UP) {  // Miss if released during long note
+                if (LONGNOTE[x].pressed) {
+                    LONGNOTE[x].pressed = false
+                    judgeTime = getLongNoteEndTime(x) - time
+
+                    if (judgeTime < ZONE_BAD) {
+                        judgeTime = abs(judgeTime)
+                        judgeTime += LONGNOTE[x].time
+                        judgeTime = judgeTime shr 1
+
+                        judge = getJudgement(judgeTime)
+                        getJudge(judge)
+                        gauge = GaugeIncNormal[judge]
+                        if(gauge >= 3){
+                            lifeBar.increaseLife(gauge)
+                        }else if(gauge < 0){
+                            lifeBar.decreaseLife(abs(gauge))
+                        }
+                        newFlare(x, System.currentTimeMillis())
+                        clearLongNote(x)
+                    } else {
+                        lineNum = LONGNOTE[x].line
+                        iptn = LONGNOTE[x].ptn
+                        ptnNow = ksf.patterns[iptn]
+
+                        if (ptnNow.vLine[lineNum].step[x] == NOTE_LEND_PRESS) {
+                            ptnNow.vLine[lineNum].step[x] = NOTE_LEND_MISS
+                            ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_LEND_MISS
+                        } else {
+                            ptnNow.vLine[lineNum].step[x] = NOTE_LSTART_MISS
+                            ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_LSTART_MISS
+                        }
+                        getJudge(JUDGE_MISS)
+                        gauge = GaugeIncNormal[JUDGE_MISS]
+                        if(gauge >= 3){
+                            lifeBar.increaseLife(gauge)
+                        }else if(gauge < 0){
+                            lifeBar.decreaseLife(abs(gauge))
+                        }
+                    }
+                }
+            }
+
+            key[x] = KEY_DOWN
+            iptn = chkPtnNum[x]
+            while (iptn < iptnc) {
+                ptnNow = ksf.patterns[iptn]
+                if (time < ptnNow.timePos + timeToPresiscion + ZONE_BAD) {
+                    break
+                }
+
+                lineNumC = ptnNow.vLine.size
+                val lineStart = if (iptn == chkPtnNum[x]) chkLineNum[x] else 0
+
+                lineNum = lineStart
+                while (lineNum < lineNumC) {
+                    lineMpos = (60000 / ptnNow.fBPM * lineNum / ptnNow.iTick).toLong().toInt() + ptnNow.timePos + timeToPresiscion
+                    lineMpos += ZONE_BAD
+
+                    if (lineMpos < time) {
+                        val nnote = ptnNow.vLine[lineNum].step[x]
+                        if ((nnote and NOTE_MISS_CHK) != 0.toByte()) {
+                            lineNum++
+                            continue
+                        }
+                        if ((nnote and NOTE_PRESS_CHK) != 0.toByte()) {
+                            lineNum++
+                            continue
+                        }
+
+                        if (nnote == NOTE_NOTE) {
+                            ptnNow.vLine[lineNum].step[x] = NOTE_NOTE_MISS
+                            ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_NOTE_MISS
+                            getJudge(JUDGE_MISS)
+                            gauge = GaugeIncNormal[JUDGE_MISS]
+                            if(gauge >= 3){
+                                lifeBar.increaseLife(gauge)
+                            }else if(gauge < 0){
+                                lifeBar.decreaseLife(abs(gauge))
+                            }
+                        } else if (nnote == NOTE_LSTART) {
+                            ptnNow.vLine[lineNum].step[x] = NOTE_LSTART_MISS
+                            ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_LSTART_MISS
+                            getJudge(JUDGE_MISS)
+                            gauge = GaugeIncNormal[JUDGE_MISS]
+                            if(gauge >= 3){
+                                lifeBar.increaseLife(gauge)
+                            }else if(gauge < 0){
+                                lifeBar.decreaseLife(abs(gauge))
+                            }
+                        } else if (nnote == NOTE_LEND) {
+                            ptnNow.vLine[lineNum].step[x] = NOTE_LEND_MISS
+                            ksf.patterns[iptn].vLine[lineNum].step[x] = NOTE_LEND_MISS
+                        }
+
+                        chkPtnNum[x] = iptn
+                        chkLineNum[x] = lineNum
+                    } else {
+                        key[x] = KEY_NONE
+                        break
+                    }
+                    lineNum++
+                }
+
+                if (key[x] == KEY_NONE) {
+                    break
+                }
+                iptn++
+            }
+        }
+    }
+    */
 
     private fun getLongNoteEndTime(x: Int): Long {
         val ln = LONGNOTE[x]

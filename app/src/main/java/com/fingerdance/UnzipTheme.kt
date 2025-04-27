@@ -25,7 +25,7 @@ class UnzipTheme (private val context: Context, private val nombreTheme: String)
             if (zipEntry?.isDirectory == true) {
                 file.mkdirs()
             } else {
-                val parent = File(file.parent)
+                val parent = File(file.parent!!)
 
                 if (!parent.exists()) {
                     parent.mkdirs()
