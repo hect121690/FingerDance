@@ -32,6 +32,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
@@ -111,17 +114,8 @@ var widthBtns = 0f
 var padPositions = listOf<Array<Float>>()
 var touchAreas = listOf<Array<Float>>()
 
-var bitPerfect: Bitmap? = null
-var bitGreat: Bitmap? = null
-var bitGood: Bitmap? = null
-var bitBad: Bitmap? = null
-var bitMiss: Bitmap? = null
-
 lateinit var bitmapNumber : Bitmap
 lateinit var bitmapNumberMiss : Bitmap
-
-lateinit var bitmapCombo : Bitmap
-lateinit var bitmapComboMiss : Bitmap
 
 lateinit var numberBitmaps: List<Bitmap>
 lateinit var numberBitmapsMiss: List<Bitmap>
@@ -436,7 +430,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 }
 
                 val packageInfo = packageManager.getPackageInfo(packageName, 0)
-                versionApp = packageInfo.versionName
+                versionApp = packageInfo.versionName!!
 
                 if(version == versionApp){
                     if(versionUpdate != numberUpdate){
@@ -1275,6 +1269,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         soundPlayer!!.release()
     }
 
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         btnExit.performClick()
@@ -1288,15 +1283,13 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun hideSystemUI() {
-        val decorView: View = window.decorView
-        decorView.setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN
-        )
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+
+        windowInsetsController.let { controller ->
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+
     }
 
     private fun animar() {

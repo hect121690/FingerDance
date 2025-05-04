@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.fingerdance'
-    compileSdk 34
+    compileSdk 35
 
     compileOptions {
         targetCompatibility JavaVersion.VERSION_1_8
@@ -15,7 +15,7 @@ android {
     defaultConfig {
         applicationId "com.fingerdance"
         minSdk 28
-        targetSdk 34
+        targetSdk 35
         versionCode 10
         versionName "1.2.1"
 
@@ -48,8 +48,6 @@ android {
             jniLibs.srcDirs = ['src/main/jniLibs']
         }
     }
-
-    buildToolsVersion '30.0.3'
 }
 
 dependencies {
@@ -84,7 +82,7 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-backend-android:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-box2d:1.13.0"
-    implementation 'com.google.android.gms:play-services-ads:23.5.0'
+    implementation 'com.google.android.gms:play-services-ads:24.2.0'
 
     implementation 'com.google.firebase:firebase-database:21.0.0'
 

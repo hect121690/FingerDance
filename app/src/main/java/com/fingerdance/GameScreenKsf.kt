@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.os.SystemClock
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.GL20
@@ -24,6 +25,38 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private val padCenter = TextureRegion(Texture(Gdx.files.external("$rutaPads/center.png")))
     private val padRightUp = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_up.png")))
     private val padRightDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_down.png")))
+
+    private val imgPerfect = TextureRegion(Texture(Gdx.files.external("$rutaPads/perfect.png")))
+    private val imgGreat = TextureRegion(Texture(Gdx.files.external("$rutaPads/great.png")))
+    private val imgGood = TextureRegion(Texture(Gdx.files.external("$rutaPads/good.png")))
+    private val imgBad = TextureRegion(Texture(Gdx.files.external("$rutaPads/bad.png")))
+    private val imgMiss = TextureRegion(Texture(Gdx.files.external("$rutaPads/miss.png")))
+
+    val imgsJudge = arrayOf(imgPerfect, imgGreat, imgGood, imgBad, imgMiss)
+
+    private val imgCombo = TextureRegion(Texture(Gdx.files.external("$rutaPads/combo.png")))
+    private val imgComboMiss = TextureRegion(Texture(Gdx.files.external("$rutaPads/comboMiss.png")))
+
+    val imgsTypeCombo = arrayOf(imgCombo, imgComboMiss)
+
+    val imgNumbers = Texture(Gdx.files.external("$rutaPads/numbersCombo.png"))
+    val imgNumbersMiss = Texture(Gdx.files.external("$rutaPads/numbersComboMiss.png"))
+
+    val listNumbers = getListNumbers(imgNumbers)
+    val listNumbersMiss = getListNumbers(imgNumbersMiss)
+
+    private val backgroundTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife0.png"))
+    private val barBlackTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png"))
+    private val barRedTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife2.png"))
+    private val barLifeTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife3.png"))
+
+    val barFrame = Sprite(backgroundTexture)
+    val barBlack = Sprite(barBlackTexture)
+    val barRed = Sprite(barRedTexture)
+    val barColors = Sprite(barLifeTexture)
+
+    private val barTipTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/bar_tip.png"))
+    val barTip = Sprite(barTipTexture)
 
     private lateinit var padB : TextureRegion
     lateinit var spritePadB: Sprite
@@ -62,6 +95,13 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private var showOverlay = false
     private var intervalOverlay = 60000 / displayBPM
 
+    val gdxHeight = Gdx.graphics.height
+    val maxWidth = medidaFlechas * 5f
+    val maxlHeight = medidaFlechas / 2f
+
+    val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f)
+    val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.2f)
+
     data class PadPositionC(val x: Float, val y: Float, val size: Float)
     val padPositionsC = listOf(
         PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.61f, medidaFlechas * 3f),
@@ -90,13 +130,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")))
             arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")))
         }
-
+        imgsJudge.forEach { it.flip(false, true) }
+        imgsTypeCombo.forEach { it.flip(false, true) }
     }
     override fun show() {
         batch = SpriteBatch()
         stage = Stage(ScreenViewport())
-        stage.addActor(lifeBar)
-
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
@@ -111,7 +150,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             padRightUp.flip(false, true)
             padRightDown.flip(false, true)
         }
-
     }
 
     override fun render(delta: Float) {
@@ -141,12 +179,23 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             player.updateStepData(currentTime)
             player.render(currentTime)
 
+            barBlack.setSize(maxWidth, maxlHeight)
+            barBlack.setPosition(medidaFlechas, 0f)
+
+            barRed.setSize(maxWidth, maxlHeight)
+            barRed.setPosition(medidaFlechas, 0f)
+
             batch.end()
             stage.act(delta)
         }
 
         stage.draw()
     }
+
+    fun timeGetTime(): Long{
+        return SystemClock.uptimeMillis()
+    }
+
     private fun getTexturePad4(texture: Texture): Array<TextureRegion> {
         val tmp = TextureRegion.split(texture, texture.width / 5, texture.height)
         val frames = arrayOf(
@@ -242,6 +291,34 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         return frames
     }
 
+    private fun getListNumbers(arrow: Texture) : Array<TextureRegion> {
+        val tmp = TextureRegion.split(arrow, arrow.width / 10, arrow.height)
+        val frames = arrayOf(
+            tmp[0][0],
+            tmp[0][1],
+            tmp[0][2],
+            tmp[0][3],
+            tmp[0][4],
+            tmp[0][5],
+            tmp[0][6],
+            tmp[0][7],
+            tmp[0][8],
+            tmp[0][9]
+        )
+        frames[0].flip(false, true)
+        frames[1].flip(false, true)
+        frames[2].flip(false, true)
+        frames[3].flip(false, true)
+        frames[4].flip(false, true)
+        frames[5].flip(false, true)
+        frames[6].flip(false, true)
+        frames[7].flip(false, true)
+        frames[8].flip(false, true)
+        frames[9].flip(false, true)
+
+        return frames
+    }
+
     override fun resize(width: Int, height: Int) {}
 
     override fun pause() {
@@ -257,37 +334,49 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     override fun dispose() {
         batch.dispose()
         stage.dispose()
-        player.disposePlayer()
-        lifeBar.dispose()
-        playerSong.values.notes.clear()
-        elapsedTime = 0f
-        rithymAnim = 0f
+
+        padLefDown.texture.dispose()
+        padLeftUp.texture.dispose()
+        padCenter.texture.dispose()
+        padRightUp.texture.dispose()
+        padRightDown.texture.dispose()
+
+        imgPerfect.texture.dispose()
+        imgGreat.texture.dispose()
+        imgGood.texture.dispose()
+        imgBad.texture.dispose()
+        imgMiss.texture.dispose()
+
+        imgCombo.texture.dispose()
+        imgComboMiss.texture.dispose()
+
+        imgNumbers.dispose()
+        imgNumbersMiss.dispose()
 
         textureLD.dispose()
         textureLU.dispose()
         textureCE.dispose()
 
-        if(showPadB == 0){
-            padLefDown.texture.dispose()
-            padLeftUp.texture.dispose()
-            padCenter.texture.dispose()
-            padRightUp.texture.dispose()
-            padRightDown.texture.dispose()
-        }else if(showPadB == 1){
+        backgroundTexture.dispose()
+        barBlackTexture.dispose()
+        barRedTexture.dispose()
+        barLifeTexture.dispose()
+        barTipTexture.dispose()
+
+        if (showPadB == 1 || showPadB == 2) {
             padB.texture.dispose()
-        }else if(showPadB == 2){
-            padLefDownC.forEach { it.texture.dispose() }
-            padLeftUpC.forEach { it.texture.dispose() }
-            padCenterC.forEach { it.texture.dispose() }
-            padRightUpC.forEach { it.texture.dispose() }
-            padRightDownC.forEach { it.texture.dispose() }
         }
-        recept0Frames.forEach { it.texture.dispose() }
-        recept1Frames.forEach { it.texture.dispose() }
-        recept2Frames.forEach { it.texture.dispose() }
-        recept3Frames.forEach { it.texture.dispose() }
-        recept4Frames.forEach { it.texture.dispose() }
 
+        if (showPadB == 2) {
+            arrPadsC.forEach { it[0].texture.dispose() }
+        }
 
+        if (showPadB == 3) {
+            arrayPad4Bg[0].texture.dispose()
+            arrayPad4[0].texture.dispose()
+        }
+
+        player.disposePlayer()
     }
+
 }

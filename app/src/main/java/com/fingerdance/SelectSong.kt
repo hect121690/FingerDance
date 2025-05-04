@@ -4,14 +4,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Resources
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.net.Uri
-import android.os.*
-import android.renderscript.*
+import android.os.Build
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -20,11 +25,21 @@ import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
-import android.widget.*
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
+import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSmoothScroller
@@ -33,15 +48,17 @@ import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
 import com.fingerdance.databinding.ActivitySelectSongBinding
-import com.google.android.gms.ads.*
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.math.BigDecimal
-import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -376,9 +393,6 @@ class SelectSong : AppCompatActivity() {
             bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
             bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
 
-            bitmapCombo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/combo.png").toString())
-            bitmapComboMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/comboMiss.png").toString())
-
             numberBitmaps = ArrayList<Bitmap>().apply {
                 var i = 0
                 for (a in 0 until 10) {
@@ -430,14 +444,6 @@ class SelectSong : AppCompatActivity() {
             nav_back_Izq.setImageDrawable(navBackIzq)
             nav_back_der.setImageDrawable(navBackDer)
 
-            val rutaBtns = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play").toString()
-
-            bitPerfect = BitmapFactory.decodeFile("$rutaBtns/perfect.png")!!
-            bitGreat = BitmapFactory.decodeFile("$rutaBtns/great.png")!!
-            bitGood = BitmapFactory.decodeFile("$rutaBtns/good.png")!!
-            bitBad = BitmapFactory.decodeFile("$rutaBtns/bad.png")!!
-            bitMiss = BitmapFactory.decodeFile("$rutaBtns/miss.png")!!
-
             llenaCommands(listCommands)
 
             //Por ahora solo se enviaran KSF
@@ -455,7 +461,6 @@ class SelectSong : AppCompatActivity() {
             }else if (listSongsChannelKsf.size > 0){
                 listItemsKsf = createSongListKsf()
             }
-
 
             setupRecyclerView(width / 5, width / 5)
             //var num = listItems.size / 2
@@ -1584,11 +1589,10 @@ class SelectSong : AppCompatActivity() {
         playerSong.stepMaker = lv.stepmaker
 
         val layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
-
         recyclerLvs.post {
             layoutManager.scrollToPositionWithOffset(positionActualLvs, 0)
             recyclerLvs.post {
-                moveIndicatorToPosition(positionActualLvs) // Asegura que el indicador se mueva después del desplazamiento
+                moveIndicatorToPosition(positionActualLvs)
             }
         }
     }
@@ -2008,14 +2012,13 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun hideSystemUI() {
-    val decorView: View = window.decorView
-    decorView.setSystemUiVisibility(
-        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_FULLSCREEN)
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+
+        windowInsetsController.let { controller ->
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+
     }
 
 }

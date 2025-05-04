@@ -59,6 +59,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var txProgress : TextView
     private lateinit var progressDownload: ProgressBar
     private lateinit var btnDescargar : Button
+    private lateinit var btnCerrarDialog : Button
     private lateinit var txTitle : TextView
     private var filePath = ""
     private var fileNameChannel = ""
@@ -982,13 +983,14 @@ class Options() : AppCompatActivity(), ItemClickListener {
     }
 
     private fun showCustomDialog() {
-        val dialog = Dialog(this)
+        val dialog = Dialog(this, R.style.TransparentDialog)
         dialog.setContentView(R.layout.dialog_more_themes)
         dialog.setCancelable(false)
         recyclerFireBase = dialog.findViewById(R.id.listThemesDropBox)
         txProgress = dialog.findViewById(R.id.txProgress)
         progressDownload = dialog.findViewById(R.id.progressMoreThemes)
         btnDescargar = dialog.findViewById(R.id.btnDescargar)
+        btnCerrarDialog = dialog.findViewById(R.id.btnCerrarDialog)
         txTitle = dialog.findViewById(R.id.txTitle)
         val mitextoU = SpannableString("Selecciona el tema que deseas descargar.")
         mitextoU.setSpan(UnderlineSpan(), 0, mitextoU.length, 0)
@@ -1003,7 +1005,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val adapter = ThemesItemsAdapter(listThemesDrive, btnDescargar, this)
         recyclerFireBase.adapter = adapter
-
         dialog.show()
 
         btnDescargar.setOnClickListener {
@@ -1011,8 +1012,12 @@ class Options() : AppCompatActivity(), ItemClickListener {
             txProgress.visibility = View.VISIBLE
             progressDownload.visibility = View.VISIBLE
             txProgress.text = "Conetando..."
+            btnCerrarDialog.isVisible = false
             downloadThemeDrive()
-
+        }
+        btnCerrarDialog.setBackgroundColor(ContextCompat.getColor(this@Options, R.color.negative_red))
+        btnCerrarDialog.setOnClickListener {
+            dialog.dismiss()
         }
     }
 
@@ -1125,7 +1130,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             fun bind(item: Pair<String, String>) {
                 textViewItem.text = item.first
                 if (absoluteAdapterPosition == selectedItemPosition) {
-                    textViewItem.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.teal_200))
+                    textViewItem.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.progreso_textview_moderno))
                     btnDescargar.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.progreso_textview_moderno))
                 } else {
                     textViewItem.setBackgroundColor(Color.TRANSPARENT)
@@ -1133,7 +1138,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 itemView.setOnClickListener {
 
                     val previousSelectedItemPosition = selectedItemPosition
-                    selectedItemPosition = adapterPosition
+                    selectedItemPosition = absoluteAdapterPosition
 
                     if (previousSelectedItemPosition != RecyclerView.NO_POSITION) {
                         notifyItemChanged(previousSelectedItemPosition)

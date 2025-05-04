@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#FFFFFF"
+    android:background="@drawable/rounded_dialog"
     android:orientation="vertical"
     android:padding="16dp">
 
@@ -11,21 +11,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textAlignment="center"
-        android:textColor="#2C3EA1"
+        android:textColor="@color/fondo_textview_vibrante"
         android:textSize="20sp"
         android:textStyle="bold" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/listThemesDropBox"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp" />
 
     <TextView
         android:id="@+id/txProgress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Descargando"
-        android:textColor="#000000" />
+        android:textColor="@color/white" />
 
     <ProgressBar
         android:id="@+id/progressMoreThemes"
@@ -33,11 +34,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
-    <Button
-        android:id="@+id/btnDescargar"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Descargar" />
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnDescargar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:text="Descargar" />
+
+        <Button
+            android:id="@+id/btnCerrarDialog"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:text="Cerrar" />
+    </LinearLayout>
 
 
 </LinearLayout>

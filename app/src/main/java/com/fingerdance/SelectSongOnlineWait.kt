@@ -2,21 +2,31 @@ package com.fingerdance
 
 import android.content.pm.ActivityInfo
 import android.content.res.Resources
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.net.Uri
-import android.os.*
-import android.renderscript.*
+import android.os.Build
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.Handler
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
-import android.widget.*
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
+import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
@@ -26,12 +36,13 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.gms.ads.*
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.math.BigDecimal
-import java.util.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -310,25 +321,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
         bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
 
-        bitmapCombo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/combo.png").toString())
-        bitmapComboMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/comboMiss.png").toString())
-
-        numberBitmaps = ArrayList<Bitmap>().apply {
-            var i = 0
-            for (a in 0 until 10) {
-                add(Bitmap.createBitmap(bitmapNumber, i, 0, bitmapNumber.width / 10, bitmapNumber.height))
-                i += bitmapNumber.width / 10
-            }
-        }
-
-        numberBitmapsMiss = ArrayList<Bitmap>().apply {
-            var i = 0
-            for (a in 0 until 10) {
-                add(Bitmap.createBitmap(bitmapNumberMiss, i, 0, bitmapNumberMiss.width / 10, bitmapNumberMiss.height))
-                i += bitmapNumberMiss.width / 10
-            }
-        }
-
         nav_izq = findViewById(R.id.nav_izq_song)
         nav_der = findViewById(R.id.nav_der_song)
         nav_back_Izq = findViewById(R.id.back_izq)
@@ -358,14 +350,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         nav_der.setImageDrawable(navDer)
         nav_back_Izq.setImageDrawable(navBackIzq)
         nav_back_der.setImageDrawable(navBackDer)
-
-        val rutaBtns = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play").toString()
-
-        bitPerfect = BitmapFactory.decodeFile("$rutaBtns/perfect.png")!!
-        bitGreat = BitmapFactory.decodeFile("$rutaBtns/great.png")!!
-        bitGood = BitmapFactory.decodeFile("$rutaBtns/good.png")!!
-        bitBad = BitmapFactory.decodeFile("$rutaBtns/bad.png")!!
-        bitMiss = BitmapFactory.decodeFile("$rutaBtns/miss.png")!!
 
         llenaCommands(listCommands)
 
