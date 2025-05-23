@@ -295,20 +295,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }else {
             speed = baseSpeed
         }
-        /*
-        if (activeSpeedDelta != null) {
-            val (valueSpeed, duration) = activeSpeedDelta!!
-            val elapsed = (time - speedChangeStartTime).coerceAtLeast(0L)
-            val progress = (elapsed.toFloat() / duration).coerceIn(0f, 1f)
-            speed = baseSpeed * (1f + valueSpeed * progress)
-
-            if (elapsed >= duration) {
-                speed = baseSpeed
-                activeSpeedDelta = null
-
-            }
-        }
-        */
 
         iPtnTop = adaptValue((((ksf.patterns[iPtnNowNo].timePos + timeToPresiscion) - time) * m_fCurBPM * speed * 0.001f).toLong())
 
