@@ -274,7 +274,7 @@ class SelectChannel : AppCompatActivity() {
 
             if(listChannels[position].listCanciones.size > 0 || listChannels[position].listCancionesKsf.size > 0){
 
-
+                /*
                 val gson = GsonBuilder().setPrettyPrinting().create()
                 val i = position
                 val newList = arrayListOf<Canal>()
@@ -294,7 +294,7 @@ class SelectChannel : AppCompatActivity() {
                 //}
 
                 val json = gson.toJson(canal)
-
+                */
 
                 /*
                 //Funcion para agregar niveles

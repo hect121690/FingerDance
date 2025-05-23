@@ -36,13 +36,12 @@ class KsfProccess {
         var iLastMissCheck: Int = 0,
         var fBPM: Float = 0f,
         val vLine: MutableList<Line> = mutableListOf(),
-        var iSpeed: Triple<String, Float, Long> = Triple("", 0f, 0)
+        var iSpeed: Pair<Float, Long> = Pair(0f, 0)
     )
 
     data class LoadingInfo(val tag: String, val value: String)
     data class StepInfo(val step: String, val type: Int)
     data class LongNoteInfo(var bUsed: Boolean = false, var iPrevPtn: Int = 0, var iPrevPos: Int = 0)
-
     val patterns = mutableListOf<Pattern>()
 
     fun load(filePath: String): Boolean {
@@ -121,7 +120,6 @@ class KsfProccess {
         var startTime2 = 0L
         var startTime3 = 0L
         var bUseOldBPM = false
-        val baseSpeed = 1f
 
         loadInfo.forEach { info ->
             when (info.tag) {
@@ -137,12 +135,12 @@ class KsfProccess {
             }
         }
 
-        if (bpm < 0) bpm = 0f
-        if (bpm2 < 0) bpm2 = 0f
-        if (bpm3 < 0) bpm3 = 0f
-        //if (startTime < 0) startTime = 0
-        //if (startTime2 < 0) startTime2 = 0
-        //if (startTime3 < 0) startTime3 = 0
+        //if (bpm < 0) bpm = 0f
+        //if (bpm2 < 0) bpm2 = 0f
+        //if (bpm3 < 0) bpm3 = 0f
+        if (startTime < 0) startTime = 0
+        if (startTime2 < 0) startTime2 = 0
+        if (startTime3 < 0) startTime3 = 0
         if (bunki < 0) bunki = 0
         if (bunki2 < 0) bunki2 = 0
 
@@ -170,7 +168,7 @@ class KsfProccess {
             }
         }
 
-        val curLongNote = Array(10) { LongNoteInfo() }
+        val curLongNote = Array(5) { LongNoteInfo() }
         var curTick = tickCount
         var curBPM = bpm
         val buttonCount = 5
@@ -242,7 +240,7 @@ class KsfProccess {
                     if (patterns.last().vLine.isNotEmpty()) {
                         curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
-                        patterns.removeLast()
+                        patterns.removeAt(patterns.lastIndex)
                     }
                     patterns.add(delayPtn)
                     patterns.add(curPtn)
@@ -252,24 +250,24 @@ class KsfProccess {
                     if (patterns.last().vLine.isNotEmpty()) {
                         curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
-                        patterns.removeLast()
+                        patterns.removeAt(patterns.lastIndex)
                     }
-                    delayPtn.timeDelay = (60000 / curBPM * info.step.toFloat() / curTick).toLong()
+                    delayPtn.timeDelay = ((60000 / curBPM / curTick) * info.step.toFloat()).toLong()
+                    //delayPtn.timeDelay = (60000 / curBPM * info.step.toFloat() / curTick).toLong()
                     patterns.add(delayPtn)
                     patterns.add(curPtn)
                 }
 
                 STEPINFO_SPEED -> {
-                    val speedPtn = Pattern(iSpeed = Triple("", baseSpeed, 0))
+                    //val speedPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     if (patterns.last().vLine.isNotEmpty()) {
                         curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
-                        patterns.removeLast()
+                        patterns.removeAt(patterns.lastIndex)
                     }
-                    //!|S+ = 2 = 500| x3 -> x2 in 500 2.9, 2.8 , 2.7 .... 1
-                    val third = info.step.split("=")
-                    speedPtn.iSpeed = Triple(third[0], third[1].toFloat(), third[2].toLong())
-                    patterns.add(speedPtn)
+                    val pair = info.step.split(",")
+                    curPtn.iSpeed = Pair(pair[0].trim().toFloat(), pair[1].trim().toLong())
+                    //patterns.add(speedPtn)
                     patterns.add(curPtn)
                 }
 
@@ -283,7 +281,7 @@ class KsfProccess {
             ptn0.timePos = startTime
 
             if (bunki != 0L) {
-                val cuttingPos = getCuttingPos(bpm, startTime, bunki, ptn0.vLine.size.toLong(), tickCount)
+                var cuttingPos = getCuttingPos(bpm, startTime, bunki, ptn0.vLine.size.toLong(), tickCount)
                 if (cuttingPos >= 0) {
                     ptn1 = Pattern(fBPM = bpm2, timePos = startTime2, iTick = ptn0.iTick)
                     patterns.add(ptn1)
@@ -297,25 +295,28 @@ class KsfProccess {
                         if (cuttingPos < cuttingPos2) {
                             ptn2 = Pattern(fBPM = bpm3, timePos = startTime3, iTick = ptn1.iTick)
                             patterns.add(ptn2)
-                            val newCuttingPos = cuttingPos2 - cuttingPos
-                            while  (ptn1.vLine.size > newCuttingPos) {
-                                val newLine = ptn1.vLine[newCuttingPos]
+                            //val newCuttingPos = cuttingPos2 - cuttingPos
+                            cuttingPos = cuttingPos2 - cuttingPos
+                            while  (ptn1.vLine.size > cuttingPos) {
+                                val newLine = ptn1.vLine[cuttingPos]
                                 ptn2.vLine.add(newLine)
-                                ptn1.vLine.removeAt(newCuttingPos)
+                                ptn1.vLine.removeAt(cuttingPos)
                             }
                         } else if (cuttingPos == cuttingPos2) {
                             ptn1.fBPM = bpm3
                         } else {
                             ptn2 = Pattern(fBPM = bpm3, timePos = startTime3, iTick = ptn1.iTick)
                             patterns.add(ptn2)
-                            val newCuttingPos = ptn0.vLine.size - (cuttingPos2 - cuttingPos)
-                            while (ptn0.vLine.size > newCuttingPos) {
-                                val newLine = ptn0.vLine[newCuttingPos]
+                            cuttingPos -= cuttingPos2
+                            cuttingPos = ptn0.vLine.size - cuttingPos
+                            //val newCuttingPos = ptn0.vLine.size - (cuttingPos2 - cuttingPos)
+                            while (ptn0.vLine.size > cuttingPos) {
+                                val newLine = ptn0.vLine[cuttingPos]
                                 ptn2.vLine.add(newLine)
-                                ptn0.vLine.removeAt(newCuttingPos)
+                                ptn0.vLine.removeAt(cuttingPos)
                             }
                             while (ptn1.vLine.isNotEmpty()) {
-                                val newLine = ptn1.vLine[0]
+                                val newLine = ptn0.vLine[cuttingPos]
                                 ptn2.vLine.add(newLine)
                                 ptn1.vLine.removeAt(0)
                             }
@@ -323,20 +324,21 @@ class KsfProccess {
                         }
                     }
                     ptn1.timePos = getPtnTimePos(bpm2, startTime2, bunki, tickCount)
-                    val cuttingPos1 = getCuttingPos(bpm, startTime, bunki, Long.MAX_VALUE, tickCount)
+                    cuttingPos = getCuttingPos(bpm, startTime, bunki, Long.MAX_VALUE, tickCount)
                     var tcuttingPos = getCuttingPos(bpm2, startTime2, bunki, Long.MAX_VALUE, tickCount)
-                    while (cuttingPos1 < tcuttingPos) {
+                    while (cuttingPos < tcuttingPos) {
                         tcuttingPos--
                         ptn1.vLine.removeAt(0)
                     }
-                    if (cuttingPos1 > tcuttingPos) {
+                    if (cuttingPos > tcuttingPos) {
                         val temp = mutableListOf<Line>()
-                        while (cuttingPos1 > tcuttingPos) {
+                        while (cuttingPos > tcuttingPos) {
                             val newLine = Line()
                             tcuttingPos++
                             temp.add(newLine)
                         }
                         ptn1.vLine.addAll(0, temp)
+                        temp.clear()
                     }
                     if (patterns.size == 3) {
                         ptn2!!.timePos = getPtnTimePos(bpm3, startTime3, bunki2, tickCount)
@@ -354,45 +356,33 @@ class KsfProccess {
                                 temp.add(newLine)
                             }
                             ptn2.vLine.addAll(0, temp)
+                            temp.clear()
                         }
                     }
                 }
             }
         } else {
-            var lastTick = startTime.toFloat()  // Conversión explícita de startTime a Float
+            var lastTick = startTime.toFloat()
             for (i in 0 until patterns.size) {
                 val nowptn = patterns[i]
-                nowptn.timePos = lastTick.toLong()  // Conversión explícita de lastTick a Long
-                if (nowptn.timeDelay > 0) {
-                    lastTick += nowptn.timeDelay  // Sumar timeDelay (presumiblemente un Float o Long)
+                nowptn.timePos = lastTick.toLong()
+                if (nowptn.timeDelay != 0L) {
+                    lastTick += nowptn.timeDelay
                 } else {
                     if (nowptn.fBPM != 0f) {
-                        lastTick += (60000f / nowptn.fBPM * nowptn.vLine.size.toFloat() / nowptn.iTick.toFloat())  // Conversión explícita a Float
+                        lastTick += (60000f / nowptn.fBPM * (if(nowptn.vLine.size == 0) 1 else nowptn.vLine.size) / nowptn.iTick.toFloat()) + nowptn.timeDelay
                     }
                 }
             }
-            
-            /*
-            patterns.forEachIndexed { i, ptn ->
-                ptn.timePos = lastTick.toLong()
-                if (ptn.timeDelay > 0) {
-                    lastTick += ptn.timeDelay
-                } else {
-                    if (ptn.fBPM != 0F) {
-                        lastTick += (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick)
-                    }
-                }
-            }
-            */
         }
 
         for(i in 0 until patterns.size){
-            val ptn = patterns[i]
+                val ptn = patterns[i]
             if(ptn.timeDelay != 0L){
                 ptn.timeLen = ptn.timeDelay
             }else{
                 if (ptn.fBPM != 0F) {
-                    ptn.timeLen = (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toLong()
+                    ptn.timeLen = ((60000 / ptn.fBPM * (if(ptn.vLine.size == 0) 1 else ptn.vLine.size) / ptn.iTick).toLong()) + ptn.timeDelay
                 }else{
                     ptn.timeLen = 0
                 }

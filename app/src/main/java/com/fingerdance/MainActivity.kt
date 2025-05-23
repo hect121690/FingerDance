@@ -2,7 +2,11 @@ package com.fingerdance
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.*
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -14,7 +18,6 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.provider.Settings
 import android.util.DisplayMetrics
@@ -26,7 +29,14 @@ import android.view.Window
 import android.view.WindowManager
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
+import android.widget.VideoView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -43,7 +53,11 @@ import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.firebase.FirebaseApp
-import com.google.firebase.database.*
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -58,8 +72,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.collections.ArrayList
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 import kotlin.system.exitProcess
 
 lateinit var themes : SharedPreferences
@@ -204,6 +219,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         heightLayoutBtns = height / 2f
         heightBtns = heightLayoutBtns / 2f
         widthBtns = width / 3f
+
         padPositions = listOf(
             arrayOf(0f, (heightLayoutBtns + heightBtns)),
             arrayOf(0f, heightBtns * 2f),
@@ -324,7 +340,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             if (downloadedFile != null) {
                 val unzip = Unzip(this@MainActivity)
-                val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                val rutaZip = getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
                 unzip.performUnzip(rutaZip, "FingerDance.zip", true)
             } else {
                 Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
@@ -484,8 +500,8 @@ class MainActivity : AppCompatActivity(), Serializable {
                             }
                             if (downloadedFile != null) {
                                 val unzip = Unzip(this@MainActivity)
-                                val rutaZip = Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-                                unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+                                val rutaZip = getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                                unzip.performUnzip(rutaZip,"FingerDance.zip",true)
                             } else {
                                 Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
                             }

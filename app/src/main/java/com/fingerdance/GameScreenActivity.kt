@@ -13,27 +13,18 @@ import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.fingerdance.Player.Companion.NOTE_NONE
 import java.io.File
 
-var isVideo = false
-
-private var currentVideoPositionScreen : Int = 0
-var isMediaPlayerPrepared = false
-
 private lateinit var gdxContainer : RelativeLayout
+private var currentVideoPositionScreen : Int = 0
 
 lateinit var videoViewBgaoff : VideoView
 lateinit var videoViewBgaOn : VideoView
 
-val widthJudges = width / 2
-val heightJudges = widthJudges / 6
-
-lateinit var resultSong: ResultSong
-
-val thisHandler = Handler(Looper.getMainLooper())
 
 private val timeToPlay = 1000L
-
+var countMiss = 0
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,8 +111,18 @@ open class GameScreenActivity : AndroidApplication() {
         mediaPlayer.setOnPreparedListener {
             isMediaPlayerPrepared = true
         }
+
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
+            ksf.patterns.forEach{ ptn ->
+                ptn.vLine.forEach { line ->
+                    line.step.forEach { step ->
+                        if(step != NOTE_NONE){
+                            countMiss ++
+                        }
+                    }
+                }
+            }
 
             thisHandler.postDelayed({
                 val intent = Intent(this, DanceGrade()::class.java)

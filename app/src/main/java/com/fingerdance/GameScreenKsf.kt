@@ -99,8 +99,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
 
-    val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f)
-    val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.2f)
+    val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
+    val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
     data class PadPositionC(val x: Float, val y: Float, val size: Float)
     val padPositionsC = listOf(
@@ -165,7 +165,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             //batch.color = Color(0f, 0f, 0f, 0f)
 
             elapsedTime += delta
-            intervalOverlay = (60 / if(player.m_fCurBPM < 0) 0f else player.m_fCurBPM) / 2
+
+            intervalOverlay = if(player.m_fCurBPM <= 0) 0.5f else ((60 / player.m_fCurBPM) / 2) //(60 / abs(player.m_fCurBPM)) / 2
             if(!playerSong.fd){
                 timer += delta
                 if (timer >= intervalOverlay) {

@@ -173,6 +173,13 @@ private lateinit var btnAddBga: Button
 private var currentPathSong: String = ""
 private var niveles = arrayListOf<Nivel>()
 
+val thisHandler = Handler(Looper.getMainLooper())
+var isVideo = false
+var isMediaPlayerPrepared = false
+val widthJudges = width / 2
+val heightJudges = widthJudges / 6
+lateinit var resultSong: ResultSong
+
 class SelectSong : AppCompatActivity() {
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -545,16 +552,6 @@ class SelectSong : AppCompatActivity() {
                 })
             }
 
-            /*
-            val btnCloseRanking = findViewById<Button>(R.id.btn_close_ranking)
-            btnCloseRanking.setOnClickListener {
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                rankingView.visibility = View.INVISIBLE
-                rankingView.startAnimation(animOff)
-                constraintMain.removeView(linearRanking)
-            }
-            */
-            //var isRankingFocus = false
             imgBestScore.setOnClickListener{
                 if(niveles[positionActualLvs].fisrtRank.size > 0){
                     if(!commandWindow.isVisible){
