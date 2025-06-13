@@ -115,6 +115,8 @@ private lateinit var imgPrev: ImageView
 private lateinit var indicatorLayout: ImageView
 private lateinit var imageCircle : ImageView
 
+private lateinit var bgaSelectSong: VideoView
+
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
 private lateinit var linearLvs: ConstraintLayout
@@ -232,7 +234,22 @@ class SelectSong : AppCompatActivity() {
 
             constraintMain = findViewById(R.id.constraintMain)
             linearBG = findViewById(R.id.linearBG)
-            linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
+            bgaSelectSong = findViewById(R.id.bgaSelectSong)
+            bgaSelectSong.visibility = View.GONE
+            val bgaPath = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4")!!.absolutePath
+            if (isFileExists(File(bgaPath))) {
+                bgaSelectSong.visibility = View.VISIBLE
+                bgaSelectSong.setVideoPath(bgaPath)
+                bgaSelectSong.setOnCompletionListener {
+                    bgaSelectSong.start()
+                }
+                bgaSelectSong.setOnPreparedListener { md ->
+                    md.setVolume(0f, 0f)
+                }
+                bgaSelectSong.start()
+            }else{
+                linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
+            }
 
             imgPrev = findViewById(R.id.imgPrev)
             imgPrev.layoutParams.height = (width * 0.75).toInt()
@@ -584,6 +601,19 @@ class SelectSong : AppCompatActivity() {
             }else{
                 txVelocidadActual.text = "2.0X"
             }
+            if(listEfectsDisplay.size > 0) {
+                imgDisplay.isVisible = true
+                listEfectsDisplay.forEach { efect ->
+                    when(efect.value){
+                        "BGAOFF" -> playerSong.isBGAOff = true
+                        "FD" -> playerSong.fd = true
+                        "V" -> playerSong.vanish = true
+                        "AP" -> playerSong.ap = true
+                        "RS" -> playerSong.rs = true
+                        "M" -> playerSong.mirror = true
+                    }
+                }
+            }
 
             txOffset.text = valueOffset.toString()
 
@@ -786,6 +816,12 @@ class SelectSong : AppCompatActivity() {
                         mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
                         load(playerSong.rutaKsf!!)
 
+                        if(playerSong.mirror){
+                            ksf.makeMirror()
+                        }
+                        if(playerSong.rs){
+                            ksf.makeRandom()
+                        }
                         if(!showAddActive){
                             handler.postDelayed({
                                 val intent = Intent(this, GameScreenActivity::class.java)
@@ -901,6 +937,43 @@ class SelectSong : AppCompatActivity() {
                                     if (isVanish != null) {
                                         listEfectsDisplay.remove(isVanish)
                                         playerSong.vanish = false
+                                    }
+                                }
+                            }
+                            imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
+                        }
+                        resetRunnable()
+                        imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
+
+                    }
+                    if(itemCommand.value.contains("Alternate", ignoreCase = true)){
+                        linearCurrent.isVisible = false
+                        imgDisplay.isVisible=true
+                        val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
+                        if (existEffect != null) {
+                            listEfectsDisplay.remove(existEffect)
+                            when (existEffect.value) {
+                                "RS" -> playerSong.rs = false
+                                "M" -> playerSong.mirror = false
+                            }
+                        } else {
+                            when (itemValues.value) {
+                                "RS" -> {
+                                    listEfectsDisplay.add(itemValues)
+                                    playerSong.rs = true
+                                    val isMirror = listEfectsDisplay.find { it.value == "M" }
+                                    if (isMirror != null) {
+                                        listEfectsDisplay.remove(isMirror)
+                                        playerSong.mirror = false
+                                    }
+                                }
+                                "M" -> {
+                                    listEfectsDisplay.add(itemValues)
+                                    playerSong.mirror = true
+                                    val isRS = listEfectsDisplay.find { it.value == "RS" }
+                                    if (isRS != null) {
+                                        listEfectsDisplay.remove(isRS)
+                                        playerSong.rs = false
                                     }
                                 }
                             }
@@ -1759,7 +1832,8 @@ class SelectSong : AppCompatActivity() {
         }
         if(item.value.contains("NoteSkin", ignoreCase = true) ||
             item.value.contains("Display", ignoreCase = true) ||
-            item.value.contains("Judge", ignoreCase = true)){
+            item.value.contains("Judge", ignoreCase = true) ||
+            item.value.contains("Alternate", ignoreCase = true)){
             linearCurrent.isVisible = false
         }
         txInfoCW.text = item.descripcion
@@ -1983,6 +2057,9 @@ class SelectSong : AppCompatActivity() {
         handler.removeCallbacks(runnable)
         handlerContador.removeCallbacks(runnableContador)
         //mediPlayer.pause()
+        if(bgaSelectSong.isPlaying){
+            bgaSelectSong.pause()
+        }
     }
 
     override fun onResume() {
@@ -1994,7 +2071,10 @@ class SelectSong : AppCompatActivity() {
         recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
         resetRunnable()
         detenerContador()
-
+        bgaSelectSong.start()
+        if(listEfectsDisplay.size > 0) {
+            handler.postDelayed(runnable, 1200)
+        }
     }
 
     override fun onDestroy() {

@@ -38,12 +38,14 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
 import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ActivityOptionsBinding
@@ -432,6 +434,49 @@ class Options() : AppCompatActivity(), ItemClickListener {
             btnGuardarPads.visibility = View.INVISIBLE
         }
 
+        val btnOffline = findViewById<SwitchCompat>(R.id.btnOffline)
+
+        if(!isFree){
+            btnOffline.visibility = View.INVISIBLE
+        }
+        btnOffline.layoutParams.width = (width / 10) * 8
+        btnOffline.isChecked = isOffline
+
+        btnOffline.thumbTintList = thumbColor
+        btnOffline.trackTintList = trackColor
+        btnOffline.setOnClickListener {
+            val dialog = AlertDialog.Builder(this, R.style.TransparentDialog).apply {
+                setTitle("Modo Offline")
+                setCancelable(false)
+            }
+            if(!isOffline){
+                dialog.setMessage(R.string.MessageOfflineOn)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                        btnOffline.isChecked = false
+                        isOffline = btnOffline.isChecked
+                        d.dismiss()
+                    }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                        btnOffline.isChecked = true
+                        isOffline = btnOffline.isChecked
+                        d.dismiss()
+                    }
+            }else{
+                dialog.setMessage(R.string.MessageOfflineOff)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnOffline.isChecked = true
+                    isOffline = btnOffline.isChecked
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnOffline.isChecked = false
+                    isOffline = btnOffline.isChecked
+                    d.dismiss()
+                }
+            }
+            dialog.show()
+        }
+
         val constraintBG = findViewById<ConstraintLayout>(R.id.constraintBG)
 
         val txVersionNoteSkins = findViewById<TextView>(R.id.txVersionNoteSkin).apply {
@@ -555,7 +600,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
         btnGuardar.setOnClickListener{
             val theme = ThemesAdapter.getSelectedItem()
             themes.edit().putString("theme", theme.text).apply()
+            themes.edit().putString("allTunes", "").apply()
             themes.edit().putString("efects", "").apply()
+            listChannels.clear()
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
             this.finish()
@@ -888,10 +935,12 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
             if (downloadedFile != null) {
                 //Toast.makeText(this@Options, "Descarga completa: ${downloadedFile.absolutePath}", Toast.LENGTH_LONG).show()
-                val unzipTheme = UnzipSongs(this@Options, fileName!!, txProgressDownloadChannel)
-                unzipTheme.performUnzip(localFile.absolutePath)
-                unzipTheme.finishActivity.observe(this@Options) { shouldFinish ->
-                    if (shouldFinish) finish()
+                lifecycleScope.launch {
+                    val unzipSongs = UnzipSongs(this@Options, fileName, txProgressDownloadChannel)
+                    unzipSongs.performUnzip(localFile.absolutePath)
+                    unzipSongs.finishActivity.observe(this@Options) { shouldFinish ->
+                        if (shouldFinish) finish()
+                    }
                 }
             } else {
                 Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
@@ -1025,6 +1074,14 @@ class Options() : AppCompatActivity(), ItemClickListener {
             progressDownload.visibility = View.VISIBLE
             txProgress.text = "Conetando..."
             btnCerrarDialog.isVisible = false
+            val bgaPathSC = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4")!!.absolutePath
+            if(File(bgaPathSC).isDirectory){
+                File(bgaPathSC).delete()
+            }
+            val bgaPathSS = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4")!!.absolutePath
+            if(File(bgaPathSS).isDirectory){
+                File(bgaPathSS).delete()
+            }
             downloadThemeDrive()
         }
         btnCerrarDialog.setBackgroundColor(ContextCompat.getColor(this@Options, R.color.negative_red))

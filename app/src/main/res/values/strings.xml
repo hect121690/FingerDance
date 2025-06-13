@@ -32,4 +32,17 @@
         <item>Se de los mejores, entra al Top 3 Ranking Global con tu mejor puntaje.</item>
         <item>Proximamente habra mas canciones y funciones!.</item>
     </string-array>
+
+    <string name="MessageOfflineOn">-Al activar el modo Offline podra jugar sin necesidad de conectarse a internet. \n
+                                    -Este modo debera activarse cada que abra la aplicación. \n
+                                    -No se guardaran su puntajes mas altos ni se visualizaran los resultados en el Ranking Global. \n
+                                     \n
+                                    Confirma que desea activar el modo Offline?
+    </string>
+    <string name="MessageOfflineOff">-Al desactivar el modo offline se reestablecera la conexión a internet.\n
+                                    Confirma que desea desactivar el modo Offline?
+    </string>
+    <string name="updateApp">Se requiere actualizar la aplicacion, descargar?
+    </string>
+
 </resources>

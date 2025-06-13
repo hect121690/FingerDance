@@ -16,61 +16,61 @@
 
     <ImageView
         android:id="@+id/imgLogo"
-        android:layout_width="322dp"
-        android:layout_height="171dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/btnPlay"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.494"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.1" />
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <LinearLayout
-        android:id="@+id/linearButtons"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
+    <Button
+        android:id="@+id/btnPlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@android:color/transparent"
+        style="?android:attr/borderlessButtonStyle"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.40" />
 
-        <Button
-            android:id="@+id/btnPlay"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="250dp"
-            android:layout_height="80dp"
-            android:layout_marginBottom="20dp"
-            android:backgroundTint="@android:color/transparent"
-            tools:ignore="MissingConstraints" />
+    <Button
+        android:id="@+id/btnPlayOnline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@android:color/transparent"
+        style="?android:attr/borderlessButtonStyle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.55" />
 
-        <Button
-            android:id="@+id/btnPlayOnline"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="250dp"
-            android:layout_height="80dp"
-            android:layout_marginBottom="20dp"
-            android:backgroundTint="@android:color/transparent"
-            tools:ignore="MissingConstraints" />
+    <Button
+        android:id="@+id/btnOptions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@android:color/transparent"
+        style="?android:attr/borderlessButtonStyle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.70" />
 
-        <Button
-            android:id="@+id/btnOptions"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="250dp"
-            android:layout_height="80dp"
-            android:layout_marginBottom="20dp"
-            android:backgroundTint="@android:color/transparent"
-            tools:ignore="MissingConstraints" />
-
-        <Button
-            android:id="@+id/btnExit"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="250dp"
-            android:layout_height="80dp"
-            android:layout_marginBottom="20dp"
-            android:backgroundTint="@android:color/transparent"
-            tools:ignore="MissingConstraints" />
-    </LinearLayout>
+    <Button
+        android:id="@+id/btnExit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@android:color/transparent"
+        style="?android:attr/borderlessButtonStyle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.85" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/linearDownload"
@@ -94,17 +94,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <ImageView
-            android:id="@+id/imageIcon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            android:visibility="invisible"
-            app:layout_constraintBottom_toBottomOf="@+id/bg_download"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:srcCompat="@drawable/icon" />
 
         <TextView
             android:id="@+id/lbDescargando"
@@ -118,9 +107,10 @@
             android:textColor="@color/white"
             android:textSize="16sp"
             android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="@+id/bg_download"
             app:layout_constraintEnd_toStartOf="@+id/bg_download"
             app:layout_constraintStart_toEndOf="@+id/bg_download"
-            app:layout_constraintTop_toBottomOf="@+id/imageIcon" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <ProgressBar
             android:id="@+id/downloadProgress"

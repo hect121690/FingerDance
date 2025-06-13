@@ -6,7 +6,7 @@ import android.media.SoundPool
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import com.arthenica.mobileffmpeg.FFmpeg
+//import com.arthenica.mobileffmpeg.FFmpeg
 import java.io.File
 import java.io.FileInputStream
 import java.lang.Double.parseDouble
@@ -35,7 +35,6 @@ private var command_mod : Int = 0
 
 private var select : Int = 0
 private var start : Int = 0
-var listEfectsDisplay: ArrayList<CommandValues> = ArrayList()
 
 class LoadingSongs() : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +48,7 @@ class LoadingSongs() : AppCompatActivity() {
 
         //listChannels.clear()
         //listCommands.clear()
-        listEfectsDisplay.clear()
+        //listEfectsDisplay.clear()
         //listChannels = getChannels(this)
         //listCommands = getFilesCW(this)
 
@@ -245,8 +244,8 @@ class LoadingSongs() : AppCompatActivity() {
                                     outputVideoPath = (listRutas[index] + "/" + prevVideo).replace(".avi", ".mp4", ignoreCase = true)
                                 }
 
-                                val command = arrayOf("-y", "-i", inputVideoPath.absolutePath, outputVideoPath)
-                                FFmpeg.execute(command)
+                                //val command = arrayOf("-y", "-i", inputVideoPath.absolutePath, outputVideoPath)
+                                //FFmpeg.execute(command)
 
                                 rutaPrevVideo = outputVideoPath
 

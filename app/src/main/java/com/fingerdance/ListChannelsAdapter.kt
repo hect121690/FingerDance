@@ -32,7 +32,7 @@ class ListChannelsAdapter(private val btnDownload: Button, private val items: Ar
 
         holder.itemView.setOnClickListener {
             val previousPosition = selectedPosition
-            selectedPosition = holder.adapterPosition
+            selectedPosition = holder.absoluteAdapterPosition
             notifyItemChanged(previousPosition)
             notifyItemChanged(selectedPosition)
             onItemSelected(item.second)

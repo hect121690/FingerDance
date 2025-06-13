@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
+import kotlin.math.abs
 
 open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     val a = activity
@@ -161,12 +162,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             val currentTime = (elapsedTime * 1000).toLong() - 1000
 
             batch.begin()
-
+            player.updateStepData(currentTime)
             //batch.color = Color(0f, 0f, 0f, 0f)
 
             elapsedTime += delta
 
-            intervalOverlay = if(player.m_fCurBPM <= 0) 0.5f else ((60 / player.m_fCurBPM) / 2) //(60 / abs(player.m_fCurBPM)) / 2
+            intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f //if(player.m_fCurBPM <= 0) 0.5f else ((60 / player.m_fCurBPM) / 2) //(60 / abs(player.m_fCurBPM)) / 2
             if(!playerSong.fd){
                 timer += delta
                 if (timer >= intervalOverlay) {
@@ -177,7 +178,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             }
             showBgPads()
 
-            player.updateStepData(currentTime)
+
             player.render(currentTime)
 
             barBlack.setSize(maxWidth, maxlHeight)

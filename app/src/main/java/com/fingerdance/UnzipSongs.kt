@@ -2,85 +2,74 @@ package com.fingerdance
 
 import android.content.Context
 import android.content.Intent
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.lifecycle.MutableLiveData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
-
-
-class UnzipSongs (private val context: Context, private val nombreChannel: String, private val textView: TextView) {
+class UnzipSongs(
+    private val context: Context,
+    private val nombreChannel: String,
+    private val textView: TextView
+) {
     val finishActivity = MutableLiveData<Boolean>()
     private val BUFFER_SIZE = 1024
 
-    fun performUnzip(rutaZip: String) {
+    suspend fun performUnzip(rutaZip: String) {
+        withContext(Dispatchers.IO) {
+            val zipFile = File(rutaZip)
+            val zipInputStream = ZipInputStream(FileInputStream(zipFile))
+            var zipEntry: ZipEntry?
 
-        val handler = Handler(Looper.getMainLooper())
+            while (zipInputStream.nextEntry.also { zipEntry = it } != null) {
+                val outFile = File(context.getExternalFilesDir(null),"FingerDance/Songs/Channels/${zipEntry?.name}")
 
-        val zipFile = File(rutaZip)
-        val zipInputStream = ZipInputStream(FileInputStream(zipFile))
-        var zipEntry: ZipEntry?
+                if (zipEntry?.isDirectory == true) {
+                    outFile.mkdirs()
+                } else {
+                    val parent = outFile.parentFile
+                    if (parent != null && !parent.exists()) {
+                        parent.mkdirs()
+                    }
 
-        while (zipInputStream.nextEntry.also { zipEntry = it } != null) {
-            val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance/Songs/Channels/" + zipEntry?.name)
+                    val outputStream = FileOutputStream(outFile)
+                    val buffer = ByteArray(BUFFER_SIZE)
+                    var len: Int
 
-            if (zipEntry?.isDirectory == true) {
-                file.mkdirs()
-            } else {
-                val parent = File(file.parent!!)
-
-                if (!parent.exists()) {
-                    parent.mkdirs()
+                    while (zipInputStream.read(buffer).also { len = it } > 0) {
+                        outputStream.write(buffer, 0, len)
+                    }
+                    outputStream.close()
                 }
-
-                val outputStream = FileOutputStream(file)
-
-                val buffer = ByteArray(BUFFER_SIZE)
-                var len: Int
-
-                while (zipInputStream.read(buffer).also { len = it } > 0) {
-                    outputStream.write(buffer, 0, len)
-                }
-
-                outputStream.close()
             }
+
+            zipInputStream.closeEntry()
+            zipInputStream.close()
         }
 
-        //val handler = Handler(Looper.getMainLooper())
-        handler.post {
-            //val intent = Intent(context, MainActivity::class.java)
-            //context.startActivity(intent)
-
-            //themes.edit().putString("allTunes", "").apply()
-            //themes.edit().putString("efects", "").apply()
+        withContext(Dispatchers.Main) {
             val ls = LoadSongsKsf()
             listChannels.clear()
-            //listCommands.clear()
             listEfectsDisplay.clear()
             listChannels = ls.getChannels(context)
-            //listCommands = ls.getFilesCW(context)
-            //ls.loadImages(context)
-            //ls.loadSounds(context)
-
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-            //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+            textView.text = "Recarga de canales completada."
 
-            val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance//Songs/Channels/" + nombreChannel)
-            file.delete()
-        }
+            val zipFolder = File(
+                context.getExternalFilesDir(null),
+                "FingerDance/Songs/Channels/$nombreChannel"
+            )
+            zipFolder.deleteRecursively()
 
-        zipInputStream.closeEntry()
-        zipInputStream.close()
-        handler.post {
-            textView.text = "Racarga de canales completada."
-            handler.postDelayed({
+            Handler(Looper.getMainLooper()).postDelayed({
                 textView.isVisible = false
                 context.startActivity(Intent(context, MainActivity::class.java))
                 finishActivity.value = true

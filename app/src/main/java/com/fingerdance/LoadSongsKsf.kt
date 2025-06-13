@@ -3,7 +3,7 @@ package com.fingerdance
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
-import com.arthenica.mobileffmpeg.FFmpeg
+//import com.arthenica.mobileffmpeg.FFmpeg
 import java.io.File
 import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
@@ -171,8 +171,8 @@ class LoadSongsKsf {
                                 val inputVideoPath = File(songKsf.rutaPreview)
                                 val outputVideoPath = (songKsf.rutaPreview).replace(".mpg", ".mp4", ignoreCase = true)
 
-                                val command = arrayOf("-y", "-i", inputVideoPath.absolutePath, outputVideoPath)
-                                FFmpeg.execute(command)
+                                //val command = arrayOf("-y", "-i", inputVideoPath.absolutePath, outputVideoPath)
+                                //FFmpeg.execute(command)
 
                                 if (isFileExists(File(outputVideoPath))) {
                                     inputVideoPath.delete()
@@ -334,6 +334,7 @@ class LoadSongsKsf {
                         listCommandsValues.add(CommandValues(value,descripcion, rutaCommandValue))
                     }
                 }
+                reorderDescriptions(listCommandsValues)
                 if(value.matches(Regex(".*[0-9].*"))){
                     for (i in 1 until listCommandsValues.size) {
                         for (j in 0 until listCommandsValues.size - i) {
@@ -379,6 +380,29 @@ class LoadSongsKsf {
         }
         //themes.edit().putString("listNoteSkinAdditionals", gson.toJson(listNoteSkinAdditionals)).apply()
         return listCommands
+    }
+
+    private fun reorderDescriptions(list: List<CommandValues>) {
+        //if (list.size != 2) return // solo procesamos si hay 2
+
+        val descEspejo = list.find { it.descripcion.contains("espejo", ignoreCase = true) }?.descripcion
+        val descAleatorio = list.find { it.descripcion.contains("aleatoriamente.", ignoreCase = true)}?.descripcion
+
+        val descAparecen = list.find { it.descripcion.contains("Aparecen.", ignoreCase = true)}?.descripcion
+        val descBGA = list.find { it.descripcion.contains("BGA.", ignoreCase = true)}?.descripcion
+        val descSecuencia = list.find { it.descripcion.contains("Secuencia.", ignoreCase = true)}?.descripcion
+        val descDesaparecen  = list.find { it.descripcion.contains("Desaparecen.", ignoreCase = true)}?.descripcion
+
+        list.forEach {
+            when (it.value) {
+                "M" -> if (descEspejo != null) it.descripcion = descEspejo
+                "RS" -> if (descAleatorio != null) it.descripcion = descAleatorio
+                "AP" -> if (descAparecen != null) it.descripcion = descAparecen
+                "BGAOFF" -> if (descBGA != null) it.descripcion = descBGA
+                "FD" -> if (descSecuencia != null) it.descripcion = descSecuencia
+                "V" -> if (descDesaparecen != null) it.descripcion = descDesaparecen
+            }
+        }
     }
 
     private fun readFile(path: String): String {

@@ -17,7 +17,7 @@ android {
         minSdk 28
         targetSdk 35
         versionCode 10
-        versionName "1.2.3"
+        versionName "1.2.8"
 
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -74,22 +74,24 @@ dependencies {
     annotationProcessor 'com.github.bumptech.glide:compiler:4.11.0'
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
 
-    implementation 'com.arthenica:mobile-ffmpeg-full:4.4'
+    //implementation 'com.arthenica:ffmpeg-kit-full:6.0-2'
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0"
 
-    implementation 'com.google.code.gson:gson:2.8.8'
+    implementation 'com.google.code.gson:gson:2.10.1'
 
     implementation "com.badlogicgames.gdx:gdx:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-backend-android:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-box2d:1.13.0"
-    implementation 'com.google.android.gms:play-services-ads:24.2.0'
+    implementation 'com.google.android.gms:play-services-ads:24.3.0'
 
     implementation 'com.google.firebase:firebase-database:21.0.0'
-    implementation 'com.google.firebase:firebase-storage:21.0.1'
+    implementation 'com.google.firebase:firebase-storage:21.0.2'
     implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.15.0"))
     implementation 'com.google.firebase:firebase-analytics'
+
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.9.0"
 
 }
 

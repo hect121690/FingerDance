@@ -56,6 +56,7 @@ private var isPlayingNewRecord = 0
 private lateinit var DGContext: Context
 private lateinit var linearEfects: RelativeLayout
 private val handlerDG = Handler()
+private val sizeLabels = (decimoHeigtn / 3.8).toInt()
 
 class DanceGrade : AppCompatActivity() {
     private lateinit var adView: AdView
@@ -109,19 +110,22 @@ class DanceGrade : AppCompatActivity() {
         val dbDG = DataBasePlayer(this)
         dbDG.writableDatabase
 
+        val widthGrades = ((width / 10) * 4.5).toInt()
+        val heigthGrades = (decimoHeigtn * 1.5).toInt()
+
         val imgGrade = findViewById<ImageView>(R.id.imgGrade)
         imgGrade.visibility = View.INVISIBLE
-        imgGrade.layoutParams.width = ((width / 10) * 4.5).toInt()
+        imgGrade.layoutParams.width = widthGrades
         imgGrade.layoutParams.height = ((width / 10) * 6)
 
         val imgGradeP1 = findViewById<ImageView>(R.id.imgGradeP1)
         imgGradeP1.visibility = View.INVISIBLE
-        imgGradeP1.layoutParams.width = ((width / 10) * 4.5).toInt()
-        imgGradeP1.layoutParams.height = ((width / 10) * 6)
+        imgGradeP1.layoutParams.width = widthGrades
+        imgGradeP1.layoutParams.height = heigthGrades
 
         val imgGradeP2 = findViewById<ImageView>(R.id.imgGradeP2)
         imgGradeP2.visibility = View.INVISIBLE
-        imgGradeP2.layoutParams.width = ((width / 10) * 4.5).toInt()
+        imgGradeP2.layoutParams.width = widthGrades
         imgGradeP2.layoutParams.height = ((width / 10) * 6)
 
         val imgWinP1 = findViewById<ImageView>(R.id.imgWinP1)
@@ -139,6 +143,7 @@ class DanceGrade : AppCompatActivity() {
 
         val imgNewRecord = findViewById<ImageView>(R.id.imgNewRecord)
         imgNewRecord.visibility = View.INVISIBLE
+        imgNewRecord.layoutParams.height = heigthGrades
 
         val txNameSong = findViewById<TextView>(R.id.txNameSong)
         val txNameChannel = findViewById<TextView>(R.id.txNameChannel)
@@ -152,17 +157,17 @@ class DanceGrade : AppCompatActivity() {
         txNameSong.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
-            textSize = medidaFlechas / 10f
             setTypeface(typeface, Typeface.BOLD)
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+            layoutParams.height = sizeLabels
         }
 
         txNameChannel.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
-            textSize = medidaFlechas / 10f
             setTypeface(typeface, Typeface.BOLD)
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+            layoutParams.height = sizeLabels
         }
 
         txStepMaker.apply {
@@ -221,16 +226,18 @@ class DanceGrade : AppCompatActivity() {
 
         if(!isOnline) {
             val posicion = currentWorldScore.indexOfFirst{ totalScore > it.toInt() }
-            if (posicion != -1) {
-                updateRanking(
-                    currentChannel,
-                    currentSong,
-                    currentLevel,
-                    totalScore.toString(),
-                    userName,
-                    newGrade,
-                    imgNewRecord
-                )
+            if(!isOffline){
+                if (posicion != -1) {
+                    updateRanking(
+                        currentChannel,
+                        currentSong,
+                        currentLevel,
+                        totalScore.toString(),
+                        userName,
+                        newGrade,
+                        imgNewRecord
+                    )
+                }
             }
         }
 
@@ -292,16 +299,19 @@ class DanceGrade : AppCompatActivity() {
         for (i in 0 until 7) {
             imageViews[i].scaleType = ImageView.ScaleType.CENTER_CROP
             imageViews[i].isVisible = false
+            imageViews[i].layoutParams.height = sizeLabels
 
             textViewsP1[i].apply {
                 setTextColor(Color.WHITE)
                 isAllCaps = true
                 setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+                layoutParams.height = (decimoHeigtn / 3.6).toInt()
             }
             textViewsP2[i].apply {
                 setTextColor(Color.WHITE)
                 isAllCaps = true
                 setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
+                layoutParams.height = (decimoHeigtn / 3.6).toInt()
             }
         }
         handlerDG.postDelayed({
@@ -358,7 +368,7 @@ class DanceGrade : AppCompatActivity() {
 
                         soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
-                }, 1000L)
+                }, 1200L)
             }
         },1000L)
     }
@@ -494,8 +504,10 @@ class DanceGrade : AppCompatActivity() {
         imgAceptar.setOnClickListener {
             soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             if(!isOnline) {
-                escucharPuntajesPorNombre(currentChannel) { listaCanciones ->
-                    listGlobalRanking = listaCanciones
+                if(!isOffline){
+                    escucharPuntajesPorNombre(currentChannel) { listaCanciones ->
+                        listGlobalRanking = listaCanciones
+                    }
                 }
             }
             mediaPlayerEvaluation.stop()
@@ -558,9 +570,9 @@ class DanceGrade : AppCompatActivity() {
     private fun getEfects(pathCommandEffect: String) {
         showLevel()
         val posX = medidaFlechas
-        val heightImages = ((medidaFlechas / 4) * 3).toInt()
+        val heightImages = (decimoHeigtn / 2).toInt() //((medidaFlechas / 4) * 3).toInt()
 
-        linearEfects.layoutParams.width = (medidaFlechas * 3).toInt()
+        linearEfects.layoutParams.width = (medidaFlechas * 4).toInt()
         linearEfects.layoutParams.height = (heightImages * 2)
 
         val imgSpeed = ImageView(this).apply {
@@ -607,6 +619,7 @@ class DanceGrade : AppCompatActivity() {
             image.layoutParams.width = medidaFlechas.toInt()
             image.layoutParams.height = heightImages
         }
+
         for(i in 0 until listEfectsDisplay.size){
             val image = ImageView(this)
             image.setImageBitmap(BitmapFactory.decodeFile(listEfectsDisplay[i].rutaCommandImg))
@@ -760,7 +773,7 @@ class DanceGrade : AppCompatActivity() {
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
             isPlayingNewRecord = soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
-        }, 3000)
+        }, 3500)
     }
 
     private fun animateImageView(view: ImageView) {

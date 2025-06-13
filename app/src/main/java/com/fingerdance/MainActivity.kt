@@ -156,6 +156,13 @@ lateinit var activeSala : Sala
 
 lateinit var db : DataBasePlayer
 
+var decimoHeigtn = 0
+var decimoWidth = 0
+var isFree = false
+var isOffline = false
+
+var listEfectsDisplay: ArrayList<CommandValues> = ArrayList()
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -169,7 +176,6 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var btnExit : Button
 
     private lateinit var linearDownload : ConstraintLayout
-    private lateinit var imageIcon : ImageView
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
     private var versionApp = ""
@@ -199,19 +205,29 @@ class MainActivity : AppCompatActivity(), Serializable {
         versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
         valueOffset = themes.getLong("valueOffset", 0)
         userName = themes.getString("userName","").toString()
+        isFree = themes.getBoolean("isFree",false)
+
+        //isFree = false
 
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
         width = metrics.widthPixels
         height = metrics.heightPixels
 
+        decimoWidth = width / 10
+        decimoHeigtn = height / 10
+
         if(tema == ""){
             tema ="default"
         }
 
-        getFreeDevices { toListFreeDevices ->
-            freeDevices = toListFreeDevices
+        if(!isFree){
+            getFreeDevices { toListFreeDevices ->
+                freeDevices = toListFreeDevices
+
+            }
         }
+
         deviceIdFind = getDeviceId(this@MainActivity)
 
         medidaFlechas = (width / 7f)
@@ -246,7 +262,21 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
 
-        imageIcon = findViewById(R.id.imageIcon)
+        btnPlay = findViewById(R.id.btnPlay)
+        btnPlayOnline = findViewById(R.id.btnPlayOnline)
+        btnOptions = findViewById(R.id.btnOptions)
+        btnExit = findViewById(R.id.btnExit)
+
+        btnPlay.layoutParams.height = (decimoHeigtn * 1.2).toInt()
+        btnPlayOnline.layoutParams.height = (decimoHeigtn * 1.2).toInt()
+        btnOptions.layoutParams.height = (decimoHeigtn * 1.2).toInt()
+        btnExit.layoutParams.height = (decimoHeigtn * 1.2).toInt()
+
+        btnPlay.layoutParams.width = decimoWidth * 6
+        btnPlayOnline.layoutParams.width = decimoWidth * 6
+        btnOptions.layoutParams.width = decimoWidth * 6
+        btnExit.layoutParams.width = decimoWidth * 6
+
         lbDescargando = findViewById(R.id.lbDescargando)
         progressBar = findViewById(R.id.downloadProgress)
         video_fondo = findViewById(R.id.video_fondo)
@@ -325,7 +355,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                     linearDownload.setOnClickListener {
 
                     }
-                    imageIcon.isVisible = true
                     lbDescargando.isVisible = true
                     progressBar.isVisible = true
 
@@ -353,7 +382,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         linearDownload.setOnClickListener {
 
         }
-        imageIcon.isVisible = true
         lbDescargando.isVisible = true
         progressBar.isVisible = true
         val fallo = AlertDialog.Builder(this)
@@ -412,9 +440,9 @@ class MainActivity : AppCompatActivity(), Serializable {
             setDataAndType(uri, "application/vnd.android.package-archive")
             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
         }
+        themes.edit().putBoolean("isFree", false).apply()
         startActivity(intent)
     }
-
 
     private fun cerrarApp() {
         val intent = Intent(Intent.ACTION_MAIN)
@@ -424,15 +452,27 @@ class MainActivity : AppCompatActivity(), Serializable {
         exitProcess(0)
     }
 
+    private fun isFileExists(file: File): Boolean {
+        return file.exists() && !file.isDirectory
+    }
 
     private fun creaMain() {
+        val displayMirror = File(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands/03_display/M.png")!!.absolutePath)
+        val displayRS = File(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands/03_display/RS.png")!!.absolutePath)
+        if(isFileExists(displayMirror) || displayMirror.isDirectory){
+            displayMirror.delete()
+        }
+        if(isFileExists(displayRS) || displayRS.isDirectory){
+            displayRS.delete()
+        }
+
         val databaseReference = firebaseDatabase.getReference("version")
-        var version = ""
+        var version : String
         databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                version = snapshot.child("value").getValue(String::class.java).toString()
+                version = snapshot.child("value").getValue(String::class.java)?: ""
                 showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
-                numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java).toString()
+                numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java)?: ""
                 val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
 
                 CoroutineScope(Dispatchers.Main).launch {
@@ -508,7 +548,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                         }
                     }else{
                         linearDownload.isVisible = false
-                        imageIcon.isVisible = false
                         lbDescargando.isVisible = false
                         progressBar.isVisible = false
                         val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
@@ -516,34 +555,26 @@ class MainActivity : AppCompatActivity(), Serializable {
                             tema ="default"
                         }
 
-                        val linearButtons = findViewById<LinearLayout>(R.id.linearButtons)
-                        linearButtons.orientation = LinearLayout.VERTICAL // Alineación vertical
-                        linearButtons.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-                        linearButtons.layoutParams = LinearLayout.LayoutParams(
-                            width,
-                            height / 2
-                        )
-                        linearButtons.y = height / 4f
-
-                        btnPlay = findViewById(R.id.btnPlay)
                         btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
-                        btnPlayOnline = findViewById(R.id.btnPlayOnline)
                         btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
 
-                        val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
-                        if(deviceFree != null){
-                            showAddActive = false
+                        if(!isFree){
+                            val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
+                            if(deviceFree != null){
+                                showAddActive = false
+                                isFree = true
+                                themes.edit().putBoolean("isFree", isFree).apply()
+                            }else{
+                                loadRewardedAd()
+                            }
                         }else{
-                            loadRewardedAd()
+                            showAddActive = false
                         }
 
                         if(!startOnline){
                             btnPlayOnline.visibility = View.GONE
                         }
-
-                        btnOptions = findViewById(R.id.btnOptions)
                         btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
-                        btnExit = findViewById(R.id.btnExit)
                         btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
 
                         val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
@@ -552,6 +583,8 @@ class MainActivity : AppCompatActivity(), Serializable {
                         soundPlayer!!.start()
 
                         animLogo = findViewById(R.id.imgLogo)
+                        //animLogo.layoutParams.height = decimoHeigtn * 2
+                        animLogo.layoutParams.width = width / 2
                         val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
                         animLogo.setImageBitmap(bmLogo)
                         bgaOff = this@MainActivity.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
@@ -606,18 +639,13 @@ class MainActivity : AppCompatActivity(), Serializable {
                             soundPlayer!!.pause()
                             btnPlay.isEnabled = true
                         }
-
                         btnPlayOnline.setOnClickListener{
                             if(showAddActive){
                                 if (rewardedAd != null) {
                                     rewardedAd?.show(this@MainActivity) {
-                                        // El usuario ha visto el anuncio
-                                        //val rewardAmount = rewardItem.amount
-                                        //val rewardType = rewardItem.type
                                         showOnlineMode(animation, goSound)
                                         rewardedAd = null
                                         loadRewardedAd()
-                                        //Toast.makeText(this@MainActivity, "¡Ganaste $rewardAmount $rewardType!", Toast.LENGTH_SHORT).show()
                                     }
                                 } else {
                                     Toast.makeText(this@MainActivity, "El anuncio aún no está listo", Toast.LENGTH_SHORT).show()
@@ -747,7 +775,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     val dialog = AlertDialog.Builder(this@MainActivity)
                         .setTitle("Actualizar")
-                        .setMessage("Se requiere actualizar la aplicacion, descargar?")
+                        .setMessage(R.string.updateApp)
                         .setView(linearDowload)
                         .setCancelable(false)
                         .show()
@@ -1278,6 +1306,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 bg_download.start()
             }
         }
+        listEfectsDisplay.clear()
     }
     override fun onDestroy() {
         super.onDestroy()

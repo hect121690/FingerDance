@@ -7,6 +7,15 @@
     android:textAlignment="center"
     tools:context=".SelectChannel">
 
+    <VideoView
+        android:id="@+id/bgaSelectChannel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <LinearLayout
         android:id="@+id/background"
         android:layout_width="match_parent"
@@ -118,12 +127,20 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="@+id/imageCircle">
 
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/carouselRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                />
+
+
             <androidx.viewpager2.widget.ViewPager2
                 android:id="@+id/recyclerChannels"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipToPadding="false" />
-
+            -
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

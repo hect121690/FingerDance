@@ -22,7 +22,6 @@ class CommandChannel(private val channelList: ArrayList<Channels>, private val w
         val bit = BitmapFactory.decodeFile(channelList[position].banner)
         imageView.setImageBitmap(bit)
         imageView.layoutParams.width = width
-
     }
 
     override fun getItemCount(): Int {

@@ -4,7 +4,6 @@ import java.io.File
 import kotlin.experimental.and
 import kotlin.experimental.or
 import kotlin.math.round
-import kotlin.random.Random
 
 class KsfProccess {
     companion object {
@@ -36,7 +35,7 @@ class KsfProccess {
         var iLastMissCheck: Int = 0,
         var fBPM: Float = 0f,
         val vLine: MutableList<Line> = mutableListOf(),
-        var iSpeed: Pair<Float, Long> = Pair(0f, 0)
+        var iSpeed: Float = 0f //Pair<Float, Long> = Pair(0f, 0L)
     )
 
     data class LoadingInfo(val tag: String, val value: String)
@@ -138,9 +137,9 @@ class KsfProccess {
         //if (bpm < 0) bpm = 0f
         //if (bpm2 < 0) bpm2 = 0f
         //if (bpm3 < 0) bpm3 = 0f
-        if (startTime < 0) startTime = 0
-        if (startTime2 < 0) startTime2 = 0
-        if (startTime3 < 0) startTime3 = 0
+        //if (startTime < 0) startTime = 0
+        //if (startTime2 < 0) startTime2 = 0
+        //if (startTime3 < 0) startTime3 = 0
         if (bunki < 0) bunki = 0
         if (bunki2 < 0) bunki2 = 0
 
@@ -225,6 +224,12 @@ class KsfProccess {
                         curPtn.fBPM = info.step.toFloat()
                     }
                     curBPM = curPtn.fBPM
+                    if(curBPM < -999){
+                        curBPM = -999F
+                    }
+                    if(curBPM > 999){
+                        curBPM = 999F
+                    }
                 }
                 STEPINFO_TICK -> {
                     if (patterns.last().vLine.isNotEmpty()) {
@@ -259,15 +264,12 @@ class KsfProccess {
                 }
 
                 STEPINFO_SPEED -> {
-                    //val speedPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     if (patterns.last().vLine.isNotEmpty()) {
                         curPtn = Pattern(fBPM = curBPM, iTick = curTick)
                     } else {
                         patterns.removeAt(patterns.lastIndex)
                     }
-                    val pair = info.step.split(",")
-                    curPtn.iSpeed = Pair(pair[0].trim().toFloat(), pair[1].trim().toLong())
-                    //patterns.add(speedPtn)
+                    curPtn.iSpeed = info.step.trim().toFloat() //Pair(pair[0].trim().toFloat(), pair[1].trim().toLong())
                     patterns.add(curPtn)
                 }
 
@@ -447,72 +449,103 @@ class KsfProccess {
         return -1
     }
 
-    fun makeRandom() {
-        val newLine = ByteArray(10)
-        val nowLong = ByteArray(10) { 255.toByte() }
-        val noNote = ByteArray(10)
+    fun makeMirror() {
+        val mirrorMap = intArrayOf(1, 0, 2, 4, 3)
         val stepWidth = 5
 
         patterns.forEach { ptn ->
-            ptn.vLine.forEachIndexed { l, line ->
-                for (a in 0 until stepWidth) {
-                    newLine[a] = 0
-                    if (noNote[a] == 2.toByte()) {
-                        noNote[a] = 3
-                    } else if (noNote[a] == 3.toByte()) {
-                        noNote[a] = 0
-                    }
-                }
+            val nowLong = ByteArray(5) { 255.toByte() }
+            val newLong = ByteArray(5) { 255.toByte() }
 
-                for (a in 0 until stepWidth) {
-                    when (line.step[a]) {
+            ptn.vLine.forEach { line ->
+                val newLine = ByteArray(stepWidth) { NOTE_NONE }
+
+                for (i in 0 until stepWidth) {
+                    when (line.step[i]) {
+                        NOTE_NOTE -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_NOTE
+                        }
                         NOTE_LSTART -> {
-                            while (true) {
-                                val r = Random.nextInt(stepWidth)
-                                if (newLine[r] == 0.toByte() && nowLong[a] == 255.toByte() && noNote[r] == 0.toByte()) {
-                                    nowLong[a] = r.toByte()
-                                    newLine[r] = line.step[a]
-                                    line.step[a] = NOTE_NONE
-                                    noNote[r] = 1
-                                    break
-                                }
-                            }
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_LSTART
+                            nowLong[i] = i.toByte()
+                            newLong[i] = newPos.toByte()
                         }
                         NOTE_LNOTE -> {
-                            newLine[nowLong[a].toInt()] = line.step[a]
-                            line.step[a] = NOTE_NONE
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_LNOTE
+                            }
                         }
                         NOTE_LEND -> {
-                            newLine[nowLong[a].toInt()] = line.step[a]
-                            noNote[nowLong[a].toInt()] = 2
-                            nowLong[a] = stepWidth.toByte()
-                            line.step[a] = NOTE_NONE
-                        }
-                    }
-                }
-
-                for (a in 0 until stepWidth) {
-                    if (line.step[a] == NOTE_NOTE) {
-                        while (true) {
-                            val r = Random.nextInt(stepWidth)
-                            if (newLine[r] == 0.toByte() && nowLong[a] == 255.toByte() && noNote[r] == 0.toByte()) {
-                                newLine[r] = line.step[a]
-                                break
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_LEND
+                                nowLong[i] = 255.toByte()
+                                newLong[i] = 255.toByte()
                             }
                         }
                     }
                 }
 
-                for (a in 0 until stepWidth) {
-                    line.step[a] = newLine[a]
-                }
-
-                for (a in 0 until stepWidth) {
-                    if (nowLong[a].toInt() == stepWidth) {
-                        nowLong[a] = 255.toByte()
-                    }
+                for (i in 0 until stepWidth) {
+                    line.step[i] = newLine[i]
                 }
             }
         }
     }
+
+    fun makeRandom() {
+        val mirrorMap1 = intArrayOf(4, 1, 2, 3, 0)
+        val mirrorMap2 = intArrayOf(2, 4, 0, 1, 3)
+        val mirrorMap3 = intArrayOf(3, 0, 1, 4, 2)
+
+        val mirrorMaps = listOf(mirrorMap1, mirrorMap2, mirrorMap3)
+        val mirrorMap = mirrorMaps.random()
+        val stepWidth = 5
+
+        patterns.forEach { ptn ->
+            val nowLong = ByteArray(stepWidth) { 255.toByte() }
+            val newLong = ByteArray(stepWidth) { 255.toByte() }
+
+            ptn.vLine.forEach { line ->
+                val newLine = ByteArray(stepWidth) { NOTE_NONE }
+
+                for (i in 0 until stepWidth) {
+                    when (line.step[i]) {
+                        NOTE_NOTE -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_NOTE
+                        }
+                        NOTE_LSTART -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_LSTART
+                            nowLong[i] = i.toByte()
+                            newLong[i] = newPos.toByte()
+                        }
+                        NOTE_LNOTE -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_LNOTE
+                            }
+                        }
+                        NOTE_LEND -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_LEND
+                                nowLong[i] = 255.toByte()
+                                newLong[i] = 255.toByte()
+                            }
+                        }
+                    }
+                }
+
+                for (i in 0 until stepWidth) {
+                    line.step[i] = newLine[i]
+                }
+            }
+        }
+    }
+
 }

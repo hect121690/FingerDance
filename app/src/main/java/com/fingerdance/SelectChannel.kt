@@ -22,6 +22,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
+import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
@@ -30,6 +31,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -39,7 +41,6 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
-import com.google.gson.GsonBuilder
 import java.io.File
 import java.io.FileInputStream
 
@@ -52,7 +53,6 @@ private var up_sound : Int = 0
 
 private var press_start : Int = 0
 
-//private lateinit var context: Context
 private lateinit var lbNombreChannel: TextView
 private lateinit var linearLayout: LinearLayout
 private lateinit var nav_izq: ImageView
@@ -82,6 +82,8 @@ var currentSong = ""
 var currentLevel = ""
 
 var positionCurrentChannel = 0
+
+private lateinit var bgaSelectChannel: VideoView
 
 class SelectChannel : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -176,17 +178,17 @@ class SelectChannel : AppCompatActivity() {
 
         //context = this
 
-        val ancho = (width * 0.7).toInt()
+        val ancho = (width * 0.6).toInt()
         recyclerChannels = findViewById(R.id.recyclerChannels)
         recyclerChannels.isUserInputEnabled = false
 
         recyclerChannels.clipToPadding = false
         recyclerChannels.adapter = CommandChannel(listChannels, ancho)
         recyclerChannels.offscreenPageLimit = 3
-
         objectAnimator = ObjectAnimator.ofFloat(recyclerChannels.getChildAt(position), "rotationY", 180f, 360f)
         objectAnimator.duration = 500
         objectAnimator.interpolator = AccelerateDecelerateInterpolator()
+
 
         isFocusChannel(position)
 
@@ -358,8 +360,11 @@ class SelectChannel : AppCompatActivity() {
 
                 */
 
-                escucharPuntajesPorNombre(listChannels[position].nombre) { listSongs ->
-                    listGlobalRanking = listSongs
+
+                if(!isOffline){
+                    escucharPuntajesPorNombre(listChannels[position].nombre) { listSongs ->
+                        listGlobalRanking = listSongs
+                    }
                 }
 
                 listSongsChannel = listChannels[position].listCanciones
@@ -388,8 +393,31 @@ class SelectChannel : AppCompatActivity() {
         }
 
         linearLayout = findViewById(R.id.background)
-        linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
 
+        bgaSelectChannel = findViewById(R.id.bgaSelectChannel)
+        bgaSelectChannel.visibility = View.GONE
+        val bgaPath = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4")!!.absolutePath
+        if(File(bgaPath).isDirectory){
+            File(bgaPath).delete()
+        }
+        if (isFileExists(File(bgaPath))) {
+            bgaSelectChannel.visibility = View.VISIBLE
+            bgaSelectChannel.setVideoPath(bgaPath)
+            bgaSelectChannel.setOnCompletionListener {
+                bgaSelectChannel.start()
+
+            }
+            bgaSelectChannel.setOnPreparedListener { md ->
+                md.setVolume(0f, 0f)
+            }
+            bgaSelectChannel.start()
+        }else{
+            linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
+        }
+    }
+
+    private fun isFileExists(file: File): Boolean {
+        return file.exists() && !file.isDirectory
     }
 
     private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
@@ -469,7 +497,7 @@ class SelectChannel : AppCompatActivity() {
         recyclerChannels.setCurrentItem(position, false)
         channel = item.nombre
         lbNombreChannel.text = item.descripcion
-        objectAnimator.start()
+        //objectAnimator.start()
         positionCurrentChannel = position
 
     }
@@ -506,12 +534,16 @@ class SelectChannel : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         soundSelecctChannel.start()
+        bgaSelectChannel.start()
     }
 
     override fun onPause() {
         super.onPause()
         if(soundSelecctChannel.isPlaying){
             soundSelecctChannel.pause()
+        }
+        if(bgaSelectChannel.isPlaying){
+            bgaSelectChannel.pause()
         }
     }
 
