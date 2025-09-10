@@ -8,11 +8,13 @@ import android.os.Looper
 import android.view.SurfaceView
 import android.view.WindowManager
 import android.widget.RelativeLayout
+import android.widget.Toast
 import android.widget.VideoView
 import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.fingerdance.Player.Companion.NOTE_LNOTE
 import com.fingerdance.Player.Companion.NOTE_NONE
 import java.io.File
 
@@ -90,8 +92,8 @@ open class GameScreenActivity : AndroidApplication() {
                 videoViewBgaoff.isVisible = false
                 videoViewBgaOn.isVisible = true
                 videoViewBgaOn.setVideoPath(playerSong.rutaVideo)
-                videoViewBgaOn.setOnPreparedListener { mediaPlayer ->
-                    mediaPlayer.setVolume(0f, 0f)
+                videoViewBgaOn.setOnPreparedListener { mp ->
+                    mp.setVolume(0f, 0f)
                 }
                 isVideo = true
             }else{
@@ -117,7 +119,7 @@ open class GameScreenActivity : AndroidApplication() {
             ksf.patterns.forEach{ ptn ->
                 ptn.vLine.forEach { line ->
                     line.step.forEach { step ->
-                        if(step != NOTE_NONE){
+                        if(step != NOTE_NONE && step != NOTE_LNOTE){
                             countMiss ++
                         }
                     }
@@ -157,11 +159,21 @@ open class GameScreenActivity : AndroidApplication() {
         startActivity(intent)
     }
 
+    private var backPressedTime: Long = 0
+    private lateinit var backToast: Toast
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if(!isOnline) {
-            isVideo = false
-            this.finish()
+        if (!isOnline) {
+            if (backPressedTime + 2000 > System.currentTimeMillis()) {
+                backToast.cancel()
+                isVideo = false
+                this.finish()
+                return
+            } else {
+                backToast = Toast.makeText(this, "Presiona nuevamente para salir", Toast.LENGTH_SHORT)
+                backToast.show()
+            }
+            backPressedTime = System.currentTimeMillis()
         }
     }
 
@@ -187,7 +199,7 @@ open class GameScreenActivity : AndroidApplication() {
                 }
                 startVideoFromPosition()
                 hasWaitedForDelay = true
-            }, 2000) // 2 segundos
+            }, 2000)
         } else {
             if (!mediaPlayer.isPlaying) {
                 mediaPlayer.start()

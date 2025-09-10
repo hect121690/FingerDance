@@ -43,6 +43,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.NestedScrollView
 import androidx.core.widget.TextViewCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
@@ -88,7 +89,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var layoutCanciones : ConstraintLayout
     private lateinit var layoutPads : ConstraintLayout
 
-    private lateinit var recyclerViewListChannels: RecyclerView
+    //private lateinit var recyclerViewListChannels: RecyclerView
+    private lateinit var scrollChannels: NestedScrollView
     private lateinit var downloadButtonChannel: Button
     private var selectedValueChannel: String? = null
 
@@ -150,22 +152,21 @@ class Options() : AppCompatActivity(), ItemClickListener {
         val close = ResourcesCompat.getDrawable(resources, android.R.drawable.arrow_up_float, null)
 
         downloadButtonChannel = findViewById(R.id.download_button_channel)
-        recyclerViewListChannels = findViewById(R.id.recycler_view_list_channels)
+        scrollChannels = findViewById(R.id.scrollChannels)
         //layoutCanciones.layoutParams.height = (height / 2)
         val arrowIndicator = findViewById<ImageView>(R.id.arrowIndicator)
         val txSlide = findViewById<TextView>(R.id.txSlide)
-        recyclerViewListChannels.layoutParams.height = (width * 0.7).toInt()
-        recyclerViewListChannels.layoutParams.width = (width * 0.7).toInt()
+        scrollChannels.layoutParams.height = (height * 0.3).toInt()
+        scrollChannels.layoutParams.width = (width * 0.7).toInt()
 
-        recyclerViewListChannels.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                if (dy > 0) {
-                    arrowIndicator.visibility = View.GONE
-                    txSlide.visibility = View.GONE
-                }
+        scrollChannels.setOnScrollChangeListener { v: NestedScrollView, _, scrollY, _, oldScrollY ->
+            if (scrollY > oldScrollY) {
+                // Se está deslizando hacia abajo
+                arrowIndicator.visibility = View.GONE
+                txSlide.visibility = View.GONE
             }
-        })
+        }
+
 
         txProgressDownloadChannel = findViewById(R.id.textViewDownloadChannel)
         txProgressDownloadChannel.layoutParams.width = (width / 10) * 9
@@ -227,15 +228,33 @@ class Options() : AppCompatActivity(), ItemClickListener {
             dialogEliminar.show()
         }
 
-        val adapterChannels = ListChannelsAdapter(downloadButtonChannel, listFilesDrive) { selectedItem ->
-            selectedValueChannel = selectedItem
+        val radioChannelsDownload = RadioGroup(this).apply {
+            removeAllViews()
+        }
+
+        listFilesDrive.forEach { channel ->
+            val radioButton = RadioButton(this)
+            radioButton.text = channel.first
+            radioButton.id = View.generateViewId()
+            radioButton.setTextColor(Color.WHITE)
+            radioButton.textSize = pxToSp((height/50).toFloat(), this)
+            radioButton.setPadding(0, 24, 0, 24)
+            radioChannelsDownload.addView(radioButton)
+        }
+
+        scrollChannels.addView(radioChannelsDownload)
+
+        radioChannelsDownload.setOnCheckedChangeListener { group, checkedId ->
+            val channelSelected = group.findViewById<RadioButton>(checkedId)
+            val itemList = listFilesDrive.find { it.first == channelSelected.text.toString()}
+            selectedValueChannel = itemList!!.second
+            fileName = itemList.first
+            downloadButtonChannel.isEnabled = channelSelected.isChecked
             arrowIndicator.visibility = View.GONE
             txSlide.visibility = View.GONE
         }
-        recyclerViewListChannels.layoutManager = LinearLayoutManager(this)
-        recyclerViewListChannels.adapter = adapterChannels
 
-        val switchImagePadA = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.showImagePadA)
+        val switchImagePadA = findViewById<SwitchCompat>(R.id.showImagePadA)
         switchImagePadA.visibility = View.GONE
         switchImagePadA.layoutParams.width = width / 2
 
@@ -245,7 +264,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
         val trackColor = ColorStateList(
             arrayOf( intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
-            intArrayOf(Color.parseColor("#80FF00"),Color.parseColor("#808080")))
+            intArrayOf(R.color.track_color_A, R.color.track_color_B))
 
         switchImagePadA.thumbTintList = thumbColor
         switchImagePadA.trackTintList = trackColor
@@ -434,6 +453,50 @@ class Options() : AppCompatActivity(), ItemClickListener {
             btnGuardarPads.visibility = View.INVISIBLE
         }
 
+        val btnNoteMidLine = findViewById<SwitchCompat>(R.id.btnNoteMidLine)
+        btnNoteMidLine.layoutParams.width = (width / 10) * 8
+        btnNoteMidLine.isChecked = isMidLine
+        btnNoteMidLine.thumbTintList = thumbColor
+        btnNoteMidLine.trackTintList = trackColor
+
+        btnNoteMidLine.setOnClickListener {
+            val dialog = AlertDialog.Builder(this, R.style.TransparentDialog).apply {
+                setTitle("Notas a media pantalla")
+                setCancelable(false)
+            }
+            if(!isMidLine){
+                dialog.setMessage(R.string.MessageMidLineOn)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnNoteMidLine.isChecked = false
+                    isMidLine = btnNoteMidLine.isChecked
+                    themes.edit().putBoolean("isMidLine", isMidLine).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnNoteMidLine.isChecked = true
+                    isMidLine = btnNoteMidLine.isChecked
+                    themes.edit().putBoolean("isMidLine", isMidLine).apply()
+                    d.dismiss()
+                }
+            }else{
+                dialog.setMessage(R.string.MessageMidLineOff)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnNoteMidLine.isChecked = true
+                    isMidLine = btnNoteMidLine.isChecked
+                    themes.edit().putBoolean("isMidLine", isMidLine).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnNoteMidLine.isChecked = false
+                    isMidLine = btnNoteMidLine.isChecked
+                    themes.edit().putBoolean("isMidLine", isMidLine).apply()
+                    d.dismiss()
+                }
+            }
+
+            dialog.show()
+        }
+
         val btnOffline = findViewById<SwitchCompat>(R.id.btnOffline)
 
         if(!isFree){
@@ -538,9 +601,12 @@ class Options() : AppCompatActivity(), ItemClickListener {
                     }
                 }
                 if (downloadedFile != null) {
-                    val unzip = Unzip(this@Options)
-                    val rutaZip = getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-                    unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+                    lifecycleScope.launch {
+                        val unzip = Unzip(this@Options)
+                        val rutaZip =
+                            getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                        unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+                    }
                 } else {
                     Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
                 }
@@ -1117,10 +1183,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
             if (downloadedFile != null) {
                 themes.edit().putString("theme", fileNameChannel.replace(".zip", "", ignoreCase = true)).apply()
+                themes.edit().putString("efects", "").apply()
                 val unzipTheme = UnzipTheme(this@Options, fileNameChannel)
                 unzipTheme.performUnzip(localFile.absolutePath)
-                themes.edit().putString("theme", fileNameChannel.replace(".zip", "", ignoreCase = true)).apply()
-
             } else {
                 Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
             }
@@ -1177,7 +1242,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private class ThemesItemsAdapter(
         private val items: ArrayList<Pair<String, String>>,
         private val btnDescargar: Button,
-        private val itemClickListener: ItemClickListener) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
+        private val itemClickListener: ItemClickListener,
+    ) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
         private var selectedItemPosition = RecyclerView.NO_POSITION
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {

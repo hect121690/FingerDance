@@ -42,7 +42,14 @@
     <string name="MessageOfflineOff">-Al desactivar el modo offline se reestablecera la conexión a internet.\n
                                     Confirma que desea desactivar el modo Offline?
     </string>
-    <string name="updateApp">Se requiere actualizar la aplicacion, descargar?
+    <string name="updateApp">Se requiere actualizar la aplicacion, descargar?</string>
+
+    <string name="MessageMidLineOn">-Al activar este modo las notas apareceran desde la mitad de la pantalla.
+                                    \n
+                                    Confirma que desea activar?
+    </string>
+    <string name="MessageMidLineOff">-Al desactivar este modo las notas apareceran desde abajo de la pantalla.\n
+                                    Confirma que desea desactivar?
     </string>
 
 </resources>

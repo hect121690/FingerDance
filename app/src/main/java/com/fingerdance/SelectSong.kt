@@ -10,6 +10,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -225,7 +226,16 @@ class SelectSong : AppCompatActivity() {
             recyclerCommandsValues = findViewById(R.id.recyclerValues)
             recyclerCommandsValues.isUserInputEnabled = false
 
+            /*
             mediaPlayer = MediaPlayer()
+            mediaPlayer.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            */
+
 
             val levels = Levels()
 
@@ -236,17 +246,18 @@ class SelectSong : AppCompatActivity() {
             linearBG = findViewById(R.id.linearBG)
             bgaSelectSong = findViewById(R.id.bgaSelectSong)
             bgaSelectSong.visibility = View.GONE
-            val bgaPath = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4")!!.absolutePath
-            if (isFileExists(File(bgaPath))) {
+            if (isFileExists(File(bgaPathSelectSong))) {
                 bgaSelectSong.visibility = View.VISIBLE
-                bgaSelectSong.setVideoPath(bgaPath)
-                bgaSelectSong.setOnCompletionListener {
-                    bgaSelectSong.start()
-                }
+                bgaSelectSong.setVideoPath(bgaPathSelectSong)
                 bgaSelectSong.setOnPreparedListener { md ->
                     md.setVolume(0f, 0f)
                 }
                 bgaSelectSong.start()
+                bgaSelectSong.setOnCompletionListener {
+                    bgaSelectSong.start()
+                }
+
+
             }else{
                 linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
             }
@@ -263,7 +274,14 @@ class SelectSong : AppCompatActivity() {
             commandWindowBG = findViewById(R.id.command_window_bg)
             commandWindowBG.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")!!.absolutePath)
             mediPlayer = MediaPlayer()
+
             mediaPlayerVideo = MediaPlayer()
+            mediaPlayerVideo.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
 
             commandWindow.layoutParams.height = height / 2
             commandWindow.layoutParams.width = (width / 1.5).roundToInt()
@@ -813,7 +831,20 @@ class SelectSong : AppCompatActivity() {
                         playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
-                        mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
+                        //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
+                        mediaPlayer = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_GAME)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                    .build()
+                            )
+                            setDataSource(File(playerSong.rutaCancion!!).absolutePath)
+                            prepare()
+                            //seekTo(startTimeMs)
+                            //start()
+                        }
+
                         load(playerSong.rutaKsf!!)
 
                         if(playerSong.mirror){
@@ -1715,28 +1746,44 @@ class SelectSong : AppCompatActivity() {
                 }
                 video_fondo.visibility = View.VISIBLE
                 imgPrev.visibility = View.GONE
-
-                //val retriever = MediaMetadataRetriever()
-                //retriever.setDataSource(item.rutaPreview)
                 video_fondo.start()
-                //val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
-                //if(hasAudio != null ){
-                    //video_fondo.setOnPreparedListener { mp -> mp.setVolume(0.0f, 0.0f) }
-                //}
                 video_fondo.setOnCompletionListener {
                     video_fondo.start()
                 }
                 if (mediPlayer.isPlaying){
                     mediPlayer.release()
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(File(item.rutaSong).absolutePath)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }else{
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaPreview)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(File(item.rutaPreview).absolutePath)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }
@@ -1747,15 +1794,43 @@ class SelectSong : AppCompatActivity() {
                 imgPrev.visibility = View.VISIBLE
                 if (mediPlayer.isPlaying){
                     mediPlayer.release()
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(File(item.rutaSong).absolutePath)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }else{
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(File(item.rutaSong).absolutePath)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }
@@ -1767,15 +1842,42 @@ class SelectSong : AppCompatActivity() {
             imgPrev.visibility = View.VISIBLE
             if (mediPlayer.isPlaying){
                 mediPlayer.release()
-                mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                mediPlayer.seekTo(startTimeMs)
-                mediPlayer.start()
+
+                mediPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setDataSource(File(item.rutaSong).absolutePath)
+                    prepare()
+                    seekTo(startTimeMs)
+                    start()
+                }
+
+                //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                //mediPlayer.seekTo(startTimeMs)
+                //mediPlayer.start()
                 timer?.start()
                 isTimerRunning = true
             }else{
-                mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
-                mediPlayer.seekTo(startTimeMs)
-                mediPlayer.start()
+                mediPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setDataSource(File(item.rutaSong).absolutePath)
+                    prepare()
+                    seekTo(startTimeMs)
+                    start()
+                }
+
+                //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(item.rutaSong)))
+                //mediPlayer.seekTo(startTimeMs)
+                //mediPlayer.start()
                 timer?.start()
                 isTimerRunning = true
             }

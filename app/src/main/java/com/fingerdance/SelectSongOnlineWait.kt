@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -457,15 +458,42 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 }
                 if (mediPlayer.isPlaying){
                     mediPlayer.release()
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(activeSala.cancion.rutaCancion)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }else{
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaPreview)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(activeSala.cancion.rutaCancion)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaPreview)))
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }
@@ -476,15 +504,42 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 imgPrev.visibility = View.VISIBLE
                 if (mediPlayer.isPlaying){
                     mediPlayer.release()
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(activeSala.cancion.rutaCancion)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }else{
-                    mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                    mediPlayer.seekTo(startTimeMs)
-                    mediPlayer.start()
+                    mediPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(activeSala.cancion.rutaCancion)
+                        prepare()
+                        seekTo(startTimeMs)
+                        start()
+                    }
+
+                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
+                    //mediPlayer.seekTo(startTimeMs)
+                    //mediPlayer.start()
                     timer?.start()
                     isTimerRunning = true
                 }
@@ -496,15 +551,42 @@ class SelectSongOnlineWait : AppCompatActivity() {
             imgPrev.visibility = View.VISIBLE
             if (mediPlayer.isPlaying){
                 mediPlayer.release()
-                mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                mediPlayer.seekTo(startTimeMs)
-                mediPlayer.start()
+
+                mediPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setDataSource(activeSala.cancion.rutaCancion)
+                    prepare()
+                    seekTo(startTimeMs)
+                    start()
+                }
+
+                //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
+                //mediPlayer.seekTo(startTimeMs)
+                //mediPlayer.start()
                 timer?.start()
                 isTimerRunning = true
             }else{
-                mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                mediPlayer.seekTo(startTimeMs)
-                mediPlayer.start()
+                mediPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setDataSource(activeSala.cancion.rutaCancion)
+                    prepare()
+                    seekTo(startTimeMs)
+                    start()
+                }
+
+                //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
+                //mediPlayer.seekTo(startTimeMs)
+                //mediPlayer.start()
                 timer?.start()
                 isTimerRunning = true
             }
@@ -660,7 +742,19 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         playerSong.rutaVideo = activeSala.cancion.rutaBGA
                         playerSong.rutaCancion = activeSala.cancion.rutaCancion
                         playerSong.rutaKsf = activeSala.cancion.rutaKsf
-                        mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
+
+                        mediPlayer = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_GAME)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                    .build()
+                            )
+                            setDataSource(playerSong.rutaCancion!!)
+                            prepare()
+                        }
+
+                        //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
                         load(playerSong.rutaKsf!!)
 
                         if(isPlayer1){

@@ -31,8 +31,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
     companion object {
         val STEPSIZE = medidaFlechas.toInt()
-        val MEASURE = height * .35
-        val MEASUREVANISH = (height * .5) - (medidaFlechas * 2)
+        val MEASURE = height * 0.3
+        val MEASUREVANISH = (height * 0.3) //- (medidaFlechas * 2)
 
         const val NOTE_NONE: Byte = 0
         const val NOTE_NOTE: Byte = 1
@@ -52,10 +52,10 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_PRESS_CHK: Byte = 16
         const val NOTE_MISS_CHK: Byte = 32
 
-        private var ZONE_PERFECT: Long = if(playerSong.hj) 20 else 70
-        private var ZONE_GREAT: Long = if(playerSong.hj) 40 else 100
-        private var ZONE_GOOD: Long = if(playerSong.hj) 80 else 120
-        private var ZONE_BAD: Long = if(playerSong.hj) 100 else 150
+        private var ZONE_PERFECT: Long = if(playerSong.hj) 20 else 50
+        private var ZONE_GREAT: Long = if(playerSong.hj) 50 else 90
+        private var ZONE_GOOD: Long = if(playerSong.hj) 90 else 110
+        private var ZONE_BAD: Long = if(playerSong.hj) 110 else 125
 
         const val JUDGE_PERFECT = 0
         const val JUDGE_GREAT = 1
@@ -135,6 +135,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private val GaugeInc = if(playerSong.hj) gaugeIncHJ else gaugeIncNormal
     val tipWidth = (medidaFlechas / 4f)
     val tipHeight = medidaFlechas / 1.5f
+    val tipY = 0f - (medidaFlechas * 0.05f)
 
     init {
         currentTimeToExpands = timeGetTime()
@@ -287,7 +288,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         iPtnBottom = adaptValue((((ksf.patterns[iPtnNowNo].timePos + timeToPresiscion) - time) * m_fCurBPM * speed * 0.001f).toLong())
 
         for (iPtnNo in iPtnNowNo until ksf.patterns.size) {
-            if (iPtnBottom > Gdx.graphics.height) break
+            if (iPtnBottom > gdxHeight) break
             val pPtnCur = ksf.patterns[iPtnNo]
 
             val fPtnTick = pPtnCur.iTick.toFloat()
@@ -802,7 +803,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         barFrame.draw(batch)
 
         val tipX: Float
-        val tipY = 0f - (medidaFlechas * 0.05f)
+
         if(gauge <= 0.99f && gauge > 0f){
             tipX = visibleWidth + medidaFlechas
             barTip.setSize(tipWidth, tipHeight)
@@ -890,7 +891,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         val digitW = digitWidth * ftX
         val digitH = digitHeight * ftY
 
-        // DIBUJAR COMBO (ACIERTO)
         if (curCombo >= 4 || curComboMiss >= 4) {
             val isMiss = curComboMiss >= 4
             val comboSprite = if (isMiss) Sprite(imgsTypeCombo[1]) else Sprite(imgsTypeCombo[0])
@@ -950,11 +950,19 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         flare[x].startTime = time
     }
 
+    private val initArrow = (gdxHeight * 0.55)
+
     private fun drawNote(x: Int, y: Int) {
         val left = medidaFlechas * (x + 1)
 
         if(!noEffects){
-            batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+            if(isMidLine){
+                if(y < initArrow){
+                    batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                }
+            }else{
+                batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+            }
         }else{
             if(playerSong.vanish){
                 if(y > MEASUREVANISH){
@@ -976,10 +984,25 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         var heightBody = y2 - y - (medidaFlechas / 2f)
 
         if(!noEffects){
-            batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
-            batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
-            if(y > 0){
-                batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+            if(isMidLine){
+                if(posY < initArrow){
+                    if(posY + heightBody > initArrow){
+                        heightBody = (initArrow - posY).toFloat()
+                    }
+                    batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
+                    if(y2 < initArrow){
+                        batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+                    if(y > 0){
+                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+                }
+            }else{
+                batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
+                batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                if(y > 0){
+                    batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                }
             }
         }else{
             if(playerSong.vanish){

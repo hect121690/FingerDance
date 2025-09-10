@@ -9,11 +9,8 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import net.lingala.zip4j.ZipFile
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 
 class UnzipSongs(
     private val context: Context,
@@ -21,9 +18,9 @@ class UnzipSongs(
     private val textView: TextView
 ) {
     val finishActivity = MutableLiveData<Boolean>()
-    private val BUFFER_SIZE = 1024
 
     suspend fun performUnzip(rutaZip: String) {
+        /*
         withContext(Dispatchers.IO) {
             val zipFile = File(rutaZip)
             val zipInputStream = ZipInputStream(FileInputStream(zipFile))
@@ -53,6 +50,13 @@ class UnzipSongs(
 
             zipInputStream.closeEntry()
             zipInputStream.close()
+        }
+        */
+
+        withContext(Dispatchers.IO) {
+            val zipFile = ZipFile(rutaZip)
+            val destino = File(context.getExternalFilesDir(null),"FingerDance/Songs/Channels/")
+            zipFile.extractAll(destino.absolutePath)
         }
 
         withContext(Dispatchers.Main) {

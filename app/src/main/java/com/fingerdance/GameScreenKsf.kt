@@ -59,6 +59,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private val barTipTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/bar_tip.png"))
     val barTip = Sprite(barTipTexture)
 
+    val backgroundPads = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/Preview_Filter.png"))
+
     private lateinit var padB : TextureRegion
     lateinit var spritePadB: Sprite
 
@@ -177,7 +179,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                 getReceptsAnimation()
             }
             showBgPads()
-
 
             player.render(currentTime)
 

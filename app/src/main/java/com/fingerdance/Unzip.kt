@@ -5,16 +5,22 @@ import android.content.Intent
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import net.lingala.zip4j.ZipFile
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 
 class Unzip (private val context: Context) {
-    private val BUFFER_SIZE = 1024
 
-    fun performUnzip(rutaZip: String, fileToUnzip: String, closeMain: Boolean) {
+    suspend fun performUnzip(rutaZip: String, fileToUnzip: String, closeMain: Boolean) {
+
+        withContext(Dispatchers.IO) {
+            val zipFile = ZipFile(rutaZip)
+            val destino = context.getExternalFilesDir(null)
+            zipFile.extractAll(destino!!.absolutePath)
+        }
+
+        /*
         val zipFile = File(rutaZip)
         val zipInputStream = ZipInputStream(FileInputStream(zipFile))
         var zipEntry: ZipEntry?
@@ -43,7 +49,7 @@ class Unzip (private val context: Context) {
                 outputStream.close()
             }
         }
-
+        */
         val handler = Handler(Looper.getMainLooper())
         handler.post {
             if(closeMain) {
@@ -54,7 +60,7 @@ class Unzip (private val context: Context) {
             file.delete()
         }
 
-        zipInputStream.closeEntry()
-        zipInputStream.close()
+        //zipInputStream.closeEntry()
+        //zipInputStream.close()
     }
 }

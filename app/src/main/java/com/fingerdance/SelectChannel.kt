@@ -16,7 +16,6 @@ import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.SoundPool
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -92,9 +91,29 @@ class SelectChannel : AppCompatActivity() {
         setContentView(R.layout.activity_select_channel)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
-
+        /*
         soundSelecctChannel = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)))
         soundSelecctChannel.isLooping = true
+        soundSelecctChannel.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+        )
+        */
+        soundSelecctChannel = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            setDataSource(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)
+            prepare()
+            isLooping = true
+            //start()
+        }
+
         if(!soundSelecctChannel.isPlaying){
             soundSelecctChannel.start()
         }
@@ -110,6 +129,26 @@ class SelectChannel : AppCompatActivity() {
             .setMaxStreams(10)
             .setAudioAttributes(audioAttributes)
             .build()
+
+        linearLayout = findViewById(R.id.background)
+
+        bgaSelectChannel = findViewById(R.id.bgaSelectChannel)
+        bgaSelectChannel.visibility = View.GONE
+
+        if (isFileExists(File(bgaPathSelectChannel))) {
+            bgaSelectChannel.visibility = View.VISIBLE
+            bgaSelectChannel.setVideoPath(bgaPathSelectChannel)
+            bgaSelectChannel.setOnPreparedListener { md ->
+                md.setVolume(0f, 0f)
+            }
+            bgaSelectChannel.start()
+            bgaSelectChannel.setOnCompletionListener {
+                bgaSelectChannel.start()
+
+            }
+        }else{
+            linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
+        }
 
         val filePathChannelmov = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_navegation.mp3")!!.absolutePath)
         val fileDecriptorChannelMov =FileInputStream(filePathChannelmov).fd
@@ -360,7 +399,6 @@ class SelectChannel : AppCompatActivity() {
 
                 */
 
-
                 if(!isOffline){
                     escucharPuntajesPorNombre(listChannels[position].nombre) { listSongs ->
                         listGlobalRanking = listSongs
@@ -390,29 +428,6 @@ class SelectChannel : AppCompatActivity() {
 
         imgFloor.setOnClickListener {
             imgAceptar.performClick()
-        }
-
-        linearLayout = findViewById(R.id.background)
-
-        bgaSelectChannel = findViewById(R.id.bgaSelectChannel)
-        bgaSelectChannel.visibility = View.GONE
-        val bgaPath = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4")!!.absolutePath
-        if(File(bgaPath).isDirectory){
-            File(bgaPath).delete()
-        }
-        if (isFileExists(File(bgaPath))) {
-            bgaSelectChannel.visibility = View.VISIBLE
-            bgaSelectChannel.setVideoPath(bgaPath)
-            bgaSelectChannel.setOnCompletionListener {
-                bgaSelectChannel.start()
-
-            }
-            bgaSelectChannel.setOnPreparedListener { md ->
-                md.setVolume(0f, 0f)
-            }
-            bgaSelectChannel.start()
-        }else{
-            linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
         }
     }
 

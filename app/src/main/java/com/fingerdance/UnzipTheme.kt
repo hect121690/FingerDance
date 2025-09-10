@@ -12,7 +12,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
 class UnzipTheme (private val context: Context, private val nombreTheme: String) {
-    private val BUFFER_SIZE = 1024
+    private val BUFFER_SIZE = 8192
 
     fun performUnzip(rutaZip: String) {
         val zipFile = File(rutaZip)

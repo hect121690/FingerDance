@@ -137,10 +137,12 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/createChannel" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_view_list_channels"
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scrollChannels"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fillViewport="true"
+            android:scrollbars="vertical"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -151,9 +153,9 @@
             android:text="Desliza hacia abajo"
             android:textColor="#F9A825"
             android:textStyle="italic"
-            app:layout_constraintEnd_toEndOf="@+id/recycler_view_list_channels"
-            app:layout_constraintStart_toStartOf="@+id/recycler_view_list_channels"
-            app:layout_constraintTop_toBottomOf="@+id/recycler_view_list_channels" />
+            app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
+            app:layout_constraintStart_toStartOf="@+id/scrollChannels"
+            app:layout_constraintTop_toBottomOf="@+id/scrollChannels" />
 
         <ImageView
             android:id="@+id/arrowIndicator"
@@ -162,8 +164,8 @@
             android:layout_gravity="center_horizontal"
             android:alpha="0.9"
             android:visibility="visible"
-            app:layout_constraintEnd_toEndOf="@+id/recycler_view_list_channels"
-            app:layout_constraintStart_toStartOf="@+id/recycler_view_list_channels"
+            app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
+            app:layout_constraintStart_toStartOf="@+id/scrollChannels"
             app:layout_constraintTop_toBottomOf="@+id/txSlide"
             app:srcCompat="@android:drawable/arrow_down_float" />
 
@@ -171,10 +173,11 @@
             android:id="@+id/download_button_channel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="Descargar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/recycler_view_list_channels" />
+            app:layout_constraintTop_toBottomOf="@+id/scrollChannels" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -342,6 +345,21 @@
         app:layout_constraintHorizontal_bias="0.25"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/layoutPads" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/btnNoteMidLine"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#002196F3"
+        android:contextClickable="false"
+        android:cursorVisible="true"
+        android:text="Notas a media pantalla"
+        android:textColor="@color/white"
+        android:textSize="24sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.25"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnOffline" />
 
     <TextView
         android:id="@+id/txMyVersionNoteSkin"

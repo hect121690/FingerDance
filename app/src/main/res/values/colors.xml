@@ -34,5 +34,8 @@
 
     <color name="button_background">#6750A4</color>
 
+    <color name="track_color_A">#80FF00</color>
+    <color name="track_color_B">#808080</color>
+
 
 </resources>

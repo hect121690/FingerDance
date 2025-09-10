@@ -46,6 +46,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
@@ -62,6 +63,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -112,7 +114,7 @@ var listFilesDrive = arrayListOf<Pair<String, String>>()
 var listThemesDrive = arrayListOf<Pair<String, String>>()
 
 var userName = ""
-val firebaseDatabase = FirebaseDatabase.getInstance()
+lateinit var firebaseDatabase : FirebaseDatabase
 var listGlobalRanking = arrayListOf<Cancion>()
 
 var freeDevices = arrayListOf<String>()
@@ -160,8 +162,14 @@ var decimoHeigtn = 0
 var decimoWidth = 0
 var isFree = false
 var isOffline = false
+var isMidLine = false
 
 var listEfectsDisplay: ArrayList<CommandValues> = ArrayList()
+
+var bgaPathSelectChannel = ""
+var bgaPathSelectSong = ""
+
+private val ls = LoadSongsKsf()
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -192,6 +200,8 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         //createChannelNotification(this)
         MobileAds.initialize(this) {}
+        firebaseDatabase = FirebaseDatabase.getInstance()
+
         db = DataBasePlayer(this)
         themes = getPreferences(Context.MODE_PRIVATE)
         tema = themes.getString("theme", "default").toString()
@@ -206,6 +216,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         valueOffset = themes.getLong("valueOffset", 0)
         userName = themes.getString("userName","").toString()
         isFree = themes.getBoolean("isFree",false)
+        isMidLine = themes.getBoolean("isMidLine",false)
 
         //isFree = false
 
@@ -224,7 +235,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         if(!isFree){
             getFreeDevices { toListFreeDevices ->
                 freeDevices = toListFreeDevices
-
             }
         }
 
@@ -351,13 +361,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         CoroutineScope(Dispatchers.Main).launch {
             val downloadedFile = iniciarDescargaDrive("1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI", "zip") { progress ->
                 runOnUiThread {
-                    descargando = false
-                    linearDownload.setOnClickListener {
-
-                    }
-                    lbDescargando.isVisible = true
-                    progressBar.isVisible = true
-
                     progressBar.progress = progress
                     lbDescargando.text = "Descargando $progress%"
 
@@ -368,9 +371,11 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
 
             if (downloadedFile != null) {
-                val unzip = Unzip(this@MainActivity)
-                val rutaZip = getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-                unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+                lifecycleScope.launch {
+                    val unzip = Unzip(this@MainActivity)
+                    val rutaZip = getExternalFilesDir("FingerDance.zip").toString()
+                    unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+                }
             } else {
                 Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
             }
@@ -428,34 +433,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     }
 
-    private fun instalarAPK(filePath: String) {
-        val file = File(filePath)
-        val uri: Uri = FileProvider.getUriForFile(
-            this,
-            "${applicationContext.packageName}.provider",
-            file
-        )
-
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        themes.edit().putBoolean("isFree", false).apply()
-        startActivity(intent)
-    }
-
-    private fun cerrarApp() {
-        val intent = Intent(Intent.ACTION_MAIN)
-        intent.addCategory(Intent.CATEGORY_HOME)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        startActivity(intent)
-        exitProcess(0)
-    }
-
-    private fun isFileExists(file: File): Boolean {
-        return file.exists() && !file.isDirectory
-    }
-
     private fun creaMain() {
         val displayMirror = File(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands/03_display/M.png")!!.absolutePath)
         val displayRS = File(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands/03_display/RS.png")!!.absolutePath)
@@ -466,42 +443,118 @@ class MainActivity : AppCompatActivity(), Serializable {
             displayRS.delete()
         }
 
-        val databaseReference = firebaseDatabase.getReference("version")
-        var version : String
-        databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                version = snapshot.child("value").getValue(String::class.java)?: ""
-                showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
-                numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java)?: ""
-                val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
+        if(!isOffline){
+            val databaseReference = firebaseDatabase.getReference("version")
+            var version : String
+            databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    version = snapshot.child("value").getValue(String::class.java)?: ""
+                    showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
+                    numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java)?: ""
+                    val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
 
-                CoroutineScope(Dispatchers.Main).launch {
-                    getFilesDrive()
-                    listFilesDrive.sortBy { it.first }
-                }
+                    CoroutineScope(Dispatchers.Main).launch {
+                        getFilesDrive()
+                        listFilesDrive.sortBy { it.first }
+                    }
 
-                CoroutineScope(Dispatchers.Main).launch {
-                    getThemesDrive()
-                    listThemesDrive.sortBy { it.first }
-                }
+                    CoroutineScope(Dispatchers.Main).launch {
+                        getThemesDrive()
+                        listThemesDrive.sortBy { it.first }
+                    }
 
-                val packageInfo = packageManager.getPackageInfo(packageName, 0)
-                versionApp = packageInfo.versionName!!
+                    val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                    versionApp = packageInfo.versionName!!
 
-                if(version == versionApp){
-                    if(versionUpdate != numberUpdate){
-                        val lbDescargandoUpdate = TextView(this@MainActivity).apply {
-                            id = View.generateViewId()
-                            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                            setTextColor(Color.WHITE)
-                            visibility = View.INVISIBLE
+                    if(version == versionApp){
+                        if(versionUpdate != numberUpdate){
+                            val lbDescargandoUpdate = TextView(this@MainActivity).apply {
+                                id = View.generateViewId()
+                                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                                setTextColor(Color.WHITE)
+                                visibility = View.INVISIBLE
+                            }
+                            lbDescargandoUpdate.textSize = 16f
+
+                            val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                                id = View.generateViewId()
+                                layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
+                                visibility = View.INVISIBLE
+                            }
+
+                            val linearDowload = LinearLayout(this@MainActivity)
+                            linearDowload.orientation = LinearLayout.VERTICAL // Alineación vertical
+                            linearDowload.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+                            linearDowload.layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+
+                            linearDowload.addView(lbDescargandoUpdate)
+                            linearDowload.addView(progressBar)
+
+                            val dialogUpdate = AlertDialog.Builder(this@MainActivity, R.style.TransparentDialog)
+                                .setCancelable(false)
+                                .setTitle("Atualización adicional")
+                                .setMessage("Se descargaran los recursos adicionales, espera por favor.")
+                                .setView(linearDowload)
+                                .show()
+
+                            CoroutineScope(Dispatchers.Main).launch {
+                                val downloadedFile = iniciarDescargaUpdate { progress ->
+                                    runOnUiThread {
+                                        progressBar.visibility = View.VISIBLE
+                                        progressBar.progress = progress
+                                        lbDescargandoUpdate.text = "Descargando $progress%"
+
+                                        if (progress == 100) {
+                                            lbDescargandoUpdate.text = "Descarga finalizada, espere por favor..."
+                                            themes.edit().putString("versionUpdate", numberUpdate).apply()
+                                            themes.edit().putString("efects", "").apply()
+                                            versionUpdate = numberUpdate
+                                            dialogUpdate.dismiss()
+                                        }
+                                    }
+                                }
+                                if (downloadedFile != null) {
+                                    lifecycleScope.launch {
+                                        val unzip = Unzip(this@MainActivity)
+                                        val rutaZip =
+                                            getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                                        unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+                                    }
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }else{
+                            runOnUiThread {
+                                createMain(startOnline)
+                            }
                         }
-                        lbDescargandoUpdate.textSize = 16f
+
+                    }else{
+                        val lbDescargando = TextView(this@MainActivity).apply {
+                            id = View.generateViewId()
+                            text = "Descargando:"
+                            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                            setTextColor(Color.BLACK)
+                            visibility = View.GONE
+                        }
+                        lbDescargando.textSize = 16f
 
                         val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
                             id = View.generateViewId()
-                            layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
-                            visibility = View.INVISIBLE
+                            layoutParams = ConstraintLayout.LayoutParams(
+                                ConstraintLayout.LayoutParams.MATCH_PARENT,
+                                25.dpToPx()
+                            )
+                            visibility = View.GONE
+                        }
+                        val btnAceptarDownload = Button(this@MainActivity).apply {
+                            text = "Descargar"
+                            setBackgroundColor(Color.BLUE)
+                            setTextColor(Color.WHITE)
                         }
 
                         val linearDowload = LinearLayout(this@MainActivity)
@@ -512,302 +565,259 @@ class MainActivity : AppCompatActivity(), Serializable {
                             LinearLayout.LayoutParams.WRAP_CONTENT
                         )
 
-                        linearDowload.addView(lbDescargandoUpdate)
+                        linearDowload.addView(lbDescargando)
                         linearDowload.addView(progressBar)
+                        linearDowload.addView(btnAceptarDownload)
 
-                        val dialogUpdate = AlertDialog.Builder(this@MainActivity, R.style.TransparentDialog)
-                            .setCancelable(false)
-                            .setTitle("Atualización adicional")
-                            .setMessage("Se descargaran los recursos adicionales, espera por favor.")
+                        val dialog = AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Actualizar")
+                            .setMessage(R.string.updateApp)
                             .setView(linearDowload)
+                            .setCancelable(false)
                             .show()
 
-                        CoroutineScope(Dispatchers.Main).launch {
-                            val downloadedFile = iniciarDescargaUpdate { progress ->
-                                runOnUiThread {
-                                    progressBar.visibility = View.VISIBLE
-                                    progressBar.progress = progress
-                                    lbDescargandoUpdate.text = "Descargando $progress%"
-
-                                    if (progress == 100) {
-                                        lbDescargandoUpdate.text = "Descarga finalizada, espere por favor..."
-                                        themes.edit().putString("versionUpdate", numberUpdate).apply()
-                                        themes.edit().putString("efects", "").apply()
-                                        versionUpdate = numberUpdate
-                                        dialogUpdate.dismiss()
+                        btnAceptarDownload.setOnClickListener {
+                            lbDescargando.visibility = View.VISIBLE
+                            progressBar.visibility = View.VISIBLE
+                            btnAceptarDownload.visibility = View.GONE
+                            dialog.setMessage("Espere por favor")
+                            CoroutineScope(Dispatchers.Main).launch {
+                                val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM", "apk") { progress ->
+                                    runOnUiThread {
+                                        progressBar.progress = progress
+                                        lbDescargando.text = "Descargando $progress%"
+                                        if (progress == 100) {
+                                            lbDescargando.text = "Descarga finalizada, espere por favor..."
+                                            dialog.dismiss()
+                                        }
                                     }
                                 }
-                            }
-                            if (downloadedFile != null) {
-                                val unzip = Unzip(this@MainActivity)
-                                val rutaZip = getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
-                                unzip.performUnzip(rutaZip,"FingerDance.zip",true)
-                            } else {
-                                Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }else{
-                        linearDownload.isVisible = false
-                        lbDescargando.isVisible = false
-                        progressBar.isVisible = false
-                        val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
-                        if (!them.exists()) {
-                            tema ="default"
-                        }
-
-                        btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
-                        btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
-
-                        if(!isFree){
-                            val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
-                            if(deviceFree != null){
-                                showAddActive = false
-                                isFree = true
-                                themes.edit().putBoolean("isFree", isFree).apply()
-                            }else{
-                                loadRewardedAd()
-                            }
-                        }else{
-                            showAddActive = false
-                        }
-
-                        if(!startOnline){
-                            btnPlayOnline.visibility = View.GONE
-                        }
-                        btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
-                        btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
-
-                        val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
-                        soundPlayer = sound
-                        soundPlayer!!.isLooping = true
-                        soundPlayer!!.start()
-
-                        animLogo = findViewById(R.id.imgLogo)
-                        //animLogo.layoutParams.height = decimoHeigtn * 2
-                        animLogo.layoutParams.width = width / 2
-                        val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
-                        animLogo.setImageBitmap(bmLogo)
-                        bgaOff = this@MainActivity.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
-                        video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
-
-                        video_fondo.start()
-                        video_fondo.setOnPreparedListener{ mp ->
-                            mediaPlayerMain = mp
-                            mediaPlayerMain.isLooping = true}
-                        if(currentVideoPosition != 0){
-                            mediaPlayerMain.seekTo(currentVideoPosition)
-                            mediaPlayerMain.start()
-                        }
-                        animar()
-                        val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
-                        val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
-                        btnPlay.setOnClickListener {
-                            btnPlay.isEnabled=false
-                            isOnline = false
-                            val ls = LoadSongsKsf()
-                            goSound.start()
-                            btnPlay.startAnimation(animation)
-                            if(themes.getString("allTunes", "").toString() != ""){
-                                val jsonListChannels = themes.getString("allTunes", "")
-                                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
-                            }else{
-                                listCommands = ls.getFilesCW(this@MainActivity)
-                                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                                listChannels = ls.getChannels(this@MainActivity)
-                                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-                                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-
-                            }
-                            if(themes.getString("efects", "").toString() == ""){
-                                listCommands = ls.getFilesCW(this@MainActivity)
-                                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-                                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                            }else{
-                                val jsonListCommands = themes.getString("efects", "")
-                                listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-                                //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                            }
-                            ls.loadSounds(this@MainActivity)
-                            val intent = Intent(this@MainActivity, SelectChannel::class.java)
-                            startActivity(intent)
-                            mediaPlayerMain.pause()
-                            soundPlayer!!.pause()
-                            btnPlay.isEnabled = true
-                        }
-                        btnPlayOnline.setOnClickListener{
-                            if(showAddActive){
-                                if (rewardedAd != null) {
-                                    rewardedAd?.show(this@MainActivity) {
-                                        showOnlineMode(animation, goSound)
-                                        rewardedAd = null
-                                        loadRewardedAd()
-                                    }
-                                } else {
-                                    Toast.makeText(this@MainActivity, "El anuncio aún no está listo", Toast.LENGTH_SHORT).show()
+                                if (packageApp != null) {
+                                    instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
+                                    //versionApp = version
                                 }
-                            }else{
-                                showOnlineMode(animation, goSound)
-                            }
-
-                        }
-
-                        val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
-
-                        btnOptions.setOnClickListener {
-                            val ls = LoadSongsKsf()
-                            if(themes.getString("allTunes", "").toString() != ""){
-                                val jsonListChannels = themes.getString("allTunes", "")
-                                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
-                            }else{
-                                listCommands = ls.getFilesCW(this@MainActivity)
-                                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                                listChannels = ls.getChannels(this@MainActivity)
-                                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-                                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-
-                            }
-                            //btnOptions.isEnabled = true
-                            Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
-                            btnOptions.startAnimation(animation)
-                            goOption.start()
-                            soundPlayer!!.pause()
-
-                            val tiempoTranscurrir :Long = 1000
-                            val handler = Handler()
-                            handler.postDelayed({
-                                val intent = Intent(applicationContext, Options()::class.java)
-                                startActivity(intent)
-                                this@MainActivity.finish()
-                            }, tiempoTranscurrir)
-                        }
-                        val builder = AlertDialog.Builder(this@MainActivity)
-
-                        btnExit.setOnClickListener {
-                            builder.setTitle("Aviso")
-                            builder.setMessage("Deseas salir del juego?")
-                            builder.setPositiveButton(android.R.string.yes) { dialog, which ->
-                                val intent = Intent(Intent.ACTION_MAIN)
-                                intent.addCategory(Intent.CATEGORY_HOME)
-                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                startActivity(intent)
-                                exitProcess(0)
-                            }
-                            builder.setNegativeButton(android.R.string.no) { dialog, which ->
-
-                            }
-                            builder.show()
-                        }
-
-                        btnExit.setOnLongClickListener {
-                            val txDeviceId = TextView(this@MainActivity).apply {
-                                setTextColor(Color.BLACK)
-                                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                                setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-                                text = deviceIdFind + "-$userName"
-                            }
-
-                            val dialog = AlertDialog.Builder(this@MainActivity)
-                                .setTitle("ID COMPRA")
-                                .setMessage("Por favor envia esta clave al desarrollador")
-                                .setView(txDeviceId)
-                                .setCancelable(false)
-                                .setPositiveButton("Copiar") { _, _ ->
-                                    val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("", txDeviceId.text.toString())
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
-                                }
-                                .create()
-                            dialog.show()
-                            true
-                        }
-
-                        if(userName == ""){
-                            ingresaNameUser()
-                        }else{
-                            Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
-                }else{
-                    val lbDescargando = TextView(this@MainActivity).apply {
-                        id = View.generateViewId()
-                        text = "Descargando:"
-                        textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                        setTextColor(Color.BLACK)
-                        visibility = View.GONE
-                    }
-                    lbDescargando.textSize = 16f
-
-                    val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                        id = View.generateViewId()
-                        layoutParams = ConstraintLayout.LayoutParams(
-                            ConstraintLayout.LayoutParams.MATCH_PARENT,
-                            25.dpToPx()
-                        )
-                        visibility = View.GONE
-                    }
-                    val btnAceptarDownload = Button(this@MainActivity).apply {
-                        text = "Descargar"
-                        setBackgroundColor(Color.BLUE)
-                        setTextColor(Color.WHITE)
-                    }
-
-                    val linearDowload = LinearLayout(this@MainActivity)
-                    linearDowload.orientation = LinearLayout.VERTICAL // Alineación vertical
-                    linearDowload.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-                    linearDowload.layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    )
-
-                    linearDowload.addView(lbDescargando)
-                    linearDowload.addView(progressBar)
-                    linearDowload.addView(btnAceptarDownload)
-
-                    val dialog = AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Actualizar")
-                        .setMessage(R.string.updateApp)
-                        .setView(linearDowload)
-                        .setCancelable(false)
-                        .show()
-
-                    btnAceptarDownload.setOnClickListener {
-                        lbDescargando.visibility = View.VISIBLE
-                        progressBar.visibility = View.VISIBLE
-                        btnAceptarDownload.visibility = View.GONE
-                        dialog.setMessage("Espere por favor")
-                        CoroutineScope(Dispatchers.Main).launch {
-                            val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM", "apk") { progress ->
-                                runOnUiThread {
-                                    progressBar.progress = progress
-                                    lbDescargando.text = "Descargando $progress%"
-                                    if (progress == 100) {
-                                        lbDescargando.text = "Descarga finalizada, espere por favor..."
-                                        dialog.dismiss()
-                                    }
-                                }
-                            }
-                            if (packageApp != null) {
-                                instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
-                                //versionApp = version
                             }
                         }
                     }
                 }
+                override fun onCancelled(error: DatabaseError) {
+                    println("Error al leer la versión: ${error.message}")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        delay(2000)
+                        runOnUiThread {
+                            creaMain()
+                        }
+                    }
+                }
+
+            })
+        }else{
+            createMain(false)
+            val lp = btnOptions.layoutParams as ConstraintLayout.LayoutParams
+            lp.verticalBias = 0.55f
+            btnOptions.layoutParams = lp
+
+            lp.verticalBias += 0.15f
+            btnExit.layoutParams = lp
+        }
+    }
+
+    private fun createMain(startOnline: Boolean){
+        linearDownload.isVisible = false
+        lbDescargando.isVisible = false
+        progressBar.isVisible = false
+        val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
+        if (!them.exists()) {
+            tema ="default"
+        }
+
+        bgaPathSelectChannel = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4")!!.absolutePath
+        bgaPathSelectSong = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4")!!.absolutePath
+
+        if(File(bgaPathSelectChannel).isDirectory){
+            File(bgaPathSelectChannel).delete()
+        }
+
+        btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
+        btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
+
+        if(!isFree){
+            val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
+            if(deviceFree != null){
+                showAddActive = false
+                isFree = true
+                themes.edit().putBoolean("isFree", isFree).apply()
+            }else{
+                loadRewardedAd()
             }
-            override fun onCancelled(error: DatabaseError) {
-                println("Error al leer la versión: ${error.message}")
+        }else{
+            showAddActive = false
+        }
+
+        if(!startOnline){
+            btnPlayOnline.visibility = View.GONE
+        }
+        btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
+        btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
+
+        val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
+        soundPlayer = sound
+        soundPlayer!!.isLooping = true
+        soundPlayer!!.start()
+
+        animLogo = findViewById(R.id.imgLogo)
+        //animLogo.layoutParams.height = decimoHeigtn * 2
+        animLogo.layoutParams.width = width / 2
+        val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
+        animLogo.setImageBitmap(bmLogo)
+        bgaOff = this@MainActivity.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
+        video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
+
+        video_fondo.start()
+        video_fondo.setOnPreparedListener{ mp ->
+            mediaPlayerMain = mp
+            mediaPlayerMain.isLooping = true}
+        if(currentVideoPosition != 0){
+            mediaPlayerMain.seekTo(currentVideoPosition)
+            mediaPlayerMain.start()
+        }
+        animar()
+        val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
+        val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
+        btnPlay.setOnClickListener {
+            btnPlay.isEnabled=false
+            isOnline = false
+
+            goSound.start()
+            btnPlay.startAnimation(animation)
+            if(themes.getString("allTunes", "").toString() != ""){
+                val jsonListChannels = themes.getString("allTunes", "")
+                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+            }else{
+                listCommands = ls.getFilesCW(this@MainActivity)
+                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+                listChannels = ls.getChannels(this@MainActivity)
+                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+
             }
-        })
+            if(themes.getString("efects", "").toString() == ""){
+                listCommands = ls.getFilesCW(this@MainActivity)
+                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+            }else{
+                val jsonListCommands = themes.getString("efects", "")
+                listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
+                //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+            }
+            ls.loadSounds(this@MainActivity)
+            val intent = Intent(this@MainActivity, SelectChannel::class.java)
+            startActivity(intent)
+            mediaPlayerMain.pause()
+            soundPlayer!!.pause()
+            btnPlay.isEnabled = true
+        }
+        btnPlayOnline.setOnClickListener{
+            if(showAddActive){
+                if (rewardedAd != null) {
+                    rewardedAd?.show(this@MainActivity) {
+                        showOnlineMode(animation, goSound)
+                        rewardedAd = null
+                        loadRewardedAd()
+                    }
+                } else {
+                    Toast.makeText(this@MainActivity, "El anuncio aún no está listo", Toast.LENGTH_SHORT).show()
+                }
+            }else{
+                showOnlineMode(animation, goSound)
+            }
+
+        }
+
+        val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
+
+        btnOptions.setOnClickListener {
+            if(themes.getString("allTunes", "").toString() != ""){
+                val jsonListChannels = themes.getString("allTunes", "")
+                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+            }else{
+                listCommands = ls.getFilesCW(this@MainActivity)
+                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+                listChannels = ls.getChannels(this@MainActivity)
+                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+
+            }
+            //btnOptions.isEnabled = true
+            Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
+            btnOptions.startAnimation(animation)
+            goOption.start()
+            soundPlayer!!.pause()
+
+            val tiempoTranscurrir :Long = 1000
+            val handler = Handler()
+            handler.postDelayed({
+                val intent = Intent(applicationContext, Options()::class.java)
+                startActivity(intent)
+                this@MainActivity.finish()
+            }, tiempoTranscurrir)
+        }
+        val builder = AlertDialog.Builder(this@MainActivity)
+
+        btnExit.setOnClickListener {
+            builder.setTitle("Aviso")
+            builder.setMessage("Deseas salir del juego?")
+            builder.setPositiveButton(android.R.string.yes) { dialog, which ->
+                val intent = Intent(Intent.ACTION_MAIN)
+                intent.addCategory(Intent.CATEGORY_HOME)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(intent)
+                exitProcess(0)
+            }
+            builder.setNegativeButton(android.R.string.no) { dialog, which ->
+
+            }
+            builder.show()
+        }
+
+        btnExit.setOnLongClickListener {
+            val txDeviceId = TextView(this@MainActivity).apply {
+                setTextColor(Color.BLACK)
+                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
+                text = deviceIdFind + "-$userName"
+            }
+
+            val dialog = AlertDialog.Builder(this@MainActivity)
+                .setTitle("ID COMPRA")
+                .setMessage("Por favor envia esta clave al desarrollador")
+                .setView(txDeviceId)
+                .setCancelable(false)
+                .setPositiveButton("Copiar") { _, _ ->
+                    val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("", txDeviceId.text.toString())
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
+                }
+                .create()
+            dialog.show()
+            true
+        }
+
+        if(userName == ""){
+            ingresaNameUser()
+        }else{
+            Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
+        }
+
     }
 
     private fun showOnlineMode(animation: Animation, goSound: MediaPlayer) {
@@ -935,7 +945,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                     goSound.start()
                     isOnline = true
                     isPlayer1 = false
-                    val ls = LoadSongsKsf()
                     salaRef = firebaseDatabase.getReference("rooms/${editTextRoom.text}")
                     salaRef.child("jugador2/id").setValue(userName)
                     salaRef.child("jugador2").onDisconnect().removeValue()
@@ -973,6 +982,34 @@ class MainActivity : AppCompatActivity(), Serializable {
                 dialogNoSala.show()
             }
         }
+    }
+
+    private fun instalarAPK(filePath: String) {
+        val file = File(filePath)
+        val uri: Uri = FileProvider.getUriForFile(
+            this,
+            "${applicationContext.packageName}.provider",
+            file
+        )
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        themes.edit().putBoolean("isFree", false).apply()
+        startActivity(intent)
+    }
+
+    private fun cerrarApp() {
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.addCategory(Intent.CATEGORY_HOME)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        startActivity(intent)
+        exitProcess(0)
+    }
+
+    private fun isFileExists(file: File): Boolean {
+        return file.exists() && !file.isDirectory
     }
 
     private fun loadRewardedAd() {
@@ -1060,7 +1097,6 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun mostrarCodigoSala(alertDialog: AlertDialog) {
-        val ls = LoadSongsKsf()
         val txSalaId = TextView(this@MainActivity).apply {
             setTextColor(Color.BLACK)
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
