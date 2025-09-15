@@ -114,7 +114,7 @@ var listFilesDrive = arrayListOf<Pair<String, String>>()
 var listThemesDrive = arrayListOf<Pair<String, String>>()
 
 var userName = ""
-lateinit var firebaseDatabase : FirebaseDatabase
+var firebaseDatabase : FirebaseDatabase? = null
 var listGlobalRanking = arrayListOf<Cancion>()
 
 var freeDevices = arrayListOf<String>()
@@ -163,7 +163,8 @@ var decimoWidth = 0
 var isFree = false
 var isOffline = false
 var isMidLine = false
-
+var isCounter = false
+var breakSong = true
 var listEfectsDisplay: ArrayList<CommandValues> = ArrayList()
 
 var bgaPathSelectChannel = ""
@@ -217,6 +218,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         userName = themes.getString("userName","").toString()
         isFree = themes.getBoolean("isFree",false)
         isMidLine = themes.getBoolean("isMidLine",false)
+        isCounter = themes.getBoolean("isCounter",false)
+        breakSong = themes.getBoolean("breakSong",true)
 
         //isFree = false
 
@@ -444,7 +447,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         if(!isOffline){
-            val databaseReference = firebaseDatabase.getReference("version")
+            val databaseReference = firebaseDatabase!!.getReference("version")
             var version : String
             databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
@@ -920,7 +923,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             isPlayer1 = true
             isOnline = true
             idSala =  UUID.randomUUID().toString().substring(0, 8)
-            salaRef = firebaseDatabase.getReference("rooms/$idSala")
+            salaRef = firebaseDatabase!!.getReference("rooms/$idSala")
             salaRef.child("jugador1").onDisconnect().removeValue()
             val jugador1 = Jugador(id = userName)
             val formato = SimpleDateFormat("dd-MM-yyyy-HH-mm", Locale.getDefault())
@@ -945,7 +948,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     goSound.start()
                     isOnline = true
                     isPlayer1 = false
-                    salaRef = firebaseDatabase.getReference("rooms/${editTextRoom.text}")
+                    salaRef = firebaseDatabase!!.getReference("rooms/${editTextRoom.text}")
                     salaRef.child("jugador2/id").setValue(userName)
                     salaRef.child("jugador2").onDisconnect().removeValue()
                     salaRef.addListenerForSingleValueEvent(object : ValueEventListener {
@@ -1079,7 +1082,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun getSalas(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("rooms")
+        val databaseRef = firebaseDatabase!!.getReference("rooms")
         val listResult = arrayListOf<String>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -1134,7 +1137,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 mostrarDialogoCompartir(this)
             }
             .setNegativeButton("Cancelar"){_, _ ->
-                firebaseDatabase.getReference("rooms/$idSala").removeValue()
+                firebaseDatabase!!.getReference("rooms/$idSala").removeValue()
             }
             .create()
         dialog.show()
@@ -1151,7 +1154,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun getFreeDevices(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("freeDevices")
+        val databaseRef = firebaseDatabase!!.getReference("freeDevices")
         val listResult = arrayListOf<String>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {

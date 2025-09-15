@@ -135,7 +135,7 @@ class DanceGrade : AppCompatActivity() {
         val imgGradeP1 = findViewById<ImageView>(R.id.imgGradeP1)
         imgGradeP1.visibility = View.INVISIBLE
         imgGradeP1.layoutParams.width = widthGrades
-        imgGradeP1.layoutParams.height = heigthGrades
+        imgGradeP1.layoutParams.height = ((width / 10) * 6)
 
         val imgGradeP2 = findViewById<ImageView>(R.id.imgGradeP2)
         imgGradeP2.visibility = View.INVISIBLE
@@ -438,7 +438,7 @@ class DanceGrade : AppCompatActivity() {
         grade: String,
         imgNewRecord: ImageView
     ) {
-        val databaseRef = firebaseDatabase.getReference("channels")
+        val databaseRef = firebaseDatabase!!.getReference("channels")
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 for (canalSnapshot in snapshot.children) {
@@ -557,7 +557,7 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("channels")
+        val databaseRef = firebaseDatabase!!.getReference("channels")
         val listResult = arrayListOf<Cancion>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {

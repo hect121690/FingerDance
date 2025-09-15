@@ -436,7 +436,7 @@ class SelectChannel : AppCompatActivity() {
     }
 
     private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("channels")
+        val databaseRef = firebaseDatabase!!.getReference("channels")
         val listResult = arrayListOf<Cancion>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {

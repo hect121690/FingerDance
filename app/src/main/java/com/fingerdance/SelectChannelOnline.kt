@@ -292,7 +292,7 @@ class SelectChannelOnline : AppCompatActivity() {
                 }
 
                 if (!snapshot.hasChild("jugador1") && !snapshot.hasChild("jugador2")) {
-                    firebaseDatabase.getReference("rooms/$idSala").removeValue()
+                    firebaseDatabase!!.getReference("rooms/$idSala").removeValue()
                 }
 
                 if (isPlayer1 && activeSala.jugador2.id == "") {

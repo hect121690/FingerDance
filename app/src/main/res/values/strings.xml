@@ -52,4 +52,23 @@
                                     Confirma que desea desactivar?
     </string>
 
+    <string name="MessageCounterOff">-Al apagar el contador del SelectSong la cancion no iniciara automaticamente
+                                    despues de los 99 segundos.\n
+                                    \n
+                                    Apagar contador?
+    </string>
+    <string name="MessageCounterOn">-Al encender el contador del SelectSong la cancion iniciara automaticamente
+                                    despues de 99 segundos.\n
+                                    \n
+                                    Encender contador?
+    </string>
+    <string name="MessageBreakSongOff">-Al desactivar esta opción la canción no se cortara cuando la barra de vida llegue a 0\n
+                                    \n
+                                    Desactivar?
+    </string>
+    <string name="MessageBreakSongOn">-Al activar esta opción la cancion se cortara si la barra de vida llega a 0\n
+                                    \n
+                                    Activar?
+    </string>
+
 </resources>

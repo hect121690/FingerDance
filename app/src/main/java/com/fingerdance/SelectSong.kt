@@ -35,6 +35,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -42,6 +43,15 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.ExportException
+import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.Transformer.Listener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
@@ -68,6 +78,7 @@ private lateinit var binding: ActivitySelectSongBinding
 private lateinit var linearBG: LinearLayout
 private lateinit var buttonLayout: LinearLayout
 private lateinit var constraintMain: ConstraintLayout
+private lateinit var progressLoading : ProgressBar
 private lateinit var lbNameSong: TextView
 private lateinit var lbArtist: TextView
 private lateinit var lbLvActive: TextView
@@ -226,23 +237,13 @@ class SelectSong : AppCompatActivity() {
             recyclerCommandsValues = findViewById(R.id.recyclerValues)
             recyclerCommandsValues.isUserInputEnabled = false
 
-            /*
-            mediaPlayer = MediaPlayer()
-            mediaPlayer.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-            */
-
-
             val levels = Levels()
 
             playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
                                      false,"", "", levels, "")
 
             constraintMain = findViewById(R.id.constraintMain)
+            progressLoading = findViewById(R.id.progressLoading)
             linearBG = findViewById(R.id.linearBG)
             bgaSelectSong = findViewById(R.id.bgaSelectSong)
             bgaSelectSong.visibility = View.GONE
@@ -1083,6 +1084,11 @@ class SelectSong : AppCompatActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            setOnClickListener(object : View.OnClickListener {
+                override fun onClick(v: View?) {
+                    // No hace nada
+                }
+            })
         }
         buttonLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1142,7 +1148,7 @@ class SelectSong : AppCompatActivity() {
 
     private fun saveFileToDestination(uri: Uri, fileName: String, isBGA: Boolean) {
         val destinationPath = File(currentPathSong.replace(File(currentPathSong).name, "", ignoreCase = true))
-        val destinationFile = File(destinationPath, fileName)
+        val destinationFile = File(destinationPath, fileName.replace(".mp3", "", ignoreCase = true))
         try {
             val inputStream: InputStream? = contentResolver.openInputStream(uri)
             val outputStream = FileOutputStream(destinationFile)
@@ -1151,21 +1157,54 @@ class SelectSong : AppCompatActivity() {
                     input.copyTo(output)
                 }
             }
-            Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
-            handler.postDelayed({
-                if(!isBGA){
-                    Toast.makeText(this, "Se guardo el preview correctamente", Toast.LENGTH_SHORT).show()
-                }else{
-                    Toast.makeText(this, "Se guardo el BGA correctamente", Toast.LENGTH_SHORT).show()
-                }
-                constraintMain.removeView(overlayBG)
-                constraintMain.removeView(buttonLayout)
-            }, 1500L)
+            Toast.makeText(this, "Espere por favor, este proceso puede tomar varios segundos...", Toast.LENGTH_LONG).show()
+            constraintMain.removeView(buttonLayout)
+            progressLoading.visibility = View.VISIBLE
+            removeAudioFromVideo(this, destinationFile, destinationFile.absolutePath.replace(".mp4", "_temp.mp4"), isBGA)
+
 
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error al guardar el archivo", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun removeAudioFromVideo(context: Context, inputFile: File, outputFile: String, isBGA: Boolean) {
+        val inputMediaItem = MediaItem.fromUri(Uri.fromFile(inputFile))
+        val editedMediaItem = EditedMediaItem.Builder(inputMediaItem)
+            .setRemoveAudio(true)
+            .build()
+
+        val transformerListener: Listener = object : Listener {
+                override fun onCompleted(composition: Composition, result: ExportResult) {
+                    if (inputFile.exists()) inputFile.delete()
+                    File(outputFile).renameTo(File(inputFile.absolutePath))
+                    handler.postDelayed({
+                        if(!isBGA){
+                            Toast.makeText(context, "Se guardo el preview correctamente", Toast.LENGTH_SHORT).show()
+                        }else{
+                            Toast.makeText(context, "Se guardo el BGA correctamente", Toast.LENGTH_SHORT).show()
+                        }
+                        progressLoading.visibility = View.GONE
+                        constraintMain.removeView(overlayBG)
+                        constraintMain.removeView(buttonLayout)
+                    }, 1500L)
+                }
+
+                override fun onError(composition: Composition, result: ExportResult,
+                                     exception: ExportException
+                ) {
+                }
+            }
+
+        val transformer = Transformer.Builder(context)
+            .setVideoMimeType(MimeTypes.VIDEO_H265)
+            .addListener(transformerListener)
+            .build()
+
+        transformer.start(editedMediaItem, outputFile)
+
     }
 
     private fun showAddOurGS() {
@@ -1258,7 +1297,6 @@ class SelectSong : AppCompatActivity() {
         override fun run() {
             actualizarImagenNumero(reductor)
             reductor--
-            handlerContador.postDelayed(this, 1000)
 
             /*
             when(countSongsPlayed){
@@ -1307,22 +1345,27 @@ class SelectSong : AppCompatActivity() {
             }
             */
 
-            if(reductor < 0){
-                detenerContador()
-                if(ready == 1){
-                    if(commandWindow.isVisible){
-                        showCommandWindow(false)
+            if(isCounter){
+                handlerContador.postDelayed(this, 1000)
+                if(reductor < 0){
+                    detenerContador()
+                    if(ready == 1){
+                        if(commandWindow.isVisible){
+                            showCommandWindow(false)
+                        }
+                        imgAceptar.performClick()
                     }
-                    imgAceptar.performClick()
-                }
-                if(ready == 0){
-                    if(commandWindow.isVisible){
-                        showCommandWindow(false)
+                    if(ready == 0){
+                        if(commandWindow.isVisible){
+                            showCommandWindow(false)
+                        }
+                        imgAceptar.performClick()
+                        imgAceptar.performClick()
                     }
-                    imgAceptar.performClick()
-                    imgAceptar.performClick()
-                }
 
+                }
+            }else{
+                detenerContador()
             }
         }
     }
@@ -1741,8 +1784,15 @@ class SelectSong : AppCompatActivity() {
             }
             if(isVideo){
                 video_fondo.setVideoPath(item.rutaPreview)
-                video_fondo.setOnPreparedListener { mediaPlayer ->
-                    mediaPlayer.setVolume(0f, 0f)
+                video_fondo.setOnPreparedListener { mp ->
+                    mp.setVolume(0f, 0f)
+                    /*
+                    for (i in mp.trackInfo.indices) {
+                        if (mp.trackInfo[i].trackType == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
+                            mp.deselectTrack(i)
+                        }
+                    }
+                    */
                 }
                 video_fondo.visibility = View.VISIBLE
                 imgPrev.visibility = View.GONE
@@ -1759,7 +1809,7 @@ class SelectSong : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(File(item.rutaSong).absolutePath)
+                        setDataSource(item.rutaSong)
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -1776,7 +1826,7 @@ class SelectSong : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(File(item.rutaPreview).absolutePath)
+                        setDataSource(item.rutaPreview)
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -1802,7 +1852,7 @@ class SelectSong : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(File(item.rutaSong).absolutePath)
+                        setDataSource(item.rutaSong)
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -1822,7 +1872,7 @@ class SelectSong : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(File(item.rutaSong).absolutePath)
+                        setDataSource(item.rutaSong)
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -1850,7 +1900,7 @@ class SelectSong : AppCompatActivity() {
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                             .build()
                     )
-                    setDataSource(File(item.rutaSong).absolutePath)
+                    setDataSource(item.rutaSong)
                     prepare()
                     seekTo(startTimeMs)
                     start()
@@ -1869,7 +1919,7 @@ class SelectSong : AppCompatActivity() {
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                             .build()
                     )
-                    setDataSource(File(item.rutaSong).absolutePath)
+                    setDataSource(item.rutaSong)
                     prepare()
                     seekTo(startTimeMs)
                     start()

@@ -691,7 +691,7 @@ class SelectSongOnline : AppCompatActivity() {
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
 
-                        mediPlayer = MediaPlayer().apply {
+                        mediaPlayer = MediaPlayer().apply {
                             setAudioAttributes(
                                 AudioAttributes.Builder()
                                     .setUsage(AudioAttributes.USAGE_GAME)
@@ -702,7 +702,6 @@ class SelectSongOnline : AppCompatActivity() {
                             prepare()
                         }
 
-                        //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
                         load(playerSong.rutaKsf!!)
                         //readyPlay = true
 
@@ -821,7 +820,6 @@ class SelectSongOnline : AppCompatActivity() {
                             if(bm!=null){
                                 imgNoteSkin.setImageBitmap(bm)
                                 playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
-                                //themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
 
                             }
                         }else{
@@ -1294,8 +1292,6 @@ class SelectSongOnline : AppCompatActivity() {
 
         lbBpm.text = "BPM:" + String.format("%.2f", item.displayBpm.toDouble())
         displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
-        /*binding.*/recyclerLvs.removeAllViews()
-        //llenaLvs(item.listKsf)
         llenaLvsKsf(item.listKsf)
     }
 

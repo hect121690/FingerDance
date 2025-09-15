@@ -453,6 +453,96 @@ class Options() : AppCompatActivity(), ItemClickListener {
             btnGuardarPads.visibility = View.INVISIBLE
         }
 
+        val btnBreakSong = findViewById<SwitchCompat>(R.id.btnBreakSong)
+        btnBreakSong.layoutParams.width = (width / 10) * 8
+        btnBreakSong.isChecked = breakSong
+        btnBreakSong.thumbTintList = thumbColor
+        btnBreakSong.trackTintList = trackColor
+
+        btnBreakSong.setOnClickListener {
+            val dialog = AlertDialog.Builder(this, R.style.TransparentDialog).apply {
+                setTitle("Contador Select Song")
+                setCancelable(false)
+            }
+            if(!breakSong){
+                dialog.setMessage(R.string.MessageBreakSongOn)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnBreakSong.isChecked = false
+                    breakSong = btnBreakSong.isChecked
+                    themes.edit().putBoolean("breakSong", breakSong).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnBreakSong.isChecked = true
+                    breakSong = btnBreakSong.isChecked
+                    themes.edit().putBoolean("breakSong", breakSong).apply()
+                    d.dismiss()
+                }
+            }else{
+                dialog.setMessage(R.string.MessageBreakSongOff)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnBreakSong.isChecked = true
+                    breakSong = btnBreakSong.isChecked
+                    themes.edit().putBoolean("breakSong", breakSong).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnBreakSong.isChecked = false
+                    breakSong = btnBreakSong.isChecked
+                    themes.edit().putBoolean("breakSong", breakSong).apply()
+                    d.dismiss()
+                }
+            }
+            dialog.show()
+        }
+
+
+
+
+
+        val btnNoCounter = findViewById<SwitchCompat>(R.id.btnNoCounter)
+        btnNoCounter.layoutParams.width = (width / 10) * 8
+        btnNoCounter.isChecked = isCounter
+        btnNoCounter.thumbTintList = thumbColor
+        btnNoCounter.trackTintList = trackColor
+
+        btnNoCounter.setOnClickListener {
+            val dialog = AlertDialog.Builder(this, R.style.TransparentDialog).apply {
+                setTitle("Contador Select Song")
+                setCancelable(false)
+            }
+            if(!isCounter){
+                dialog.setMessage(R.string.MessageCounterOn)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnNoCounter.isChecked = false
+                    isCounter = btnNoCounter.isChecked
+                    themes.edit().putBoolean("isCounter", isCounter).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnNoCounter.isChecked = true
+                    isCounter = btnNoCounter.isChecked
+                    themes.edit().putBoolean("isCounter", isCounter).apply()
+                    d.dismiss()
+                }
+            }else{
+                dialog.setMessage(R.string.MessageCounterOff)
+                dialog.setNegativeButton("Cancelar"){ d, _ ->
+                    btnNoCounter.isChecked = true
+                    isCounter = btnNoCounter.isChecked
+                    themes.edit().putBoolean("isCounter", isCounter).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Aceptar"){ d, _ ->
+                    btnNoCounter.isChecked = false
+                    isCounter = btnNoCounter.isChecked
+                    themes.edit().putBoolean("isCounter", isCounter).apply()
+                    d.dismiss()
+                }
+            }
+            dialog.show()
+        }
+
         val btnNoteMidLine = findViewById<SwitchCompat>(R.id.btnNoteMidLine)
         btnNoteMidLine.layoutParams.width = (width / 10) * 8
         btnNoteMidLine.isChecked = isMidLine
@@ -902,6 +992,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
         Toast.makeText(this, "Se creó el canal correctamente", Toast.LENGTH_SHORT).show()
     }
+
     private fun copyFolderContent(context: Context, sourceFolder: DocumentFile, targetFolder: File) {
         sourceFolder.listFiles().forEach { file ->
             if (file.isDirectory) {
@@ -1014,9 +1105,11 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
     }
 
-    private suspend fun downloadFileFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
-        val fallo = AlertDialog.Builder(context)
-        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+    private suspend fun downloadFileFromDrive(
+        fileId: String,
+        context: Context,
+        progressCallback: (Int) -> Unit
+    ): File? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
@@ -1049,13 +1142,21 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
                     return@withContext localFile
                 } else {
-                    //println("Error en la descarga: Código ${connection.responseCode}")
-                    fallo.show()
+                    withContext(Dispatchers.Main) {
+                        AlertDialog.Builder(context)
+                            .setMessage("Ocurrió un error durante la descarga, favor de reintentar")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                     return@withContext null
                 }
             } catch (e: Exception) {
-                //println("Error descargando archivo: ${e.message}")
-                fallo.show()
+                withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(context)
+                        .setMessage("Ocurrió un error durante la descarga, favor de reintentar")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
                 return@withContext null
             }
         }

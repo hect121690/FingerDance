@@ -743,7 +743,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         playerSong.rutaCancion = activeSala.cancion.rutaCancion
                         playerSong.rutaKsf = activeSala.cancion.rutaKsf
 
-                        mediPlayer = MediaPlayer().apply {
+                        mediaPlayer = MediaPlayer().apply {
                             setAudioAttributes(
                                 AudioAttributes.Builder()
                                     .setUsage(AudioAttributes.USAGE_GAME)

@@ -31,8 +31,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
     companion object {
         val STEPSIZE = medidaFlechas.toInt()
-        val MEASURE = height * 0.3
-        val MEASUREVANISH = (height * 0.3) //- (medidaFlechas * 2)
+        val MEASURE = height * 0.25
+        val MEASUREVANISH = medidaFlechas * 3
 
         const val NOTE_NONE: Byte = 0
         const val NOTE_NOTE: Byte = 1
@@ -650,7 +650,9 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             m_fGauge = 1.0f
         }else if(m_fGauge < -0.5f){
             if(!isOnline) {
-                a.breakDance()
+                if(breakSong){
+                    a.breakDance()
+                }
             }
         }
     }
@@ -951,14 +953,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     }
 
     private val initArrow = (gdxHeight * 0.55)
-
+    private var rangeAlpha = (gdxHeight * 0.1)
+    private val segmentHeight = gdxHeight * 0.001f
     private fun drawNote(x: Int, y: Int) {
         val left = medidaFlechas * (x + 1)
 
         if(!noEffects){
             if(isMidLine){
                 if(y < initArrow){
+                    batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), initArrow))
                     batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    batch.setColor(1f, 1f, 1f, 1f)
                 }
             }else{
                 batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
@@ -966,16 +971,19 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }else{
             if(playerSong.vanish){
                 if(y > MEASUREVANISH){
+                    batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
                     batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    batch.setColor(1f, 1f, 1f, 1f)
                 }
             }
             if(playerSong.ap){
                 if(y < MEASURE){
+                    batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
                     batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    batch.setColor(1f, 1f, 1f, 1f)
                 }
             }
         }
-
     }
 
     private fun drawLongNote(x: Int, y: Int, y2: Int) {
@@ -989,13 +997,27 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                     if(posY + heightBody > initArrow){
                         heightBody = (initArrow - posY).toFloat()
                     }
-                    batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
-                    if(y2 < initArrow){
-                        batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
+
+                    var currentY = posY
+                    while (currentY < posY + heightBody) {
+                        val alphaSegment = getAlpha(currentY, initArrow)
+                        val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
+                        batch.setColor(1f, 1f, 1f, alphaSegment)
+                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
+                        currentY += drawHeight
                     }
-                    if(y > 0){
+
+                    if (y2 < initArrow) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), initArrow))
+                        batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+
+                    if (y > 0) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), initArrow))
                         batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
                     }
+
+                    batch.setColor(1f, 1f, 1f, 1f)
                 }
             }else{
                 batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
@@ -1006,30 +1028,80 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             }
         }else{
             if(playerSong.vanish){
+                var currentY = posY
+                while (currentY < posY + heightBody) {
+                    val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
+
+                    val alphaSegment = when {
+                        currentY > MEASUREVANISH + (medidaFlechas * 2) -> 1f
+                        currentY >= MEASUREVANISH + (medidaFlechas * 2) - rangeAlpha -> {
+                        ((currentY - (MEASUREVANISH + (medidaFlechas * 2) - rangeAlpha)) / rangeAlpha).toFloat().coerceIn(0f, 1f)
+                        }
+                        else -> 0f
+                    }
+
+                    if (alphaSegment > 0f) {
+                        batch.setColor(1f, 1f, 1f, alphaSegment)
+                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
+                    }
+
+                    currentY += drawHeight
+                }
+                batch.setColor(1f, 1f, 1f, 1f)
+
                 if(posY > MEASUREVANISH){
-                    batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
-                    batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
                     if(y > 0){
+                        batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
                         batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
                     }
+
+                    batch.setColor(1f, 1f, 1f, 1f)
                 }
+                if(posY + heightBody > MEASUREVANISH){
+                    batch.setColor(1f, 1f, 1f, getVanishAlpha(y2.toFloat()))
+                    batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                }
+
             }
             if(playerSong.ap){
                 if(posY < MEASURE){
                     if(posY + heightBody > MEASURE){
                         heightBody = (MEASURE - posY).toFloat()
                     }
-                    batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
-                    if(y2 < MEASURE){
-                        batch.draw(arrArrowsBottom[x][arrowFrame],left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                    var currentY = posY
+                    while (currentY < posY + heightBody) {
+                        val alphaSegment = getAlpha(currentY, MEASURE)
+                        val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
+                        batch.setColor(1f, 1f, 1f, alphaSegment)
+                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
+                        currentY += drawHeight
                     }
-                    if(y > 0){
+
+                    if (y2 < MEASURE) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), MEASURE))
+                        batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+
+                    if (y > 0) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
                         batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
                     }
+                    batch.setColor(1f, 1f, 1f, 1f)
+
                 }
             }
         }
     }
+
+    private fun getAlpha(y: Float, init: Double): Float {
+        return ((init - y) / rangeAlpha).toFloat().coerceIn(0f, 1f)
+    }
+
+    private fun getVanishAlpha(y: Float): Float {
+        return ((y - MEASUREVANISH) / rangeAlpha).toFloat().coerceIn(0f, 1f)
+    }
+
+
 
     private fun drawLongNotePress(x: Int) {
         val frame = (timeGetTime() % 299 * 6 / 300).toInt()

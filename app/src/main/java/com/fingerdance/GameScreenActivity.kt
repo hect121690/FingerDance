@@ -79,7 +79,7 @@ open class GameScreenActivity : AndroidApplication() {
         videoViewBgaoff.isVisible = false
 
         videoViewBgaOn = findViewById(R.id.videoViewBgaOn)
-        videoViewBgaOn.y = medidaFlechas
+        videoViewBgaOn.y = medidaFlechas * 2
         val newWidth = (width * 1.2).toInt()
         val newHeight = (newWidth * 9 / 16).toInt()
         videoViewBgaOn.layoutParams = videoViewBgaOn.layoutParams.apply {
@@ -94,6 +94,13 @@ open class GameScreenActivity : AndroidApplication() {
                 videoViewBgaOn.setVideoPath(playerSong.rutaVideo)
                 videoViewBgaOn.setOnPreparedListener { mp ->
                     mp.setVolume(0f, 0f)
+                    /*
+                    for (i in mp.trackInfo.indices) {
+                        if (mp.trackInfo[i].trackType == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
+                            mp.deselectTrack(i)
+                        }
+                    }
+                    */
                 }
                 isVideo = true
             }else{
