@@ -18,7 +18,7 @@ class CommandValuesAdapter(private val commandList: ArrayList<CommandValues>) :
     }
 
     override fun onBindViewHolder(holder: CarouselItemViewHolder, position: Int) {
-        val imageView = holder.itemView.findViewById<ImageView>(R.id.image_channel)
+        val imageView = holder.itemView.findViewById<ImageView>(R.id.image_command)
         val bit = BitmapFactory.decodeFile(commandList[position].rutaCommandImg)
         imageView.setImageBitmap(bit)
     }

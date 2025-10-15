@@ -36,6 +36,16 @@ var c_rankB : Int = 0
 var d_rankB : Int = 0
 var f_rankB : Int = 0
 
+lateinit var soundPoolSelectSongSound: SoundPool
+var st_zero : Int = 0
+var nx_nxAbs: Int = 0
+var fiesta_fiesta2: Int = 0
+var prime: Int = 0
+var prime2: Int = 0
+var aniversary_xx: Int = 0
+var phoenix: Int = 0
+
+
 var command_switchKsf : Int = 0
 var command_backKsf : Int = 0
 var command_moveKsf : Int = 0
@@ -85,7 +95,6 @@ class LoadSongsKsf {
 
                 listChannels.add(channel)
             }
-
         }
         return listChannels
     }
@@ -97,12 +106,17 @@ class LoadSongsKsf {
         val validFolders = setOf(
             "000-Finger Dance",
             "03-SHORT CUT",
-            "14-FIESTA~FIESTA 2",
+            "04-REMIX",
+            "05-FULLSONGS",
+            "10-PIU 1st to Perfect Collection",
+            "12-EXCEED TO ZERO",
+            "13-NX TO NXA",
+            "14-FIESTA TO FIESTA 2",
             "17-PRIME",
             "18-PRIME 2",
-            "19 - XX ANIVERSARY",
-            "20-FULL SONGS",
-            "21-PHOENIX"
+            "19-XX ANIVERSARY",
+            "20-PHOENIX",
+            "21-RISE"
         )
 
         if (baseDir?.exists() == true && baseDir.isDirectory) {
@@ -133,18 +147,21 @@ class LoadSongsKsf {
         return listChannels
     }
 
-
     private fun getSongs(rutaChannel: String, c: Context): ArrayList<SongKsf> {
 
         val listSongs = ArrayList<SongKsf>()
         val rutaBitActive = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
+        val rutaBitActiveHalfDouble = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_hd.png").toString()
 
         val listRutas = getRutasSongs(rutaChannel)
-
+        val listOthers = arrayListOf("03-SHORT CUT", "04-REMIX", "05-FULLSONGS")
         for(index in 0 until listRutas.size){
             val listKsf = arrayListOf<Ksf>()
             val songKsf = SongKsf("","","","","","","","", arrayListOf())
             val dir = File(listRutas[index])
+            val channel = rutaChannel.split("/")
+            val i = channel.size - 1
+            songKsf.channel = channel[i]
             dir.walkTopDown().forEach { it ->
                 when {
                     it.isFile ->{
@@ -186,7 +203,8 @@ class LoadSongsKsf {
                         }
 
                         if(it.toString().endsWith(".ksf", ignoreCase = true)){
-                            val ksf = Ksf("", "", "")
+                            val ksf = Ksf()
+                            ksf.typePlayer = "A"
                             val file = File(it.toString())
                             file.useLines { lines ->
                                 for (line in lines) {
@@ -211,37 +229,53 @@ class LoadSongsKsf {
                                         line.startsWith("#RECREATOR:") ->{
                                             ksf.stepmaker = getValue(line)
                                         }
+                                        line.startsWith("#PLAYER:") ->{
+                                            if(getValue(line) == "HALFDOUBLE"){
+                                                ksf.typePlayer = "B"
+                                            }
+                                        }
                                         line.startsWith("#DIFFICULTY:") ->{
                                             var level = getValue(line)
                                             if (level.length == 1) {
                                                 level = "0$level"
                                             }
                                             ksf.level = level
-                                            ksf.rutaKsf = it.toString()
-                                            ksf.rutaBitActive = rutaBitActive
-                                            listKsf.add(ksf)
                                         }
                                         line.startsWith("00000") || line.startsWith("|")->{
+                                            ksf.rutaKsf = it.toString()
+                                            ksf.rutaBitActive = rutaBitActive
+                                            if(ksf.typePlayer == "B"){
+                                                ksf.rutaBitActive = rutaBitActiveHalfDouble
+                                            }
+                                            listKsf.add(ksf)
                                             break
                                         }
                                     }
                                 }
-                                listKsf.sortBy { it.level }
-                                songKsf.listKsf = listKsf
                             }
                         }
-
+                        listKsf.sortWith(
+                            compareBy<Ksf> { it.typePlayer == "B" }
+                                .thenBy { it.level }
+                        )
+                        songKsf.listKsf = listKsf
                     }
                 }
             }
             listSongs.add(songKsf)
         }
-        listSongs.sortBy { it.title }
+        listSongs.sortBy { song ->
+            when (song.channel) {
+                in listOthers -> File(song.rutaSong).parentFile!!.name
+                else -> song.title
+            }
+        }
+
         return listSongs
     }
 
     private fun getValue(line: String): String {
-        return line.split(":")[1].replace(";", "")
+        return line.substringAfter(":").substringBefore(";")//line.split(":")[1].replace(";", "")
     }
 
     private fun getRutasSongs(rutaChannel: String): MutableList<String> {
@@ -383,22 +417,22 @@ class LoadSongsKsf {
     }
 
     private fun reorderDescriptions(list: List<CommandValues>) {
-        //if (list.size != 2) return // solo procesamos si hay 2
+        val descEspejo = list.find { it.descripcion.equals("Las notas cambian su posicion a modo espejo.", ignoreCase = true) }?.descripcion
+        val descAleatorio = list.find { it.descripcion.equals("Las notas cambian aleatoriamente.", ignoreCase = true)}?.descripcion
 
-        val descEspejo = list.find { it.descripcion.contains("espejo", ignoreCase = true) }?.descripcion
-        val descAleatorio = list.find { it.descripcion.contains("aleatoriamente.", ignoreCase = true)}?.descripcion
-
-        val descAparecen = list.find { it.descripcion.contains("Aparecen.", ignoreCase = true)}?.descripcion
-        val descBGA = list.find { it.descripcion.contains("BGA.", ignoreCase = true)}?.descripcion
-        val descSecuencia = list.find { it.descripcion.contains("Secuencia.", ignoreCase = true)}?.descripcion
-        val descDesaparecen  = list.find { it.descripcion.contains("Desaparecen.", ignoreCase = true)}?.descripcion
+        val descAparecen = list.find { it.descripcion.equals("Las notas aparecen desde la mitad de la pantalla.", ignoreCase = true)}?.descripcion
+        val descBGAOFF = list.find { it.descripcion.contains("Jugar sin BGA.", ignoreCase = true)}?.descripcion
+        val descBGADark = list.find { it.descripcion.contains("Obscurecer BGA", ignoreCase = true)}?.descripcion
+        val descSecuencia = list.find { it.descripcion.contains("Zona de secuencia invisible.", ignoreCase = true)}?.descripcion
+        val descDesaparecen  = list.find { it.descripcion.contains("Las notas desaparecen a la mitad de la pantalla.", ignoreCase = true)}?.descripcion
 
         list.forEach {
             when (it.value) {
                 "M" -> if (descEspejo != null) it.descripcion = descEspejo
                 "RS" -> if (descAleatorio != null) it.descripcion = descAleatorio
                 "AP" -> if (descAparecen != null) it.descripcion = descAparecen
-                "BGAOFF" -> if (descBGA != null) it.descripcion = descBGA
+                "BGAOFF" -> if (descBGAOFF != null) it.descripcion = descBGAOFF
+                "BGADARK" -> if (descBGADark != null) it.descripcion = descBGADark
                 "FD" -> if (descSecuencia != null) it.descripcion = descSecuencia
                 "V" -> if (descDesaparecen != null) it.descripcion = descDesaparecen
             }
@@ -425,134 +459,174 @@ class LoadSongsKsf {
             .setAudioAttributes(audioAttributes)
             .build()
 
-        val pathChannelmov = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_navegation.mp3").toString())
+        soundPoolSelectSongSound = SoundPool.Builder()
+            .setMaxStreams(10)
+            .setAudioAttributes(audioAttributes)
+            .build()
+
+        val pathSounds = c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds").toString()
+
+        val pathChannelmov = File("$pathSounds/sound_navegation.mp3")
         val decriptorChannelMov = FileInputStream(pathChannelmov).fd
         selectSong_movKsf = soundPoolSelectSongKsf.load(decriptorChannelMov, 0, pathChannelmov.length(), 1)
 
-        val pathChannelBack = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_back.ogg").toString())
+        val pathChannelBack = File("$pathSounds/sound_back.ogg")
         val decriptorChannelBack = FileInputStream(pathChannelBack).fd
         selectSong_backKsf = soundPoolSelectSongKsf.load(decriptorChannelBack, 0, pathChannelBack.length(), 1)
 
-        val pathUpSound = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/up_sound.ogg").toString())
+        val pathUpSound = File("$pathSounds/up_sound.ogg")
         val decriptorUpSound = FileInputStream(pathUpSound).fd
         up_SelectSoundKsf = soundPoolSelectSongKsf.load(decriptorUpSound, 0, pathUpSound.length(), 1)
 
-        val pathMoveLv = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/move_lvs.mp3").toString())
+        val pathMoveLv = File("$pathSounds/move_lvs.mp3")
         val decriptorMoveLv = FileInputStream(pathMoveLv).fd
         move_lvsKsf = soundPoolSelectSongKsf.load(decriptorMoveLv, 0, pathMoveLv.length(), 1)
 
-        val pathSwitch = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_switch.mp3").toString())
+        val pathSwitch = File("$pathSounds/command_switch.mp3")
         val decriptorSwitsh = FileInputStream(pathSwitch).fd
         command_switchKsf = soundPoolSelectSongKsf.load(decriptorSwitsh, 0, pathSwitch.length(), 1)
 
-        val pathBack = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_back.mp3").toString())
+        val pathBack = File("$pathSounds/command_back.mp3")
         val decriptorBack = FileInputStream(pathBack).fd
         command_backKsf = soundPoolSelectSongKsf.load(decriptorBack,0 , pathBack.length(), 1)
 
-        val pathMove = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_move.mp3").toString())
+        val pathMove = File("$pathSounds/command_move.mp3")
         val decriptorMove = FileInputStream(pathMove).fd
         command_moveKsf = soundPoolSelectSongKsf.load(decriptorMove, 0, pathMove.length(), 1)
 
-        val pathMod = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_mod.mp3").toString())
+        val pathMod = File("$pathSounds/command_mod.mp3")
         val decriptorMod = FileInputStream(pathMod).fd
         command_modKsf = soundPoolSelectSongKsf.load(decriptorMod, 0, pathMod.length(), 1)
 
-        val pathSelect = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/select.ogg").toString())
+        val pathSelect = File("$pathSounds/select.ogg")
         val decriptorSelect = FileInputStream(pathSelect).fd
         selectKsf = soundPoolSelectSongKsf.load(decriptorSelect, 0, pathSelect.length(), 1)
 
-        val pathStart = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/start.ogg").toString())
+        val pathStart = File("$pathSounds/start.ogg")
         val decriptorStart = FileInputStream(pathStart).fd
         startKsf = soundPoolSelectSongKsf.load(decriptorStart, 0, pathStart.length(), 1)
 
-        val pathTick = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/TICK.ogg").toString())
+        val pathTick = File("$pathSounds/TICK.ogg")
         val decriptorTick = FileInputStream(pathTick).fd
         tick = soundPoolSelectSongKsf.load(decriptorTick, 0, pathTick.length(), 1)
 
-
-        val pathRankSound = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/rank_sound.ogg").toString())
+        val pathRankSound = File("$pathSounds/Evaluation/rank_sound.ogg")
         val decriptorRankSound = FileInputStream(pathRankSound).fd
         rank_sound = soundPoolSelectSongKsf.load(decriptorRankSound, 0, pathRankSound.length(), 1)
 
-        val pathNewRecord = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/new_record.ogg").toString())
+        val pathNewRecord = File("$pathSounds/Evaluation/new_record.ogg")
         val decriptorNewRecord = FileInputStream(pathNewRecord).fd
         new_record = soundPoolSelectSongKsf.load(decriptorNewRecord, 0, pathNewRecord.length(), 1)
 
-        getRank(c)
-        getRankB(c)
-
+        getRank(pathSounds)
+        getRankB(pathSounds)
+        getNavigationSounds(pathSounds)
     }
 
-    private fun getRank(c:Context) {
-        val pathRankSSS = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/sss.ogg").toString())
+    private fun getNavigationSounds(pathSounds: String){
+        val pathStZero = File("$pathSounds/st_zero.mp3")
+        val decriptorStZero = FileInputStream(pathStZero).fd
+        st_zero = soundPoolSelectSongSound.load(decriptorStZero, 0, pathStZero.length(), 1)
+
+        val pathNxNxAbs = File("$pathSounds/nx_nx_abs.mp3")
+        val decriptorNxNxAbs = FileInputStream(pathNxNxAbs).fd
+        nx_nxAbs = soundPoolSelectSongSound.load(decriptorNxNxAbs, 0, pathNxNxAbs.length(), 1)
+
+        val pathFiestaFiesta2 = File("$pathSounds/fiesta_fiesta2.mp3")
+        val decriptorFiestaFiesta2 = FileInputStream(pathFiestaFiesta2).fd
+        fiesta_fiesta2 = soundPoolSelectSongSound.load(decriptorFiestaFiesta2, 0, pathFiestaFiesta2.length(), 1)
+
+        val pathPrime = File("$pathSounds/prime.mp3")
+        val decriptorPrime = FileInputStream(pathPrime).fd
+        prime = soundPoolSelectSongSound.load(decriptorPrime, 0, pathPrime.length(), 1)
+
+        val pathPrime2 = File("$pathSounds/prime2.mp3")
+        val decriptorPrime2 = FileInputStream(pathPrime2).fd
+        prime2 = soundPoolSelectSongSound.load(decriptorPrime2, 0, pathPrime2.length(), 1)
+
+        val pathAniversaryXX = File("$pathSounds/aniversary_xx.mp3")
+        val decriptorAniversaryXX = FileInputStream(pathAniversaryXX).fd
+        aniversary_xx = soundPoolSelectSongSound.load(decriptorAniversaryXX, 0, pathAniversaryXX.length(), 1)
+
+        val pathPhoenix = File("$pathSounds/phoenix.mp3")
+        val decriptorPhoenix = FileInputStream(pathPhoenix).fd
+        phoenix = soundPoolSelectSongSound.load(decriptorPhoenix, 0, pathPhoenix.length(), 1)
+    }
+
+    private fun getRank(pathSounds: String) {
+        val pathRankSSS = File("$pathSounds/Evaluation/sss.ogg")
         val decriptorRankSSS = FileInputStream(pathRankSSS).fd
         sss_rank = soundPoolSelectSongKsf.load(decriptorRankSSS, 0, pathRankSSS.length(), 1)
 
-        val pathRankSS = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/ss.ogg").toString())
+        val pathRankSS = File("$pathSounds/Evaluation/ss.ogg")
         val decriptorRankSS = FileInputStream(pathRankSS).fd
         ss_rank = soundPoolSelectSongKsf.load(decriptorRankSS, 0, pathRankSS.length(), 1)
 
-        val pathRankS = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/s.ogg").toString())
+        val pathRankS = File("$pathSounds/Evaluation/s.ogg")
         val decriptorRankS = FileInputStream(pathRankS).fd
         s_rank = soundPoolSelectSongKsf.load(decriptorRankS, 0, pathRankSSS.length(), 1)
 
-        val pathRanka = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/a.ogg").toString())
+        val pathRanka = File("$pathSounds/Evaluation/a.ogg")
         val decriptorRanka = FileInputStream(pathRanka).fd
         a_rank = soundPoolSelectSongKsf.load(decriptorRanka, 0, pathRanka.length(), 1)
 
-        val pathRankb = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/b.ogg").toString())
+        val pathRankb = File("$pathSounds/Evaluation/b.ogg")
         val decriptorRankb = FileInputStream(pathRankb).fd
         b_rank = soundPoolSelectSongKsf.load(decriptorRankb, 0, pathRankb.length(), 1)
 
-        val pathRankc = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/c.ogg").toString())
+        val pathRankc = File("$pathSounds/Evaluation/c.ogg")
         val decriptorRankc = FileInputStream(pathRankc).fd
         c_rank = soundPoolSelectSongKsf.load(decriptorRankc, 0, pathRankc.length(), 1)
 
-        val pathRankd = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/d.ogg").toString())
+        val pathRankd = File("$pathSounds/Evaluation/d.ogg")
         val decriptorRankd = FileInputStream(pathRankd).fd
         d_rank = soundPoolSelectSongKsf.load(decriptorRankd, 0, pathRankd.length(), 1)
 
-        val pathRankf = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/f.ogg").toString())
+        val pathRankf = File("$pathSounds/Evaluation/f.ogg")
         val decriptorRankf = FileInputStream(pathRankf).fd
         f_rank = soundPoolSelectSongKsf.load(decriptorRankf, 0, pathRankf.length(), 1)
     }
 
-    private fun getRankB(c: Context) {
-        val pathRankSSS = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/sssB.ogg").toString())
+    private fun getRankB(pathSounds: String) {
+        val pathRankSSS = File("$pathSounds/Evaluation/sssB.ogg")
         val decriptorRankSSS = FileInputStream(pathRankSSS).fd
         sss_rankB = soundPoolSelectSongKsf.load(decriptorRankSSS, 0, pathRankSSS.length(), 1)
 
-        val pathRankSS = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/ssB.ogg").toString())
+        val pathRankSS = File("$pathSounds/Evaluation/ssB.ogg")
         val decriptorRankSS = FileInputStream(pathRankSS).fd
         ss_rankB = soundPoolSelectSongKsf.load(decriptorRankSS, 0, pathRankSS.length(), 1)
 
-        val pathRankS = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/sB.ogg").toString())
+        val pathRankS = File("$pathSounds/Evaluation/sB.ogg")
         val decriptorRankS = FileInputStream(pathRankS).fd
         s_rankB = soundPoolSelectSongKsf.load(decriptorRankS, 0, pathRankSSS.length(), 1)
 
-        val pathRanka = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/aB.ogg").toString())
+        val pathRanka = File("$pathSounds/Evaluation/aB.ogg")
         val decriptorRanka = FileInputStream(pathRanka).fd
         a_rankB = soundPoolSelectSongKsf.load(decriptorRanka, 0, pathRanka.length(), 1)
 
-        val pathRankb = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/bB.ogg").toString())
+        val pathRankb = File("$pathSounds/Evaluation/bB.ogg")
         val decriptorRankb = FileInputStream(pathRankb).fd
         b_rankB = soundPoolSelectSongKsf.load(decriptorRankb, 0, pathRankb.length(), 1)
 
-        val pathRankc = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/cB.ogg").toString())
+        val pathRankc = File("$pathSounds/Evaluation/cB.ogg")
         val decriptorRankc = FileInputStream(pathRankc).fd
         c_rankB = soundPoolSelectSongKsf.load(decriptorRankc, 0, pathRankc.length(), 1)
 
-        val pathRankd = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/dB.ogg").toString())
+        val pathRankd = File("$pathSounds/Evaluation/dB.ogg")
         val decriptorRankd = FileInputStream(pathRankd).fd
         d_rankB = soundPoolSelectSongKsf.load(decriptorRankd, 0, pathRankd.length(), 1)
 
-        val pathRankf = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation/fB.ogg").toString())
+        val pathRankf = File("$pathSounds/Evaluation/fB.ogg")
         val decriptorRankf = FileInputStream(pathRankf).fd
         f_rankB = soundPoolSelectSongKsf.load(decriptorRankf, 0, pathRankf.length(), 1)
     }
 }
 
-data class Ksf(var rutaKsf: String, var level: String, var rutaBitActive: String, var stepmaker: String = "")
+data class Ksf(var rutaKsf: String = "",
+               var level: String = "",
+               var rutaBitActive: String = "",
+               var stepmaker: String = "",
+                var typePlayer: String = "")
 
 data class SongKsf(
     var title: String,
@@ -564,4 +638,5 @@ data class SongKsf(
     var rutaPreview: String,
     var rutaBGA: String,
     var listKsf: ArrayList<Ksf>,
-    var offset: Long = 0L)
+    var offset: Long = 0L,
+    var channel: String = "")

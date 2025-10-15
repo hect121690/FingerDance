@@ -30,11 +30,11 @@ class CustomAdapter(private val songList: ArrayList<Song>?,
 
     class ViewHolder(var itemBinding: ItemBinding, heightBanners : Int, widthBanners: Int) :
         RecyclerView.ViewHolder(itemBinding.root) {
-        val height = heightBanners
-        val width = widthBanners
+        val heightB = heightBanners
+        val widthB = widthBanners
         fun bindItem(song: Song?, songKsf: SongKsf?) {
-            itemBinding.image.layoutParams.height = height
-            itemBinding.image.layoutParams.width = width
+            itemBinding.image.layoutParams.height = heightB
+            itemBinding.image.layoutParams.width = widthB
             if(song != null){
                 itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(song.rutaBanner))
             }else if(songKsf != null){

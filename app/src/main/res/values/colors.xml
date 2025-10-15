@@ -37,5 +37,7 @@
     <color name="track_color_A">#80FF00</color>
     <color name="track_color_B">#808080</color>
 
+    <color name="bgButtonPaypal">#ffc33a</color>
+
 
 </resources>

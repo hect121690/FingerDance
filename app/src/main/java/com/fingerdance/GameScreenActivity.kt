@@ -6,7 +6,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.SurfaceView
+import android.view.View
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.Toast
 import android.widget.VideoView
@@ -24,9 +26,11 @@ private var currentVideoPositionScreen : Int = 0
 lateinit var videoViewBgaoff : VideoView
 lateinit var videoViewBgaOn : VideoView
 
+private val thisHandler = Handler(Looper.getMainLooper())
 
-private val timeToPlay = 1000L
+private const val timeToPlay = 1000L
 var countMiss = 0
+var halfDouble = false
 open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +38,7 @@ open class GameScreenActivity : AndroidApplication() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         gdxContainer = findViewById(R.id.gdxContainer)
         gdxContainer.layoutParams = RelativeLayout.LayoutParams(width, height)
-
+        halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
         readyPlay = false
 
         if(mediPlayer.isPlaying){
@@ -42,11 +46,8 @@ open class GameScreenActivity : AndroidApplication() {
         }
 
         resultSong = ResultSong()
-        addVideoBackground()
-        thisHandler.postDelayed({
-            countAdd ++
-            themes.edit().putInt("countAdd", countAdd).apply()
-        }, 20000)
+        val linearBGADark = findViewById<LinearLayout>(R.id.linearBGADark)
+        addVideoBackground(linearBGADark)
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
@@ -59,10 +60,20 @@ open class GameScreenActivity : AndroidApplication() {
         thisHandler.postDelayed({
             if (isVideo) {
                 videoViewBgaOn.start()
+                if(playerSong.isBAGDark){
+                    linearBGADark.visibility = View.VISIBLE
+                }else {
+                    linearBGADark.visibility = View.GONE
+                }
             } else {
                 videoViewBgaoff.start()
                 videoViewBgaoff.setOnCompletionListener {
                     videoViewBgaoff.start()
+                }
+                if(playerSong.isBAGDark){
+                    linearBGADark.visibility = View.VISIBLE
+                }else {
+                    linearBGADark.visibility = View.GONE
                 }
             }
             mediaPlayer.start()
@@ -74,7 +85,7 @@ open class GameScreenActivity : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
-    private fun addVideoBackground() {
+    private fun addVideoBackground(linearBGADark: LinearLayout) {
         videoViewBgaoff = findViewById(R.id.videoViewBgaoff)
         videoViewBgaoff.isVisible = false
 
@@ -87,6 +98,11 @@ open class GameScreenActivity : AndroidApplication() {
             height = newHeight
         }
 
+        linearBGADark.y = medidaFlechas * 2
+        linearBGADark.layoutParams = linearBGADark.layoutParams.apply {
+            height = newHeight
+        }
+
         if(isFileExists(File(playerSong.rutaVideo!!))){
             if(playerSong.isBGAOff == false){
                 videoViewBgaoff.isVisible = false
@@ -94,13 +110,6 @@ open class GameScreenActivity : AndroidApplication() {
                 videoViewBgaOn.setVideoPath(playerSong.rutaVideo)
                 videoViewBgaOn.setOnPreparedListener { mp ->
                     mp.setVolume(0f, 0f)
-                    /*
-                    for (i in mp.trackInfo.indices) {
-                        if (mp.trackInfo[i].trackType == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
-                            mp.deselectTrack(i)
-                        }
-                    }
-                    */
                 }
                 isVideo = true
             }else{
@@ -123,6 +132,7 @@ open class GameScreenActivity : AndroidApplication() {
 
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
+            /*
             ksf.patterns.forEach{ ptn ->
                 ptn.vLine.forEach { line ->
                     line.step.forEach { step ->
@@ -132,7 +142,7 @@ open class GameScreenActivity : AndroidApplication() {
                     }
                 }
             }
-
+            */
             thisHandler.postDelayed({
                 val intent = Intent(this, DanceGrade()::class.java)
                 startActivity(intent)
@@ -152,16 +162,16 @@ open class GameScreenActivity : AndroidApplication() {
         } else {
             videoViewBgaoff.seekTo(0)
         }
-
-        thisHandler.removeCallbacksAndMessages(null)
         mediaPlayer.setOnCompletionListener(null)
         if(mediaPlayer.isPlaying){
             mediaPlayer.stop()
         }
+        thisHandler.removeCallbacksAndMessages(null)
     }
 
     fun breakDance(){
         this.finish()
+        countMiss = 0
         val intent = Intent(this, BreakDance::class.java)
         startActivity(intent)
     }
@@ -233,9 +243,16 @@ open class GameScreenActivity : AndroidApplication() {
 class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
     val gsa = gameScreenActivity
     private var gameScreen: GameScreenKsf? = null
+    private var gameScreenHD: GameScreenKsfHD? = null
     override fun create() {
-        gameScreen = GameScreenKsf(gsa)
-        setScreen(gameScreen)
+        if(halfDouble){
+            gameScreenHD = GameScreenKsfHD(gsa)
+            setScreen(gameScreenHD)
+        }else{
+            gameScreen = GameScreenKsf(gsa)
+            setScreen(gameScreen)
+        }
+
     }
 
     override fun dispose() {

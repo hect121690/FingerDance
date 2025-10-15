@@ -17,7 +17,7 @@ android {
         minSdk 28
         targetSdk 35
         versionCode 10
-        versionName "1.4.2"
+        versionName "1.6.3"
 
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -62,6 +62,7 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.media3:media3-extractor:1.8.0'
     implementation 'androidx.media3:media3-transformer:1.8.0'
+    implementation 'com.google.android.libraries.places:places:5.0.0'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
@@ -83,9 +84,8 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-backend-android:1.13.0"
     implementation "com.badlogicgames.gdx:gdx-box2d:1.13.0"
-    implementation 'com.google.android.gms:play-services-ads:24.5.0'
 
-    implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-storage'
     implementation 'com.google.firebase:firebase-analytics'
@@ -95,6 +95,10 @@ dependencies {
     implementation "net.lingala.zip4j:zip4j:2.11.5"
 
     implementation "androidx.media3:media3-transformer:1.8.0"
+
+    implementation "com.mercadopago.android.px:checkout:4.53.2"
+
+
 
 }
 

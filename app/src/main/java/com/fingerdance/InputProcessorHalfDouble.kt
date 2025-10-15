@@ -1,7 +1,7 @@
 package com.fingerdance
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.Input.Keys
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -11,26 +11,22 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
-class InputProcessor : InputAdapter() {
+class InputProcessorHalfDouble : InputAdapter() {
     private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
     private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
 
-    val getKeyBoard = IntArray(padPositions.size) { KEY_NONE }
+    val getKeyBoard = IntArray(10) { KEY_NONE }
     private var pointerToPadMap = mutableMapOf<Int, Int>()
     private var hasStateChanged = false
 
     // Map physical keys to pad positions
     private val keyToPadMap = mapOf(
-        Keys.NUMPAD_1 to 0,
-        Keys.NUMPAD_7 to 1,
-        Keys.NUMPAD_5 to 2,
-        Keys.NUMPAD_9 to 3,
-        Keys.NUMPAD_3 to 4,
-        Keys.Z to 0,
-        Keys.Q to 1,
-        Keys.S to 2,
-        Keys.E to 3,
-        Keys.C to 4
+        Input.Keys.A to 2,
+        Input.Keys.W to 3,
+        Input.Keys.Z to 4,
+        Input.Keys.X to 5,
+        Input.Keys.E to 6,
+        Input.Keys.D to 7
     )
 
     override fun keyDown(keycode: Int): Boolean {
@@ -88,28 +84,19 @@ class InputProcessor : InputAdapter() {
     }
 
     private fun getPadIndex(x: Float, y: Float): Int? {
-        val visiblePadIndex = padPositions.indexOfFirst { pad ->
-            x in pad[0]..(pad[0] + widthBtns) && y in pad[1]..(pad[1] + heightBtns)
+        val visiblePadIndex = padPositionsHD.indexOfFirst { pad ->
+            // ignorar pads invisibles (0,0)
+            !(pad[0] == 0f && pad[1] == 0f) &&
+                    x in pad[0]..(pad[0] + colWidth) &&
+                    y in pad[1]..(pad[1] + heightBtns)
         }.takeIf { it >= 0 }
 
-        if (visiblePadIndex != null) {
-            return visiblePadIndex
-        }
-
-        return when (touchAreas.indexOfFirst { pad ->
-            x in pad[0]..(pad[0] + (widthBtns / 2)) && y in pad[1]..(pad[1] + heightBtns + (heightBtns / 2))
-        }) {
-            0 -> 0
-            1 -> 4
-            2 -> 1
-            3 -> 3
-            else -> null
-        }
+        return visiblePadIndex
     }
 
     fun update() {
         if (!hasStateChanged) return
-        for (i in getKeyBoard.indices) {
+        for (i in 2..7) {
             when (getKeyBoard[i]) {
                 KEY_DOWN -> getKeyBoard[i] = KEY_PRESS
                 KEY_UP -> getKeyBoard[i] = KEY_NONE
@@ -119,19 +106,19 @@ class InputProcessor : InputAdapter() {
     }
 
     fun render(batch: SpriteBatch) {
-        for (i in padPositions.indices) {
-            val (x, y) = padPositions[i]
+        for (i in 2..7) {
+            val (x, y) = padPositionsHD[i]
             val texture = if (getKeyBoard[i] == KEY_DOWN || getKeyBoard[i] == KEY_PRESS) {
                 btnOnPress
             } else {
                 btnOffPress
             }
-            batch.draw(texture, x, y, widthBtns, heightBtns)
+            batch.draw(texture, x, y, colWidth, heightBtns)
         }
     }
 
     fun resetState() {
-        for (i in getKeyBoard.indices) {
+        for (i in 2..7) {
             getKeyBoard[i] = KEY_NONE
         }
         pointerToPadMap.clear()
@@ -143,4 +130,3 @@ class InputProcessor : InputAdapter() {
         btnOnPress.dispose()
     }
 }
-

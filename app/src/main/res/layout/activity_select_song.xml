@@ -50,7 +50,7 @@
             app:layout_constraintVertical_bias="0.16">
 
             <VideoView
-                android:id="@+id/videoPrev"
+                android:id="@+id/videoPreview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
@@ -66,6 +66,22 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.16"
             android:scaleType="fitXY" />
+
+        <VideoView
+            android:id="@+id/next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/imgPrev" />
+
+        <VideoView
+            android:id="@+id/preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgPrev" />
 
         <ImageView
             android:id="@+id/imageCircleSS"
@@ -207,7 +223,7 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerView"
                 android:layout_width="match_parent"
-                android:layout_height="100dp"
+                android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:isScrollContainer="false"
                 android:orientation="horizontal"
@@ -221,8 +237,9 @@
                 android:layout_width="100dp"
                 android:layout_height="100dp"
                 android:layout_alignParentStart="true"
-                android:layout_marginStart="30dp"
                 app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.10"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
@@ -253,29 +270,19 @@
 
             <ImageView
                 android:id="@+id/imgBestScore"
-                android:layout_width="wrap_content"
+                android:layout_width="250dp"
                 android:layout_height="100dp"
                 android:layout_alignParentEnd="false"
                 android:scaleType="fitXY"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.96"
+                app:layout_constraintHorizontal_bias="0.97"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <ImageView
-                android:id="@+id/imgBestGrade"
-                android:layout_width="35dp"
-                android:layout_height="45dp"
-                android:scaleType="fitXY"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.88"
-                app:layout_constraintStart_toStartOf="@+id/imgBestScore"
-                app:layout_constraintTop_toTopOf="@+id/imgBestScore" />
-
             <TextView
                 android:id="@+id/lbBestScore"
-                android:layout_width="151dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignEnd="@+id/imgBestScore"
                 android:layout_alignParentTop="true"
@@ -294,25 +301,26 @@
                 android:textStyle="normal"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.10"
+                app:layout_constraintHorizontal_bias="0.11"
                 app:layout_constraintStart_toStartOf="@+id/imgBestScore"
                 app:layout_constraintTop_toTopOf="@+id/imgBestScore"
                 app:layout_constraintVertical_bias="0.28" />
 
-
             <ImageView
-                android:id="@+id/imgWorldGrade"
+                android:id="@+id/imgBestGrade"
                 android:layout_width="45dp"
-                android:layout_height="55dp"
+                android:layout_height="35dp"
                 android:scaleType="fitXY"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.88"
-                app:layout_constraintStart_toStartOf="@+id/imgBestScore" />
+                app:layout_constraintHorizontal_bias="0.94"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/imgBestScore"
+                app:layout_constraintVertical_bias="0.10" />
 
             <TextView
                 android:id="@+id/lbWorldName"
-                android:layout_width="151dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignEnd="@+id/imgBestScore"
                 android:layout_alignParentTop="true"
@@ -338,7 +346,7 @@
 
             <TextView
                 android:id="@+id/lbWorldScore"
-                android:layout_width="151dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignEnd="@+id/imgBestScore"
                 android:layout_alignParentTop="true"
@@ -360,6 +368,18 @@
                 app:layout_constraintHorizontal_bias="0.10"
                 app:layout_constraintStart_toStartOf="@+id/imgBestScore"
                 app:layout_constraintTop_toTopOf="@+id/imgBestScore"
+                app:layout_constraintVertical_bias="0.92" />
+
+            <ImageView
+                android:id="@+id/imgWorldGrade"
+                android:layout_width="60dp"
+                android:layout_height="50dp"
+                android:scaleType="fitXY"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.95"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_bias="0.90" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
@@ -372,7 +392,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.43" />
+            app:layout_constraintVertical_bias="0.44" />
 
         <TextView
             android:id="@+id/lbNameSong"

@@ -17,6 +17,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -33,9 +34,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.MobileAds
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -69,25 +67,21 @@ private var isPlayingNewRecord = 0
 
 private lateinit var DGContext: Context
 private lateinit var linearEfects: RelativeLayout
-private val handlerDG = Handler()
+private val handlerDG = Handler(Looper.getMainLooper())
 private val sizeLabels = (decimoHeigtn / 3.8).toInt()
+private var rutaWin = ""
+private var rutaDraw = ""
 
 class DanceGrade : AppCompatActivity() {
-    private lateinit var adView: AdView
+    private var winP1 = false
+    private var winP2 = false
+    private var draw = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dance_grade)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
-
-        MobileAds.initialize(this) {}
-        adView = findViewById(R.id.adView)
-        if(isOnline) {
-            if (showAddActive) {
-                val adRequest = AdRequest.Builder().build()
-                adView.loadAd(adRequest)
-            }
-        }
 
         DGContext = this
         bgConstraint = findViewById(R.id.bgContraint)
@@ -119,6 +113,8 @@ class DanceGrade : AppCompatActivity() {
 
         bgBanner.alpha = 0.5f
 
+        rutaWin = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png")!!.absolutePath
+        rutaDraw = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/draw.png")!!.absolutePath
         val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
 
         val dbDG = DataBasePlayer(this)
@@ -197,8 +193,8 @@ class DanceGrade : AppCompatActivity() {
         val good = 0.2 * resultSong.good
         val bad = 0.1 * resultSong.bad
         val miss = 0
-
-        resultSong.miss += countMiss
+        countMiss
+        resultSong.miss // += countMiss
         val totalNotes = resultSong.perfect + resultSong.great + resultSong.good + resultSong.bad + resultSong.miss
         val noteWeighs = perfect + great + good + bad + miss
         val rawScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000)
@@ -208,7 +204,7 @@ class DanceGrade : AppCompatActivity() {
         imgNewRecord.setImageBitmap(bitNR)
         if(!isOnline){
             imgMyBestScore.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body_dance_grade.png").toString()))
-            showGrade(arrayBestGrades)
+            showGrade()
             txNameSong.text = currentSong
             txNameChannel.text = if(currentChannel.contains("-")) currentChannel.split("-")[1] else currentChannel
         }else{
@@ -221,9 +217,10 @@ class DanceGrade : AppCompatActivity() {
                 activeSala.jugador1.result.miss = resultSong.miss.toString()
                 activeSala.jugador1.result.maxCombo = resultSong.maxCombo.toString()
                 activeSala.jugador1.result.score = totalScore.toString()
-                salaRef.child("jugador1/result").setValue(activeSala.jugador1.result).addOnSuccessListener {
+                salaRef.child("jugador1/result").setValue(activeSala.jugador1.result)/*.addOnSuccessListener {
                     getWinner(imgWinP1, imgWinP2, imgDraw, txNameChannel)
                 }
+                */
             }else{
                 activeSala.jugador2.result.perfect = resultSong.perfect.toString()
                 activeSala.jugador2.result.great = resultSong.great.toString()
@@ -232,9 +229,11 @@ class DanceGrade : AppCompatActivity() {
                 activeSala.jugador2.result.miss = resultSong.miss.toString()
                 activeSala.jugador2.result.maxCombo = resultSong.maxCombo.toString()
                 activeSala.jugador2.result.score = totalScore.toString()
-                salaRef.child("jugador2/result").setValue(activeSala.jugador2.result).addOnSuccessListener{
+
+                salaRef.child("jugador2/result").setValue(activeSala.jugador2.result)/*.addOnSuccessListener{
                     getWinner(imgWinP1, imgWinP2, imgDraw, txNameChannel)
                 }
+                */
             }
         }
 
@@ -298,6 +297,7 @@ class DanceGrade : AppCompatActivity() {
             findViewById(R.id.imgMaxCombo),
             findViewById<ImageView>(R.id.imgScore)
         )
+
         val textViewsP1 = listOf(
             findViewById(R.id.txPerfectP1),
             findViewById(R.id.txGreatP1),
@@ -307,7 +307,6 @@ class DanceGrade : AppCompatActivity() {
             findViewById(R.id.txMaxComboP1),
             findViewById<TextView>(R.id.txScoreP1)
         )
-
         val textViewsP2 = listOf(
             findViewById(R.id.txPerfectP2),
             findViewById(R.id.txGreatP2),
@@ -362,7 +361,6 @@ class DanceGrade : AppCompatActivity() {
                         }
                     }
                 }
-
                 handlerDG.postDelayed({
                     if(!isOnline){
                         imgGrade.setImageBitmap(grade)
@@ -387,46 +385,51 @@ class DanceGrade : AppCompatActivity() {
                             getBestScore(imgMyBestGrade, lbBestScoreDG)
                         }
                     }else{
-                        imgGradeP1.setImageBitmap(gradeP1)
-                        animateImageViewP1(imgGradeP1)
-
-                        imgGradeP2.setImageBitmap(gradeP2)
-                        animateImageViewP2(imgGradeP2)
-
-                        soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
+                        if(isPlayer1){
+                            if(activeSala.jugador1.result.score.toInt() > activeSala.jugador2.result.score.toInt()){
+                                winP1 = true
+                                victoriesP1 ++
+                            }else if(activeSala.jugador1.result.score.toInt() < activeSala.jugador2.result.score.toInt()){
+                                winP2 = true
+                                victoriesP2 ++
+                            }else{
+                                draw = true
+                            }
+                        }else{
+                            if(activeSala.jugador2.result.score.toInt() > activeSala.jugador1.result.score.toInt()){
+                                winP2 = true
+                                victoriesP2 ++
+                            }else if(activeSala.jugador2.result.score.toInt() < activeSala.jugador1.result.score.toInt()){
+                                winP1 = true
+                                victoriesP1 ++
+                            }else{
+                                draw = true
+                            }
+                        }
+                        showGradeP1(activeSala.jugador1.result.score.toInt())
+                        showGradeP2(activeSala.jugador2.result.score.toInt())
+                        getWinner(imgGradeP1, imgGradeP2, imgWinP1, imgWinP2, imgDraw, txNameChannel)
                     }
-                }, 1200L)
+                }, 1000)
             }
         },1000L)
     }
 
-    private fun getWinner(imgWinP1: ImageView, imgWinP2: ImageView, imgDraw: ImageView, txNameChannel: TextView){
+    private fun getWinner(imgGradeP1: ImageView, imgGradeP2: ImageView, imgWinP1: ImageView, imgWinP2: ImageView, imgDraw: ImageView, txNameChannel: TextView){
         handlerDG.postDelayed({
-            if(isPlayer1){
-                if(activeSala.jugador1.result.score.toInt() > activeSala.jugador2.result.score.toInt()){
-                    imgWinP1.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
-                    victoriesP1 ++
-                }else if(activeSala.jugador1.result.score.toInt() < activeSala.jugador2.result.score.toInt()){
-                    imgWinP2.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
-                    victoriesP2 ++
-                }else{
-                    imgDraw.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/draw.png").toString()))
-                }
-            }else{
-                if(activeSala.jugador2.result.score.toInt() > activeSala.jugador1.result.score.toInt()){
-                    imgWinP2.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
-                    victoriesP2 ++
-                }else if(activeSala.jugador2.result.score.toInt() < activeSala.jugador1.result.score.toInt()){
-                    imgWinP1.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/player_win.png").toString()))
-                    victoriesP1 ++
-                }else{
-                    imgDraw.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/draw.png").toString()))
-                }
-            }
             txNameChannel.text = getString(R.string.victories_text, victoriesP1.toString(), victoriesP2.toString())
-            showGradeP1(activeSala.jugador1.result.score.toInt())
-            showGradeP2(activeSala.jugador2.result.score.toInt())
-        }, 2500L)
+            imgGradeP1.setImageBitmap(gradeP1)
+            animateImageViewP1(imgGradeP1)
+
+            imgGradeP2.setImageBitmap(gradeP2)
+            animateImageViewP2(imgGradeP2)
+            handlerDG.postDelayed({
+                if(winP1)imgWinP1.setImageBitmap(BitmapFactory.decodeFile(rutaWin))
+                if(winP2)imgWinP2.setImageBitmap(BitmapFactory.decodeFile(rutaWin))
+                if(draw)imgDraw.setImageBitmap(BitmapFactory.decodeFile(rutaDraw))
+            }, 250)
+            soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
+        }, 500L)
     }
 
     private fun updateRanking(
@@ -541,11 +544,10 @@ class DanceGrade : AppCompatActivity() {
             soundPoolSelectSongKsf.stop(isPlayingRankA)
             soundPoolSelectSongKsf.stop(isPlayingRankB)
             soundPoolSelectSongKsf.stop(isPlayingNewRecord)
-            handlerDG.removeCallbacksAndMessages(null)
             img_wait.isVisible = true
             bg_wait.isVisible = true
             countMiss = 0
-            thisHandler.postDelayed({
+            handlerDG.postDelayed({
                 getSelectChannel = true
                 this.finish()
             }, 2500)
@@ -597,7 +599,7 @@ class DanceGrade : AppCompatActivity() {
     private fun getEfects(pathCommandEffect: String) {
         showLevel()
         val posX = medidaFlechas
-        val heightImages = (decimoHeigtn / 2).toInt() //((medidaFlechas / 4) * 3).toInt()
+        val heightImages = (decimoHeigtn / 2).toInt()
 
         linearEfects.layoutParams.width = (medidaFlechas * 4).toInt()
         linearEfects.layoutParams.height = (heightImages * 2)
@@ -660,8 +662,13 @@ class DanceGrade : AppCompatActivity() {
 
     private fun showLevel() {
         val bitActiveLv = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
+        val bitActiveLvHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
         val imgBitActive = ImageView(this)
-        imgBitActive.setImageBitmap(bitActiveLv)
+        if(halfDouble){
+            imgBitActive.setImageBitmap(bitActiveLvHD)
+        }else {
+            imgBitActive.setImageBitmap(bitActiveLv)
+        }
         bgConstraint.addView(imgBitActive)
 
         imgBitActive.layoutParams.height = medidaFlechas.toInt() * 2
@@ -698,100 +705,130 @@ class DanceGrade : AppCompatActivity() {
         lbBestScoreDG.text = currentScore
     }
 
-    private fun showGrade(arrayGrades: ArrayList<Bitmap>) {
-        if(totalScore >= 999999){ //SSS
-            grade = arrayGrades[0]
-            soundGrade = 1
-            newGrade = "SSS"
-        }
-        if(totalScore in 950000..999998){ //S
-            grade = arrayGrades[2]
-            soundGrade = 3
-            newGrade = "S"
-        }
-        if(totalScore in 950000..999998 && resultSong.bad == 0 && resultSong.miss == 0){ //SS
-            grade = arrayGrades[1]
-            soundGrade = 2
-            newGrade = "SS"
-        }
-        if(totalScore in 900000..949000){ //A
-            grade = arrayGrades[3]
-            soundGrade = 4
-            newGrade = "A"
-        }
-        if(totalScore in 800000..899999){ //B
-            grade = arrayGrades[4]
-            soundGrade = 5
-            newGrade = "B"
-        }
-        if(totalScore in 700000..799999){ //C
-            grade = arrayGrades[5]
-            soundGrade = 6
-            newGrade = "C"
-        }
-        if(totalScore in 600000..699999){ //D
-            grade = arrayGrades[6]
-            soundGrade = 7
-            newGrade = "D"
-        }
-        if(totalScore <= 599999){ //F
-            grade = arrayGrades[7]
-            soundGrade = 8
-            newGrade = "F"
+    private fun showGrade() {
+        when {
+            totalScore >= 999999 -> { // SSS+
+                grade = arrayGrades[0]
+                soundGrade = 1
+                newGrade = "SSS+"
+            }
+            totalScore in 990000..999998 -> { // SSS
+                grade = arrayGrades[1]
+                soundGrade = 1
+                newGrade = "SSS"
+            }
+            totalScore in 985000..989999 -> { // SS+
+                grade = arrayGrades[2]
+                soundGrade = 2
+                newGrade = "SS+"
+            }
+            totalScore in 980000..984999 -> { // SS
+                grade = arrayGrades[3]
+                soundGrade = 2
+                newGrade = "SS"
+            }
+            totalScore in 975000..979999 -> { // S+
+                grade = arrayGrades[4]
+                soundGrade = 3
+                newGrade = "S+"
+            }
+            totalScore in 970000..974999 -> { // S
+                grade = arrayGrades[5]
+                soundGrade = 3
+                newGrade = "S"
+            }
+            totalScore in 960000..969999 -> { // AAA+
+                grade = arrayGrades[6]
+                soundGrade = 4
+                newGrade = "AAA+"
+            }
+            totalScore in 950000..959999 -> { // AAA
+                grade = arrayGrades[7]
+                soundGrade = 4
+                newGrade = "AAA"
+            }
+            totalScore in 925000..949999 -> { // AA+
+                grade = arrayGrades[8]
+                soundGrade = 4
+                newGrade = "AA+"
+            }
+            totalScore in 900000..924999 -> { // AA
+                grade = arrayGrades[9]
+                soundGrade = 4
+                newGrade = "AA"
+            }
+            totalScore in 825000..899999 -> { // A+
+                grade = arrayGrades[10]
+                soundGrade = 4
+                newGrade = "A+"
+            }
+            totalScore in 750000..824999 -> { // A
+                grade = arrayGrades[11]
+                soundGrade = 4
+                newGrade = "A"
+            }
+            totalScore in 650000..749999 -> { // B
+                grade = arrayGrades[12]
+                soundGrade = 5
+                newGrade = "B"
+            }
+            totalScore in 550000..649999 -> { // C
+                grade = arrayGrades[13]
+                soundGrade = 6
+                newGrade = "C"
+            }
+            totalScore in 450000..549999 -> { // D
+                grade = arrayGrades[14]
+                soundGrade = 7
+                newGrade = "D"
+            }
+            else -> { // F
+                grade = arrayGrades[15]
+                soundGrade = 8
+                newGrade = "F"
+            }
         }
     }
 
     private fun showGradeP1(totalScoreP1: Int) {
-        if(totalScoreP1 >= 999999){ //SSS
-            gradeP1 = arrayBestGrades[0]
-        }
-        if(totalScoreP1 in 950000..999998){ //S
-            gradeP1 = arrayBestGrades[2]
-        }
-        if(totalScoreP1 in 950000..999998 && resultSong.bad == 0 && resultSong.miss == 0){ //SS
-            gradeP1 = arrayBestGrades[1]
-        }
-        if(totalScoreP1 in 900000..949000){ //A
-            gradeP1 = arrayBestGrades[3]
-        }
-        if(totalScoreP1 in 800000..899999){ //B
-            gradeP1 = arrayBestGrades[4]
-        }
-        if(totalScoreP1 in 700000..799999){ //C
-            gradeP1 = arrayBestGrades[5]
-        }
-        if(totalScoreP1 in 600000..699999){ //D
-            gradeP1 = arrayBestGrades[6]
-        }
-        if(totalScoreP1 <= 599999){ //F
-            gradeP1 = arrayBestGrades[7]
+        gradeP1 = when {
+            totalScoreP1 >= 999999 -> arrayGrades[0]               // SSS+
+            totalScoreP1 in 990000..999998 -> arrayGrades[1] // SSS
+            totalScoreP1 in 985000..989999 -> arrayGrades[2] // SS+
+            totalScoreP1 in 980000..984999 -> arrayGrades[3] // SS
+            totalScoreP1 in 975000..979999 -> arrayGrades[4] // S+
+            totalScoreP1 in 970000..974999 -> arrayGrades[5] // S
+            totalScoreP1 in 960000..969999 -> arrayGrades[6] // AAA+
+            totalScoreP1 in 950000..959999 -> arrayGrades[7] // AAA
+            totalScoreP1 in 925000..949999 -> arrayGrades[8] // AA+
+            totalScoreP1 in 900000..924999 -> arrayGrades[9] // AA
+            totalScoreP1 in 825000..899999 -> arrayGrades[10] // A+
+            totalScoreP1 in 750000..824999 -> arrayGrades[11] // A
+            totalScoreP1 in 650000..749999 -> arrayGrades[12] // B
+            totalScoreP1 in 550000..649999 -> arrayGrades[13] // C
+            totalScoreP1 in 450000..549999 -> arrayGrades[14] // D
+            else -> arrayGrades[15]                                 // F
         }
     }
 
     private fun showGradeP2(totalScoreP2: Int) {
-        if(totalScoreP2 >= 999999){ //SSS
-            gradeP2 = arrayBestGrades[0]
-        }
-        if(totalScoreP2 in 950000..999998){ //S
-            gradeP2 = arrayBestGrades[2]
-        }
-        if(totalScoreP2 in 950000..999998 && resultSong.bad == 0 && resultSong.miss == 0){ //SS
-            gradeP2 = arrayBestGrades[1]
-        }
-        if(totalScoreP2 in 900000..949000){ //A
-            gradeP2 = arrayBestGrades[3]
-        }
-        if(totalScoreP2 in 800000..899999){ //B
-            gradeP2 = arrayBestGrades[4]
-        }
-        if(totalScoreP2 in 700000..799999){ //C
-            gradeP2 = arrayBestGrades[5]
-        }
-        if(totalScoreP2 in 600000..699999){ //D
-            gradeP2 = arrayBestGrades[6]
-        }
-        if(totalScoreP2 <= 599999){ //F
-            gradeP2 = arrayBestGrades[7]
+        gradeP2 = when {
+            totalScoreP2 >= 999999 -> arrayGrades[0]               // SSS+
+            totalScoreP2 in 990000..999998 -> arrayGrades[1] // SSS
+            totalScoreP2 in 985000..989999 -> arrayGrades[2] // SS+
+            totalScoreP2 in 980000..984999 -> arrayGrades[3] // SS
+            totalScoreP2 in 975000..979999 -> arrayGrades[4] // S+
+            totalScoreP2 in 970000..974999 -> arrayGrades[5] // S
+            totalScoreP2 in 960000..969999 -> arrayGrades[6] // AAA+
+            totalScoreP2 in 950000..959999 -> arrayGrades[7] // AAA
+            totalScoreP2 in 925000..949999 -> arrayGrades[8] // AA+
+            totalScoreP2 in 900000..924999 -> arrayGrades[9] // AA
+            totalScoreP2 in 825000..899999 -> arrayGrades[10] // A+
+            totalScoreP2 in 750000..824999 -> arrayGrades[11] // A
+            totalScoreP2 in 650000..749999 -> arrayGrades[12] // B
+            totalScoreP2 in 550000..649999 -> arrayGrades[13] // C
+            totalScoreP2 in 450000..549999 -> arrayGrades[14] // D
+            else -> arrayGrades[15]                                 // F
         }
     }
 
@@ -950,6 +987,7 @@ class DanceGrade : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         mediaPlayerEvaluation.release()
+        handlerDG.removeCallbacksAndMessages(null)
     }
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {

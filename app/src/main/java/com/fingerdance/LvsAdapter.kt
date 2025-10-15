@@ -24,7 +24,7 @@ class LvsAdapter(private val lvList: MutableList<Lvs>? = mutableListOf(), privat
             holder.bindItem(null, lvListKsf[position])
         }
 
-        val imageView = holder.itemView.findViewById<ImageView>(R.id.image_channel)
+        val imageView = holder.itemView.findViewById<ImageView>(R.id.image_lvl)
         imageView.layoutParams.width = width
         val textView = holder.itemView.findViewById<TextView>(R.id.text_lv)
         textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, width.toFloat() / 2)
@@ -37,10 +37,10 @@ class LvsAdapter(private val lvList: MutableList<Lvs>? = mutableListOf(), privat
         RecyclerView.ViewHolder(itemLvsBinding.root) {
         fun bindItem(lv: Lvs? = Lvs("", ""), lvKsf: Ksf? = Ksf("","","")) {
             if(lv != null){
-                itemLvsBinding.imageChannel.setImageBitmap(BitmapFactory.decodeFile(lv.rutaLvImg))
+                itemLvsBinding.imageLvl.setImageBitmap(BitmapFactory.decodeFile(lv.rutaLvImg))
                 itemLvsBinding.textLv.text = lv.lvl
             }else if (lvKsf != null){
-                itemLvsBinding.imageChannel.setImageBitmap(BitmapFactory.decodeFile(lvKsf.rutaBitActive))
+                itemLvsBinding.imageLvl.setImageBitmap(BitmapFactory.decodeFile(lvKsf.rutaBitActive))
                 itemLvsBinding.textLv.text = lvKsf.level
             }
 

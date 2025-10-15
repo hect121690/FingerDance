@@ -14,6 +14,7 @@ import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
+import android.media.Image
 import android.media.MediaPlayer
 import android.media.SoundPool
 import android.os.Bundle
@@ -40,6 +41,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import com.google.gson.GsonBuilder
 import java.io.File
 import java.io.FileInputStream
 
@@ -91,16 +93,7 @@ class SelectChannel : AppCompatActivity() {
         setContentView(R.layout.activity_select_channel)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
-        /*
-        soundSelecctChannel = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)))
-        soundSelecctChannel.isLooping = true
-        soundSelecctChannel.setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build()
-        )
-        */
+
         soundSelecctChannel = MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
@@ -218,11 +211,17 @@ class SelectChannel : AppCompatActivity() {
         //context = this
 
         val ancho = (width * 0.6).toInt()
+        val imageViewTheme = findViewById<ImageView>(R.id.imgChannel)
+        val bitTheme = BitmapFactory.decodeFile(this.getExternalFilesDir("/FingerDance/Themes/$tema/logo_theme.png")!!.absolutePath)
+        imageViewTheme.setImageBitmap(bitTheme)
+        imageViewTheme.layoutParams.width = ancho
+
+
         recyclerChannels = findViewById(R.id.recyclerChannels)
         recyclerChannels.isUserInputEnabled = false
 
         recyclerChannels.clipToPadding = false
-        recyclerChannels.adapter = CommandChannel(listChannels, ancho)
+        recyclerChannels.adapter = CommandChannel(listChannels, ancho, this)
         recyclerChannels.offscreenPageLimit = 3
         objectAnimator = ObjectAnimator.ofFloat(recyclerChannels.getChildAt(position), "rotationY", 180f, 360f)
         objectAnimator.duration = 500
@@ -405,7 +404,7 @@ class SelectChannel : AppCompatActivity() {
                     }
                 }
 
-                listSongsChannel = listChannels[position].listCanciones
+                //listSongsChannel = listChannels[position].listCanciones
                 listSongsChannelKsf = listChannels[position].listCancionesKsf
 
                 currentChannel = listChannels[position].nombre
@@ -475,37 +474,14 @@ class SelectChannel : AppCompatActivity() {
 
 
     private fun iluminaIndicador(imageView: ImageView?) {
-        val originalColorFilter = imageView!!.colorFilter
+        imageView ?: return
 
-        val colorMatrix = ColorMatrix()
-        val intensidad = 100000f
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 3000
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.REVERSE
-            addUpdateListener { animation ->
-                val value = animation.animatedValue as Float
-
-                colorMatrix.set(
-                    floatArrayOf(
-                        1f, 0f, 0f, 0f, intensidad * value,
-                        0f, 1f, 0f, 0f, intensidad * value,
-                        0f, 0f, 1f, 0f, intensidad * value,
-                        0f, 0f, 0f, 1f, 0f
-                    )
-                )
-
-                val colorFilter = ColorMatrixColorFilter(colorMatrix)
-                imageView.colorFilter = colorFilter
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    imageView.colorFilter = originalColorFilter
-                }
-            })
+        val animator = ObjectAnimator.ofFloat(imageView, "alpha", 1f, 0.3f, 1f).apply {
+            duration = 500 // medio segundo
         }
         animator.start()
     }
+
 
     private fun isFocusChannel (position: Int){
         val item = listChannels[position]
@@ -548,8 +524,18 @@ class SelectChannel : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        soundSelecctChannel.start()
-        bgaSelectChannel.start()
+        try {
+            soundSelecctChannel.start()
+
+            bgaSelectChannel.resume() // si usas API 26+
+            if (!bgaSelectChannel.isPlaying) {
+                bgaSelectChannel.start()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            bgaSelectChannel.setVideoPath(bgaPathSelectChannel)
+            bgaSelectChannel.start()
+        }
     }
 
     override fun onPause() {

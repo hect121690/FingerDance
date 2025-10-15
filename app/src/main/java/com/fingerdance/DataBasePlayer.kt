@@ -79,16 +79,17 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val puntajes = arrayListOf<ObjPuntaje>()
 
         val cursor = db.rawQuery(
-            "SELECT puntaje, grade FROM niveles WHERE canal = ? AND cancion = ?",
+            "SELECT cancion, puntaje, grade FROM niveles WHERE canal = ? AND cancion = ?",
             arrayOf(canal, cancion)
         )
 
         // Agregamos cada puntaje a la lista `puntajes`
         if (cursor.moveToFirst()) {
             do {
+                val canc = cursor.getString(cursor.getColumnIndexOrThrow("cancion")).toString()
                 val punt = cursor.getString(cursor.getColumnIndexOrThrow("puntaje")).toString()
                 val grad = cursor.getString(cursor.getColumnIndexOrThrow("grade")).toString()
-                val obj = ObjPuntaje(puntaje = punt, grade = grad)
+                val obj = ObjPuntaje(cancion = canc,puntaje = punt, grade = grad)
                 puntajes.add(obj)
             } while (cursor.moveToNext())
         }
@@ -99,6 +100,12 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     fun deleteCanal(canal: String) {
         val db = this.writableDatabase
         db.delete(TABLE_NIVELES, "$COLUMN_CANAL = ?", arrayOf(canal))
+        db.close()
+    }
+
+    fun deleteCancion(cancion: String) {
+        val db = this.writableDatabase
+        db.delete(TABLE_NIVELES, "$COLUMN_CANCION = ?", arrayOf(cancion))
         db.close()
     }
 

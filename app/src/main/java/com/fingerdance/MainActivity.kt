@@ -1,13 +1,13 @@
 package com.fingerdance
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
+import android.animation.AnimatorInflater
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -18,7 +18,10 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
+import android.os.Looper
+import android.provider.DocumentsContract
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
@@ -34,6 +37,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
@@ -42,17 +46,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.core.view.marginTop
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.MobileAds
-import com.google.android.gms.ads.interstitial.InterstitialAd
-import com.google.android.gms.ads.rewarded.RewardedAd
-import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -73,11 +73,16 @@ import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.UUID
 import kotlin.system.exitProcess
+import androidx.core.graphics.toColorInt
+import com.android.volley.Request
+import com.android.volley.toolbox.JsonObjectRequest
+import com.android.volley.toolbox.Volley
+import java.time.Year
 
 lateinit var themes : SharedPreferences
 var tema : String = ""
@@ -92,15 +97,13 @@ var bgaOff : String = ""
 
 var latency = 0L
 var configLatency = false
-var countAdd = 0
 var valueOffset = 0L
-
-var showAddActive = false
 
 val gson = Gson()
 
 var numberUpdate = ""
 var versionUpdate = ""
+var flagActiveAllows = false
 
 var showPadB : Int = 0
 var hideImagesPadA : Boolean = false
@@ -117,7 +120,7 @@ var userName = ""
 var firebaseDatabase : FirebaseDatabase? = null
 var listGlobalRanking = arrayListOf<Cancion>()
 
-var freeDevices = arrayListOf<String>()
+var listAllowDevices = arrayListOf<String>()
 
 var deviceIdFind = ""
 
@@ -129,7 +132,10 @@ var heightLayoutBtns = 0f
 var heightBtns  = 0f
 var widthBtns = 0f
 var padPositions = listOf<Array<Float>>()
+var padPositionsHD = listOf<Array<Float>>()
 var touchAreas = listOf<Array<Float>>()
+
+var colWidth = 0f
 
 lateinit var bitmapNumber : Bitmap
 lateinit var bitmapNumberMiss : Bitmap
@@ -149,9 +155,7 @@ var isOnline = false
 lateinit var mediaPlayer : MediaPlayer
 var ruta = ""
 var ksf = KsfProccess()
-
-var idAdd = ""
-var interstitialAd: InterstitialAd? = null
+var ksfHD = KsfProccessHD()
 
 lateinit var salaRef: DatabaseReference
 lateinit var activeSala : Sala
@@ -160,7 +164,7 @@ lateinit var db : DataBasePlayer
 
 var decimoHeigtn = 0
 var decimoWidth = 0
-var isFree = false
+//var isFree = false
 var isOffline = false
 var isMidLine = false
 var isCounter = false
@@ -171,6 +175,11 @@ var bgaPathSelectChannel = ""
 var bgaPathSelectSong = ""
 
 private val ls = LoadSongsKsf()
+lateinit var arrayGrades : ArrayList<Bitmap>
+var TIME_ADJUST = 0L
+var timeToPresiscionHD = 0
+
+private val publicKey = "APP_USR-7e63fdf8-30bd-4ca2-91d1-e9bf823d102b"
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -188,7 +197,9 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
     private var versionApp = ""
-    private var rewardedAd: RewardedAd? = null
+    private var idWithRegister = ""
+    private val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    private lateinit var loadingLayout: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -199,8 +210,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        //createChannelNotification(this)
-        MobileAds.initialize(this) {}
         firebaseDatabase = FirebaseDatabase.getInstance()
 
         db = DataBasePlayer(this)
@@ -208,7 +217,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         tema = themes.getString("theme", "default").toString()
         skinSelected = themes.getString("skin", "").toString()
         speedSelected = themes.getString("speed", "").toString()
-        countAdd = themes.getInt("countAdd", 0)
         showPadB = themes.getInt("showPadB", 0)
         hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
         skinPad = themes.getString("skinPad", "default").toString()
@@ -216,10 +224,11 @@ class MainActivity : AppCompatActivity(), Serializable {
         versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
         valueOffset = themes.getLong("valueOffset", 0)
         userName = themes.getString("userName","").toString()
-        isFree = themes.getBoolean("isFree",false)
+        //isFree = themes.getBoolean("isFree",false)
         isMidLine = themes.getBoolean("isMidLine",false)
         isCounter = themes.getBoolean("isCounter",false)
         breakSong = themes.getBoolean("breakSong",true)
+        idWithRegister = themes.getString("idWithRegister", "").toString()
 
         //isFree = false
 
@@ -233,12 +242,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         if(tema == ""){
             tema ="default"
-        }
-
-        if(!isFree){
-            getFreeDevices { toListFreeDevices ->
-                freeDevices = toListFreeDevices
-            }
         }
 
         deviceIdFind = getDeviceId(this@MainActivity)
@@ -256,11 +259,27 @@ class MainActivity : AppCompatActivity(), Serializable {
             arrayOf(widthBtns * 2f, heightBtns * 2f),
             arrayOf(widthBtns * 2f, heightLayoutBtns + heightBtns)
         )
+
         touchAreas = listOf(
             arrayOf(widthBtns, heightLayoutBtns + heightBtns + (heightBtns / 2)), //leffDown
             arrayOf(widthBtns + (widthBtns / 2), heightLayoutBtns + heightBtns + (heightBtns / 2)),  //rightDown
             arrayOf(widthBtns, heightLayoutBtns), //leftUp
             arrayOf(widthBtns + (widthBtns / 2), heightLayoutBtns) //rightUp
+        )
+
+        //HalfDouble
+        colWidth = width / 4f
+        padPositionsHD = listOf(
+            arrayOf(0f,0f),
+            arrayOf(0f,0f),
+            arrayOf(0f, heightLayoutBtns + heightLayoutBtns / 4f),
+            arrayOf(colWidth, heightBtns * 2f),
+            arrayOf(colWidth, heightLayoutBtns + heightBtns),
+            arrayOf(colWidth * 2f, (heightLayoutBtns + heightBtns)),
+            arrayOf(colWidth * 2f, heightBtns * 2f),
+            arrayOf(colWidth * 3f, heightLayoutBtns + heightLayoutBtns / 4f),
+            arrayOf(0f,0f),
+            arrayOf(0f,0f)
         )
 
         //themes.edit().putString("allTunes", "").apply()
@@ -299,6 +318,35 @@ class MainActivity : AppCompatActivity(), Serializable {
             creaMain()
         } else {
             creaDescarga()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            val zipUri = data?.data ?: return
+
+            lifecycleScope.launch {
+                try {
+                    val localZip = File(getExternalFilesDir(null), "FingerDance.zip")
+
+                    contentResolver.openInputStream(zipUri)?.use { input ->
+                        FileOutputStream(localZip).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val unzip = Unzip(this@MainActivity)
+                    unzip.performUnzip(localZip.absolutePath, "FingerDance.zip", true)
+                    themes.edit().putString("versionUpdate", numberUpdate).apply()
+                    themes.edit().putString("efects", "").apply()
+                    versionUpdate = numberUpdate
+                    Toast.makeText(this@MainActivity, "Pack cargado correctamente", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Error cargando pack: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -385,18 +433,16 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private suspend fun iniciarDescargaDrive(idDonwnload: String, typeFile: String, progressCallback: (Int) -> Unit): File? {
+    private suspend fun iniciarDescargaDrive(idDownload: String, typeFile: String, isUpdate: Boolean = false, progressCallback: (Int) -> Unit): File? {
         descargando = false
-        linearDownload.setOnClickListener {
+        linearDownload.setOnClickListener { }
 
-        }
         lbDescargando.isVisible = true
         progressBar.isVisible = true
-        val fallo = AlertDialog.Builder(this)
-        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
+
         return withContext(Dispatchers.IO) {
             try {
-                val url = "https://www.googleapis.com/drive/v3/files/$idDonwnload?alt=media&key=$API_KEY"
+                val url = "https://www.googleapis.com/drive/v3/files/$idDownload?alt=media&key=$API_KEY"
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
 
@@ -414,7 +460,9 @@ class MainActivity : AppCompatActivity(), Serializable {
                         outputStream.write(buffer, 0, bytesRead)
                         totalBytes += bytesRead
                         val progress = (100.0 * totalBytes / totalSize).toInt()
-                        progressCallback(progress)
+                        withContext(Dispatchers.Main) {
+                            progressCallback(progress)
+                        }
                     }
 
                     outputStream.flush()
@@ -424,26 +472,91 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     return@withContext localFile
                 } else {
-                    fallo.show()
+                    withContext(Dispatchers.Main) {
+                        showAlertFail(isUpdate)
+                    }
                     return@withContext null
                 }
             } catch (e: Exception) {
-                //println("Error descargando archivo: ${e.message}")
-                fallo.show()
+                withContext(Dispatchers.Main) {
+                    showAlertFail(isUpdate)
+                }
                 return@withContext null
             }
         }
+    }
 
+    private fun showAlertFail(isUpdate: Boolean) {
+        val messageFail = if(isUpdate){
+            "No se pudo realizar la descarga automatica, quieres descargar el pack de actualizacion manualmente? " +
+                    "\n Si ya descargaste el pack, presiona el boton 'Cargar Pack'"
+        }else{
+            "No se pudo realizar la descarga automatica, quieres descargar el pack inicial manualmente?" +
+                    "\n Si ya descargaste el pack, presiona el boton 'Cargar Pack'"
+
+        }
+        val urlManual = if(isUpdate){
+            "https://drive.google.com/file/d/1D4sMohVuJ7aGOcSzNCijsdFGHUsAf-2R/view?usp=drive_link"
+        }else{
+            "https://drive.google.com/file/d/1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI/view?usp=drive_link"
+        }
+        AlertDialog.Builder(this@MainActivity)
+            .setMessage(messageFail)
+            .setPositiveButton("Descarga manual"){ d, _ ->
+                val intent = Intent(Intent.ACTION_VIEW, urlManual.toUri()).apply {
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                    setPackage(null) // muy importante, evita abrir directamente Drive
+                }
+
+                val chooser = Intent.createChooser(intent, "Abrir con navegador")
+                startActivity(chooser)
+                d.dismiss()
+            }
+            .setNegativeButton("Cargar Pack"){ d, _ ->
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/zip"
+                    val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    val uri = Uri.fromFile(downloads)
+                    putExtra(DocumentsContract.EXTRA_INITIAL_URI, uri)
+                }
+                startActivityForResult(intent, 1001)
+            }
+            .setNeutralButton("salir") { d, _ ->
+                val intent = Intent(Intent.ACTION_MAIN)
+                intent.addCategory(Intent.CATEGORY_HOME)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(intent)
+                exitProcess(0)
+            }
+            .show()
     }
 
     private fun creaMain() {
-        val displayMirror = File(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands/03_display/M.png")!!.absolutePath)
-        val displayRS = File(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands/03_display/RS.png")!!.absolutePath)
-        if(isFileExists(displayMirror) || displayMirror.isDirectory){
-            displayMirror.delete()
+        val channelNX = File(getExternalFilesDir("/FingerDance/Songs/Channels/13-Nx,Nx2 & NxAbs")!!.absolutePath)
+        val channelPR2 = File(getExternalFilesDir("/FingerDance/Songs/Channels/18 - PRIME 2")!!.absolutePath)
+        val channelXX = File(getExternalFilesDir("/FingerDance/Songs/Channels/19 - XX ANIVERSARY")!!.absolutePath)
+        val channelFI = File(getExternalFilesDir("/FingerDance/Songs/Channels/14-FIESTA~FIESTA 2")!!.absolutePath)
+        val channelPH = File(getExternalFilesDir("/FingerDance/Songs/Channels/21-PHOENIX")!!.absolutePath)
+        val channelFS = File(getExternalFilesDir("/FingerDance/Songs/Channels/20-FULLSONGS")!!.absolutePath)
+
+        if(isFileExists(channelNX) || channelNX.isDirectory){
+            deleteRecursive(channelNX)
         }
-        if(isFileExists(displayRS) || displayRS.isDirectory){
-            displayRS.delete()
+        if(isFileExists(channelPR2) || channelPR2.isDirectory){
+            deleteRecursive(channelPR2)
+        }
+        if(isFileExists(channelXX) || channelXX.isDirectory){
+            deleteRecursive(channelXX)
+        }
+        if(isFileExists(channelFI) || channelFI.isDirectory){
+            deleteRecursive(channelFI)
+        }
+        if(isFileExists(channelPH) || channelPH.isDirectory){
+            deleteRecursive(channelPH)
+        }
+        if(isFileExists(channelFS) || channelFS.isDirectory){
+            deleteRecursive(channelFS)
         }
 
         if(!isOffline){
@@ -452,10 +565,13 @@ class MainActivity : AppCompatActivity(), Serializable {
             databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     version = snapshot.child("value").getValue(String::class.java)?: ""
-                    showAddActive = snapshot.child("showAdd").getValue(Boolean::class.java) ?: false
+                    flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false
                     numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java)?: ""
                     val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
-
+                    val time_adjust = snapshot.child("time_adjust").getValue(String::class.java) ?: ""
+                    TIME_ADJUST = time_adjust.toLong()
+                    val timeHalfDouble = snapshot.child("timeHalfDouble").getValue(String::class.java) ?: ""
+                    timeToPresiscionHD = timeHalfDouble.toInt()
                     CoroutineScope(Dispatchers.Main).launch {
                         getFilesDrive()
                         listFilesDrive.sortBy { it.first }
@@ -532,7 +648,8 @@ class MainActivity : AppCompatActivity(), Serializable {
                             }
                         }else{
                             runOnUiThread {
-                                createMain(startOnline)
+
+                                createMain(true)
                             }
                         }
 
@@ -585,7 +702,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                             btnAceptarDownload.visibility = View.GONE
                             dialog.setMessage("Espere por favor")
                             CoroutineScope(Dispatchers.Main).launch {
-                                val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM", "apk") { progress ->
+                                val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM", "apk", true) { progress ->
                                     runOnUiThread {
                                         progressBar.progress = progress
                                         lbDescargando.text = "Descargando $progress%"
@@ -597,7 +714,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 }
                                 if (packageApp != null) {
                                     instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
-                                    //versionApp = version
                                 }
                             }
                         }
@@ -616,12 +732,13 @@ class MainActivity : AppCompatActivity(), Serializable {
             })
         }else{
             createMain(false)
-            val lp = btnOptions.layoutParams as ConstraintLayout.LayoutParams
-            lp.verticalBias = 0.55f
-            btnOptions.layoutParams = lp
+            val lpOptions = btnOptions.layoutParams as ConstraintLayout.LayoutParams
+            lpOptions.verticalBias = 0.55f
+            btnOptions.layoutParams = lpOptions
 
-            lp.verticalBias += 0.15f
-            btnExit.layoutParams = lp
+            val lpExit = btnExit.layoutParams as ConstraintLayout.LayoutParams
+            lpExit.verticalBias = 0.70f
+            btnExit.layoutParams = lpExit
         }
     }
 
@@ -644,21 +761,18 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
         btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
 
-        if(!isFree){
-            val deviceFree = freeDevices.find { it.split("-")[0] == deviceIdFind }
-            if(deviceFree != null){
-                showAddActive = false
-                isFree = true
-                themes.edit().putBoolean("isFree", isFree).apply()
-            }else{
-                loadRewardedAd()
-            }
-        }else{
-            showAddActive = false
-        }
+        val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
+        arrayGrades = getGrades(rutaGrades)
 
         if(!startOnline){
             btnPlayOnline.visibility = View.GONE
+            val lpOptions = btnOptions.layoutParams as ConstraintLayout.LayoutParams
+            lpOptions.verticalBias = 0.55f
+            btnOptions.layoutParams = lpOptions
+
+            val lpExit = btnExit.layoutParams as ConstraintLayout.LayoutParams
+            lpExit.verticalBias = 0.70f
+            btnExit.layoutParams = lpExit
         }
         btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
         btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
@@ -673,7 +787,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         animLogo.layoutParams.width = width / 2
         val bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
         animLogo.setImageBitmap(bmLogo)
-        bgaOff = this@MainActivity.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
+        bgaOff = getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
         video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
 
         video_fondo.start()
@@ -687,94 +801,145 @@ class MainActivity : AppCompatActivity(), Serializable {
         animar()
         val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
         val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
+
+        animLogo.setOnLongClickListener {
+            themes.edit().putString("idWithRegister", "").apply()
+            idWithRegister = ""
+            Toast.makeText(this@MainActivity, "Registro reiniciado", Toast.LENGTH_LONG).show()
+            true
+        }
         btnPlay.setOnClickListener {
-            btnPlay.isEnabled=false
-            isOnline = false
-
-            goSound.start()
-            btnPlay.startAnimation(animation)
-            if(themes.getString("allTunes", "").toString() != ""){
-                val jsonListChannels = themes.getString("allTunes", "")
-                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+            btnPlay.isEnabled = false
+            //flagActiveAllows = true
+            if(flagActiveAllows){
+                if(idWithRegister == ""){
+                    showLoadingOverlay()
+                    getAllowDevices { toListFreeDevices ->
+                        listAllowDevices = toListFreeDevices
+                    }
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if(listAllowDevices.isNotEmpty()){
+                            val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
+                            if(deviceFree != null) {
+                                idWithRegister = deviceFree
+                                themes.edit().putString("idWithRegister", idWithRegister).apply()
+                                val register = idWithRegister.substringAfterLast("-")
+                                val lastRegister = LocalDate.parse(register, formatter)
+                                loadingLayout.visibility = View.GONE
+                                if(LocalDate.now().isAfter(lastRegister) ){
+                                    showPaySuscription()
+                                } else {
+                                    goPlay(goSound, animation)
+                                }
+                            }else{
+                                loadingLayout.visibility = View.GONE
+                                showPaySuscription()
+                            }
+                        }else{
+                            (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
+                        }
+                    }, 3000L)
+                }else{
+                    val register = idWithRegister.substringAfterLast("-")
+                    val lastRegister = LocalDate.parse(register, formatter)
+                    if(LocalDate.now().isAfter(lastRegister) ){
+                        showPaySuscription()
+                    } else {
+                        goPlay(goSound, animation)
+                    }
+                }
             }else{
-                listCommands = ls.getFilesCW(this@MainActivity)
-                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                listChannels = ls.getChannels(this@MainActivity)
-                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-
+                goPlay(goSound, animation)
             }
-            if(themes.getString("efects", "").toString() == ""){
-                listCommands = ls.getFilesCW(this@MainActivity)
-                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-            }else{
-                val jsonListCommands = themes.getString("efects", "")
-                listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-                //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-            }
-            ls.loadSounds(this@MainActivity)
-            val intent = Intent(this@MainActivity, SelectChannel::class.java)
-            startActivity(intent)
-            mediaPlayerMain.pause()
-            soundPlayer!!.pause()
-            btnPlay.isEnabled = true
         }
         btnPlayOnline.setOnClickListener{
-            if(showAddActive){
-                if (rewardedAd != null) {
-                    rewardedAd?.show(this@MainActivity) {
-                        showOnlineMode(animation, goSound)
-                        rewardedAd = null
-                        loadRewardedAd()
+            if(flagActiveAllows){
+                if(idWithRegister == ""){
+                    showLoadingOverlay()
+                    getAllowDevices { toListFreeDevices ->
+                        listAllowDevices = toListFreeDevices
                     }
-                } else {
-                    Toast.makeText(this@MainActivity, "El anuncio aún no está listo", Toast.LENGTH_SHORT).show()
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if(listAllowDevices.isNotEmpty()){
+                            val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
+                            if(deviceFree != null) {
+                                idWithRegister = deviceFree
+                                themes.edit().putString("idWithRegister", idWithRegister).apply()
+                                val register = idWithRegister.substringAfterLast("-")
+                                val lastRegister = LocalDate.parse(register, formatter)
+                                loadingLayout.visibility = View.GONE
+                                if(LocalDate.now().isAfter(lastRegister) ){
+                                    showPaySuscription()
+                                } else {
+                                    showOnlineMode(animation, goSound)
+                                }
+                            }else{
+                                loadingLayout.visibility = View.GONE
+                                showPaySuscription()
+                            }
+                        } else{
+                            (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
+                        }
+                    }, 3000L)
+                }else{
+                    val register = idWithRegister.substringAfterLast("-")
+                    val lastRegister = LocalDate.parse(register, formatter)
+                    if(LocalDate.now().isAfter(lastRegister)){
+                        showPaySuscription()
+                    } else {
+                        showOnlineMode(animation, goSound)
+                    }
                 }
             }else{
                 showOnlineMode(animation, goSound)
             }
-
         }
 
-        val goOption = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
-
+        val goOptionMP = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
         btnOptions.setOnClickListener {
-            if(themes.getString("allTunes", "").toString() != ""){
-                val jsonListChannels = themes.getString("allTunes", "")
-                listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+            if(flagActiveAllows){
+                if(idWithRegister == ""){
+                    showLoadingOverlay()
+                    getAllowDevices { toListFreeDevices ->
+                        listAllowDevices = toListFreeDevices
+                    }
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if(listAllowDevices.isNotEmpty()){
+                            val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
+                            if(deviceFree != null) {
+                                idWithRegister = deviceFree
+                                themes.edit().putString("idWithRegister", idWithRegister).apply()
+                                val register = idWithRegister.substringAfterLast("-")
+                                val lastRegister = LocalDate.parse(register, formatter)
+                                loadingLayout.visibility = View.GONE
+                                if(LocalDate.now().isAfter(lastRegister) ){
+                                    showPaySuscription()
+                                } else {
+                                    goOption(goOptionMP, animation)
+                                }
+                            }else{
+                                loadingLayout.visibility = View.GONE
+                                showPaySuscription()
+                            }
+                        } else {
+                            (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
+                        }
+                    }, 3000L)
+                }else{
+                    val register = idWithRegister.substringAfterLast("-")
+                    val lastRegister = LocalDate.parse(register, formatter)
+                    if(LocalDate.now().isAfter(lastRegister) ){
+                        showPaySuscription()
+                    } else {
+                        goOption(goOptionMP, animation)
+                    }
+                }
             }else{
-                listCommands = ls.getFilesCW(this@MainActivity)
-                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
-                listChannels = ls.getChannels(this@MainActivity)
-                themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-
+                goOption(goOptionMP, animation)
             }
-            //btnOptions.isEnabled = true
-            Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
-            btnOptions.startAnimation(animation)
-            goOption.start()
-            soundPlayer!!.pause()
-
-            val tiempoTranscurrir :Long = 1000
-            val handler = Handler()
-            handler.postDelayed({
-                val intent = Intent(applicationContext, Options()::class.java)
-                startActivity(intent)
-                this@MainActivity.finish()
-            }, tiempoTranscurrir)
         }
-        val builder = AlertDialog.Builder(this@MainActivity)
 
+        val builder = AlertDialog.Builder(this@MainActivity)
         btnExit.setOnClickListener {
             builder.setTitle("Aviso")
             builder.setMessage("Deseas salir del juego?")
@@ -821,6 +986,107 @@ class MainActivity : AppCompatActivity(), Serializable {
             Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
         }
 
+    }
+
+    private fun goPlay(goSound: MediaPlayer, animation: Animation){
+        isOnline = false
+        goSound.start()
+        btnPlay.startAnimation(animation)
+        if(themes.getString("allTunes", "").toString() != ""){
+            val jsonListChannels = themes.getString("allTunes", "")
+            listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+        }else{
+            listCommands = ls.getFilesCW(this@MainActivity)
+            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+            listChannels = ls.getChannels(this@MainActivity)
+            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+
+        }
+        if(themes.getString("efects", "").toString() == ""){
+            listCommands = ls.getFilesCW(this@MainActivity)
+            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+        }else{
+            val jsonListCommands = themes.getString("efects", "")
+            listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
+            //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+        }
+        ls.loadSounds(this@MainActivity)
+        val intent = Intent(this@MainActivity, SelectChannel::class.java)
+        startActivity(intent)
+        mediaPlayerMain.pause()
+        soundPlayer!!.pause()
+        btnPlay.isEnabled = true
+    }
+
+    private fun goOption(goOption: MediaPlayer, animation: Animation){
+        if(themes.getString("allTunes", "").toString() != ""){
+            val jsonListChannels = themes.getString("allTunes", "")
+            listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
+        }else{
+            listCommands = ls.getFilesCW(this@MainActivity)
+            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+
+            listChannels = ls.getChannels(this@MainActivity)
+            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+
+        }
+        //btnOptions.isEnabled = true
+        Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
+        btnOptions.startAnimation(animation)
+        goOption.start()
+        soundPlayer!!.pause()
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            val intent = Intent(applicationContext, Options()::class.java)
+            startActivity(intent)
+            this@MainActivity.finish()
+        }, 1000L)
+    }
+
+    private fun showLoadingOverlay() {
+        loadingLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#AA000000")) // negro con transparencia
+            visibility = View.VISIBLE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+
+            val progressBar = ProgressBar(this@MainActivity).apply {
+                isIndeterminate = true
+            }
+
+            val text = TextView(this@MainActivity).apply {
+                text = "Espere por favor..."
+                setTextColor(Color.WHITE)
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(0, 30, 0, 0)
+            }
+
+            addView(progressBar)
+            addView(text)
+        }
+
+        addContentView(
+            loadingLayout,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        )
     }
 
     private fun showOnlineMode(animation: Animation, goSound: MediaPlayer) {
@@ -926,9 +1192,9 @@ class MainActivity : AppCompatActivity(), Serializable {
             salaRef = firebaseDatabase!!.getReference("rooms/$idSala")
             salaRef.child("jugador1").onDisconnect().removeValue()
             val jugador1 = Jugador(id = userName)
-            val formato = SimpleDateFormat("dd-MM-yyyy-HH-mm", Locale.getDefault())
+            val date = LocalDate.now().toString()
 
-            activeSala = Sala(turno = userName, jugador1 = jugador1, date = formato.format(Date()))
+            activeSala = Sala(turno = userName, jugador1 = jugador1)
             salaRef.setValue(activeSala).addOnSuccessListener {
                 mostrarCodigoSala(dialog)
             }
@@ -1015,29 +1281,177 @@ class MainActivity : AppCompatActivity(), Serializable {
         return file.exists() && !file.isDirectory
     }
 
-    private fun loadRewardedAd() {
-        val adRequest = AdRequest.Builder().build()
-        //id Real
-        val unitId = "ca-app-pub-1525853918723620/9617945079"
-        //id Prueba
-        //val unitId = "ca-app-pub-3940256099942544/5224354917"
-        RewardedAd.load(this, unitId, adRequest, object :
-            RewardedAdLoadCallback() {
-            override fun onAdLoaded(ad: RewardedAd) {
-                rewardedAd = ad
-                //Toast.makeText(this@MainActivity, "Anuncio cargado", Toast.LENGTH_SHORT).show()
+    private fun deleteRecursive(fileOrDirectory: File) {
+        if (fileOrDirectory.isDirectory) {
+            fileOrDirectory.listFiles()?.forEach { child ->
+                deleteRecursive(child)
             }
-
-            override fun onAdFailedToLoad(error: LoadAdError) {
-                rewardedAd = null
-                Toast.makeText(this@MainActivity, "Error al cargar el anuncio: ${error.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
+        }
+        fileOrDirectory.delete()
     }
 
+    private fun showPaySuscription() {
+        mediaPlayerMain.pause()
+        video_fondo.pause()
+        idWithRegister = ""
+        themes.edit().putString("idWithRegister", "").apply()
+        soundPlayer?.takeIf { it.isPlaying }?.pause()
+
+        val layoutAviso = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#121212"))
+            setPadding(64, 64, 64, 64)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val tvMensaje = TextView(this).apply {
+            text = getString(R.string.PaySuscriptionInfo)
+            setTextColor(Color.WHITE)
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            textSize = 18f
+            setPadding(16, 16, 16, 32)
+        }
+
+        fun createStyledButton(
+            text: String,
+            iconRes: Int,
+            bgColor: Int,
+            textColor: Int = Color.WHITE,
+            isPaypal: Boolean = false
+        ): Button {
+            return Button(this).apply {
+                this.text = text
+                isAllCaps = false
+                setTextColor(textColor)
+                background = ContextCompat.getDrawable(this@MainActivity, bgColor)
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                textSize = 16f
+                setPadding(24, 16, 24, 16)
+                compoundDrawablePadding = 16
+                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                val icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
+                if(!isPaypal){
+                    icon?.setTint(textColor)
+                }
+                setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null)
+
+                layoutParams = LinearLayout.LayoutParams(
+                    medidaFlechas.toInt() * 3,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 16, 0, 0)
+                }
+                stateListAnimator = AnimatorInflater.loadStateListAnimator(context, android.R.animator.fade_in)
+            }
+        }
+
+        val btnFacebook = createStyledButton(
+            "Facebook",
+            R.drawable.facebook,
+            R.drawable.bg_button_base
+        ).apply {
+            backgroundTintList = ColorStateList.valueOf(0xFF1877F2.toInt())
+        }
+
+        val btnWhatsapp = createStyledButton(
+            "WhatsApp",
+            R.drawable.whatsapp,
+            R.drawable.bg_button_base
+        ).apply {
+            backgroundTintList = ColorStateList.valueOf(0xFF25D366.toInt())
+        }
+
+        val btnMercadoPago = createStyledButton(
+            "Pagar con\nMercado Pago",
+            R.drawable.mercadopago,
+            R.drawable.bg_button_base
+        ).apply {
+            backgroundTintList = ColorStateList.valueOf("#009EE3".toColorInt())
+        }
+        val paypalIcon = ContextCompat.getDrawable(this, R.drawable.paypal)
+        val btnPaypal = createStyledButton(
+            "Pagar con\nPayPal",
+            R.drawable.paypal,
+            R.drawable.bg_button_paypal,
+            Color.BLACK,
+            true
+        )
+
+        val spaceBottom = Space(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+
+        val btnSalir = createStyledButton(
+            "Salir",
+            android.R.drawable.ic_menu_close_clear_cancel,
+            R.drawable.bg_button_base
+        ).apply {
+            backgroundTintList = ColorStateList.valueOf(0xFFD32F2F.toInt())
+            setTextColor(Color.WHITE)
+            isAllCaps = true
+            layoutParams = LinearLayout.LayoutParams(
+                medidaFlechas.toInt() * 3,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+
+        // Añadimos al layout
+        layoutAviso.addView(tvMensaje)
+        layoutAviso.addView(btnFacebook)
+        layoutAviso.addView(btnWhatsapp)
+        layoutAviso.addView(btnMercadoPago)
+        layoutAviso.addView(btnPaypal)
+        layoutAviso.addView(spaceBottom)
+        layoutAviso.addView(btnSalir)
+
+        setContentView(layoutAviso)
+        layoutAviso.bringToFront()
+
+        // Eventos
+        btnFacebook.setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, "https://www.facebook.com/share/g/18pNnxajis/".toUri()))
+            finishAffinity()
+        }
+
+        btnWhatsapp.setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, "https://chat.whatsapp.com/JXXFQ1TpRnz0HfeRb71RuT".toUri()))
+            finishAffinity()
+        }
+
+        btnMercadoPago.setOnClickListener {
+            val jsonBody = JSONObject().apply {
+                put("descripcion", "Suscripción mensual Finger Dance")
+                put("monto", 25)
+                put("deviceId", deviceIdFind)
+                put("userName", userName)
+            }
+
+            val request = JsonObjectRequest(
+                Request.Method.POST,
+                "https://us-central1-fingerdance.cloudfunctions.net/createPreference",
+                jsonBody,
+                { response ->
+                    val preferenceId = response.getString("preferenceId")
+                    val mpUrl = "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=$preferenceId"
+                    startActivity(Intent(Intent.ACTION_VIEW, mpUrl.toUri()))
+                },
+                { error ->
+                    Toast.makeText(this, "Error al generar pago: ${error.message}", Toast.LENGTH_LONG).show()
+                }
+            )
+            Volley.newRequestQueue(this).add(request)
+        }
+
+        btnSalir.setOnClickListener { finishAffinity() }
+    }
+
+
     private suspend fun iniciarDescargaUpdate(progressCallback: (Int) -> Unit): File? {
-        val fallo = AlertDialog.Builder(this)
-        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://www.googleapis.com/drive/v3/files/1D4sMohVuJ7aGOcSzNCijsdFGHUsAf-2R?alt=media&key=$API_KEY"
@@ -1068,17 +1482,18 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     return@withContext localFile
                 } else {
-                    //println("Error en la descarga: Código ${connection.responseCode}")
-                    fallo.show()
+                    withContext(Dispatchers.Main) {
+                       showAlertFail(true)
+                    }
                     return@withContext null
                 }
             } catch (e: Exception) {
-                //println("Error descargando archivo: ${e.message}")
-                fallo.show()
+                withContext(Dispatchers.Main) {
+                   showAlertFail(true)
+                }
                 return@withContext null
             }
         }
-
     }
 
     private fun getSalas(callback: (ArrayList<String>) -> Unit) {
@@ -1153,7 +1568,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
-    private fun getFreeDevices(callback: (ArrayList<String>) -> Unit) {
+    private fun getAllowDevices(callback: (ArrayList<String>) -> Unit) {
         val databaseRef = firebaseDatabase!!.getReference("freeDevices")
         val listResult = arrayListOf<String>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
@@ -1303,37 +1718,51 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    fun createChannelNotification(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "jugador2_listo", // ID del canal
-                "Finger Dance", // Nombre visible
-                NotificationManager.IMPORTANCE_HIGH // Importancia
-            ).apply {
-                description = "Aviso"
-            }
+    private fun getGrades(rutaGrades: String): ArrayList<Bitmap> {
+        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
+        val cellWidth = bit.width / 2
+        val cellHeight = bit.height / 8
 
-            val manager = context.getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+        return ArrayList<Bitmap>().apply {
+            for (r in 0 until 8) {
+                for (c in 0 until 2) {
+                    val x = c * cellWidth
+                    val y = r * cellHeight
+                    add(Bitmap.createBitmap(bit, x, y, cellWidth, cellHeight))
+                }
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        if(::mediaPlayerMain.isInitialized) {
-            if (mediaPlayerMain.isPlaying) {
-                currentVideoPosition = mediaPlayerMain.currentPosition
-                video_fondo.pause()
-                mediaPlayerMain.pause()
-                soundPlayer!!.pause()
+
+        if (::mediaPlayerMain.isInitialized) {
+            try {
+                if (mediaPlayerMain.isPlaying) {
+                    currentVideoPosition = mediaPlayerMain.currentPosition
+                    video_fondo.pause()
+                    mediaPlayerMain.pause()
+                    soundPlayer?.let {
+                        if (it.isPlaying) it.pause()
+                    }
+                }
+            } catch (e: IllegalStateException) {
+                Log.w("MainActivity", "mediaPlayerMain no estaba listo para pausar: ${e.message}")
             }
         }
-        if(linearDownload.isVisible){
-            if(bg_download.isPlaying){
-                bg_download.pause()
+
+        if (::bg_download.isInitialized && linearDownload.isVisible) {
+            try {
+                if (bg_download.isPlaying) {
+                    bg_download.pause()
+                }
+            } catch (e: IllegalStateException) {
+                Log.w("MainActivity", "bg_download no estaba listo para pausar: ${e.message}")
             }
         }
     }
+
     override fun onResume() {
         super.onResume()
         if(::mediaPlayerMain.isInitialized){
@@ -1346,11 +1775,14 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
         listEfectsDisplay.clear()
+
+
     }
     override fun onDestroy() {
         super.onDestroy()
         mediaPlayerMain.release()
         soundPlayer!!.release()
+
     }
 
 
@@ -1383,7 +1815,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 }
 
-class ObjPuntaje(var puntaje: String = "", var grade: String = "")
+class ObjPuntaje(var cancion: String = "", var puntaje: String = "", var grade: String = "")
 
 data class Resultado(
     var perfect: String = "0",
@@ -1392,12 +1824,13 @@ data class Resultado(
     var bad: String = "0",
     var miss: String = "0",
     var maxCombo: String = "0",
-    var score: String = "0")
+    var score: String = "0",
+)
 
 data class Jugador(
     var id: String = "",
     var listo: Boolean = false,
-    var result: Resultado = Resultado()
+    var result: Resultado = Resultado(),
 )
 
 data class Sala(
@@ -1406,7 +1839,7 @@ data class Sala(
     var jugador2: Jugador = Jugador(),
     var turno: String = "",
     var date: String = "",
-    var readyToResult: Boolean = false
+    var readyToResult: Boolean = false,
 )
 
 data class CancionOnline(
@@ -1419,5 +1852,6 @@ data class CancionOnline(
     var nivel: String = "",
     var artists: String = "",
     var nameSong: String = "",
-    var bpm: String = ""
+    var bpm: String = "",
+    var isHalf: Boolean = false,
 )

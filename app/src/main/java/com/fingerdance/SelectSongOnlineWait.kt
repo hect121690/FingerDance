@@ -40,9 +40,6 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.MobileAds
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -122,15 +119,11 @@ private var isTimerRunning = false
 
 private var ready = 0
 
-//private var idAdd = ""
-
-private lateinit var overlayBG: View
-private lateinit var btnAddPreview: Button
-private lateinit var btnAddBga: Button
-private var currentPathSong: String = ""
-
 class SelectSongOnlineWait : AppCompatActivity() {
-    private lateinit var adView: AdView
+    private lateinit var overlayBG: View
+    private lateinit var btnAddPreview: Button
+    private lateinit var btnAddBga: Button
+    private var currentPathSong: String = ""
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
@@ -153,15 +146,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
 
-        MobileAds.initialize(this) {}
-        adView = findViewById(R.id.adView)
-        if(showAddActive){
-            val adRequest = AdRequest.Builder().build()
-            adView.loadAd(adRequest)
-        }
-
-        medidaFlechas = (width / 7f)
-
         recyclerCommands = findViewById(R.id.recyclerCommands)
         recyclerCommands.isUserInputEnabled = false
         recyclerCommandsValues = findViewById(R.id.recyclerValues)
@@ -177,7 +161,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
             txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
             txPlayer2.text = "Player 2 \n $userName"
         }
-
 
         mediaPlayer = MediaPlayer()
 
@@ -305,11 +288,17 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
         imgLvSelected = findViewById(R.id.imgLvSelected)
         val selected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
-        imgLvSelected.setImageBitmap(selected)
+        val selectedHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
+        if(!activeSala.cancion.isHalf){
+            imgLvSelected.setImageBitmap(selected)
+        }else{
+            imgLvSelected.setImageBitmap(selectedHD)
+        }
+
         //imgLvSelected.isVisible = false
 
-        val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
-        arrayBestGrades = getGrades(rutaGrades)
+        //val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
+        //arrayBestGrades = getGrades(rutaGrades)
 
         val yDelta = width / 40
         val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 2).toFloat())
@@ -330,7 +319,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
         nav_back_Izq = findViewById(R.id.back_izq)
         nav_back_der = findViewById(R.id.back_der)
 
-        video_fondo = findViewById(R.id.videoPrev)
+        video_fondo = findViewById(R.id.videoPreview)
 
         val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
         val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
@@ -945,17 +934,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         }
     }
 
-    private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
-        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
-        return ArrayList<Bitmap>().apply {
-            var i = 0
-            for (a in 0 until 8) {
-                add(Bitmap.createBitmap(bit, 0, i, bit.width, bit.height / 8))
-                i += bit.height / 8
-            }
-        }
-    }
-
     private fun showOverlay(isBGA: Boolean) {
         overlayBG = View(this).apply {
             setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
@@ -1049,8 +1027,13 @@ class SelectSongOnlineWait : AppCompatActivity() {
     }
 
     fun load(filename: String) {
-        ksf = KsfProccess()
-        ksf.load(filename)
+        if(!activeSala.cancion.isHalf){
+            ksf = KsfProccess()
+            ksf.load(filename)
+        }else{
+            ksfHD = KsfProccessHD()
+            ksfHD.load(filename)
+        }
     }
 
     fun getRutaNoteSkin(rutaOriginal: String): String {

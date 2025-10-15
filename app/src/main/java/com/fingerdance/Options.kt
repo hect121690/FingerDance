@@ -17,6 +17,9 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
 import android.util.TypedValue
@@ -42,6 +45,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.core.widget.TextViewCompat
@@ -61,8 +65,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-
-var fileName = ""
+var fileNameChannel = ""
 class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var bgOptions : LinearLayout
     private lateinit var titleOptions : TextView
@@ -77,7 +80,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var btnCerrarDialog : Button
     private lateinit var txTitle : TextView
     private var filePath = ""
-    private var fileNameChannel = ""
+    private var fileNameTheme = ""
 
     private lateinit var btnTemas : Button
     private lateinit var btnCanciones : Button
@@ -95,6 +98,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private var selectedValueChannel: String? = null
 
     private lateinit var txProgressDownloadChannel : TextView
+    private var isChannel = false
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -167,7 +171,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
         }
 
-
         txProgressDownloadChannel = findViewById(R.id.textViewDownloadChannel)
         txProgressDownloadChannel.layoutParams.width = (width / 10) * 9
 
@@ -228,6 +231,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
             dialogEliminar.show()
         }
 
+        //deleteChannelFolder("")
+
+
         val radioChannelsDownload = RadioGroup(this).apply {
             removeAllViews()
         }
@@ -248,7 +254,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             val channelSelected = group.findViewById<RadioButton>(checkedId)
             val itemList = listFilesDrive.find { it.first == channelSelected.text.toString()}
             selectedValueChannel = itemList!!.second
-            fileName = itemList.first
+            fileNameChannel = itemList.first
             downloadButtonChannel.isEnabled = channelSelected.isChecked
             arrowIndicator.visibility = View.GONE
             txSlide.visibility = View.GONE
@@ -496,10 +502,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
             dialog.show()
         }
 
-
-
-
-
         val btnNoCounter = findViewById<SwitchCompat>(R.id.btnNoCounter)
         btnNoCounter.layoutParams.width = (width / 10) * 8
         btnNoCounter.isChecked = isCounter
@@ -588,10 +590,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
 
         val btnOffline = findViewById<SwitchCompat>(R.id.btnOffline)
-
-        if(!isFree){
-            btnOffline.visibility = View.INVISIBLE
-        }
         btnOffline.layoutParams.width = (width / 10) * 8
         btnOffline.isChecked = isOffline
 
@@ -726,13 +724,13 @@ class Options() : AppCompatActivity(), ItemClickListener {
         val listRutasThemes = mutableListOf<String>()
 
         if (dir != null){
-            dir.walkTopDown().forEach {
-                if(it.toString().endsWith("logo_theme.png", true)){
-                    when {
-                        it.isFile -> {
-                            val ruta: String = it.toString().replace("/logo_theme.png", "", ignoreCase = true)
-                            listRutasThemes.add(ruta)
-                        }
+            dir.walkTopDown().forEach { file ->
+                if (file.name.equals("GraphicsStatics", ignoreCase = true) && file.isDirectory) {
+                    val hasFiles = file.walkTopDown().any { it.isFile }
+                    val totalSize = file.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+                    if (hasFiles && totalSize > 10_000_000) {
+                        val ruta: String = file.toString().replace("/GraphicsStatics", "", ignoreCase = true)
+                        listRutasThemes.add(ruta)
                     }
                 }
             }
@@ -763,6 +761,20 @@ class Options() : AppCompatActivity(), ItemClickListener {
             startActivity(intent)
             this.finish()
         }
+
+        val btnCargarTema = findViewById<Button>(R.id.btnCargarTema)
+        btnCargarTema.setOnClickListener {
+            isChannel = false
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/zip"
+                val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val uri = Uri.fromFile(downloads)
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, uri)
+            }
+            startActivityForResult(intent, 1001)
+        }
+
         btnMoreThemes.setOnClickListener{
             Toast.makeText(this, "Cargando...", Toast.LENGTH_SHORT).show()
             runOnUiThread {
@@ -774,6 +786,59 @@ class Options() : AppCompatActivity(), ItemClickListener {
         val btnCreateChannel = findViewById<Button>(R.id.createChannel)
         btnCreateChannel.setOnClickListener {
             showInputNameChannel()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val fileZipName = if(isChannel) "Canal" else "Tema"
+
+        val localDirectory = if(isChannel){
+            File(this@Options.getExternalFilesDir(null), "FingerDance/Songs/Channels/")
+        }else{
+            File(getExternalFilesDir(null), "FingerDance/Themes/")
+        }
+        val localFile = if(isChannel){
+            File(localDirectory, fileNameChannel)
+        }else{
+            val zipUri = data?.data ?: return
+            fileNameTheme = contentResolver.query(zipUri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                cursor.moveToFirst()
+                cursor.getString(nameIndex)
+            } ?: ""
+            File(localDirectory, fileNameTheme)
+        }
+        localDirectory.mkdirs()
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            val zipUri = data?.data ?: return
+            txProgressDownloadChannel.text = "Procesando paquete..."
+            lifecycleScope.launch {
+                try {
+                    contentResolver.openInputStream(zipUri)?.use { input ->
+                        FileOutputStream(localFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    if(isChannel){
+                        lifecycleScope.launch {
+                            val unzipSongs = UnzipSongs(this@Options, fileNameChannel, txProgressDownloadChannel)
+                            unzipSongs.performUnzip(localFile.absolutePath)
+                            unzipSongs.finishActivity.observe(this@Options) { shouldFinish ->
+                                if (shouldFinish) finish()
+                            }
+                        }
+                    }else{
+                        themes.edit().putString("theme", fileNameTheme.replace(".zip", "", ignoreCase = true)).apply()
+                        themes.edit().putString("efects", "").apply()
+                        val unzipTheme = UnzipTheme(this@Options, fileNameTheme)
+                        unzipTheme.performUnzip(localFile.absolutePath)
+                    }
+                    Toast.makeText(this@Options, "$fileZipName cargado correctamente", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this@Options, "Error cargando $fileZipName: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -882,7 +947,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private fun showSelectIconChannel(){
         val dialog = AlertDialog.Builder(this)
             .setTitle("Crear canal")
-            .setMessage("A continuación debera seleccionar el icono del canal, debe ser en formato PNG y medir 1024x1024 px")
+            .setMessage("A continuación debera seleccionar el icono del canal, debe ser en formato PNG y medir 512x512 ó 1024x1024 px")
             .setPositiveButton("Aceptar") { _, _ ->
                 pickPreviewFile.launch(arrayOf("image/png"))
             }
@@ -924,8 +989,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
             BitmapFactory.decodeStream(inputStream, null, options)
             inputStream?.close()
 
-            if (options.outWidth != 1024 || options.outHeight != 1024) {
-                Toast.makeText(this, "La imagen debe ser de 1024x1024 píxeles", Toast.LENGTH_SHORT).show()
+            if (!((options.outWidth == 1024 && options.outHeight == 1024) || (options.outWidth == 512 && options.outHeight == 512))) {
+                Toast.makeText(this, "La imagen debe ser de 512x512 o 1024x1024 píxeles", Toast.LENGTH_SHORT).show()
                 showSelectIconChannel()
                 return
             }
@@ -1063,7 +1128,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private fun getDownloadChannelDrive(){
         val localDirectory = File(getExternalFilesDir(null), "FingerDance/Songs/Channels/")
         localDirectory.mkdirs()
-        val localFile = File(localDirectory, fileName)
+        val localFile = File(localDirectory, fileNameChannel)
 
         val progressBackground = txProgressDownloadChannel.background as LayerDrawable
         val progressLayer = progressBackground.findDrawableByLayerId(R.id.progress) as ClipDrawable
@@ -1073,10 +1138,10 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
         })
         CoroutineScope(Dispatchers.Main).launch {
-
+            linearTextProgressChannel.visibility = View.VISIBLE
             txProgressDownloadChannel.isVisible = true
 
-            val downloadedFile = downloadFileFromDrive(selectedValueChannel!!, this@Options) { progress ->
+            val downloadedFile = downloadChannelFromDrive(selectedValueChannel!!, this@Options) { progress ->
                 runOnUiThread {
                     txProgressDownloadChannel.text = "Descargando $progress%"
                     progressLayer.level = progress * 100
@@ -1093,7 +1158,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             if (downloadedFile != null) {
                 //Toast.makeText(this@Options, "Descarga completa: ${downloadedFile.absolutePath}", Toast.LENGTH_LONG).show()
                 lifecycleScope.launch {
-                    val unzipSongs = UnzipSongs(this@Options, fileName, txProgressDownloadChannel)
+                    val unzipSongs = UnzipSongs(this@Options, fileNameChannel, txProgressDownloadChannel)
                     unzipSongs.performUnzip(localFile.absolutePath)
                     unzipSongs.finishActivity.observe(this@Options) { shouldFinish ->
                         if (shouldFinish) finish()
@@ -1105,11 +1170,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
         }
     }
 
-    private suspend fun downloadFileFromDrive(
-        fileId: String,
-        context: Context,
-        progressCallback: (Int) -> Unit
-    ): File? {
+    private suspend fun downloadChannelFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
@@ -1119,7 +1180,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 if (connection.responseCode == 200) {
                     val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Songs/Channels/")
                     localDirectory.mkdirs()
-                    val localFile = File(localDirectory, fileName)
+                    val localFile = File(localDirectory, fileNameChannel)
 
                     val inputStream = connection.inputStream
                     val outputStream = FileOutputStream(localFile)
@@ -1143,19 +1204,15 @@ class Options() : AppCompatActivity(), ItemClickListener {
                     return@withContext localFile
                 } else {
                     withContext(Dispatchers.Main) {
-                        AlertDialog.Builder(context)
-                            .setMessage("Ocurrió un error durante la descarga, favor de reintentar")
-                            .setPositiveButton("OK", null)
-                            .show()
+                        isChannel = true
+                        showAlertFail(fileId)
                     }
                     return@withContext null
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    AlertDialog.Builder(context)
-                        .setMessage("Ocurrió un error durante la descarga, favor de reintentar")
-                        .setPositiveButton("OK", null)
-                        .show()
+                    isChannel = true
+                    showAlertFail(fileId)
                 }
                 return@withContext null
             }
@@ -1259,13 +1316,13 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
     override fun onItemClick(item: Pair<String, String>) {
         filePath = item.second
-        fileNameChannel = item.first
+        fileNameTheme = item.first
     }
 
     private fun downloadThemeDrive(){
         val localDirectory = File(getExternalFilesDir(null), "FingerDance/Themes/")
         localDirectory.mkdirs()
-        val localFile = File(localDirectory, fileNameChannel)
+        val localFile = File(localDirectory, fileNameTheme)
 
         CoroutineScope(Dispatchers.Main).launch {
             val downloadedFile = downloadThemeFromDrive(filePath, this@Options) { progress ->
@@ -1283,9 +1340,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
 
             if (downloadedFile != null) {
-                themes.edit().putString("theme", fileNameChannel.replace(".zip", "", ignoreCase = true)).apply()
+                themes.edit().putString("theme", fileNameTheme.replace(".zip", "", ignoreCase = true)).apply()
                 themes.edit().putString("efects", "").apply()
-                val unzipTheme = UnzipTheme(this@Options, fileNameChannel)
+                val unzipTheme = UnzipTheme(this@Options, fileNameTheme)
                 unzipTheme.performUnzip(localFile.absolutePath)
             } else {
                 Toast.makeText(this@Options, "Error en la descarga", Toast.LENGTH_LONG).show()
@@ -1294,8 +1351,6 @@ class Options() : AppCompatActivity(), ItemClickListener {
     }
 
     private suspend fun downloadThemeFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
-        val fallo = AlertDialog.Builder(context)
-        fallo.setMessage("Ocurrio un error durante la descarga, favor de reintentar")
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
@@ -1305,7 +1360,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
                 if (connection.responseCode == 200) {
                     val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Themes/")
                     localDirectory.mkdirs()
-                    val localFile = File(localDirectory, fileNameChannel)
+                    val localFile = File(localDirectory, fileNameTheme)
 
                     val inputStream = connection.inputStream
                     val outputStream = FileOutputStream(localFile)
@@ -1328,23 +1383,62 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
                     return@withContext localFile
                 } else {
-                    //println("Error en la descarga: Código ${connection.responseCode}")
-                    fallo.show()
+                    isChannel = false
+                    withContext(Dispatchers.Main) {
+                        showAlertFail(fileId)
+                    }
                     return@withContext null
                 }
             } catch (e: Exception) {
-                //println("Error descargando archivo: ${e.message}")
-                fallo.show()
+                isChannel = false
+                withContext(Dispatchers.Main) {
+                    showAlertFail(fileId)
+                }
                 return@withContext null
             }
         }
     }
 
-    private class ThemesItemsAdapter(
-        private val items: ArrayList<Pair<String, String>>,
-        private val btnDescargar: Button,
-        private val itemClickListener: ItemClickListener,
-    ) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
+    private fun showAlertFail(idDownload: String) {
+        val fileDownload = if(isChannel) "canal" else "tema"
+        val messageFail = "No se pudo realizar la descarga automatica, quieres descargar el $fileDownload manualmente? " +
+                    "\n Si ya descargaste el $fileDownload, presiona el boton 'Cargar $fileDownload'"
+
+        val urlManual = "https://drive.google.com/file/d/$idDownload/view?usp=drive_link"
+
+        val alert = AlertDialog.Builder(this@Options, R.style.TransparentDialog)
+            .setMessage(messageFail)
+            .setPositiveButton("Descarga manual"){ d, _ ->
+                val intent = Intent(Intent.ACTION_VIEW, urlManual.toUri()).apply {
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                    setPackage(null)
+                }
+                val chooser = Intent.createChooser(intent, "Abrir con navegador")
+                startActivity(chooser)
+                d.dismiss()
+                if(isChannel){
+                    txProgressDownloadChannel.isVisible = false
+                    linearTextProgressChannel.visibility = View.GONE
+                    downloadButtonChannel.isEnabled = true
+                }else{
+                    btnCerrarDialog.performClick()
+                }
+            }
+            .setNegativeButton("Cargar $fileDownload"){ d, _ ->
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/zip"
+                    val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    val uri = Uri.fromFile(downloads)
+                    putExtra(DocumentsContract.EXTRA_INITIAL_URI, uri)
+                }
+                startActivityForResult(intent, 1001)
+            }
+            .show()
+
+    }
+
+    private class ThemesItemsAdapter( private val items: ArrayList<Pair<String, String>>, private val btnDescargar: Button, private val itemClickListener: ItemClickListener, ) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
         private var selectedItemPosition = RecyclerView.NO_POSITION
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -1424,3 +1518,8 @@ class Options() : AppCompatActivity(), ItemClickListener {
 interface ItemClickListener {
     fun onItemClick(item: Pair<String, String>)
 }
+
+data class TelegramDocument(
+    val documentName: String,
+    val documentId: String
+)

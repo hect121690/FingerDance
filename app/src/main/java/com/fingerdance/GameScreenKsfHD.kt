@@ -14,7 +14,7 @@ import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import kotlin.math.abs
 
-open class GameScreenKsf(activity: GameScreenActivity) : Screen {
+open class GameScreenKsfHD(activity: GameScreenActivity) : Screen {
     val a = activity
 
     private lateinit var batch: SpriteBatch
@@ -77,25 +77,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     lateinit var arrayPad4Bg : Array<TextureRegion>
     lateinit var arrayPad4 : Array<TextureRegion>
 
-    val recept0Frames = getReceptsTexture(textureLD)
-    val recept1Frames = getReceptsTexture(textureLU)
-    val recept2Frames = getReceptsTexture(textureCE)
-    val recept3Frames = getReceptsTexture(textureLU, true)
-    val recept4Frames = getReceptsTexture(textureLD, true)
-
-    /*
-    val gm = "FingerDance/Themes/$tema/GraphicsStatics/game_play"
-    val textureGirl = Texture(Gdx.files.external("$gm/girl_battle.png"))
-    val textureBoy = Texture(Gdx.files.external("$gm/boy_battle.png"))
-
-    private val girlBattleHappy = getBattleAnim(textureGirl, 0)
-    private val girlBattleSad = getBattleAnim(textureGirl, 1)
-    private val boyBattleHappy = getBattleAnim(textureBoy, 0)
-    private val boyBattleSad = getBattleAnim(textureBoy, 1)
-
-    val girlBattle = arrayOf(girlBattleHappy, girlBattleSad)
-    val boyBattle = arrayOf(boyBattleHappy, boyBattleSad)
-    */
+    val receptLD = getReceptsTexture(textureLD)
+    val receptLU = getReceptsTexture(textureLU)
+    val receptCE = getReceptsTexture(textureCE)
+    val receptRU = getReceptsTexture(textureLU, true)
+    val receptRD = getReceptsTexture(textureLD, true)
 
     var targetTop = 0f
     private var elapsedTime = 0f
@@ -103,7 +89,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
     private var isPaused = false
     lateinit var camera : OrthographicCamera
-    lateinit var player: Player
+    lateinit var playerHD: PlayerHD
     private val posYpadB = height.toFloat() - (width.toFloat() * 1.1f)
 
     private var timer = 0f
@@ -111,37 +97,15 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private var intervalOverlay = 60000 / displayBPM
 
     val gdxHeight = Gdx.graphics.height
+    val arrowsSize = width / 8f
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
 
     val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
-    data class PadPositionC(val x: Float, val y: Float, val size: Float)
-    val padPositionsC = listOf(
-        PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.61f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.063f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.283f, width.toFloat() * 1.334f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.063f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.61f, medidaFlechas * 3f)
-    )
-
     init {
-        if(showPadB == 1){
-            padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsB/$skinPad.png")))
-            spritePadB = Sprite(padB).apply { flip(false, true) }
-        }else if(showPadB == 2){
-            padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/BG.png")))
-            padB.flip(false, true)
-
-            padLefDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownLeft.png")))
-            padLeftUpC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/UpLeft.png")))
-            padCenterC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/Center.png")))
-            padRightUpC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/UpRight.png")))
-            padRightDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownRight.png")))
-
-            arrPadsC = arrayOf(padLefDownC, padLeftUpC, padCenterC, padRightUpC, padRightDownC)
-        }else if(showPadB == 3){
+        if(showPadB == 3){
             arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")))
             arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")))
         }
@@ -154,7 +118,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
-        player = Player(batch, a)
+        playerHD = PlayerHD(batch, a)
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechas
 
@@ -176,13 +140,13 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             val currentTime = (elapsedTime * 1000).toLong() - 1000
 
             batch.begin()
-            player.updateStepData(currentTime)
+            playerHD.updateStepData(currentTime)
             //batch.color = Color(0f, 0f, 0f, 0f)
 
             elapsedTime += delta
 
             if(!playerSong.fd){
-                intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                intervalOverlay = (60 / abs(playerHD.m_fCurBPM)) / 2f
                 timer += delta
                 if (timer >= intervalOverlay) {
                     timer -= intervalOverlay
@@ -193,7 +157,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             }
             showBgPads()
 
-            player.render(currentTime)
+            playerHD.render(currentTime)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechas, 0f)
@@ -212,20 +176,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         return SystemClock.uptimeMillis()
     }
 
-    private fun getBattleAnim(texture: Texture, row: Int): Array<TextureRegion> {
-        val tmp = TextureRegion.split(texture, texture.width / 4, texture.height / 2)
-        val frames = arrayOf(
-            tmp[row][0], tmp[row][1],
-            tmp[row][2], tmp[row][3]
-        )
-        frames[0].flip(false, true)
-        frames[1].flip(false, true)
-        frames[2].flip(false, true)
-        frames[3].flip(false, true)
-
-        return frames
-    }
-
     private fun getTexturePad4(texture: Texture): Array<TextureRegion> {
         val tmp = TextureRegion.split(texture, texture.width / 5, texture.height)
         val frames = arrayOf(
@@ -234,87 +184,71 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             tmp[0][2],
             tmp[0][3],
             tmp[0][4],
-        )
-        frames[0].flip(false, true)
-        frames[1].flip(false, true)
-        frames[2].flip(false, true)
-        frames[3].flip(false, true)
-        frames[4].flip(false, true)
-
-        return frames
-    }
-
-    private fun getPadC(texture: Texture) : Array<TextureRegion>{
-        val tmp = TextureRegion.split(texture, texture.width, texture.height / 6)
-        val frames = arrayOf(
             tmp[0][0],
-            tmp[1][0],
-            tmp[2][0],
-            tmp[3][0],
-            tmp[4][0],
-            tmp[5][0],
+            tmp[0][1],
+            tmp[0][2],
+            tmp[0][3],
+            tmp[0][4],
         )
+
         frames[0].flip(false, true)
         frames[1].flip(false, true)
         frames[2].flip(false, true)
         frames[3].flip(false, true)
         frames[4].flip(false, true)
         frames[5].flip(false, true)
+        frames[6].flip(false, true)
+        frames[7].flip(false, true)
+        frames[8].flip(false, true)
+        frames[9].flip(false, true)
+
         return frames
     }
 
     private fun showBgPads() {
-        if(showPadB == 0){
-            if(!hideImagesPadA){
+        when(showPadB){
+            0, 1, 2 ->{
+                if(!hideImagesPadA){
+                    //HalfDouble
+                    batch.draw(padCenter, padPositionsHD[2][0], padPositionsHD[2][1], colWidth, heightBtns)
+                    batch.draw(padRightUp, padPositionsHD[3][0], padPositionsHD[3][1], colWidth, heightBtns)
+                    batch.draw(padRightDown, padPositionsHD[4][0], padPositionsHD[4][1], colWidth, heightBtns)
+                    batch.draw(padLefDown, padPositionsHD[5][0], padPositionsHD[5][1], colWidth, heightBtns)
+                    batch.draw(padLeftUp, padPositionsHD[6][0], padPositionsHD[6][1], colWidth, heightBtns)
+                    batch.draw(padCenter, padPositionsHD[7][0], padPositionsHD[7][1], colWidth, heightBtns)
 
-                batch.draw(padLefDown, padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
-                batch.draw(padLeftUp, padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
-                batch.draw(padCenter, padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
-                batch.draw(padRightUp, padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
-                batch.draw(padRightDown, padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
-
-                /*
-                //HalfDouble
-                batch.draw(padCenter, padPositions[0][0], padPositions[0][1], colWidth, heightBtns)
-                batch.draw(padRightDown, padPositions[1][0], padPositions[1][1], colWidth, heightBtns)
-                batch.draw(padRightUp, padPositions[2][0], padPositions[2][1], colWidth, heightBtns)
-                batch.draw(padLefDown, padPositions[3][0], padPositions[3][1], colWidth, heightBtns)
-                batch.draw(padLeftUp, padPositions[4][0], padPositions[4][1], colWidth, heightBtns)
-                batch.draw(padCenter, padPositions[5][0], padPositions[5][1], colWidth, heightBtns)
-                */
+                }
             }
-        }else if (showPadB == 1){
-            spritePadB.setAlpha(alphaPadB)
-            spritePadB.setBounds(0f, posYpadB, width.toFloat(), width.toFloat() * 1.1f)
-            spritePadB.draw(batch)
-        }else if (showPadB == 2){
-            batch.draw(padB,width.toFloat() * 0.05f,  width.toFloat() * 1.1f, width.toFloat() * 0.9f, width.toFloat() * 0.9f)
-        }else if (showPadB == 3){
-            batch.draw(arrayPad4Bg[0], padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[1], padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[2], padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[3], padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[4], padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
+            else -> {
+                batch.draw(arrayPad4Bg[2], padPositionsHD[2][0], padPositionsHD[2][1], colWidth, heightBtns)
+                batch.draw(arrayPad4Bg[3], padPositionsHD[3][0], padPositionsHD[3][1], colWidth, heightBtns)
+                batch.draw(arrayPad4Bg[4], padPositionsHD[4][0], padPositionsHD[4][1], colWidth, heightBtns)
+                batch.draw(arrayPad4Bg[0], padPositionsHD[5][0], padPositionsHD[5][1], colWidth, heightBtns)
+                batch.draw(arrayPad4Bg[1], padPositionsHD[6][0], padPositionsHD[6][1], colWidth, heightBtns)
+                batch.draw(arrayPad4Bg[2], padPositionsHD[7][0], padPositionsHD[7][1], colWidth, heightBtns)
+            }
         }
     }
     private var aBatch = 0
     private var bBatch = 0
     private fun getReceptsAnimation() {
-        batch.draw(recept0Frames[0], medidaFlechas, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept1Frames[0], medidaFlechas * 2, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept2Frames[0], medidaFlechas * 3, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept3Frames[0], medidaFlechas * 4, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept4Frames[0], medidaFlechas * 5, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(receptCE[0], arrowsSize, targetTop, arrowsSize, arrowsSize)  //Centro Izq
+        batch.draw(receptRU[0], arrowsSize * 2, targetTop, arrowsSize, arrowsSize) // Roja Arriba Der
+        batch.draw(receptRD[0], arrowsSize * 3, targetTop, arrowsSize, arrowsSize) // Azul Abajo Der
+        batch.draw(receptLD[0], arrowsSize * 4, targetTop, arrowsSize, arrowsSize) // Azul Abajo Iz
+        batch.draw(receptLU[0], arrowsSize * 5, targetTop, arrowsSize, arrowsSize) // Roja Arriba Izq
+        batch.draw(receptCE[0], arrowsSize * 6, targetTop, arrowsSize, arrowsSize) // Centro Der
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(recept0Frames[1], medidaFlechas, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept1Frames[1], medidaFlechas * 2, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept2Frames[1], medidaFlechas * 3, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept3Frames[1], medidaFlechas * 4, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept4Frames[1], medidaFlechas * 5, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(receptCE[1], arrowsSize, targetTop, arrowsSize, arrowsSize)  //Centro Izq
+            batch.draw(receptRU[1], arrowsSize * 2, targetTop, arrowsSize, arrowsSize) // Roja Arriba Der
+            batch.draw(receptRD[1], arrowsSize * 3, targetTop, arrowsSize, arrowsSize) // Azul Abajo Der
+            batch.draw(receptLD[1], arrowsSize * 4, targetTop, arrowsSize, arrowsSize) // Azul Abajo Iz
+            batch.draw(receptLU[1], arrowsSize * 5, targetTop, arrowsSize, arrowsSize) // Roja Arriba Izq
+            batch.draw(receptCE[1], arrowsSize * 6, targetTop, arrowsSize, arrowsSize) // Centro Der
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
@@ -417,7 +351,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             arrayPad4[0].texture.dispose()
         }
 
-        player.disposePlayer()
+        playerHD.disposePlayer()
     }
 
 }

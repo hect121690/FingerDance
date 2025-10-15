@@ -25,6 +25,8 @@ class PlayerSong(
     var stepMaker: String = "",
     var rs: Boolean = false,
     var mirror: Boolean = false,
+    var isBAGDark: Boolean = false,
     var pathImgRS: String = "",
-    var pathImgMirror: String = ""
+    var pathImgMirror: String = "",
+    var snake: Boolean = false
 ) : Serializable

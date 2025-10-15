@@ -71,4 +71,9 @@
                                     Activar?
     </string>
 
+    <string name="PaySuscriptionInfo">⚠️ AVISO IMPORTANTE ⚠️\n\nTu suscripción mensual no existe ó ha expirado.\n\n
+                                        Para seguir disfrutando de Finger Dance debes adquirir la suscripción ó renovar tu renta mensual.\n\n
+                                        Puedes unirte a nuestros grupos para más información sobre como pagar ó puedes usar Mercado Pago:
+    </string>
+
 </resources>

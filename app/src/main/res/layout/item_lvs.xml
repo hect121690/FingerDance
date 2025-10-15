@@ -17,7 +17,7 @@
         tools:context=".SelectSong">
 
         <ImageView
-            android:id="@+id/image_channel"
+            android:id="@+id/image_lvl"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginTop="10dp"
@@ -37,9 +37,9 @@
             android:textColor="@color/white"
             android:textSize="20dp"
             android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="@+id/image_channel"
-            app:layout_constraintEnd_toEndOf="@+id/image_channel"
-            app:layout_constraintStart_toStartOf="@+id/image_channel"
+            app:layout_constraintBottom_toBottomOf="@+id/image_lvl"
+            app:layout_constraintEnd_toEndOf="@+id/image_lvl"
+            app:layout_constraintStart_toStartOf="@+id/image_lvl"
             app:layout_constraintTop_toTopOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>

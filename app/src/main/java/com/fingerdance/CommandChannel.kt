@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.view.LayoutInflater
 import android.view.View
@@ -7,7 +8,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 
-class CommandChannel(private val channelList: ArrayList<Channels>, private val width: Int) :
+class CommandChannel(private val channelList: ArrayList<Channels>, private val width: Int, private val context: Context) :
     RecyclerView.Adapter<CommandChannel.CarouselItemViewHolder>() {
 
     class CarouselItemViewHolder(view: View) : RecyclerView.ViewHolder(view)
@@ -18,10 +19,10 @@ class CommandChannel(private val channelList: ArrayList<Channels>, private val w
     }
 
     override fun onBindViewHolder(holder: CarouselItemViewHolder, position: Int) {
-        val imageView = holder.itemView.findViewById<ImageView>(R.id.image_channel)
-        val bit = BitmapFactory.decodeFile(channelList[position].banner)
-        imageView.setImageBitmap(bit)
-        imageView.layoutParams.width = width
+        val imageViewChannel = holder.itemView.findViewById<ImageView>(R.id.image_channel)
+        val bitChannel = BitmapFactory.decodeFile(channelList[position].banner)
+        imageViewChannel.setImageBitmap(bitChannel)
+        imageViewChannel.layoutParams.width = width
     }
 
     override fun getItemCount(): Int {

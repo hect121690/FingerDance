@@ -36,14 +36,12 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.MobileAds
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
 import java.io.FileInputStream
+import androidx.core.graphics.toColorInt
 
 
 private lateinit var soundSelecctChannel : MediaPlayer
@@ -91,21 +89,14 @@ var victoriesP2 = 0
 var getSelectChannel = false
 var readyPlay = false
 
+val handlerChannelOnline = Handler(Looper.getMainLooper())
 class SelectChannelOnline : AppCompatActivity() {
-    private lateinit var adView: AdView
     override fun onCreate(savedInstanceState: Bundle?) {
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_select_channel_online)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
-
-        MobileAds.initialize(this) {}
-        adView = findViewById(R.id.adView)
-        if(showAddActive){
-            val adRequest = AdRequest.Builder().build()
-            adView.loadAd(adRequest)
-        }
 
         soundSelecctChannel = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)))
         soundSelecctChannel.isLooping = true
@@ -192,12 +183,17 @@ class SelectChannelOnline : AppCompatActivity() {
 
         context = this
 
-        val ancho = (width * 0.7).toInt()
+        val ancho = (width * 0.6).toInt()
+        val imageViewTheme = findViewById<ImageView>(R.id.imgChannel)
+        val bitTheme = BitmapFactory.decodeFile(this.getExternalFilesDir("/FingerDance/Themes/$tema/logo_theme.png")!!.absolutePath)
+        imageViewTheme.setImageBitmap(bitTheme)
+        imageViewTheme.layoutParams.width = ancho
+
         recyclerChannels = findViewById(R.id.recyclerChannels)
         recyclerChannels.isUserInputEnabled = false
 
         recyclerChannels.clipToPadding = false
-        recyclerChannels.adapter = CommandChannel(listChannelsOnline, ancho)
+        recyclerChannels.adapter = CommandChannel(listChannelsOnline, ancho, this)
         recyclerChannels.offscreenPageLimit = 3
 
         objectAnimator = ObjectAnimator.ofFloat(recyclerChannels.getChildAt(position), "rotationY", 180f, 360f)
@@ -251,7 +247,7 @@ class SelectChannelOnline : AppCompatActivity() {
             setShadowLayer(2.6f, 2.5f, 1.3f, Color.GREEN)
         }
         linearWaitPlayer = findViewById(R.id.linearWaitPlayer)
-        linearWaitPlayer.setBackgroundColor(Color.parseColor("#CC000000"))
+        linearWaitPlayer.setBackgroundColor("#CC000000".toColorInt())
         linearWaitPlayer.addView(txWaitForPlayer)
         linearWaitPlayer.bringToFront()
         linearWaitPlayer.setOnClickListener {
@@ -261,7 +257,6 @@ class SelectChannelOnline : AppCompatActivity() {
         val txPlayer1 = findViewById<TextView>(R.id.txPlayer1)
         val txPlayer2 = findViewById<TextView>(R.id.txPlayer2)
 
-        val handler = Handler()
         valueEventListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 activeSala = snapshot.getValue(Sala::class.java)!!
@@ -277,7 +272,7 @@ class SelectChannelOnline : AppCompatActivity() {
                 }
 
                 if(activeSala.jugador1.listo && activeSala.jugador2.listo && readyPlay){
-                    handler.postDelayed({
+                    handlerChannelOnline.postDelayed({
                         getSelectChannel = false
                         val intent = Intent(this@SelectChannelOnline, GameScreenActivity::class.java)
                         startActivity(intent)
@@ -365,7 +360,7 @@ class SelectChannelOnline : AppCompatActivity() {
         builder.setPositiveButton("OK") { dialog, _ ->
             dialog.dismiss()
         }
-        val thisHandler = Handler(Looper.getMainLooper())
+
         imgAceptar.setOnClickListener(){
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -374,7 +369,7 @@ class SelectChannelOnline : AppCompatActivity() {
                 listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
                 currentChannel = listChannelsOnline[position].nombre
 
-                thisHandler.postDelayed({
+                handlerChannelOnline.postDelayed({
                     val intent = Intent(this, SelectSongOnline()::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     startActivity(intent)
@@ -533,6 +528,7 @@ class SelectChannelOnline : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        handlerChannelOnline.removeCallbacksAndMessages(null)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

@@ -41,7 +41,7 @@
             app:layout_constraintVertical_bias="0.16">
 
             <VideoView
-                android:id="@+id/videoPrev"
+                android:id="@+id/videoPreview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
@@ -672,16 +672,5 @@
             android:max="100"
             android:progress="0" />
     </LinearLayout>
-
-    <com.google.android.gms.ads.AdView
-        android:id="@+id/adView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        app:adSize="BANNER"
-        app:adUnitId="@string/ad_unit_id"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"  />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -5,7 +5,7 @@ import kotlin.experimental.and
 import kotlin.experimental.or
 import kotlin.math.round
 
-class KsfProccess {
+class KsfProccessHD {
     companion object {
         const val STEPINFO_STEP = 0
         const val STEPINFO_BPM = 1
@@ -25,7 +25,7 @@ class KsfProccess {
         const val NOTE_END_CHK: Byte = 8
     }
 
-    data class Line(val step: ByteArray = ByteArray(5))
+    data class Line(val step: ByteArray = ByteArray(10))
 
     data class Pattern(
         var timePos: Long = 0,
@@ -35,7 +35,7 @@ class KsfProccess {
         var iLastMissCheck: Int = 0,
         var fBPM: Float = 0f,
         val vLine: MutableList<Line> = mutableListOf(),
-        var iSpeed: Float = 0f //Pair<Float, Long> = Pair(0f, 0L)
+        var iSpeed: Float = 0f
     )
 
     data class LoadingInfo(val tag: String, val value: String)
@@ -167,10 +167,10 @@ class KsfProccess {
             }
         }
 
-        val curLongNote = Array(5) { LongNoteInfo() }
+        val curLongNote = Array(10) { LongNoteInfo() }
         var curTick = tickCount
         var curBPM = bpm
-        val buttonCount = 5
+        val buttonCount = 10
 
         var curPtn = Pattern(fBPM = bpm, iTick = tickCount)
         patterns.add(curPtn)
@@ -450,12 +450,12 @@ class KsfProccess {
     }
 
     fun makeMirror() {
-        val mirrorMap = intArrayOf(1, 0, 2, 4, 3)
-        val stepWidth = 5
+        val mirrorMap = intArrayOf(7, 3, 2, 5, 4, 6)
+        val stepWidth = 10
 
         patterns.forEach { ptn ->
-            val nowLong = ByteArray(5) { 255.toByte() }
-            val newLong = ByteArray(5) { 255.toByte() }
+            val nowLong = ByteArray(10) { 255.toByte() }
+            val newLong = ByteArray(10) { 255.toByte() }
 
             ptn.vLine.forEach { line ->
                 val newLine = ByteArray(stepWidth) { NOTE_NONE }
@@ -497,13 +497,13 @@ class KsfProccess {
     }
 
     fun makeRandom() {
-        val mirrorMap1 = intArrayOf(4, 1, 2, 3, 0)
-        val mirrorMap2 = intArrayOf(2, 4, 0, 1, 3)
-        val mirrorMap3 = intArrayOf(3, 0, 1, 4, 2)
+        val mirrorMap1 = intArrayOf(4, 7, 2, 3, 5, 6)
+        val mirrorMap2 = intArrayOf(2, 4, 6, 5, 3, 7)
+        val mirrorMap3 = intArrayOf(3, 5, 7, 4, 6, 2)
 
         val mirrorMaps = listOf(mirrorMap1, mirrorMap2, mirrorMap3)
         val mirrorMap = mirrorMaps.random()
-        val stepWidth = 5
+        val stepWidth = 10
 
         patterns.forEach { ptn ->
             val nowLong = ByteArray(stepWidth) { 255.toByte() }

@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
+import android.os.Looper
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -40,9 +41,6 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.MobileAds
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -123,7 +121,7 @@ private val sequencePattern = listOf(false, true, false, true, false, true)
 private lateinit var bmFloor: Bitmap
 private lateinit var bmFloor2: Bitmap
 
-private val handler = Handler()
+private val handler = Handler(Looper.getMainLooper())
 
 private lateinit var imgContador: ImageView
 
@@ -137,8 +135,11 @@ private lateinit var overlayBG: View
 private lateinit var btnAddPreview: Button
 private lateinit var btnAddBga: Button
 private var currentPathSong: String = ""
+
+private lateinit var difficultySelected : Bitmap
+private lateinit var difficultySelectedHD : Bitmap
+
 class SelectSongOnline : AppCompatActivity() {
-    private lateinit var adView: AdView
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
@@ -161,16 +162,7 @@ class SelectSongOnline : AppCompatActivity() {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             onWindowFocusChanged(true)
 
-            MobileAds.initialize(this) {}
-            adView = findViewById(R.id.adView)
-            if(showAddActive){
-                val adRequest = AdRequest.Builder().build()
-                adView.loadAd(adRequest)
-            }
-
             recyclerView = findViewById(R.id.recyclerViewSelectSongOnline) //binding.recyclerView
-
-            medidaFlechas = (width / 7f)
 
             recyclerLvs = findViewById(R.id.recyclerLvsOnline) //binding.recyclerLvs
             recyclerLvsVacios = findViewById(R.id.recyclerNoLvsOnline) //binding.recyclerNoLvs
@@ -327,12 +319,15 @@ class SelectSongOnline : AppCompatActivity() {
             imgAceptar.setImageBitmap(bmAceptar)
 
             imgLvSelected = findViewById(R.id.imgLvSelected)
-            val selected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
-            imgLvSelected.setImageBitmap(selected)
+            //val selected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
+            difficultySelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
+            difficultySelectedHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
+
+            //imgLvSelected.setImageBitmap(selected)
             imgLvSelected.isVisible = false
 
-            val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
-            arrayBestGrades = getGrades(rutaGrades)
+            //val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
+            //arrayBestGrades = getGrades(rutaGrades)
 
             val yDelta = width / 40
             val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 2).toFloat())
@@ -358,7 +353,7 @@ class SelectSongOnline : AppCompatActivity() {
             nav_back_Izq = findViewById(R.id.back_izq)
             nav_back_der = findViewById(R.id.back_der)
 
-            video_fondo = findViewById(R.id.videoPrev)
+            video_fondo = findViewById(R.id.videoPreview)
 
             val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
             val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
@@ -402,7 +397,7 @@ class SelectSongOnline : AppCompatActivity() {
             }
 
 
-            setupRecyclerView(width / 5, width / 5)
+            setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
             //var num = listItems.size / 2
             var num = listItemsKsf.size / 2
             if (num.toString().contains(".")) {
@@ -480,6 +475,22 @@ class SelectSongOnline : AppCompatActivity() {
                 txVelocidadActual.text = speedSelected
             }else{
                 txVelocidadActual.text = "2.0X"
+            }
+
+            if(listEfectsDisplay.isNotEmpty()) {
+                imgDisplay.isVisible = true
+                listEfectsDisplay.forEach { effect ->
+                    when(effect.value){
+                        "BGAOFF" -> playerSong.isBGAOff = true
+                        "BGADARK" -> playerSong.isBAGDark = true
+                        "FD" -> playerSong.fd = true
+                        "V" -> playerSong.vanish = true
+                        "AP" -> playerSong.ap = true
+                        "RS" -> playerSong.rs = true
+                        "M" -> playerSong.mirror = true
+                        "SN" -> playerSong.snake = true
+                    }
+                }
             }
 
             txOffset.text = valueOffset.toString()
@@ -701,8 +712,8 @@ class SelectSongOnline : AppCompatActivity() {
                             setDataSource(playerSong.rutaCancion!!)
                             prepare()
                         }
-
-                        load(playerSong.rutaKsf!!)
+                        val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
+                        load(playerSong.rutaKsf!!, isHalfDouble)
                         //readyPlay = true
 
                     }
@@ -965,23 +976,17 @@ class SelectSongOnline : AppCompatActivity() {
         }
     }
 
-    private fun getGrades(rutaGrades: String) : ArrayList<Bitmap>{
-        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
-        return ArrayList<Bitmap>().apply {
-            var i = 0
-            for (a in 0 until 8) {
-                add(Bitmap.createBitmap(bit, 0, i, bit.width, bit.height / 8))
-                i += bit.height / 8
-            }
+    fun load(filename: String, isHalfDouble: Boolean = false) {
+        if(!isHalfDouble){
+            ksf = KsfProccess()
+            ksf.load(filename)
+        }else{
+            ksfHD = KsfProccessHD()
+            ksfHD.load(filename)
         }
     }
 
-    fun load(filename: String) {
-        ksf = KsfProccess()
-        ksf.load(filename)
-    }
-
-    fun getRutaNoteSkin(rutaOriginal: String): String {
+    private fun getRutaNoteSkin(rutaOriginal: String): String {
         return rutaOriginal.removeSuffix("_Icon.png")
     }
 
@@ -1152,6 +1157,7 @@ class SelectSongOnline : AppCompatActivity() {
 
     private fun moverLvs(positionActualLvs: Int) {
         val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
+        imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
         lbLvActive.text = lv.level
         currentLevel = lv.level
         playerSong.level = lv.level
