@@ -54,18 +54,7 @@ private var up_sound : Int = 0
 
 private var press_start : Int = 0
 
-private lateinit var lbNombreChannel: TextView
-private lateinit var linearLayout: LinearLayout
-private lateinit var nav_izq: ImageView
-private lateinit var nav_der: ImageView
-private lateinit var nav_back_Izq: ImageView
-private lateinit var nav_back_der: ImageView
-private lateinit var imgAceptar: ImageView
-private lateinit var imgFloor: ImageView
-private lateinit var indicatorIzq: ImageView
-private lateinit var indicatorDer: ImageView
 
-private lateinit var imageCircle : ImageView
 private lateinit var channel : String
 
 var listSongsChannel: ArrayList<Song> = ArrayList()
@@ -84,9 +73,24 @@ var currentLevel = ""
 
 var positionCurrentChannel = 0
 
-private lateinit var bgaSelectChannel: VideoView
+var channelIndex = 0
+var songIndex = 0
+var levelIndex = 0
 
 class SelectChannel : AppCompatActivity() {
+    private lateinit var lbNombreChannel: TextView
+    private lateinit var linearLayout: LinearLayout
+    private lateinit var nav_izq: ImageView
+    private lateinit var nav_der: ImageView
+    private lateinit var nav_back_Izq: ImageView
+    private lateinit var nav_back_der: ImageView
+    private lateinit var imgAceptar: ImageView
+    private lateinit var imgFloor: ImageView
+    private lateinit var indicatorIzq: ImageView
+    private lateinit var indicatorDer: ImageView
+    private lateinit var bgaSelectChannel: VideoView
+    private lateinit var imageCircle : ImageView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
@@ -308,106 +312,46 @@ class SelectChannel : AppCompatActivity() {
             dialog.dismiss()
         }
         val thisHandler = Handler(Looper.getMainLooper())
-        imgAceptar.setOnClickListener(){
+        imgAceptar.setOnClickListener {
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
-            if(listChannels[position].listCanciones.size > 0 || listChannels[position].listCancionesKsf.size > 0){
+            if(listChannels[position].listCanciones.isNotEmpty() || listChannels[position].listCancionesKsf.isNotEmpty()){
 
                 /*
                 val gson = GsonBuilder().setPrettyPrinting().create()
-                val i = position
-                val newList = arrayListOf<Canal>()
-                //for(i in 0 until listChannels.size){
-                    val listCancion = arrayListOf<Cancion>()
-                    for(a in 0 until listChannels[i].listCancionesKsf.size){
-                        val listNivel = arrayListOf<Nivel>()
-                        for(b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size){
-                            val n = Nivel(listChannels[i].listCancionesKsf[a].listKsf[b].level, ArrayList(List(3) { FirstRank() }))
-                            listNivel.add(n)
+                //val i = position
+                val listCanales = arrayListOf<Canal>()
+                for(i in 0 until listChannels.size) {
+                    val listCanciones = arrayListOf<Cancion>()
+                    for (a in 0 until listChannels[i].listCancionesKsf.size) {
+                        val listNiveles = arrayListOf<Nivel>()
+                        for (b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size) {
+                            val checkedValues = listChannels[i].listCancionesKsf[a].listKsf[b].checkedValues
+                            val level = listChannels[i].listCancionesKsf[a].listKsf[b].level
+                            val n = Nivel(level, checkedValues, ArrayList(List(3) { FirstRank() }))
+                            listNiveles.add(n)
                         }
-                        val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNivel)
-                        listCancion.add(cancion)
+                        val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNiveles)
+                        listCanciones.add(cancion)
                     }
-                    val canal = Canal(listChannels[i].nombre, listCancion)
-                    newList.add(canal)
-                //}
-
-                val json = gson.toJson(canal)
-                */
-
-                /*
-                //Funcion para agregar niveles
-                function ordenarPorCancion(objetoCanal) {
-                  // Clonamos el objeto para no modificar el original (opcional)
-                  const nuevoObjeto = { ...objetoCanal };
-
-                  // Ordenamos las canciones por el campo "cancion"
-                  nuevoObjeto.canciones = [...objetoCanal.canciones].sort((a, b) =>
-                    a.cancion.localeCompare(b.cancion)
-                  );
-
-                  return nuevoObjeto;
+                    val canal = Canal(listChannels[i].nombre, listCanciones)
+                    listCanales.add(canal)
                 }
 
-                const objeArreglado = ordenarPorCancion(objetoCanal)
-                console.log(JSON.stringify(objeArreglado, null, 2));
-
-                */
-
-                /*
-                //Funcion para crear los array de niveles para rankings
-                    const newChannel = reestructurarNiveles(objChannel)
-                    console.log(JSON.stringify(newChannel, null, 2));
-
-                    function reestructurarNiveles(objetoCanal) {
-                      const nuevoObjeto = { ...objetoCanal };
-
-                      nuevoObjeto.canciones = objetoCanal.canciones.map(cancion => {
-                        const nuevosNiveles = cancion.niveles.map(nivel => {
-                          return {
-                            nivel: nivel.nivel,
-                            fisrtRank: [
-                              {
-                                nombre: nivel.nombre || "",
-                                puntaje: nivel.puntaje || "0",
-                                grade: nivel.grade || ""
-                              },
-                              {
-                                nombre: "",
-                                puntaje: "0",
-                                grade: ""
-                              },
-                              {
-                                nombre: "",
-                                puntaje: "0",
-                                grade: ""
-                              }
-                            ]
-                          };
-                        });
-
-                        return {
-                          ...cancion,
-                          niveles: nuevosNiveles
-                        };
-                      });
-
-                      return nuevoObjeto;
-                    }
-
+                val json = gson.toJson(listCanales)
                 */
 
                 if(!isOffline){
-                    escucharPuntajesPorNombre(listChannels[position].nombre) { listSongs ->
+                    listenScoreChannel(listChannels[position].nombre) { listSongs ->
                         listGlobalRanking = listSongs
                     }
                 }
 
                 //listSongsChannel = listChannels[position].listCanciones
                 listSongsChannelKsf = listChannels[position].listCancionesKsf
-
                 currentChannel = listChannels[position].nombre
+                channelIndex = validFolders.indexOf(currentChannel)
 
                 Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
                 thisHandler.postDelayed({
@@ -434,44 +378,45 @@ class SelectChannel : AppCompatActivity() {
         return file.exists() && !file.isDirectory
     }
 
-    private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val databaseRef = firebaseDatabase!!.getReference("channels")
+    private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
+        val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
         val listResult = arrayListOf<Cancion>()
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 for (canalSnapshot in snapshot.children) {
-                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
-                    if (canal == canalNombre) {
-                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
-                            val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
-                            val niveles = arrayListOf<Nivel>()
-                            for (nivelesSnapshot in cancionSnapshot.child("niveles").children) {
-                                val numberNivel = nivelesSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                                val rankings = arrayListOf<FirstRank>()
-                                for(rankingSnapshot in  nivelesSnapshot.child("fisrtRank").children){
-                                    val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                    val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                                    val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                    rankings.add(FirstRank(nombre, puntaje, grade))
-                                }
-                                niveles.add(Nivel(numberNivel, rankings))
+                    val cancionesSnapshot = canalSnapshot.child("canciones")
+                    for (cancionSnapshot in cancionesSnapshot.children) {
+                        val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+                        val niveles = arrayListOf<Nivel>()
+
+                        for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
+                            val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                            val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
+
+                            val rankings = arrayListOf<FirstRank>()
+                            for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
+                                val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                                val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                rankings.add(FirstRank(nombre, puntaje, grade))
                             }
 
-                            listResult.add(Cancion(nombreCancion, niveles))
+                            niveles.add(Nivel(numberNivel, checkedValues, rankings))
                         }
-                        callback(listResult)
-                        return
+
+                        listResult.add(Cancion(nombreCancion, niveles))
                     }
                 }
-                callback(arrayListOf())
+
+                callback(listResult)
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
+                Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
+                callback(listResult)
             }
         })
     }
-
 
     private fun iluminaIndicador(imageView: ImageView?) {
         imageView ?: return
@@ -481,7 +426,6 @@ class SelectChannel : AppCompatActivity() {
         }
         animator.start()
     }
-
 
     private fun isFocusChannel (position: Int){
         val item = listChannels[position]
@@ -578,6 +522,7 @@ data class FirstRank(
 
 data class Nivel(
     val nivel: String = "??",
+    val checkedValues: String = "",
     val fisrtRank: ArrayList<FirstRank> = arrayListOf()
 )
 

@@ -79,10 +79,13 @@ import java.text.SimpleDateFormat
 import java.util.UUID
 import kotlin.system.exitProcess
 import androidx.core.graphics.toColorInt
+import androidx.core.view.children
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
 import java.time.Year
+import java.time.temporal.ChronoUnit
+import kotlin.collections.listOf
 
 lateinit var themes : SharedPreferences
 var tema : String = ""
@@ -179,7 +182,7 @@ lateinit var arrayGrades : ArrayList<Bitmap>
 var TIME_ADJUST = 0L
 var timeToPresiscionHD = 0
 
-private val publicKey = "APP_USR-7e63fdf8-30bd-4ca2-91d1-e9bf823d102b"
+lateinit var validFolders : List<String>
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -192,6 +195,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var btnPlayOnline : Button
     private lateinit var btnOptions : Button
     private lateinit var btnExit : Button
+    private lateinit var loadingLayout: LinearLayout
 
     private lateinit var linearDownload : ConstraintLayout
     private lateinit var lbDescargando : TextView
@@ -199,7 +203,6 @@ class MainActivity : AppCompatActivity(), Serializable {
     private var versionApp = ""
     private var idWithRegister = ""
     private val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-    private lateinit var loadingLayout: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -245,6 +248,24 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         deviceIdFind = getDeviceId(this@MainActivity)
+
+        validFolders = listOf(
+            "000-Finger Dance",                     //0
+            "03-SHORT CUT - V2",                    //1
+            "04-REMIX - V2",                        //2
+            "05-FULLSONGS - V2",                    //3
+            "10-PIU 1st TO PERFECT COLLECTION",     //4
+            "11-EXTRA TO PREX 3",                   //5
+            "12-EXCEED TO ZERO",                    //6
+            "13-NX TO NXA",                         //7
+            "14-FIESTA TO FIESTA 2 - V2",           //8
+            "15 - INFINITY",                        //9
+            "17-PRIME",                             //10
+            "18-PRIME 2",                           //11
+            "19-XX ANIVERSARY",                     //12
+            "20-PHOENIX",                           //13
+            "21-RISE"                               //14
+        )
 
         medidaFlechas = (width / 7f)
 
@@ -313,6 +334,29 @@ class MainActivity : AppCompatActivity(), Serializable {
         progressBar = findViewById(R.id.downloadProgress)
         video_fondo = findViewById(R.id.video_fondo)
         bg_download = findViewById(R.id.bg_download)
+        loadingLayout = findViewById(R.id.loadingLayout)
+
+        loadingLayout.apply {
+            gravity = Gravity.CENTER
+            setBackgroundColor("#AA000000".toColorInt())
+            visibility = View.INVISIBLE
+
+            val progressBar = ProgressBar(this@MainActivity).apply {
+                isIndeterminate = true
+            }
+
+            val text = TextView(this@MainActivity).apply {
+                text = ""
+                setTextColor(Color.WHITE)
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(0, 30, 0, 0)
+            }
+
+            addView(progressBar)
+            addView(text)
+        }
+
         val folder = File(getExternalFilesDir(null), "FingerDance")
         if (folder.exists()) {
             creaMain()
@@ -533,32 +577,25 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun creaMain() {
-        val channelNX = File(getExternalFilesDir("/FingerDance/Songs/Channels/13-Nx,Nx2 & NxAbs")!!.absolutePath)
-        val channelPR2 = File(getExternalFilesDir("/FingerDance/Songs/Channels/18 - PRIME 2")!!.absolutePath)
-        val channelXX = File(getExternalFilesDir("/FingerDance/Songs/Channels/19 - XX ANIVERSARY")!!.absolutePath)
-        val channelFI = File(getExternalFilesDir("/FingerDance/Songs/Channels/14-FIESTA~FIESTA 2")!!.absolutePath)
-        val channelPH = File(getExternalFilesDir("/FingerDance/Songs/Channels/21-PHOENIX")!!.absolutePath)
-        val channelFS = File(getExternalFilesDir("/FingerDance/Songs/Channels/20-FULLSONGS")!!.absolutePath)
+        val channelShort = File(getExternalFilesDir("/FingerDance/Songs/Channels/03-SHORT CUT")!!.absolutePath)
+        val channelRemix = File(getExternalFilesDir("/FingerDance/Songs/Channels/04-REMIX")!!.absolutePath)
+        val channelFullsong = File(getExternalFilesDir("/FingerDance/Songs/Channels/05-FULLSONGS")!!.absolutePath)
+        val channelFI = File(getExternalFilesDir("/FingerDance/Songs/Channels/14-FIESTA TO FIESTA 2")!!.absolutePath)
 
-        if(isFileExists(channelNX) || channelNX.isDirectory){
-            deleteRecursive(channelNX)
+        showLoadingOverlay("Espere por favor...")
+        if(isFileExists(channelShort) || channelShort.isDirectory){
+            deleteRecursive(channelShort)
         }
-        if(isFileExists(channelPR2) || channelPR2.isDirectory){
-            deleteRecursive(channelPR2)
+        if(isFileExists(channelRemix) || channelRemix.isDirectory){
+            deleteRecursive(channelRemix)
         }
-        if(isFileExists(channelXX) || channelXX.isDirectory){
-            deleteRecursive(channelXX)
+        if(isFileExists(channelFullsong) || channelFullsong.isDirectory){
+            deleteRecursive(channelFullsong)
         }
         if(isFileExists(channelFI) || channelFI.isDirectory){
             deleteRecursive(channelFI)
         }
-        if(isFileExists(channelPH) || channelPH.isDirectory){
-            deleteRecursive(channelPH)
-        }
-        if(isFileExists(channelFS) || channelFS.isDirectory){
-            deleteRecursive(channelFS)
-        }
-
+        loadingLayout.visibility = View.INVISIBLE
         if(!isOffline){
             val databaseReference = firebaseDatabase!!.getReference("version")
             var version : String
@@ -568,8 +605,9 @@ class MainActivity : AppCompatActivity(), Serializable {
                     flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false
                     numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java)?: ""
                     val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
-                    val time_adjust = snapshot.child("time_adjust").getValue(String::class.java) ?: ""
-                    TIME_ADJUST = time_adjust.toLong()
+                    val paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false
+                    val timeAdjust = snapshot.child("time_adjust").getValue(String::class.java) ?: ""
+                    TIME_ADJUST = timeAdjust.toLong()
                     val timeHalfDouble = snapshot.child("timeHalfDouble").getValue(String::class.java) ?: ""
                     timeToPresiscionHD = timeHalfDouble.toInt()
                     CoroutineScope(Dispatchers.Main).launch {
@@ -648,8 +686,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                             }
                         }else{
                             runOnUiThread {
-
-                                createMain(true)
+                                createMain(startOnline, paypalOn)
                             }
                         }
 
@@ -742,7 +779,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun createMain(startOnline: Boolean){
+    private fun createMain(startOnline: Boolean, paypalOn: Boolean =  false){
         linearDownload.isVisible = false
         lbDescargando.isVisible = false
         progressBar.isVisible = false
@@ -813,7 +850,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             //flagActiveAllows = true
             if(flagActiveAllows){
                 if(idWithRegister == ""){
-                    showLoadingOverlay()
+                    showLoadingOverlay("Espere por favor...")
                     getAllowDevices { toListFreeDevices ->
                         listAllowDevices = toListFreeDevices
                     }
@@ -825,15 +862,15 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 themes.edit().putString("idWithRegister", idWithRegister).apply()
                                 val register = idWithRegister.substringAfterLast("-")
                                 val lastRegister = LocalDate.parse(register, formatter)
-                                loadingLayout.visibility = View.GONE
+                                loadingLayout.visibility = View.INVISIBLE
                                 if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription()
+                                    showPaySuscription(paypalOn)
                                 } else {
                                     goPlay(goSound, animation)
                                 }
                             }else{
-                                loadingLayout.visibility = View.GONE
-                                showPaySuscription()
+                                loadingLayout.visibility = View.INVISIBLE
+                                showPaySuscription(paypalOn)
                             }
                         }else{
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
@@ -843,7 +880,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister) ){
-                        showPaySuscription()
+                        showPaySuscription(paypalOn)
                     } else {
                         goPlay(goSound, animation)
                     }
@@ -855,7 +892,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnPlayOnline.setOnClickListener{
             if(flagActiveAllows){
                 if(idWithRegister == ""){
-                    showLoadingOverlay()
+                    showLoadingOverlay("Espere por favor...")
                     getAllowDevices { toListFreeDevices ->
                         listAllowDevices = toListFreeDevices
                     }
@@ -867,15 +904,15 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 themes.edit().putString("idWithRegister", idWithRegister).apply()
                                 val register = idWithRegister.substringAfterLast("-")
                                 val lastRegister = LocalDate.parse(register, formatter)
-                                loadingLayout.visibility = View.GONE
+                                loadingLayout.visibility = View.INVISIBLE
                                 if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription()
+                                    showPaySuscription(paypalOn)
                                 } else {
                                     showOnlineMode(animation, goSound)
                                 }
                             }else{
-                                loadingLayout.visibility = View.GONE
-                                showPaySuscription()
+                                loadingLayout.visibility = View.INVISIBLE
+                                showPaySuscription(paypalOn)
                             }
                         } else{
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
@@ -885,7 +922,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister)){
-                        showPaySuscription()
+                        showPaySuscription(paypalOn)
                     } else {
                         showOnlineMode(animation, goSound)
                     }
@@ -899,7 +936,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnOptions.setOnClickListener {
             if(flagActiveAllows){
                 if(idWithRegister == ""){
-                    showLoadingOverlay()
+                    showLoadingOverlay("Espere por favor...")
                     getAllowDevices { toListFreeDevices ->
                         listAllowDevices = toListFreeDevices
                     }
@@ -911,15 +948,15 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 themes.edit().putString("idWithRegister", idWithRegister).apply()
                                 val register = idWithRegister.substringAfterLast("-")
                                 val lastRegister = LocalDate.parse(register, formatter)
-                                loadingLayout.visibility = View.GONE
+                                loadingLayout.visibility = View.INVISIBLE
                                 if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription()
+                                    showPaySuscription(paypalOn)
                                 } else {
                                     goOption(goOptionMP, animation)
                                 }
                             }else{
-                                loadingLayout.visibility = View.GONE
-                                showPaySuscription()
+                                loadingLayout.visibility = View.INVISIBLE
+                                showPaySuscription(paypalOn)
                             }
                         } else {
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
@@ -929,7 +966,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister) ){
-                        showPaySuscription()
+                        showPaySuscription(paypalOn)
                     } else {
                         goOption(goOptionMP, animation)
                     }
@@ -996,6 +1033,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             val jsonListChannels = themes.getString("allTunes", "")
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
+            showLoadingOverlay("Espere por favor...")
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1004,20 +1042,23 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = ls.getChannels(this@MainActivity)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-
+            loadingLayout.visibility = View.INVISIBLE
         }
         if(themes.getString("efects", "").toString() == ""){
+            showLoadingOverlay("Espere por favor...")
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+            loadingLayout.visibility = View.INVISIBLE
         }else{
             val jsonListCommands = themes.getString("efects", "")
             listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
             //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
         }
         ls.loadSounds(this@MainActivity)
+
         val intent = Intent(this@MainActivity, SelectChannel::class.java)
         startActivity(intent)
         mediaPlayerMain.pause()
@@ -1053,40 +1094,9 @@ class MainActivity : AppCompatActivity(), Serializable {
         }, 1000L)
     }
 
-    private fun showLoadingOverlay() {
-        loadingLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#AA000000")) // negro con transparencia
-            visibility = View.VISIBLE
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-
-            val progressBar = ProgressBar(this@MainActivity).apply {
-                isIndeterminate = true
-            }
-
-            val text = TextView(this@MainActivity).apply {
-                text = "Espere por favor..."
-                setTextColor(Color.WHITE)
-                textSize = 18f
-                gravity = Gravity.CENTER
-                setPadding(0, 30, 0, 0)
-            }
-
-            addView(progressBar)
-            addView(text)
-        }
-
-        addContentView(
-            loadingLayout,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        )
+    private fun showLoadingOverlay(message: String) {
+        loadingLayout.visibility = View.VISIBLE
+        (loadingLayout.getChildAt(1) as TextView).text = message
     }
 
     private fun showOnlineMode(animation: Animation, goSound: MediaPlayer) {
@@ -1290,7 +1300,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         fileOrDirectory.delete()
     }
 
-    private fun showPaySuscription() {
+    private fun showPaySuscription(paypalOn: Boolean) {
         mediaPlayerMain.pause()
         video_fondo.pause()
         idWithRegister = ""
@@ -1316,13 +1326,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             setPadding(16, 16, 16, 32)
         }
 
-        fun createStyledButton(
-            text: String,
-            iconRes: Int,
-            bgColor: Int,
-            textColor: Int = Color.WHITE,
-            isPaypal: Boolean = false
-        ): Button {
+        fun createStyledButton(text: String, iconRes: Int, bgColor: Int,textColor: Int = Color.WHITE, colorIconDraw: Boolean = false): Button {
             return Button(this).apply {
                 this.text = text
                 isAllCaps = false
@@ -1334,7 +1338,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 compoundDrawablePadding = 16
                 gravity = Gravity.CENTER_VERTICAL or Gravity.START
                 val icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
-                if(!isPaypal){
+                if(colorIconDraw){
                     icon?.setTint(textColor)
                 }
                 setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null)
@@ -1352,7 +1356,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         val btnFacebook = createStyledButton(
             "Facebook",
             R.drawable.facebook,
-            R.drawable.bg_button_base
+            R.drawable.bg_button_base,
+            colorIconDraw = true
         ).apply {
             backgroundTintList = ColorStateList.valueOf(0xFF1877F2.toInt())
         }
@@ -1360,25 +1365,24 @@ class MainActivity : AppCompatActivity(), Serializable {
         val btnWhatsapp = createStyledButton(
             "WhatsApp",
             R.drawable.whatsapp,
-            R.drawable.bg_button_base
+            R.drawable.bg_button_base,
+            colorIconDraw = true
         ).apply {
             backgroundTintList = ColorStateList.valueOf(0xFF25D366.toInt())
         }
 
         val btnMercadoPago = createStyledButton(
             "Pagar con\nMercado Pago",
-            R.drawable.mercadopago,
-            R.drawable.bg_button_base
+            R.drawable.mercado_pago,
+            R.drawable.bg_button_base,
         ).apply {
             backgroundTintList = ColorStateList.valueOf("#009EE3".toColorInt())
         }
-        val paypalIcon = ContextCompat.getDrawable(this, R.drawable.paypal)
         val btnPaypal = createStyledButton(
             "Pagar con\nPayPal",
             R.drawable.paypal,
             R.drawable.bg_button_paypal,
-            Color.BLACK,
-            true
+            textColor = Color.BLACK,
         )
 
         val spaceBottom = Space(this).apply {
@@ -1399,20 +1403,18 @@ class MainActivity : AppCompatActivity(), Serializable {
             )
         }
 
-
-        // Añadimos al layout
         layoutAviso.addView(tvMensaje)
         layoutAviso.addView(btnFacebook)
         layoutAviso.addView(btnWhatsapp)
         layoutAviso.addView(btnMercadoPago)
-        layoutAviso.addView(btnPaypal)
+        if(paypalOn){
+            layoutAviso.addView(btnPaypal)
+        }
         layoutAviso.addView(spaceBottom)
         layoutAviso.addView(btnSalir)
-
         setContentView(layoutAviso)
         layoutAviso.bringToFront()
 
-        // Eventos
         btnFacebook.setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, "https://www.facebook.com/share/g/18pNnxajis/".toUri()))
             finishAffinity()
@@ -1424,6 +1426,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         btnMercadoPago.setOnClickListener {
+            showLoadingOverlay("redirigiendo...")
             val jsonBody = JSONObject().apply {
                 put("descripcion", "Suscripción mensual Finger Dance")
                 put("monto", 25)
@@ -1439,6 +1442,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val preferenceId = response.getString("preferenceId")
                     val mpUrl = "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=$preferenceId"
                     startActivity(Intent(Intent.ACTION_VIEW, mpUrl.toUri()))
+                    loadingLayout.visibility = View.INVISIBLE
                 },
                 { error ->
                     Toast.makeText(this, "Error al generar pago: ${error.message}", Toast.LENGTH_LONG).show()
@@ -1447,9 +1451,46 @@ class MainActivity : AppCompatActivity(), Serializable {
             Volley.newRequestQueue(this).add(request)
         }
 
+        btnPaypal.setOnClickListener {
+            showLoadingOverlay("redirigiendo...")
+            val url = "https://createpaypalorder-pc2otnl6da-uc.a.run.app"
+            val jsonBody = JSONObject().apply {
+                put("descripcion", "Suscripción Finger Dance")
+                put("monto", 25)
+                put("deviceId", deviceIdFind)
+                put("userName", userName)
+            }
+            val request = object : JsonObjectRequest(
+                Method.POST,
+                url,
+                jsonBody,
+                { response ->
+                    try {
+                        val orderId = response.getString("orderId")
+                        val paypalUrl = "https://www.paypal.com/checkoutnow?token=$orderId"
+                        startActivity(Intent(Intent.ACTION_VIEW, paypalUrl.toUri()))
+                        loadingLayout.visibility = View.INVISIBLE
+                    } catch (e: Exception) {
+                        Log.e("PAYPAL", "Error procesando respuesta: ${e.message}")
+                    }
+                },
+                { error ->
+                    Log.e("PAYPAL", "Error al crear orden PayPal: ${error.networkResponse?.statusCode ?: "?"}")
+                    Log.e("PAYPAL", "Detalle: ${error.message}")
+                    error.printStackTrace()
+                }
+            ) {
+                override fun getHeaders(): MutableMap<String, String> {
+                    return hashMapOf("Content-Type" to "application/json")
+                }
+            }
+
+            Volley.newRequestQueue(this).add(request)
+        }
+
+
         btnSalir.setOnClickListener { finishAffinity() }
     }
-
 
     private suspend fun iniciarDescargaUpdate(progressCallback: (Int) -> Unit): File? {
         return withContext(Dispatchers.IO) {
@@ -1775,8 +1816,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
         listEfectsDisplay.clear()
-
-
     }
     override fun onDestroy() {
         super.onDestroy()

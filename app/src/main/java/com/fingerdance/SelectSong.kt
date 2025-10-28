@@ -67,67 +67,6 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.createBitmap
 
-private lateinit var linearBG: LinearLayout
-private lateinit var buttonLayout: LinearLayout
-private lateinit var constraintMain: ConstraintLayout
-private lateinit var progressLoading : ProgressBar
-private lateinit var lbNameSong: TextView
-private lateinit var lbArtist: TextView
-
-private lateinit var lbCurrentBpm: TextView
-private lateinit var txCurrentBpm: TextView
-private lateinit var lbBpm: TextView
-private lateinit var imgSelected: ImageView
-private lateinit var txInfoCW: TextView
-private lateinit var imgVelocidadActual: ImageView
-private lateinit var txVelocidadActual: TextView
-
-private lateinit var imgOffset: ImageView
-private lateinit var txOffset: TextView
-
-private lateinit var imgDisplay: ImageView
-private lateinit var imgJudge: ImageView
-private lateinit var imgNoteSkin: ImageView
-private lateinit var imgNoteSkinFondo: ImageView
-private lateinit var nav_izq: ImageView
-private lateinit var nav_der: ImageView
-private lateinit var nav_back_Izq: ImageView
-private lateinit var nav_back_der: ImageView
-private lateinit var commandWindowBG: LinearLayout
-private lateinit var linearMenus: LinearLayout
-private lateinit var linearTop: LinearLayout
-private lateinit var linearCurrent: LinearLayout
-private lateinit var linearValues: LinearLayout
-private lateinit var linearCommands: LinearLayout
-private lateinit var linearInfo: LinearLayout
-private lateinit var linearBottom: LinearLayout
-private lateinit var linearLoading: LinearLayout
-private lateinit var imgLoading: ImageView
-private lateinit var imgAceptar: ImageView
-private lateinit var imgFloor: ImageView
-private lateinit var imgLvSelected: ImageView
-private lateinit var lbLvActive: TextView
-
-private lateinit var imgBestScore: ImageView
-
-private lateinit var imgBestGrade: ImageView
-private lateinit var lbBestScore: TextView
-
-private lateinit var imgWorldGrade: ImageView
-private lateinit var lbWorldScore: TextView
-private lateinit var lbWorldName: TextView
-
-private lateinit var video_fondo : VideoView
-private lateinit var imgPrev: ImageView
-
-private lateinit var next : VideoView
-private lateinit var prev : VideoView
-
-private lateinit var indicatorLayout: ImageView
-private lateinit var imageCircle : ImageView
-
-private lateinit var bgaSelectSong: VideoView
-
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
 private lateinit var linearLvs: ConstraintLayout
@@ -159,8 +98,6 @@ private lateinit var bmFloor2: Bitmap
 
 private var contador = 0
 
-
-private lateinit var imgContador: ImageView
 private val handler = Handler(Looper.getMainLooper())
 private val handlerContador = Handler(Looper.getMainLooper())
 
@@ -181,9 +118,6 @@ lateinit var currentBestGrade : Bitmap
 
 lateinit var listSongScores: Array<ObjPuntaje>
 
-private lateinit var overlayBG: View
-private lateinit var btnAddPreview: Button
-private lateinit var btnAddBga: Button
 private var currentPathSong: String = ""
 private var niveles = arrayListOf<Nivel>()
 
@@ -193,13 +127,80 @@ val widthJudges = width / 2
 val heightJudges = widthJudges / 6
 lateinit var resultSong: ResultSong
 private var numberChannel = ""
-private lateinit var smoothScroller : RecyclerView. SmoothScroller
+
 private lateinit var layoutManager : LinearLayoutManager
 
 private lateinit var difficultySelected : Bitmap
 private lateinit var difficultySelectedHD : Bitmap
+var checkedValues = ""
+var isOficialSong = false
 
 class SelectSong : AppCompatActivity() {
+    private lateinit var linearBG: LinearLayout
+    private lateinit var buttonLayout: LinearLayout
+    private lateinit var constraintMain: ConstraintLayout
+    private lateinit var progressLoading : ProgressBar
+    private lateinit var lbNameSong: TextView
+    private lateinit var lbArtist: TextView
+
+    private lateinit var lbCurrentBpm: TextView
+    private lateinit var txCurrentBpm: TextView
+    private lateinit var lbBpm: TextView
+    private lateinit var imgSelected: ImageView
+    private lateinit var txInfoCW: TextView
+    private lateinit var imgVelocidadActual: ImageView
+    private lateinit var txVelocidadActual: TextView
+
+    private lateinit var imgOffset: ImageView
+    private lateinit var txOffset: TextView
+
+    private lateinit var imgDisplay: ImageView
+    private lateinit var imgJudge: ImageView
+    private lateinit var imgNoteSkin: ImageView
+    private lateinit var imgNoteSkinFondo: ImageView
+    private lateinit var nav_izq: ImageView
+    private lateinit var nav_der: ImageView
+    private lateinit var nav_back_Izq: ImageView
+    private lateinit var nav_back_der: ImageView
+    private lateinit var commandWindowBG: LinearLayout
+    private lateinit var linearMenus: LinearLayout
+    private lateinit var linearTop: LinearLayout
+    private lateinit var linearCurrent: LinearLayout
+    private lateinit var linearValues: LinearLayout
+    private lateinit var linearCommands: LinearLayout
+    private lateinit var linearInfo: LinearLayout
+    private lateinit var linearBottom: LinearLayout
+    private lateinit var linearLoading: LinearLayout
+    private lateinit var imgLoading: ImageView
+    private lateinit var imgAceptar: ImageView
+    private lateinit var imgFloor: ImageView
+    private lateinit var imgLvSelected: ImageView
+    private lateinit var lbLvActive: TextView
+
+    private lateinit var imgBestScore: ImageView
+
+    private lateinit var imgBestGrade: ImageView
+    private lateinit var lbBestScore: TextView
+
+    private lateinit var imgWorldGrade: ImageView
+    private lateinit var lbWorldScore: TextView
+    private lateinit var lbWorldName: TextView
+
+    private lateinit var video_fondo : VideoView
+    private lateinit var imgPrev: ImageView
+
+    private lateinit var next : VideoView
+    private lateinit var prev : VideoView
+
+    private lateinit var indicatorLayout: ImageView
+    private lateinit var imageCircle : ImageView
+
+    private lateinit var bgaSelectSong: VideoView
+    private lateinit var overlayBG: View
+    private lateinit var btnAddPreview: Button
+    private lateinit var btnAddBga: Button
+    private lateinit var imgContador: ImageView
+    private lateinit var smoothScroller : RecyclerView. SmoothScroller
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -876,7 +877,7 @@ class SelectSong : AppCompatActivity() {
                             //start()
                         }
                         val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
-                        load(playerSong.rutaKsf!!, isHalfDouble)
+                        load(playerSong.rutaKsf, isHalfDouble)
 
                         if(playerSong.mirror){
                             if(!isHalfDouble){
@@ -891,6 +892,12 @@ class SelectSong : AppCompatActivity() {
                                 ksf.makeRandom()
                             }else{
                                 ksfHD.makeRandom()
+                            }
+                        }
+                        if(!isOnline){
+                            if(!isOffline){
+                                songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
+                                levelIndex = positionActualLvs
                             }
                         }
 
@@ -1643,6 +1650,10 @@ class SelectSong : AppCompatActivity() {
             soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             //oldValueCommand = 0
             nav_izq.performClick()
+            nav_izq.performClick()
+            nav_izq.performClick()
+            nav_izq.performClick()
+            nav_izq.performClick()
             isFocusCommandWindow(0)
         }else{
             commandWindow.visibility = View.GONE
@@ -1736,7 +1747,7 @@ class SelectSong : AppCompatActivity() {
         val currentBestWorldGrade = getWorldBitMapGrade(positionActualLvs)
         imgWorldGrade.setImageBitmap(currentBestWorldGrade)
 
-        if(niveles[positionActualLvs].fisrtRank.size > 0) {
+        if(niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
             lbWorldName.text = if (niveles[positionActualLvs].fisrtRank[0].nombre != "") niveles[positionActualLvs].fisrtRank[0].nombre else "---------"
             lbWorldScore.text = if (niveles[positionActualLvs].fisrtRank[0].puntaje != "") niveles[positionActualLvs].fisrtRank[0].puntaje else "-"
             currentWorldScore = listOf(
@@ -1805,9 +1816,9 @@ class SelectSong : AppCompatActivity() {
         lbArtist.isSelected = true
         lbNameSong.isSelected = true
 
-        if(currentChannel == "03-SHORT CUT" ||
-            currentChannel == "04-REMIX" ||
-            currentChannel == "05-FULLSONGS"){
+        if(currentChannel == "03-SHORT CUT - V2" ||
+            currentChannel == "04-REMIX - V2" ||
+            currentChannel == "05-FULLSONGS - V2"){
             val currentNumberChannel = File(listItemsKsf[oldValue].rutaSong).parentFile?.name!!.substringBefore("-").trim()
             if(currentNumberChannel != numberChannel){
                 numberChannel = currentNumberChannel
@@ -1872,7 +1883,14 @@ class SelectSong : AppCompatActivity() {
         }
 
         val rankingItem = listGlobalRanking.find { it.cancion == item.title }
-        niveles = rankingItem?.niveles ?: ArrayList(List(listSongScores.size) { Nivel() })
+        if(rankingItem != null){
+            niveles = rankingItem.niveles
+            isOficialSong = true
+        }else{
+            niveles = ArrayList(List(listSongScores.size) { Nivel() })
+            isOficialSong = false
+        }
+        //niveles = rankingItem?.niveles ?: ArrayList(List(listSongScores.size) { Nivel() })
         //val salaId = UUID.randomUUID().toString()
 
         //if(isFileExists(File(item.rutaPrevVideo))){

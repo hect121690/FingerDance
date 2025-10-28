@@ -297,8 +297,8 @@
                         <option name="values">
                           <map>
                             <entry key="assetSourceType" value="FILE" />
-                            <entry key="outputName" value="paypal" />
-                            <entry key="sourceFile" value="D:\Hector\piu xx\paypal.svg" />
+                            <entry key="outputName" value="mercado_pago" />
+                            <entry key="sourceFile" value="D:\Hector\piu xx\icons8-mercado-pago.svg" />
                           </map>
                         </option>
                       </PersistentState>

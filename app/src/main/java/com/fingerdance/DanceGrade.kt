@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
@@ -36,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -45,8 +47,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import java.io.File
+import java.security.MessageDigest
 import kotlin.math.roundToInt
 import kotlin.random.Random
+
 
 private lateinit var bgConstraint: ConstraintLayout
 private lateinit var mediaPlayerEvaluation: MediaPlayer
@@ -76,6 +81,13 @@ class DanceGrade : AppCompatActivity() {
     private var winP1 = false
     private var winP2 = false
     private var draw = false
+    private var isPoolLoaded = false
+    private lateinit var imgAceptar : ImageView
+    private lateinit var imgFloor : ImageView
+
+    private var enabledSaveScore = false
+    private var rankList = mutableListOf<Map<String, Any>>()
+    private lateinit var rankRef : DatabaseReference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +101,34 @@ class DanceGrade : AppCompatActivity() {
 
         val txPlayer1 = findViewById<TextView>(R.id.txPlayer1)
         val txPlayer2 = findViewById<TextView>(R.id.txPlayer2)
+
+        imgAceptar = findViewById(R.id.aceptDG)
+        imgAceptar.visibility = View.INVISIBLE
+        imgAceptar.layoutParams.width = (width / 2.5).toInt()
+
+        imgFloor = findViewById<ImageView>(R.id.floorDG)
+        imgFloor.visibility = View.INVISIBLE
+
+        val bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
+        imgFloor.setImageBitmap(bmFloor)
+
+        val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
+        imgAceptar.setImageBitmap(bm)
+
+        val bgWait = findViewById<ConstraintLayout>(R.id.bg_wait)
+        val imgWait = findViewById<ImageView>(R.id.img_wait)
+        bgWait.isVisible = false
+        imgWait.isVisible = false
+        bgWait.setOnClickListener(object : View.OnClickListener {
+            override fun onClick(v: View?) {}
+        })
+
+        val numberWait = Random.nextInt(1,10)
+        imgWait.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/img_dance_grade ($numberWait).png")!!.absolutePath))
+
+        soundPoolSelectSongKsf.setOnLoadCompleteListener { _, _, _ ->
+            isPoolLoaded = true
+        }
 
         if(isOnline){
             if(isPlayer1){
@@ -200,6 +240,7 @@ class DanceGrade : AppCompatActivity() {
         val rawScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / totalNotes) * 1000000)
         totalScore = if (rawScore > 999998) 1000000 else rawScore.roundToInt()
 
+
         val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
         imgNewRecord.setImageBitmap(bitNR)
         if(!isOnline){
@@ -217,10 +258,7 @@ class DanceGrade : AppCompatActivity() {
                 activeSala.jugador1.result.miss = resultSong.miss.toString()
                 activeSala.jugador1.result.maxCombo = resultSong.maxCombo.toString()
                 activeSala.jugador1.result.score = totalScore.toString()
-                salaRef.child("jugador1/result").setValue(activeSala.jugador1.result)/*.addOnSuccessListener {
-                    getWinner(imgWinP1, imgWinP2, imgDraw, txNameChannel)
-                }
-                */
+                salaRef.child("jugador1/result").setValue(activeSala.jugador1.result)
             }else{
                 activeSala.jugador2.result.perfect = resultSong.perfect.toString()
                 activeSala.jugador2.result.great = resultSong.great.toString()
@@ -229,11 +267,7 @@ class DanceGrade : AppCompatActivity() {
                 activeSala.jugador2.result.miss = resultSong.miss.toString()
                 activeSala.jugador2.result.maxCombo = resultSong.maxCombo.toString()
                 activeSala.jugador2.result.score = totalScore.toString()
-
-                salaRef.child("jugador2/result").setValue(activeSala.jugador2.result)/*.addOnSuccessListener{
-                    getWinner(imgWinP1, imgWinP2, imgDraw, txNameChannel)
-                }
-                */
+                salaRef.child("jugador2/result").setValue(activeSala.jugador2.result)
             }
         }
 
@@ -242,30 +276,16 @@ class DanceGrade : AppCompatActivity() {
             if(!isOffline){
                 if (posicion != -1) {
                     updateRanking(
-                        currentChannel,
-                        currentSong,
-                        currentLevel,
-                        totalScore.toString(),
                         userName,
+                        totalScore.toString(),
                         newGrade,
                         imgNewRecord
                     )
+                }else{
+                    getBtnAceptar()
                 }
             }
         }
-
-        val bg_wait = findViewById<ConstraintLayout>(R.id.bg_wait)
-        val img_wait = findViewById<ImageView>(R.id.img_wait)
-        bg_wait.isVisible = false
-        img_wait.isVisible = false
-        bg_wait.setOnClickListener(object : View.OnClickListener {
-            override fun onClick(v: View?) {
-                // No hace nada
-            }
-        })
-        getBtnAceptar(bg_wait, img_wait)
-
-        //mediaPlayerEvaluation = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/Evaluation.mp3")!!.absolutePath)))
 
         mediaPlayerEvaluation = MediaPlayer().apply {
             setAudioAttributes(
@@ -278,7 +298,6 @@ class DanceGrade : AppCompatActivity() {
             prepare()
             start()
         }
-
 
         mediaPlayerEvaluation.setOnCompletionListener {
             mediaPlayerEvaluation.start()
@@ -320,6 +339,8 @@ class DanceGrade : AppCompatActivity() {
         for (i in 0 until 7) {
             val partBitmap = Bitmap.createBitmap(bitmapEvalutaionLables, 0, i * partHeight, bitmapEvalutaionLables.width, partHeight)
             imageViews[i].setImageBitmap(partBitmap)
+            textViewsP1[i].layoutParams.width = (width * 0.2).toInt()
+            textViewsP2[i].layoutParams.width = (width * 0.2).toInt()
         }
 
         for (i in 0 until 7) {
@@ -372,15 +393,28 @@ class DanceGrade : AppCompatActivity() {
                         isPlayingRankB = soundPoolSelectSongKsf.play(rankB, 1.0f, 1.0f, 1, 0, 1.0f)
 
                         if (totalScore > currentScore.toInt()) {
-                            dbDG.updatePuntaje(
-                                currentChannel,
-                                currentSong,
-                                currentLevel,
-                                totalScore.toString(),
-                                newGrade
-                            )
-                            imgMyBestGrade.setImageBitmap(grade)
-                            lbBestScoreDG.text = totalScore.toString()
+                            if(enabledSaveScore && isOficialSong){
+                                dbDG.updatePuntaje(
+                                    currentChannel,
+                                    currentSong,
+                                    currentLevel,
+                                    totalScore.toString(),
+                                    newGrade
+                                )
+                                imgMyBestGrade.setImageBitmap(grade)
+                                lbBestScoreDG.text = totalScore.toString()
+                            } else if(!isOficialSong){
+                                dbDG.updatePuntaje(
+                                    currentChannel,
+                                    currentSong,
+                                    currentLevel,
+                                    totalScore.toString(),
+                                    newGrade
+                                )
+                                imgMyBestGrade.setImageBitmap(grade)
+                                lbBestScoreDG.text = totalScore.toString()
+                                getBtnAceptar()
+                            }
                         } else {
                             getBestScore(imgMyBestGrade, lbBestScoreDG)
                         }
@@ -409,10 +443,37 @@ class DanceGrade : AppCompatActivity() {
                         showGradeP1(activeSala.jugador1.result.score.toInt())
                         showGradeP2(activeSala.jugador2.result.score.toInt())
                         getWinner(imgGradeP1, imgGradeP2, imgWinP1, imgWinP2, imgDraw, txNameChannel)
+                        getBtnAceptar()
                     }
                 }, 1000)
             }
         },1000L)
+
+        imgAceptar.setOnClickListener {
+            soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            if(!isOnline) {
+                if(!isOffline){
+                    listenScoreChannel(currentChannel) { listaCanciones ->
+                        listGlobalRanking = listaCanciones
+                    }
+                }
+            }
+            mediaPlayerEvaluation.stop()
+            soundPoolSelectSongKsf.stop(isPlayingRankA)
+            soundPoolSelectSongKsf.stop(isPlayingRankB)
+            soundPoolSelectSongKsf.stop(isPlayingNewRecord)
+            imgWait.isVisible = true
+            bgWait.isVisible = true
+            countMiss = 0
+            handlerDG.postDelayed({
+                getSelectChannel = true
+                this.finish()
+            }, 3500)
+
+        }
+        imgFloor.setOnLongClickListener {
+            imgAceptar.performClick()
+        }
     }
 
     private fun getWinner(imgGradeP1: ImageView, imgGradeP2: ImageView, imgWinP1: ImageView, imgWinP2: ImageView, imgDraw: ImageView, txNameChannel: TextView){
@@ -432,96 +493,93 @@ class DanceGrade : AppCompatActivity() {
         }, 500L)
     }
 
-    private fun updateRanking(
-        channel: String,
-        song: String,
-        level: String,
-        newScore: String,
-        namePlayer: String,
-        grade: String,
-        imgNewRecord: ImageView
-    ) {
-        val databaseRef = firebaseDatabase!!.getReference("channels")
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+    private fun updateRanking (namePlayer: String, newScore: String, newGrade: String, imgNewRecord: ImageView){
+        val checkedValuesFirebase = getFirstRank()
+        handlerDG.postDelayed({
+            if(enabledSaveScore){
+                rankList.add(mapOf("nombre" to namePlayer, "puntaje" to newScore.toInt(), "grade" to newGrade ))
+                val nuevosTop3 = rankList.sortedByDescending { it["puntaje"] as Int }.take(3)
+                val nuevosTop3Strings = nuevosTop3.map { rank ->
+                    mapOf("nombre" to rank["nombre"], "puntaje" to rank["puntaje"].toString(), "grade" to rank["grade"])
+                }
+                val nivelRef = rankRef.ref.child("fisrtRank")
+                nivelRef.setValue(nuevosTop3Strings)
+                    .addOnSuccessListener {
+                        showNewRecord(imgNewRecord)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("Firebase", "Error al actualizar ranking: ", e)
+                    }
+            }else{
+                guardarAlHDPQueModificoElKSF(checkedValuesFirebase)
+                val warningMessage = getString(R.string.warning_message, userName)
+                AlertDialog.Builder(this@DanceGrade)
+                    .setTitle("Nivel modificado")
+                    .setMessage(warningMessage)
+                    .setPositiveButton("Entiendo") { dialog, _ -> dialog.dismiss() }
+                    .setCancelable(false)
+                    .show()
+
+            }
+        }, 1500L)
+    }
+
+    private fun getFirstRank() : String {
+        var checkedValuesFirebase = ""
+        rankRef = firebaseDatabase!!
+            .getReference("channels")
+            .child(channelIndex.toString())
+            .child("canciones")
+            .child(songIndex.toString())
+            .child("niveles")
+            .child(levelIndex.toString())
+        rankRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                for (canalSnapshot in snapshot.children) {
-                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
-                    if (canal == channel) {
-                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
-                            val cancion = cancionSnapshot.child("cancion").getValue(String::class.java)
-                            if (cancion == song) {
-                                for ((index, nivelSnapshot) in cancionSnapshot.child("niveles").children.withIndex()) {
-                                    val nivel = nivelSnapshot.child("nivel").getValue(String::class.java)
-                                    if (nivel == level) {
-                                        val rankList = mutableListOf<Map<String, Any>>()
-                                        for (rankSnapshot in nivelSnapshot.child("fisrtRank").children) {
-                                            val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                            val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java)?.toIntOrNull() ?: 0
-                                            val gradeValue = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
-
-                                            rankList.add(
-                                                mapOf(
-                                                    "nombre" to nombre,
-                                                    "puntaje" to puntaje,
-                                                    "grade" to gradeValue
-                                                )
-                                            )
-                                        }
-                                        rankList.add(
-                                            mapOf(
-                                                "nombre" to namePlayer,
-                                                "puntaje" to newScore.toInt(),
-                                                "grade" to grade
-                                            )
-                                        )
-
-                                        val nuevosTop3 = rankList.sortedByDescending { it["puntaje"] as Int }.take(3)
-
-                                        val nivelRef = databaseRef.child(canalSnapshot.key!!)
-                                            .child("canciones").child(cancionSnapshot.key!!)
-                                            .child("niveles").child(index.toString())
-                                            .child("fisrtRank")
-                                        val nuevosTop3Strings = nuevosTop3.map { rank ->
-                                            mapOf(
-                                                "nombre" to rank["nombre"],
-                                                "puntaje" to rank["puntaje"].toString(),
-                                                "grade" to rank["grade"]
-                                            )
-                                        }
-                                        nivelRef.setValue(nuevosTop3Strings)
-                                            .addOnSuccessListener {
-                                                showNewRecord(imgNewRecord)
-                                            }
-
-                                        return
-                                    }
-                                }
-                            }
+                val level = snapshot.child("nivel").getValue(String::class.java) ?: ""
+                checkedValuesFirebase = snapshot.child("checkedValues").getValue(String::class.java) ?: ""
+                if(level == currentLevel){
+                    if(checkedValues == checkedValuesFirebase){
+                        enabledSaveScore = true
+                        rankList = mutableListOf<Map<String, Any>>()
+                        for (rankSnapshot in snapshot.child("fisrtRank").children) {
+                            val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                            val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java)?.toIntOrNull() ?: 0
+                            val grado = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
+                            rankList.add(mapOf("nombre" to nombre, "puntaje" to puntaje, "grade" to grado))
                         }
+                        //return
+                    }else{
+                        enabledSaveScore = false
                     }
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
+                Log.e("Firebase", "Error al leer niveles de la cancion $currentSong", error.toException())
             }
         })
-
+        return checkedValuesFirebase
     }
 
-    private fun getBtnAceptar(bg_wait: ConstraintLayout, img_wait: ImageView) {
-        val imgFloor = findViewById<ImageView>(R.id.floorDG)
-        val bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
-        imgFloor.setImageBitmap(bmFloor)
+    private fun guardarAlHDPQueModificoElKSF(checkedValuesFirebase: String){
+        firebaseDatabase!!.getReference("devicesBanners").child(deviceIdFind).get().addOnSuccessListener { snapshot ->
+            val currentCount = snapshot.getValue(Int::class.java) ?: 0
+            val info = "Local: $checkedValues | Firebase: $checkedValuesFirebase | $channelIndex, $songIndex, $levelIndex"//currentCount + 1
+            firebaseDatabase!!.getReference("devicesBanners").child(deviceIdFind).setValue(info)
+                .addOnSuccessListener {
+                    Log.d("Firebase", "$deviceIdFind guardado con contador $info")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Firebase", "Error guardando deviceIdFind", e)
+                }
+        }.addOnFailureListener { e ->
+            Log.e("Firebase", "Error leyendo $deviceIdFind", e)
+        }
+    }
 
-        val imgAceptar = findViewById<ImageView>(R.id.aceptDG)
-        val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
-        imgAceptar.setImageBitmap(bm)
-
-        val numberWait = Random.nextInt(1,10)
-        img_wait.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/img_dance_grade ($numberWait).png")!!.absolutePath))
-
-        imgAceptar.layoutParams.width = (width / 2.5).toInt()
+    private fun getBtnAceptar() {
+        imgAceptar.visibility = View.VISIBLE
+        imgFloor.visibility = View.VISIBLE
 
         val yDelta = width / 36
         val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 1.5).toFloat())
@@ -530,71 +588,47 @@ class DanceGrade : AppCompatActivity() {
         animateSetTraslation.repeatMode = Animation.REVERSE
         imgAceptar.startAnimation(animateSetTraslation)
         imgAceptar.bringToFront()
-
-        imgAceptar.setOnClickListener {
-            soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            if(!isOnline) {
-                if(!isOffline){
-                    escucharPuntajesPorNombre(currentChannel) { listaCanciones ->
-                        listGlobalRanking = listaCanciones
-                    }
-                }
-            }
-            mediaPlayerEvaluation.stop()
-            soundPoolSelectSongKsf.stop(isPlayingRankA)
-            soundPoolSelectSongKsf.stop(isPlayingRankB)
-            soundPoolSelectSongKsf.stop(isPlayingNewRecord)
-            img_wait.isVisible = true
-            bg_wait.isVisible = true
-            countMiss = 0
-            handlerDG.postDelayed({
-                getSelectChannel = true
-                this.finish()
-            }, 2500)
-
-        }
-        imgFloor.setOnLongClickListener {
-            imgAceptar.performClick()
-        }
     }
 
-    private fun escucharPuntajesPorNombre(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val databaseRef = firebaseDatabase!!.getReference("channels")
+    private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
+        val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
         val listResult = arrayListOf<Cancion>()
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 for (canalSnapshot in snapshot.children) {
-                    val canal = canalSnapshot.child("canal").getValue(String::class.java)
-                    if (canal == canalNombre) {
-                        for (cancionSnapshot in canalSnapshot.child("canciones").children) {
-                            val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
-                            val niveles = arrayListOf<Nivel>()
-                            for (nivelesSnapshot in cancionSnapshot.child("niveles").children) {
-                                val numberNivel = nivelesSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                                val rankings = arrayListOf<FirstRank>()
-                                for(rankingSnapshot in  nivelesSnapshot.child("fisrtRank").children){
-                                    val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                    val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                                    val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                    rankings.add(FirstRank(nombre, puntaje, grade))
-                                }
-                                niveles.add(Nivel(numberNivel, rankings))
-                            }
+                    val cancionesSnapshot = canalSnapshot.child("canciones")
+                    for (cancionSnapshot in cancionesSnapshot.children) {
+                        val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+                        val niveles = arrayListOf<Nivel>()
 
-                            listResult.add(Cancion(nombreCancion, niveles))
+                        for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
+                            val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                            val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
+
+                            val rankings = arrayListOf<FirstRank>()
+                            for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
+                                val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                                val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                rankings.add(FirstRank(nombre, puntaje, grade))
+                            }
+                            niveles.add(Nivel(numberNivel, checkedValues, rankings))
                         }
-                        callback(listResult)
-                        return
+
+                        listResult.add(Cancion(nombreCancion, niveles))
                     }
                 }
-                callback(arrayListOf())
+
+                callback(listResult)
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
+                Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
+                callback(listGlobalRanking)
             }
         })
     }
+
 
     private fun getEfects(pathCommandEffect: String) {
         showLevel()
@@ -703,6 +737,7 @@ class DanceGrade : AppCompatActivity() {
     private fun getBestScore(imgMyBestGrade: ImageView, lbBestScoreDG: TextView) {
         imgMyBestGrade.setImageBitmap(currentBestGrade)
         lbBestScoreDG.text = currentScore
+        getBtnAceptar()
     }
 
     private fun showGrade() {
@@ -837,6 +872,7 @@ class DanceGrade : AppCompatActivity() {
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
             isPlayingNewRecord = soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
+            getBtnAceptar()
         }, 3500)
     }
 
@@ -943,45 +979,106 @@ class DanceGrade : AppCompatActivity() {
     private suspend fun setCountsP1(textViews: List<TextView>) {
         coroutineScope {
             if(isOnline){
-                textViews[0].text = activeSala.jugador1.result.perfect
-                textViews[1].text = activeSala.jugador1.result.great
-                textViews[2].text = activeSala.jugador1.result.good
-                textViews[3].text = activeSala.jugador1.result.bad
-                textViews[4].text = activeSala.jugador1.result.miss
-                textViews[5].text = activeSala.jugador1.result.maxCombo
-                textViews[6].text = activeSala.jugador1.result.score
+                val listScores = arrayListOf(
+                    activeSala.jugador1.result.perfect,
+                    activeSala.jugador1.result.great,
+                    activeSala.jugador1.result.good,
+                    activeSala.jugador1.result.bad,
+                    activeSala.jugador1.result.miss,
+                    activeSala.jugador1.result.maxCombo)
+                for(i in 0 until 6){
+                    animatedNumber(listScores[i], ((i * 50)).toLong(), textViews[i], { true })
+                }
+                animateScore(textViews[6], activeSala.jugador1.result.score,  { true })
             }else{
-                textViews[0].text = resultSong.perfect.toString()
-                textViews[1].text = resultSong.great.toString()
-                textViews[2].text = resultSong.good.toString()
-                textViews[3].text = resultSong.bad.toString()
-                textViews[4].text = resultSong.miss.toString()
-                textViews[5].text = resultSong.maxCombo.toString()
-                textViews[6].text = totalScore.toString()
-            }
-
-            for (textView in textViews){
-                soundPoolSelectSongKsf.play(tick, 1.0f, 1.0f, 1, 0, 1.0f)
-                delay(100)
+                val listScores = arrayListOf(
+                    resultSong.perfect.toString(),
+                    resultSong.great.toString(),
+                    resultSong.good.toString(),
+                    resultSong.bad.toString(),
+                    resultSong.miss.toString(),
+                    resultSong.maxCombo.toString())
+                for(i in 0 until 6){
+                    animatedNumber(listScores[i], ((i * 50)).toLong(), textViews[i], { true })
+                }
+                animateScore(textViews[6], totalScore.toString(),  { true })
             }
         }
     }
 
     private suspend fun setCountsP2(textViews: List<TextView>) {
         coroutineScope {
-            textViews[0].text = activeSala.jugador2.result.perfect
-            textViews[1].text = activeSala.jugador2.result.great
-            textViews[2].text = activeSala.jugador2.result.good
-            textViews[3].text = activeSala.jugador2.result.bad
-            textViews[4].text = activeSala.jugador2.result.miss
-            textViews[5].text = activeSala.jugador2.result.maxCombo
-            textViews[6].text = activeSala.jugador2.result.score
+            val listScores = arrayListOf(
+                activeSala.jugador2.result.perfect,
+                activeSala.jugador2.result.great,
+                activeSala.jugador2.result.good,
+                activeSala.jugador2.result.bad,
+                activeSala.jugador2.result.miss,
+                activeSala.jugador2.result.maxCombo)
+            for(i in 0 until 6){
+                animatedNumber(listScores[i], ((i * 50)).toLong(), textViews[i], { true })
+            }
+            animateScore(textViews[6], activeSala.jugador2.result.score,  { true })
+        }
+    }
 
-            for (textView in textViews){
-                soundPoolSelectSongKsf.play(tick, 1.0f, 1.0f, 1, 0, 1.0f)
-                delay(100)
+    private suspend fun animatedNumber(number: String, delayMs: Long, textView: TextView, isPoolLoaded: () -> Boolean) {
+        delay(delayMs)
+        if (!isPoolLoaded()) return
+
+        var strNumber = number
+        if (strNumber.length < 3) {
+            strNumber = (strNumber.toInt() + 1000).toString().substring(1)
+        }
+
+        val reversed = strNumber.reversed()
+        var currentDisplay = ""
+        val timePerDigit = 30L / strNumber.length // más rápido
+        val tickInterval = 50L
+
+        coroutineScope {
+            var lastSoundTime = 0L
+
+            for (digit in reversed) {
+                repeat(6) {
+                    textView.text = (0..9).random().toString() + currentDisplay
+                    delay(timePerDigit)
+
+                    // lanzar sonido sin bloquear
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastSoundTime > tickInterval && isPoolLoaded()) {
+                        launch(Dispatchers.IO) {
+                            soundPoolSelectSongKsf.play(tick, 1f, 1f, 1, 0, 1.0f)
+                        }
+                        lastSoundTime = currentTime
+                    }
+                }
+
+                currentDisplay = digit + currentDisplay
+                textView.text = currentDisplay
             }
         }
+
+        textView.text = strNumber.toInt().toString()
+    }
+
+    private suspend fun animateScore(textView: TextView, score: String, isPoolLoaded: () -> Boolean) {
+        val strScore = String.format("%07d", score.toInt())
+        val reversed = strScore.reversed()
+        var currentDisplay = ""
+        val timePerDigit = 30L / strScore.length
+
+        for (digit in reversed) {
+            repeat(8) {
+                textView.text = (0..9).random().toString() + currentDisplay
+                delay(timePerDigit)
+            }
+
+            currentDisplay = digit + currentDisplay
+            textView.text = currentDisplay
+        }
+
+        textView.text = (strScore).toInt().toString()
     }
 
     override fun onDestroy() {

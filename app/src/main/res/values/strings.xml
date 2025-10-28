@@ -76,4 +76,12 @@
                                         Puedes unirte a nuestros grupos para más información sobre como pagar ó puedes usar Mercado Pago:
     </string>
 
+    <string name="warning_message">⚠ ADVERTENCIA ⚠ \n\n
+        %1$s, has jugado un nivel modificado.
+        Tu puntaje no se guardará ni local ni globalmente.\n\n
+        Queremos mantener la competencia justa para todos los jugadores.
+        Si continúas modificando archivos, este dispositivo podría ser bloqueado en Finger Dance.
+    </string>
+
+
 </resources>

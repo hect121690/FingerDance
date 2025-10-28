@@ -83,7 +83,6 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             arrayOf(canal, cancion)
         )
 
-        // Agregamos cada puntaje a la lista `puntajes`
         if (cursor.moveToFirst()) {
             do {
                 val canc = cursor.getString(cursor.getColumnIndexOrThrow("cancion")).toString()

@@ -9,6 +9,7 @@ import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.security.MessageDigest
 
 lateinit var soundPoolSelectSongKsf: SoundPool
 var selectSong_movKsf : Int = 0
@@ -35,6 +36,10 @@ var b_rankB : Int = 0
 var c_rankB : Int = 0
 var d_rankB : Int = 0
 var f_rankB : Int = 0
+
+var perfect_game : Int = 0
+var full_combo : Int = 0
+var no_miss : Int = 0
 
 lateinit var soundPoolSelectSongSound: SoundPool
 var st_zero : Int = 0
@@ -103,22 +108,6 @@ class LoadSongsKsf {
         val baseDir = context.getExternalFilesDir("/FingerDance/Songs/Channels/")
         val listChannels = ArrayList<Channels>()
 
-        val validFolders = setOf(
-            "000-Finger Dance",
-            "03-SHORT CUT",
-            "04-REMIX",
-            "05-FULLSONGS",
-            "10-PIU 1st to Perfect Collection",
-            "12-EXCEED TO ZERO",
-            "13-NX TO NXA",
-            "14-FIESTA TO FIESTA 2",
-            "17-PRIME",
-            "18-PRIME 2",
-            "19-XX ANIVERSARY",
-            "20-PHOENIX",
-            "21-RISE"
-        )
-
         if (baseDir?.exists() == true && baseDir.isDirectory) {
             val listRutasChannels = mutableListOf<String>()
 
@@ -154,7 +143,7 @@ class LoadSongsKsf {
         val rutaBitActiveHalfDouble = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_hd.png").toString()
 
         val listRutas = getRutasSongs(rutaChannel)
-        val listOthers = arrayListOf("03-SHORT CUT", "04-REMIX", "05-FULLSONGS")
+        val listOthers = arrayListOf("03-SHORT CUT - V2", "04-REMIX - V2", "05-FULLSONGS - V2")
         for(index in 0 until listRutas.size){
             val listKsf = arrayListOf<Ksf>()
             val songKsf = SongKsf("","","","","","","","", arrayListOf())
@@ -206,6 +195,11 @@ class LoadSongsKsf {
                             val ksf = Ksf()
                             ksf.typePlayer = "A"
                             val file = File(it.toString())
+
+                            /*
+                            ksf.checkedValues = generateCheckedValues(file)
+                            */
+
                             file.useLines { lines ->
                                 for (line in lines) {
                                     when {
@@ -254,6 +248,7 @@ class LoadSongsKsf {
                                 }
                             }
                         }
+
                         listKsf.sortWith(
                             compareBy<Ksf> { it.typePlayer == "B" }
                                 .thenBy { it.level }
@@ -262,6 +257,11 @@ class LoadSongsKsf {
                     }
                 }
             }
+            /*
+            for(i in 0 until songKsf.listKsf.size){
+                songKsf.listKsf[i].checkedValues = "${songKsf.listKsf[i].checkedValues}|${File(songKsf.rutaSong).length()}"
+            }
+            */
             listSongs.add(songKsf)
         }
         listSongs.sortBy { song ->
@@ -274,8 +274,35 @@ class LoadSongsKsf {
         return listSongs
     }
 
+    private fun generateCheckedValues(file: File): String {
+        var inStepBlock = false
+        var count1 = 0
+        var count4 = 0
+
+        file.forEachLine { line ->
+            if (!inStepBlock && line.startsWith("#STEP:")) {
+                inStepBlock = true
+                return@forEachLine
+            }
+
+            if (inStepBlock) {
+                if (line.startsWith("22222")) return@forEachLine
+                if (line.startsWith("|")) return@forEachLine
+                line.forEach { char ->
+                    when (char) {
+                        '1' -> count1++
+                        '4' -> count4++
+                    }
+                }
+            }
+        }
+
+        return "$count1|$count4"
+    }
+
+
     private fun getValue(line: String): String {
-        return line.substringAfter(":").substringBefore(";")//line.split(":")[1].replace(";", "")
+        return line.substringAfter(":").substringBefore(";")
     }
 
     private fun getRutasSongs(rutaChannel: String): MutableList<String> {
@@ -521,6 +548,7 @@ class LoadSongsKsf {
         getRank(pathSounds)
         getRankB(pathSounds)
         getNavigationSounds(pathSounds)
+        getSoundEndSong(pathSounds)
     }
 
     private fun getNavigationSounds(pathSounds: String){
@@ -620,13 +648,28 @@ class LoadSongsKsf {
         val decriptorRankf = FileInputStream(pathRankf).fd
         f_rankB = soundPoolSelectSongKsf.load(decriptorRankf, 0, pathRankf.length(), 1)
     }
+
+    private fun getSoundEndSong(pathSounds: String){
+        val pathPerfectGame = File("$pathSounds/perfect_game.mp3")
+        val decriptorPerfectGame = FileInputStream(pathPerfectGame).fd
+        perfect_game = soundPoolSelectSongKsf.load(decriptorPerfectGame, 0, pathPerfectGame.length(), 1)
+
+        val pathFullcombo = File("$pathSounds/full_combo.mp3")
+        val decriptorFullcombo = FileInputStream(pathFullcombo).fd
+        full_combo = soundPoolSelectSongKsf.load(decriptorFullcombo, 0, pathFullcombo.length(), 1)
+
+        val pathNoMiss = File("$pathSounds/no_miss.mp3")
+        val decriptorNoMiss = FileInputStream(pathNoMiss).fd
+        no_miss = soundPoolSelectSongKsf.load(decriptorNoMiss, 0, pathNoMiss.length(), 1)
+    }
 }
 
 data class Ksf(var rutaKsf: String = "",
                var level: String = "",
                var rutaBitActive: String = "",
                var stepmaker: String = "",
-                var typePlayer: String = "")
+               var typePlayer: String = "",
+               var checkedValues: String = "")
 
 data class SongKsf(
     var title: String,

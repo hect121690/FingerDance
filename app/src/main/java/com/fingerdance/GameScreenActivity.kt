@@ -1,6 +1,8 @@
 package com.fingerdance
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.os.Bundle
 import android.os.Handler
@@ -8,6 +10,8 @@ import android.os.Looper
 import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AnimationUtils
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.Toast
@@ -16,22 +20,29 @@ import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
-import com.fingerdance.Player.Companion.NOTE_LNOTE
-import com.fingerdance.Player.Companion.NOTE_NONE
 import java.io.File
-
-private lateinit var gdxContainer : RelativeLayout
-private var currentVideoPositionScreen : Int = 0
-
-lateinit var videoViewBgaoff : VideoView
-lateinit var videoViewBgaOn : VideoView
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
 private const val timeToPlay = 1000L
 var countMiss = 0
 var halfDouble = false
+
 open class GameScreenActivity : AndroidApplication() {
+
+    private lateinit var gdxContainer : RelativeLayout
+    private var currentVideoPositionScreen : Int = 0
+
+    lateinit var videoViewBgaoff : VideoView
+    lateinit var videoViewBgaOn : VideoView
+
+    private lateinit var imgEndSong : ImageView
+    private lateinit var bitPerfectGame : Bitmap
+    private lateinit var bitFullcombo : Bitmap
+    private lateinit var bitNoMiss  : Bitmap
+
+    private var isPlayingEndSong = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_screen)
@@ -41,11 +52,26 @@ open class GameScreenActivity : AndroidApplication() {
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
         readyPlay = false
 
+        canGoBack = false
+        thisHandler.postDelayed({
+            canGoBack = true
+        }, 3000)
+
         if(mediPlayer.isPlaying){
             mediPlayer.stop()
         }
 
         resultSong = ResultSong()
+
+        val pathImgs = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play")!!.absolutePath
+        bitPerfectGame = BitmapFactory.decodeFile("$pathImgs/perfect_game.png")
+        bitFullcombo = BitmapFactory.decodeFile("$pathImgs/full_combo.png")
+        bitNoMiss = BitmapFactory.decodeFile("$pathImgs/no_miss.png")
+
+        imgEndSong = findViewById(R.id.imgEndSong)
+        imgEndSong.layoutParams.width = (medidaFlechas * 5).toInt()
+        imgEndSong.visibility = View.INVISIBLE
+
         val linearBGADark = findViewById<LinearLayout>(R.id.linearBGADark)
         addVideoBackground(linearBGADark)
 
@@ -78,6 +104,11 @@ open class GameScreenActivity : AndroidApplication() {
             }
             mediaPlayer.start()
         }, timeToPlay)
+        if(!isOnline){
+            if(!isOffline){
+                checkedValues = generateCheckedValues(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
+            }
+        }
 
     }
 
@@ -132,24 +163,64 @@ open class GameScreenActivity : AndroidApplication() {
 
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-            /*
-            ksf.patterns.forEach{ ptn ->
-                ptn.vLine.forEach { line ->
-                    line.step.forEach { step ->
-                        if(step != NOTE_NONE && step != NOTE_LNOTE){
-                            countMiss ++
-                        }
-                    }
-                }
-            }
-            */
+            thisHandler.postDelayed({
+                getEndSong()
+            },1000)
             thisHandler.postDelayed({
                 val intent = Intent(this, DanceGrade()::class.java)
                 startActivity(intent)
                 this.finish()
-            }, 2500)
+            }, 4000)
         }
 
+    }
+
+    private fun getEndSong(){
+        if(resultSong.miss == 0 && resultSong.bad == 0 && resultSong.good == 0) {
+            if (resultSong.great == 0) {
+                imgEndSong.setImageBitmap(bitPerfectGame)
+                imgEndSong.visibility = View.VISIBLE
+                imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
+                isPlayingEndSong = soundPoolSelectSongKsf.play(perfect_game, 1.0f, 1.0f, 1, 0, 1.0f)
+            } else {
+                imgEndSong.setImageBitmap(bitFullcombo)
+                imgEndSong.visibility = View.VISIBLE
+                imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
+                isPlayingEndSong = soundPoolSelectSongKsf.play(full_combo, 1.0f, 1.0f, 1, 0, 1.0f)
+            }
+        }else if(resultSong.miss == 0){
+            imgEndSong.setImageBitmap(bitNoMiss)
+            imgEndSong.visibility = View.VISIBLE
+            imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
+            isPlayingEndSong = soundPoolSelectSongKsf.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
+        }
+        imgEndSong.bringToFront()
+    }
+
+    private fun generateCheckedValues(file: File): String {
+        var inStepBlock = false
+        var count1 = 0
+        var count4 = 0
+
+        file.forEachLine { line ->
+            if (!inStepBlock && line.startsWith("#STEP:")) {
+                inStepBlock = true
+                return@forEachLine
+            }
+
+            if (inStepBlock) {
+                if (line.startsWith("22222")) return@forEachLine
+                if (line.startsWith("|")) return@forEachLine
+                line.forEach { char ->
+                    when (char) {
+                        '1' -> count1++
+                        '4' -> count4++
+                    }
+                }
+            }
+        }
+
+        return "$count1|$count4"
     }
 
     override fun onDestroy() {
@@ -178,8 +249,14 @@ open class GameScreenActivity : AndroidApplication() {
 
     private var backPressedTime: Long = 0
     private lateinit var backToast: Toast
+    private var canGoBack = false
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (!canGoBack) {
+            Toast.makeText(this, "Espera 3 segundos para regresar al Select Song", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         if (!isOnline) {
             if (backPressedTime + 2000 > System.currentTimeMillis()) {
                 backToast.cancel()

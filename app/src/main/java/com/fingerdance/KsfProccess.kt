@@ -391,20 +391,6 @@ class KsfProccess {
             }
         }
 
-        /*
-        patterns.forEach { ptn ->
-            ptn.timeLen = if (ptn.timeDelay != 0L) {
-                ptn.timeDelay
-            } else {
-                if (ptn.fBPM != 0F) {
-                    (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toLong()
-                } else {
-                    0
-                }
-            }
-        }
-        */
-
         for (i in 0 until patterns.size - 1) {
             val mpos = patterns[i].timePos
             val mlen = patterns[i].timeLen
@@ -547,5 +533,4 @@ class KsfProccess {
             }
         }
     }
-
 }

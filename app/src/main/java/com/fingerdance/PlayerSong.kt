@@ -17,7 +17,7 @@ class PlayerSong(
     var speed: String,
     var steps: String?,
     var values: Levels,
-    var rutaKsf: String?,
+    var rutaKsf: String,
     var ap: Boolean = false,
     var fd: Boolean = false,
     var vanish: Boolean = false,
