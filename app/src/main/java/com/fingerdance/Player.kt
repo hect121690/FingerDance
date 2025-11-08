@@ -327,12 +327,12 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     }
                                     drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
                                 }
-                            } else {
+                            } /*else {
                                 if (!bDrawLong[iStepNo]) {
                                     bDrawLong[iStepNo] = true
                                     iLongTop[iStepNo] = -STEPSIZE.toLong()
                                 }
-                            }
+                            }*/
                         }
                     }
                 } else if (iNoteTop >= gdxHeight) {

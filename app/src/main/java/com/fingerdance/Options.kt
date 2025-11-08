@@ -69,9 +69,11 @@ var fileNameChannel = ""
 class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var bgOptions : LinearLayout
     private lateinit var titleOptions : TextView
+
+    private lateinit var btnGuardar : Button
+
     private lateinit var recyclerThemes : RecyclerView
     private lateinit var binding: ActivityOptionsBinding
-    private lateinit var btnGuardar : Button
     private lateinit var btnMoreThemes : Button
     private lateinit var recyclerFireBase: RecyclerView
     private lateinit var txProgress : TextView
@@ -100,6 +102,10 @@ class Options() : AppCompatActivity(), ItemClickListener {
     private lateinit var txProgressDownloadChannel : TextView
     private var isChannel = false
 
+    private var nameNewChannel = ""
+    private var descriptionNewChannel = ""
+    private val idNewChannel = 100
+
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             saveFileToDestination(it)
@@ -124,8 +130,9 @@ class Options() : AppCompatActivity(), ItemClickListener {
         recyclerThemes = findViewById(R.id.listThemes)
         recyclerThemes.layoutManager = layoutManager
         recyclerThemes = binding.listThemes
-        btnGuardar = findViewById(R.id.btnGuardar)
         btnMoreThemes = findViewById(R.id.btnMoreThemes)
+
+        btnGuardar = findViewById(R.id.btnGuardar)
 
         btnTemas = findViewById(R.id.btnThemes)
         btnCanciones = findViewById(R.id.btnCanciones)
@@ -890,9 +897,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
-    private var nameNewChannel = ""
-    private var descriptionNewChannel = ""
-    private val idNewChannel = 100
+
     private fun showInputNameChannel() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1074,6 +1079,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
             }
         }
     }
+
     private fun createPathNewChannel(context: Context, nameFolder: String) : Boolean {
         var existFolder = true
         val folderPath = context.getExternalFilesDir("/FingerDance/Songs/Channels/$nameFolder/")
@@ -1242,7 +1248,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     }
 
     private fun isUsingWifi(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager = context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val network = connectivityManager.activeNetwork ?: return false
@@ -1255,7 +1261,7 @@ class Options() : AppCompatActivity(), ItemClickListener {
     }
 
     private fun isUsingMobileData(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager = context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val network = connectivityManager.activeNetwork ?: return false
@@ -1438,7 +1444,11 @@ class Options() : AppCompatActivity(), ItemClickListener {
 
     }
 
-    private class ThemesItemsAdapter( private val items: ArrayList<Pair<String, String>>, private val btnDescargar: Button, private val itemClickListener: ItemClickListener, ) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
+    private class ThemesItemsAdapter(
+        private val items: ArrayList<Pair<String, String>>,
+        private val btnDescargar: Button,
+        private val itemClickListener: ItemClickListener,
+        ) : RecyclerView.Adapter<ThemesItemsAdapter.ViewHolder>() {
         private var selectedItemPosition = RecyclerView.NO_POSITION
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -1515,11 +1525,4 @@ class Options() : AppCompatActivity(), ItemClickListener {
     }
 }
 
-interface ItemClickListener {
-    fun onItemClick(item: Pair<String, String>)
-}
 
-data class TelegramDocument(
-    val documentName: String,
-    val documentId: String
-)

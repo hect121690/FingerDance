@@ -184,6 +184,9 @@ var timeToPresiscionHD = 0
 
 lateinit var validFolders : List<String>
 
+lateinit var arrGradesDesc : ArrayList<Bitmap>
+lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -216,7 +219,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         firebaseDatabase = FirebaseDatabase.getInstance()
 
         db = DataBasePlayer(this)
-        themes = getPreferences(Context.MODE_PRIVATE)
+        themes = getPreferences(MODE_PRIVATE)
         tema = themes.getString("theme", "default").toString()
         skinSelected = themes.getString("skin", "").toString()
         speedSelected = themes.getString("speed", "").toString()
@@ -249,23 +252,30 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         deviceIdFind = getDeviceId(this@MainActivity)
 
+        getValidFolders { folders ->
+            validFolders = folders
+        }
+
+        /*
         validFolders = listOf(
-            "000-Finger Dance",                     //0
-            "03-SHORT CUT - V2",                    //1
-            "04-REMIX - V2",                        //2
-            "05-FULLSONGS - V2",                    //3
-            "10-PIU 1st TO PERFECT COLLECTION",     //4
-            "11-EXTRA TO PREX 3",                   //5
-            "12-EXCEED TO ZERO",                    //6
-            "13-NX TO NXA",                         //7
-            "14-FIESTA TO FIESTA 2 - V2",           //8
-            "15 - INFINITY",                        //9
-            "17-PRIME",                             //10
-            "18-PRIME 2",                           //11
-            "19-XX ANIVERSARY",                     //12
-            "20-PHOENIX",                           //13
-            "21-RISE"                               //14
+            "000-Finger Dance",
+            "03-SHORT CUT - V2",
+            "04-REMIX - V2",
+            "05-FULLSONGS - V2",
+            "10-PIU 1st TO PERFECT COLLECTION",
+            "11-EXTRA TO PREX 3",
+            "12-EXCEED TO ZERO",
+            "13-NX TO NXA",
+            "14-FIESTA TO FIESTA 2 - V2",
+            "15 - INFINITY",
+            "17-PRIME",
+            "18-PRIME 2",
+            "19-XX ANIVERSARY",
+            "20-PHOENIX",
+            "21-RISE",
+            "50-Prex Metal"
         )
+        */
 
         medidaFlechas = (width / 7f)
 
@@ -801,6 +811,12 @@ class MainActivity : AppCompatActivity(), Serializable {
         val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
         arrayGrades = getGrades(rutaGrades)
 
+        val gradeDescription = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description.png"
+        val gradeDescriptionAbrev = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description_abrev.png"
+
+        arrGradesDesc = getGradesDescription(gradeDescription)
+        arrGradesDescAbrev = getGradesDescription(gradeDescriptionAbrev)
+
         if(!startOnline){
             btnPlayOnline.visibility = View.GONE
             val lpOptions = btnOptions.layoutParams as ConstraintLayout.LayoutParams
@@ -1088,7 +1104,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         soundPlayer!!.pause()
 
         Handler(Looper.getMainLooper()).postDelayed({
-            val intent = Intent(applicationContext, Options()::class.java)
+            val intent = Intent(applicationContext, OptionsActivity()::class.java)
             startActivity(intent)
             this@MainActivity.finish()
         }, 1000L)
@@ -1301,6 +1317,17 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun showPaySuscription(paypalOn: Boolean) {
+        /*
+        val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
+        val isPass = deviceFree == deviceIdFind
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Validacion Device ID")
+            .setMessage("Dispositivo ID: $deviceIdFind | Dispositivo encontrado en base: $deviceFree | $isPass")
+            .setPositiveButton("Aceptar") { d, _ ->
+                d.dismiss()
+            }
+            .show()
+        */
         mediaPlayerMain.pause()
         video_fondo.pause()
         idWithRegister = ""
@@ -1310,7 +1337,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         val layoutAviso = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#121212"))
+            setBackgroundColor("#121212".toColorInt())
             setPadding(64, 64, 64, 64)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1627,6 +1654,25 @@ class MainActivity : AppCompatActivity(), Serializable {
         })
     }
 
+    private fun getValidFolders(callback: (ArrayList<String>) -> Unit) {
+        val databaseRef = firebaseDatabase!!.getReference("version").child("validFolders")
+        val listResult = arrayListOf<String>()
+
+        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (folder in snapshot.children) {
+                    listResult.add(folder.value.toString())
+                }
+                callback(listResult)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer datos", error.toException())
+            }
+        })
+    }
+
+
     private fun getDeviceId(context: Context): String {
         return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
     }
@@ -1764,16 +1810,89 @@ class MainActivity : AppCompatActivity(), Serializable {
         val cellWidth = bit.width / 2
         val cellHeight = bit.height / 8
 
-        return ArrayList<Bitmap>().apply {
-            for (r in 0 until 8) {
-                for (c in 0 until 2) {
-                    val x = c * cellWidth
-                    val y = r * cellHeight
-                    add(Bitmap.createBitmap(bit, x, y, cellWidth, cellHeight))
+        val gradesList = ArrayList<Bitmap>()
+
+        for (r in 0 until 8) {
+            for (c in 0 until 2) {
+                val x = c * cellWidth
+                val y = r * cellHeight
+                val original = Bitmap.createBitmap(bit, x, y, cellWidth, cellHeight)
+                val trimmed = trimTransparentEdges(original)
+                gradesList.add(trimmed)
+            }
+        }
+
+        return gradesList
+    }
+
+
+    private fun getGradesDescription(rutaGrades: String): ArrayList<Bitmap> {
+        val bit = BitmapFactory.decodeFile(rutaGrades)
+        val cellWidth = bit.width
+        val cellHeight = bit.height / 8
+
+        val gradesList = ArrayList<Bitmap>()
+
+        for (r in 0 until 8) {
+            val y = r * cellHeight
+            val original = Bitmap.createBitmap(bit, 0, y, cellWidth, cellHeight)
+            val trimmed = trimTransparentEdges(original)
+            gradesList.add(trimmed)
+        }
+
+        return gradesList
+    }
+
+    private fun trimTransparentEdges(source: Bitmap): Bitmap {
+        val width = source.width
+        val height = source.height
+        var top = 0
+        var left = 0
+        var right = width - 1
+        var bottom = height - 1
+
+        loop@ for (y in 0 until height) {
+            for (x in 0 until width) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    top = y
+                    break@loop
                 }
             }
         }
+
+        loop@ for (y in height - 1 downTo 0) {
+            for (x in 0 until width) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    bottom = y
+                    break@loop
+                }
+            }
+        }
+
+        loop@ for (x in 0 until width) {
+            for (y in 0 until height) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    left = x
+                    break@loop
+                }
+            }
+        }
+
+        loop@ for (x in width - 1 downTo 0) {
+            for (y in 0 until height) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    right = x
+                    break@loop
+                }
+            }
+        }
+
+        // Asegurar que los valores son válidos
+        if (right < left || bottom < top) return source
+
+        return Bitmap.createBitmap(source, left, top, right - left + 1, bottom - top + 1)
     }
+
 
     override fun onPause() {
         super.onPause()
@@ -1894,3 +2013,7 @@ data class CancionOnline(
     var bpm: String = "",
     var isHalf: Boolean = false,
 )
+
+interface ItemClickListener {
+    fun onItemClick(item: Pair<String, String>)
+}

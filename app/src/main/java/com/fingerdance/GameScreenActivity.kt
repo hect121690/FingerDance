@@ -65,8 +65,11 @@ open class GameScreenActivity : AndroidApplication() {
 
         val pathImgs = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play")!!.absolutePath
         bitPerfectGame = BitmapFactory.decodeFile("$pathImgs/perfect_game.png")
+        bitPerfectGame = trimTransparentEdges(bitPerfectGame)
         bitFullcombo = BitmapFactory.decodeFile("$pathImgs/full_combo.png")
+        bitFullcombo = trimTransparentEdges(bitFullcombo)
         bitNoMiss = BitmapFactory.decodeFile("$pathImgs/no_miss.png")
+        bitNoMiss = trimTransparentEdges(bitNoMiss)
 
         imgEndSong = findViewById(R.id.imgEndSong)
         imgEndSong.layoutParams.width = (medidaFlechas * 5).toInt()
@@ -103,6 +106,7 @@ open class GameScreenActivity : AndroidApplication() {
                 }
             }
             mediaPlayer.start()
+
         }, timeToPlay)
         if(!isOnline){
             if(!isOffline){
@@ -110,6 +114,59 @@ open class GameScreenActivity : AndroidApplication() {
             }
         }
 
+    }
+
+    private fun trimTransparentEdges(source: Bitmap): Bitmap {
+        val width = source.width
+        val height = source.height
+        var top = 0
+        var left = 0
+        var right = width - 1
+        var bottom = height - 1
+
+        // Buscar primer píxel visible arriba
+        loop@ for (y in 0 until height) {
+            for (x in 0 until width) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    top = y
+                    break@loop
+                }
+            }
+        }
+
+        // Buscar primer píxel visible abajo
+        loop@ for (y in height - 1 downTo 0) {
+            for (x in 0 until width) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    bottom = y
+                    break@loop
+                }
+            }
+        }
+
+        // Buscar primer píxel visible a la izquierda
+        loop@ for (x in 0 until width) {
+            for (y in 0 until height) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    left = x
+                    break@loop
+                }
+            }
+        }
+
+        // Buscar primer píxel visible a la derecha
+        loop@ for (x in width - 1 downTo 0) {
+            for (y in 0 until height) {
+                if ((source.getPixel(x, y) shr 24) != 0) {
+                    right = x
+                    break@loop
+                }
+            }
+        }
+
+        if (right < left || bottom < top) return source
+
+        return Bitmap.createBitmap(source, left, top, right - left + 1, bottom - top + 1)
     }
 
     private fun isFileExists(file: File): Boolean {

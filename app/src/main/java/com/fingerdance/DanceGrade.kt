@@ -6,6 +6,7 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.AlertDialog
+import android.content.ClipDescription
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
@@ -15,6 +16,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
+import android.media.Image
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
@@ -47,8 +49,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import java.io.File
-import java.security.MessageDigest
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -56,6 +56,7 @@ import kotlin.random.Random
 private lateinit var bgConstraint: ConstraintLayout
 private lateinit var mediaPlayerEvaluation: MediaPlayer
 private lateinit var grade : Bitmap
+private lateinit var gradeDescription : Bitmap
 
 private lateinit var gradeP1 : Bitmap
 private lateinit var gradeP2 : Bitmap
@@ -88,6 +89,8 @@ class DanceGrade : AppCompatActivity() {
     private var enabledSaveScore = false
     private var rankList = mutableListOf<Map<String, Any>>()
     private lateinit var rankRef : DatabaseReference
+
+    private lateinit var imgGradeDescription: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -166,17 +169,23 @@ class DanceGrade : AppCompatActivity() {
         val imgGrade = findViewById<ImageView>(R.id.imgGrade)
         imgGrade.visibility = View.INVISIBLE
         imgGrade.layoutParams.width = widthGrades
-        imgGrade.layoutParams.height = ((width / 10) * 6)
+        imgGrade.layoutParams.height = (decimoHeigtn * 1.2).toInt()
+
+        imgGradeDescription = findViewById(R.id.imgGradeDescription)
+        imgGradeDescription.visibility = View.INVISIBLE
+        //imgGrade.layoutParams.width = widthGrades
+        imgGradeDescription.layoutParams.height = (medidaFlechas / 2).toInt()
+
 
         val imgGradeP1 = findViewById<ImageView>(R.id.imgGradeP1)
         imgGradeP1.visibility = View.INVISIBLE
         imgGradeP1.layoutParams.width = widthGrades
-        imgGradeP1.layoutParams.height = ((width / 10) * 6)
+        imgGradeP1.layoutParams.height = (decimoHeigtn * 1.2).toInt()
 
         val imgGradeP2 = findViewById<ImageView>(R.id.imgGradeP2)
         imgGradeP2.visibility = View.INVISIBLE
         imgGradeP2.layoutParams.width = widthGrades
-        imgGradeP2.layoutParams.height = ((width / 10) * 6)
+        imgGradeP2.layoutParams.height = (decimoHeigtn * 1.2).toInt()
 
         val imgWinP1 = findViewById<ImageView>(R.id.imgWinP1)
         imgWinP1.layoutParams.width = ((width / 10) * 4.5).toInt()
@@ -385,6 +394,7 @@ class DanceGrade : AppCompatActivity() {
                 handlerDG.postDelayed({
                     if(!isOnline){
                         imgGrade.setImageBitmap(grade)
+                        imgGradeDescription.setImageBitmap(gradeDescription)
                         animateImageView(imgGrade)
                         soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
                         rankA = getRankSound(soundGrade)
@@ -516,7 +526,10 @@ class DanceGrade : AppCompatActivity() {
                 AlertDialog.Builder(this@DanceGrade)
                     .setTitle("Nivel modificado")
                     .setMessage(warningMessage)
-                    .setPositiveButton("Entiendo") { dialog, _ -> dialog.dismiss() }
+                    .setPositiveButton("Entiendo") { dialog, _ ->
+                        dialog.dismiss()
+                        getBtnAceptar()
+                    }
                     .setCancelable(false)
                     .show()
 
@@ -525,7 +538,29 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun getFirstRank() : String {
-        var checkedValuesFirebase = ""
+
+        var checkedValuesFirebase = listGlobalRanking[songIndex].niveles[levelIndex]
+        val level = checkedValuesFirebase.nivel
+        val fr = checkedValuesFirebase.fisrtRank
+        //var checkedValuesFirebase = listGlobalRanking[songIndex].niveles[levelIndex].checkedValues
+        //val level = listGlobalRanking[songIndex].niveles[levelIndex].nivel
+        //val fr = listGlobalRanking[songIndex].niveles[levelIndex].fisrtRank
+
+        if(level == currentLevel){
+            if(checkedValuesFirebase.checkedValues == checkedValues){
+                enabledSaveScore = true
+                rankList = mutableListOf<Map<String, Any>>()
+                for (rank in fr) {
+                    val nombre = rank.nombre
+                    val puntaje = rank.puntaje.toInt()
+                    val grado = rank.grade
+                    rankList.add(mapOf("nombre" to nombre, "puntaje" to puntaje, "grade" to grado))
+                }
+            }else{
+                enabledSaveScore = false
+            }
+        }
+
         rankRef = firebaseDatabase!!
             .getReference("channels")
             .child(channelIndex.toString())
@@ -533,38 +568,13 @@ class DanceGrade : AppCompatActivity() {
             .child(songIndex.toString())
             .child("niveles")
             .child(levelIndex.toString())
-        rankRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val level = snapshot.child("nivel").getValue(String::class.java) ?: ""
-                checkedValuesFirebase = snapshot.child("checkedValues").getValue(String::class.java) ?: ""
-                if(level == currentLevel){
-                    if(checkedValues == checkedValuesFirebase){
-                        enabledSaveScore = true
-                        rankList = mutableListOf<Map<String, Any>>()
-                        for (rankSnapshot in snapshot.child("fisrtRank").children) {
-                            val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                            val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java)?.toIntOrNull() ?: 0
-                            val grado = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
-                            rankList.add(mapOf("nombre" to nombre, "puntaje" to puntaje, "grade" to grado))
-                        }
-                        //return
-                    }else{
-                        enabledSaveScore = false
-                    }
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer niveles de la cancion $currentSong", error.toException())
-            }
-        })
-        return checkedValuesFirebase
+        return checkedValuesFirebase.checkedValues
     }
 
     private fun guardarAlHDPQueModificoElKSF(checkedValuesFirebase: String){
         firebaseDatabase!!.getReference("devicesBanners").child(deviceIdFind).get().addOnSuccessListener { snapshot ->
             val currentCount = snapshot.getValue(Int::class.java) ?: 0
-            val info = "Local: $checkedValues | Firebase: $checkedValuesFirebase | $channelIndex, $songIndex, $levelIndex"//currentCount + 1
+            val info = "$currentCount -> Local: $checkedValues | Firebase: $checkedValuesFirebase | $channelIndex, $songIndex, $levelIndex"//currentCount + 1
             firebaseDatabase!!.getReference("devicesBanners").child(deviceIdFind).setValue(info)
                 .addOnSuccessListener {
                     Log.d("Firebase", "$deviceIdFind guardado con contador $info")
@@ -628,7 +638,6 @@ class DanceGrade : AppCompatActivity() {
             }
         })
     }
-
 
     private fun getEfects(pathCommandEffect: String) {
         showLevel()
@@ -823,6 +832,44 @@ class DanceGrade : AppCompatActivity() {
                 newGrade = "F"
             }
         }
+        if (resultSong.miss == 0) {
+            // Casos sin misses
+            if (resultSong.bad == 0 && resultSong.good == 0 && resultSong.great == 0) {
+                newGrade = "$newGrade|PG"  // Perfect Game
+                gradeDescription = arrGradesDesc[0]
+            } else if (resultSong.bad == 0 && resultSong.good == 0) {
+                newGrade = "$newGrade|UG"  // Ultimate Game
+                gradeDescription = arrGradesDesc[1]
+            } else if (resultSong.bad == 0) {
+                newGrade = "$newGrade|EG"  // Extreme Game
+                gradeDescription = arrGradesDesc[2]
+            } else {
+                newGrade = "$newGrade|SG"  // Superb Game
+                gradeDescription = arrGradesDesc[3]
+            }
+
+        } else {
+            // Casos con misses
+            when {
+                resultSong.miss <= 5 -> {
+                    newGrade = "$newGrade|MG"  // Marvelous Game
+                    gradeDescription = arrGradesDesc[4]
+                }
+                resultSong.miss <= 10 -> {
+                    newGrade = "$newGrade|TG"  // Talented Game
+                    gradeDescription = arrGradesDesc[5]
+                }
+                resultSong.miss <= 20 -> {
+                    newGrade = "$newGrade|FG"  // Fair Game
+                    gradeDescription = arrGradesDesc[6]
+                }
+                resultSong.miss > 20 -> {
+                    newGrade = "$newGrade|RG"  // Rough Game
+                    gradeDescription = arrGradesDesc[7]
+                }
+            }
+        }
+
     }
 
     private fun showGradeP1(totalScoreP1: Int) {
@@ -889,6 +936,17 @@ class DanceGrade : AppCompatActivity() {
         animatorSet.duration = 500
         animatorSet.interpolator = AccelerateDecelerateInterpolator()
         animatorSet.start()
+
+        imgGradeDescription.visibility = View.VISIBLE
+        imgGradeDescription.alpha = 0f
+
+        val fadeInDesc = ObjectAnimator.ofFloat(imgGradeDescription, "alpha", 0f, 1f)
+
+        val animatorSetDesc = AnimatorSet()
+        animatorSetDesc.playTogether(scaleX, scaleY, fadeInDesc)
+        animatorSetDesc.duration = 500
+        animatorSetDesc.interpolator = AccelerateDecelerateInterpolator()
+        animatorSetDesc.start()
     }
 
     private fun animateImageViewP1(view: ImageView) {

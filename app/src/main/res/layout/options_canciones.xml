@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+    <androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/layoutCanciones"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnCanciones">
+
+
+        <Button
+            android:id="@+id/createChannel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Crear canal"
+            android:textSize="10dp"
+            app:icon="@android:drawable/ic_input_add"
+            app:iconPadding="2dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Button
+            android:id="@+id/deleteChannel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Borrar canal"
+            android:textSize="10dp"
+            app:icon="@android:drawable/ic_delete"
+            app:iconPadding="2dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/createChannel" />
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scrollChannels"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fillViewport="true"
+            android:scrollbars="vertical"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/txSlide"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Desliza hacia abajo"
+            android:textColor="#F9A825"
+            android:textStyle="italic"
+            android:layout_marginBottom="12dp"
+            app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
+            app:layout_constraintStart_toStartOf="@+id/scrollChannels"
+            app:layout_constraintTop_toBottomOf="@+id/scrollChannels" />
+
+        <ImageView
+            android:id="@+id/arrowIndicator"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center_horizontal"
+            android:alpha="0.9"
+            android:visibility="visible"
+            app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
+            app:layout_constraintStart_toStartOf="@+id/scrollChannels"
+            app:layout_constraintTop_toBottomOf="@+id/txSlide"
+            app:srcCompat="@android:drawable/arrow_down_float" />
+
+    <Button
+        android:id="@+id/download_button_channel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Descargar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/scrollChannels"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+    <LinearLayout
+        android:id="@+id/linearTextProgressChannel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/textViewDownloadChannel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/progress_background"
+            android:elevation="4dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:padding="12dp"
+            android:textColor="@color/texto_textview_vibrante"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+

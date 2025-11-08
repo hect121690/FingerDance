@@ -66,6 +66,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -179,12 +180,12 @@ class SelectSong : AppCompatActivity() {
 
     private lateinit var imgBestScore: ImageView
 
-    private lateinit var imgBestGrade: ImageView
     private lateinit var lbBestScore: TextView
+    private lateinit var imgBestGrade: ImageView
 
-    private lateinit var imgWorldGrade: ImageView
-    private lateinit var lbWorldScore: TextView
     private lateinit var lbWorldName: TextView
+    private lateinit var lbWorldScore: TextView
+    private lateinit var imgWorldGrade: ImageView
 
     private lateinit var video_fondo : VideoView
     private lateinit var imgPrev: ImageView
@@ -418,6 +419,8 @@ class SelectSong : AppCompatActivity() {
             lbBestScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
 
             imgBestGrade = findViewById(R.id.imgBestGrade)
+            imgBestGrade.layoutParams.height = (decimoHeigtn * 0.25).toInt()
+            imgBestGrade.layoutParams.width = (medidaFlechas * 1.4).toInt()
             imgBestGrade.isVisible = false
 
             lbWorldName = findViewById(R.id.lbWorldName)
@@ -429,6 +432,8 @@ class SelectSong : AppCompatActivity() {
             lbWorldScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
 
             imgWorldGrade = findViewById(R.id.imgWorldGrade)
+            imgWorldGrade.layoutParams.height = (decimoHeigtn * 0.4).toInt()
+            imgWorldGrade.layoutParams.width = (medidaFlechas * 1.5).toInt()
             imgWorldGrade.isVisible = false
 
             val yDelta = width / 40
@@ -601,7 +606,7 @@ class SelectSong : AppCompatActivity() {
             imgAceptar.layoutParams.width = (width * 0.3).toInt()
 
             val rankingView = findViewById<TopRankingView>(R.id.topRankingView)
-            rankingView.layoutParams.width = (width * 0.9).toInt()
+            rankingView.layoutParams.width = width.toInt()
             rankingView.visibility = View.INVISIBLE
 
             val linearRanking = LinearLayout(this).apply {
@@ -863,7 +868,7 @@ class SelectSong : AppCompatActivity() {
                         playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
-                        //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
+
                         mediaPlayer = MediaPlayer().apply {
                             setAudioAttributes(
                                 AudioAttributes.Builder()
@@ -1575,9 +1580,10 @@ class SelectSong : AppCompatActivity() {
         moverLvs(positionActualLvs)
     }
 
+    /*
     private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
         var bestGrade = createBitmap(100, 100)
-        when (listSongScores[positionActualLvs].grade){
+        when (listSongScores[positionActualLvs].grade.substringBefore("|")){
             "SSS+" ->{bestGrade = arrayGrades[0]}
             "SSS" ->{bestGrade = arrayGrades[1]}
             "SS+" ->{bestGrade = arrayGrades[2]}
@@ -1595,13 +1601,153 @@ class SelectSong : AppCompatActivity() {
             "D" ->{bestGrade = arrayGrades[14]}
             "F" ->{bestGrade = arrayGrades[15]}
         }
+
         return bestGrade
+    }
+    */
+
+    private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
+        val gradeFull = listSongScores[positionActualLvs].grade
+        if (gradeFull.isEmpty()) return createBitmap(100, 100)
+
+        val gradeMain = gradeFull.substringBefore("|")
+        val gradeExtra = gradeFull.substringAfter("|", "")
+
+        // --- Obtener bitmap principal ---
+        var mainGrade = when (gradeMain) {
+            "SSS+" -> arrayGrades[0]
+            "SSS" -> arrayGrades[1]
+            "SS+" -> arrayGrades[2]
+            "SS" -> arrayGrades[3]
+            "S+" -> arrayGrades[4]
+            "S" -> arrayGrades[5]
+            "AAA+" -> arrayGrades[6]
+            "AAA" -> arrayGrades[7]
+            "AA+" -> arrayGrades[8]
+            "AA" -> arrayGrades[9]
+            "A+" -> arrayGrades[10]
+            "A" -> arrayGrades[11]
+            "B" -> arrayGrades[12]
+            "C" -> arrayGrades[13]
+            "D" -> arrayGrades[14]
+            "F" -> arrayGrades[15]
+            else -> createBitmap(100, 100)
+        }
+
+        val targetHeight = (medidaFlechas / 2).toInt()
+        val scaledMain = scaleToHeight(mainGrade, targetHeight)
+
+        // --- Si no hay grade extra ---
+        if (gradeExtra.isEmpty()) return scaledMain
+
+        // --- Obtener bitmap extra ---
+        val extraBitmap = when (gradeExtra) {
+            "PG" -> arrGradesDescAbrev[0]
+            "UG" -> arrGradesDescAbrev[1]
+            "EG" -> arrGradesDescAbrev[2]
+            "SG" -> arrGradesDescAbrev[3]
+            "MG" -> arrGradesDescAbrev[4]
+            "TG" -> arrGradesDescAbrev[5]
+            "FG" -> arrGradesDescAbrev[6]
+            "RG" -> arrGradesDescAbrev[7]
+            else -> null
+        } ?: return scaledMain
+
+        val scaledExtra = scaleToHeight(extraBitmap, targetHeight)
+        val spacing = 10
+
+        val totalWidth = scaledMain.width + spacing + scaledExtra.width
+        val result = Bitmap.createBitmap(totalWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+
+        val yMain = (targetHeight - scaledMain.height) / 2f
+        val yExtra = (targetHeight - scaledExtra.height) / 2f
+
+        canvas.drawBitmap(scaledMain, 0f, yMain, null)
+        canvas.drawBitmap(scaledExtra, scaledMain.width + spacing.toFloat(), yExtra, null)
+
+        return result
+    }
+
+    // --- Auxiliar para mantener proporción ---
+    private fun scaleToHeight(bitmap: Bitmap, targetHeight: Int): Bitmap {
+        val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+        val targetWidth = (targetHeight * aspectRatio).toInt()
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
     }
 
     private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
         var bestGrade = createBitmap(100, 100)
+
+        if (niveles[positionActualLvs].fisrtRank.isEmpty()) return bestGrade
+
+        val gradeFull = niveles[positionActualLvs].fisrtRank[0].grade
+        if (gradeFull.isEmpty()) return bestGrade
+
+        val gradeMain = gradeFull.substringBefore("|")
+        val gradeExtra = gradeFull.substringAfter("|", "")
+
+        // --- Bitmap principal ---
+        val mainGrade = when (gradeMain) {
+            "SSS+" -> arrayGrades[0]
+            "SSS" -> arrayGrades[1]
+            "SS+" -> arrayGrades[2]
+            "SS" -> arrayGrades[3]
+            "S+" -> arrayGrades[4]
+            "S" -> arrayGrades[5]
+            "AAA+" -> arrayGrades[6]
+            "AAA" -> arrayGrades[7]
+            "AA+" -> arrayGrades[8]
+            "AA" -> arrayGrades[9]
+            "A+" -> arrayGrades[10]
+            "A" -> arrayGrades[11]
+            "B" -> arrayGrades[12]
+            "C" -> arrayGrades[13]
+            "D" -> arrayGrades[14]
+            "F" -> arrayGrades[15]
+            else -> bestGrade
+        }
+
+        val targetHeight = (medidaFlechas / 2).toInt()
+        val scaledMain = scaleToHeight(mainGrade, targetHeight)
+
+        // --- Si no hay grade extra ---
+        if (gradeExtra.isEmpty()) return scaledMain
+
+        // --- Bitmap extra ---
+        val extraBitmap = when (gradeExtra) {
+            "PG" -> arrGradesDescAbrev[0]
+            "UG" -> arrGradesDescAbrev[1]
+            "EG" -> arrGradesDescAbrev[2]
+            "SG" -> arrGradesDescAbrev[3]
+            "MG" -> arrGradesDescAbrev[4]
+            "TG" -> arrGradesDescAbrev[5]
+            "FG" -> arrGradesDescAbrev[6]
+            "RG" -> arrGradesDescAbrev[7]
+            else -> null
+        } ?: return scaledMain
+
+        val scaledExtra = scaleToHeight(extraBitmap, targetHeight)
+        val spacing = 10
+
+        val totalWidth = scaledMain.width + spacing + scaledExtra.width
+        val result = Bitmap.createBitmap(totalWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+
+        val yMain = (targetHeight - scaledMain.height) / 2f
+        val yExtra = (targetHeight - scaledExtra.height) / 2f
+
+        canvas.drawBitmap(scaledMain, 0f, yMain, null)
+        canvas.drawBitmap(scaledExtra, scaledMain.width + spacing.toFloat(), yExtra, null)
+
+        return result
+    }
+
+    /*
+    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
+        var bestGrade = createBitmap(100, 100)
         return if(niveles[positionActualLvs].fisrtRank.size > 0){
-            when (niveles[positionActualLvs].fisrtRank[0].grade){
+            when (niveles[positionActualLvs].fisrtRank[0].grade.substringBefore("|")){
                 "SSS+" ->{bestGrade = arrayGrades[0]}
                 "SSS" ->{bestGrade = arrayGrades[1]}
                 "SS+" ->{bestGrade = arrayGrades[2]}
@@ -1624,6 +1770,7 @@ class SelectSong : AppCompatActivity() {
             bestGrade
         }
     }
+    */
 
     private fun openCommandWindow() {
         if(!commandWindow.isVisible){
@@ -2084,7 +2231,7 @@ class SelectSong : AppCompatActivity() {
     private fun llenaLvsVacios(
         listLvs: ArrayList<Lvs>? = arrayListOf(),
         listLvsKsf: ArrayList<Ksf>? = arrayListOf(),
-        recyclerNoLvs: RecyclerView
+        recyclerNoLvs: RecyclerView,
     ){
         recyclerNoLvs.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)

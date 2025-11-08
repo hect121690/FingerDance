@@ -17,15 +17,19 @@
         android:textColor="#FFFFFF"
         android:textStyle="bold" />
 
-    <!-- Nombre -->
+    <!-- Nombre (con efecto marquee) -->
     <TextView
         android:id="@+id/name_text"
         style="@style/size_font_ranking"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="2.5"
-        android:ellipsize="end"
+        android:ellipsize="marquee"
         android:singleLine="true"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:scrollHorizontally="true"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
         android:gravity="start"
         android:textColor="#FFFFFF"
         android:textStyle="bold" />
@@ -43,13 +47,12 @@
         android:textStyle="bold"
         android:paddingEnd="5dp"/>
 
-    <!-- Grade -->
     <TextView
         android:id="@+id/grade_text"
         style="@style/size_font_ranking"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="0.8"
+        android:layout_weight="1.2"
         android:gravity="center"
         android:singleLine="true"
         android:textColor="#FFFFFF"

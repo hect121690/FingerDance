@@ -69,6 +69,7 @@ class RankingAdapter(private val nivelList: ArrayList<FirstRank>) : RecyclerView
         fun bindItem(firstRank: FirstRank, i: Int) {
             itemBinding.positionText.text = i.toString()
             itemBinding.nameText.text = firstRank.nombre
+            itemBinding.nameText.isSelected = true
             itemBinding.puntajeText.text = firstRank.puntaje
             itemBinding.gradeText.text = firstRank.grade
         }
