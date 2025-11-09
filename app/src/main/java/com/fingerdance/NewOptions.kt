@@ -1,7 +1,5 @@
 package com.fingerdance
 
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -22,10 +20,8 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -45,7 +41,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
@@ -75,6 +70,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
+private var fileNameChannel = ""
 class OptionsActivity : AppCompatActivity(), ItemClickListener {
     private lateinit var titleNewOptions: TextView
     private lateinit var bgNewOptions: LinearLayout
@@ -147,11 +143,6 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
 
     override fun onItemClick(item: Pair<String, String>) {
         // Implementación de ItemClickListener
-    }
-
-    private fun pxToSp(px: Float, context: Context): Float {
-        val scaledDensity = context.resources.displayMetrics.scaledDensity
-        return px / scaledDensity
     }
 }
 

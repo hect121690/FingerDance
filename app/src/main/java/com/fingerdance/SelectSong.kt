@@ -451,20 +451,19 @@ class SelectSong : AppCompatActivity() {
             bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
 
             numberBitmaps = ArrayList<Bitmap>().apply {
-                var i = 0
+                val frameWidth = bitmapNumber.width / 10
                 for (a in 0 until 10) {
-                    add(Bitmap.createBitmap(bitmapNumber, i, 0, bitmapNumber.width / 10, bitmapNumber.height))
-                    i += bitmapNumber.width / 10
+                    add(Bitmap.createBitmap(bitmapNumber, a * frameWidth, 0, frameWidth, bitmapNumber.height))
                 }
             }
 
             numberBitmapsMiss = ArrayList<Bitmap>().apply {
-                var i = 0
+                val frameWidth = bitmapNumberMiss.width / 10
                 for (a in 0 until 10) {
-                    add(Bitmap.createBitmap(bitmapNumberMiss, i, 0, bitmapNumberMiss.width / 10, bitmapNumberMiss.height))
-                    i += bitmapNumberMiss.width / 10
+                    add(Bitmap.createBitmap(bitmapNumberMiss, a * frameWidth, 0, frameWidth, bitmapNumberMiss.height))
                 }
             }
+
 
             imgSelected.layoutParams.height = width / 3
             imgSelected.layoutParams.width = width / 3
@@ -506,15 +505,14 @@ class SelectSong : AppCompatActivity() {
 
             val spriteWidth = arrowNavIzq.width / 2
             val spriteHeight = arrowNavIzq.height / 2
-            val frameDuration = 800
 
-            val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight, frameDuration)
+            val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight)
             navIzq.start()
-            val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight, frameDuration)
+            val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight)
             navDer.start()
-            val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight, frameDuration)
+            val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight)
             navBackIzq.start()
-            val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight, frameDuration)
+            val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight)
             navBackDer.start()
 
             nav_izq.setImageDrawable(navIzq)
@@ -529,8 +527,8 @@ class SelectSong : AppCompatActivity() {
             val listVacios = ArrayList<Ksf>()
             val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
 
-            for (index in 0..19) {
-                listVacios.add(Ksf("", "",  rutaLvSelected))
+            repeat(20) {
+                listVacios.add(Ksf("", "", rutaLvSelected))
             }
             llenaLvsVacios(null, listVacios, recyclerLvsVacios)
 
@@ -696,7 +694,7 @@ class SelectSong : AppCompatActivity() {
                     soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     hideSelectLv(anim)
                 }
-                if(rankingView.visibility == View.VISIBLE){
+                if(rankingView.isVisible){
                     soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     rankingView.visibility = View.INVISIBLE
                     rankingView.startAnimation(animOff)
@@ -725,7 +723,7 @@ class SelectSong : AppCompatActivity() {
                     soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     hideSelectLv(anim)
                 }
-                if(rankingView.visibility == View.VISIBLE){
+                if(rankingView.isVisible){
                     soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     rankingView.visibility = View.INVISIBLE
                     rankingView.startAnimation(animOff)
@@ -2057,14 +2055,14 @@ class SelectSong : AppCompatActivity() {
                 //video_fondo.start()
                 video_fondo.setOnCompletionListener { video_fondo.start() }
 
-                playMedia(item.rutaSong, startTimeMs) // Música
+                playMedia(item.rutaSong,)
             } else {
                 // Configurar imagen
                 imgPrev.setImageBitmap(BitmapFactory.decodeFile(item.rutaDisc))
                 video_fondo.visibility = View.GONE
                 imgPrev.visibility = View.VISIBLE
 
-                playMedia(item.rutaSong, startTimeMs) // Música
+                playMedia(item.rutaSong)
             }
         } else {
             // Si no existe preview → solo imagen
@@ -2072,7 +2070,7 @@ class SelectSong : AppCompatActivity() {
             video_fondo.visibility = View.GONE
             imgPrev.visibility = View.VISIBLE
 
-            playMedia(item.rutaSong, startTimeMs) // Música
+            playMedia(item.rutaSong)
         }
 
         /*
@@ -2101,7 +2099,7 @@ class SelectSong : AppCompatActivity() {
         llenaLvsKsf(item.listKsf)
     }
 
-    private fun playMedia(path: String, startTimeMs: Int) {
+    private fun playMedia(path: String) {
         mediPlayer.release()
         mediPlayer = MediaPlayer().apply {
             setAudioAttributes(
@@ -2346,7 +2344,7 @@ class SelectSong : AppCompatActivity() {
         return arraylist
     }
 
-    private fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int, frameDuration : Int): AnimationDrawable{
+    private fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int): AnimationDrawable{
         val arrowSpritesRD = arrayOf(
             Bitmap.createBitmap(bitmap, 0, 0, spriteWidth, spriteHeight),
             Bitmap.createBitmap(bitmap, spriteWidth, 0, spriteWidth, spriteHeight),
@@ -2354,7 +2352,7 @@ class SelectSong : AppCompatActivity() {
             Bitmap.createBitmap(bitmap, spriteWidth, spriteHeight, spriteWidth, spriteHeight))
         val animation = AnimationDrawable().apply {
             arrowSpritesRD.forEach {
-                addFrame(BitmapDrawable(it), frameDuration / 4)
+                addFrame(BitmapDrawable(it), 200)
             }
             isOneShot = false
         }
