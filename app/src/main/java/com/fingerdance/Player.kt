@@ -1589,6 +1589,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         centerBottom.dispose()
         sprFlare.dispose()
 
+        arrMines.forEach { it.texture.dispose() }
+
         arrArrows.forEach { frameArray ->
             frameArray.forEach { it.texture.dispose() }
         }
