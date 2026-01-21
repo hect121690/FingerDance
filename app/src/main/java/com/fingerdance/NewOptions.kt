@@ -175,7 +175,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         val txSlide = view.findViewById<TextView>(R.id.txSlide)
 
         scrollChannels.layoutParams.height = (height * 0.5).toInt()
-        scrollChannels.layoutParams.width = (width * 0.7).toInt()
+        //scrollChannels.layoutParams.width = (width * 0.7).toInt()
 
         scrollChannels.setOnScrollChangeListener { v: NestedScrollView, _, scrollY, _, oldScrollY ->
             if (scrollY > oldScrollY) {
@@ -248,7 +248,6 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             }
 
             layoutOptionsDelete.addView(radioChannelsDelete)
-
             val dialogEliminar = AlertDialog.Builder(requireContext())
                 .setCancelable(false)
                 .setTitle("Eliminar Canal")
@@ -258,14 +257,22 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
                     val dialogConfirmar = AlertDialog.Builder(requireContext())
                         .setCancelable(false)
                         .setTitle("Confirmar")
-                        .setMessage("¿Seguro que desea eliminar el canal $nameChannelDelete? Esta acción no se puede revertir.")
+                        .setMessage(if(nameChannelDelete == ""){
+                            "Selecciona un canal para eliminar"
+                        }else{
+                            "¿Seguro que desea eliminar el canal $nameChannelDelete? Esta acción no se puede revertir."
+                        })
                         .setPositiveButton("Aceptar") { d, _ ->
-                            deleteChannelFolder(nameChannelDelete)
-                            db.deleteCanal(nameChannelDelete)
-                            Toast.makeText(requireContext(), "El canal: $nameChannelDelete se ha eliminado", Toast.LENGTH_SHORT).show()
-                            themes.edit().putString("allTunes", "").apply()
-                            startActivity(Intent(requireContext(), MainActivity()::class.java))
-                            requireActivity().finish()
+                            if(nameChannelDelete == ""){
+                                d.dismiss()
+                            }else{
+                                deleteChannelFolder(nameChannelDelete)
+                                db.deleteCanal(nameChannelDelete)
+                                Toast.makeText(requireContext(), "El canal: $nameChannelDelete se ha eliminado", Toast.LENGTH_SHORT).show()
+                                themes.edit().putString("allTunes", "").apply()
+                                startActivity(Intent(requireContext(), MainActivity()::class.java))
+                                requireActivity().finish()
+                            }
                         }
                         .setNegativeButton("Cancelar") { d, _ -> d.dismiss() }
                         .create()

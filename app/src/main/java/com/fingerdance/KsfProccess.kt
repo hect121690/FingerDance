@@ -6,6 +6,9 @@ import kotlin.experimental.or
 import kotlin.math.round
 
 class KsfProccess {
+
+    val MAX_BPM = 999f
+    val MIN_BPM = -999f
     companion object {
         const val STEPINFO_STEP = 0
         const val STEPINFO_BPM = 1
@@ -23,6 +26,21 @@ class KsfProccess {
 
         const val NOTE_START_CHK: Byte = 4
         const val NOTE_END_CHK: Byte = 8
+
+        // Fake notes - visible pero no hacen nada
+        const val NOTE_FAKE: Byte = 3
+        const val NOTE_FAKE_LSTART: Byte = 11
+        const val NOTE_FAKE_LNOTE: Byte = 12
+        const val NOTE_FAKE_LEND: Byte = 13
+
+        // Phantom notes - no visibles pero se juzgan
+        const val NOTE_PHANTOM: Byte = 5
+        const val NOTE_PHANTOM_LSTART: Byte = 14
+        const val NOTE_PHANTOM_LNOTE: Byte = 15
+        const val NOTE_PHANTOM_LEND: Byte = 16
+
+        // Mines - no deben tocarse
+        const val NOTE_MINE: Byte = 7
     }
 
     data class Line(val step: ByteArray = ByteArray(5))
@@ -53,14 +71,14 @@ class KsfProccess {
                 var readingSteps = false
                 while (reader.readLine().also { line = it } != null) {
                     if (line!!.startsWith("#") && !readingSteps) {
-                        val parts = line!!.split(":", limit = 2)
+                        val parts = line.split(":", limit = 2)
                         if (parts.size == 2) {
                             val tag = parts[0].substring(1)
                             var value = parts[1]
                             if (value.endsWith(";")) {
                                 value = value.substring(0, value.length - 1)
                             }
-                            if (tag == "STEP" && line!!.length == 6) {
+                            if (tag == "STEP" && line.length == 6) {
                                 readingSteps = true
                             } else {
                                 loadInfo.add(LoadingInfo(tag, value))
@@ -68,8 +86,8 @@ class KsfProccess {
                         }
                     } else if (readingSteps) {
                         when {
-                            line!!.startsWith("|") && line!!.endsWith("|") -> {
-                                val type = when (line!![1]) {
+                            line.startsWith("|") && line.endsWith("|") -> {
+                                val type = when (line[1]) {
                                     'B' -> STEPINFO_BPM
                                     'T' -> STEPINFO_TICK
                                     'D' -> STEPINFO_DELAY
@@ -77,10 +95,10 @@ class KsfProccess {
                                     'S' -> STEPINFO_SPEED
                                     else -> STEPINFO_UNKNOWN
                                 }
-                                stepInfo.add(StepInfo(line!!.substring(2, line!!.length - 1), type))
+                                stepInfo.add(StepInfo(line.substring(2, line.length - 1), type))
                             }
-                            line!!.startsWith("#") -> {
-                                val parts = line!!.split(":", limit = 2)
+                            line.startsWith("#") -> {
+                                val parts = line.split(":", limit = 2)
                                 if (parts.size == 2) {
                                     val tag = parts[0].substring(1)
                                     var value = parts[1]
@@ -97,8 +115,8 @@ class KsfProccess {
                                     stepInfo.add(StepInfo(value, type))
                                 }
                             }
-                            line!!.length == 13 -> {
-                                stepInfo.add(StepInfo(line!!, STEPINFO_STEP))
+                            line.length == 13 -> {
+                                stepInfo.add(StepInfo(line, STEPINFO_STEP))
                             }
                         }
                     }
@@ -181,6 +199,7 @@ class KsfProccess {
                     val line = Line()
                     for (iStep in 0 until buttonCount) {
                         when (info.step[iStep]) {
+                            // Normal notes
                             '1' -> {
                                 line.step[iStep] = NOTE_NOTE
                                 if (curLongNote[iStep].bUsed) {
@@ -192,8 +211,65 @@ class KsfProccess {
                                     }
                                 }
                             }
+                            // Fake normal notes - visible pero no hacen nada
+                            'F' -> {
+                                line.step[iStep] = NOTE_FAKE
+                                if (curLongNote[iStep].bUsed) {
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    curLongNote[iStep].bUsed = false
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_FAKE
+                                    }
+                                }
+                            }
+                            // Phantom notes - no visibles pero se juzgan
+                            'P' -> {
+                                line.step[iStep] = NOTE_PHANTOM
+                                if (curLongNote[iStep].bUsed) {
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    curLongNote[iStep].bUsed = false
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_PHANTOM
+                                    }
+                                }
+                            }
+                            // Mines - no deben tocarse
+                            'M' -> {
+                                line.step[iStep] = NOTE_MINE
+                                if (curLongNote[iStep].bUsed) {
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    curLongNote[iStep].bUsed = false
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_MINE
+                                    }
+                                }
+                            }
+                            // Long notes
                             '4' -> {
                                 line.step[iStep] = NOTE_LNOTE
+                                if (!curLongNote[iStep].bUsed) {
+                                    line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
+                                }
+                                curLongNote[iStep].bUsed = true
+                                curLongNote[iStep].iPrevPtn = patterns.size - 1
+                                curLongNote[iStep].iPrevPos = patterns.last().vLine.size
+                            }
+                            // Fake long notes - visible pero no hacen nada
+                            'L' -> {
+                                line.step[iStep] = NOTE_FAKE_LNOTE
+                                if (!curLongNote[iStep].bUsed) {
+                                    line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
+                                }
+                                curLongNote[iStep].bUsed = true
+                                curLongNote[iStep].iPrevPtn = patterns.size - 1
+                                curLongNote[iStep].iPrevPos = patterns.last().vLine.size
+                            }
+                            // Phantom long notes - no visibles pero se juzgan
+                            'H' -> {
+                                line.step[iStep] = NOTE_PHANTOM_LNOTE
                                 if (!curLongNote[iStep].bUsed) {
                                     line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
                                 }
@@ -223,13 +299,8 @@ class KsfProccess {
                     } else {
                         curPtn.fBPM = info.step.toFloat()
                     }
-                    curBPM = curPtn.fBPM
-                    if(curBPM < -999){
-                        curBPM = -999F
-                    }
-                    if(curBPM > 999){
-                        curBPM = 999F
-                    }
+                    curBPM = curPtn.fBPM.coerceIn(MIN_BPM, MAX_BPM)
+
                 }
                 STEPINFO_TICK -> {
                     if (patterns.last().vLine.isNotEmpty()) {
@@ -452,9 +523,33 @@ class KsfProccess {
                             val newPos = mirrorMap[i]
                             newLine[newPos] = NOTE_NOTE
                         }
+                        NOTE_FAKE -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_FAKE
+                        }
+                        NOTE_PHANTOM -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_PHANTOM
+                        }
+                        NOTE_MINE -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_MINE
+                        }
                         NOTE_LSTART -> {
                             val newPos = mirrorMap[i]
                             newLine[newPos] = NOTE_LSTART
+                            nowLong[i] = i.toByte()
+                            newLong[i] = newPos.toByte()
+                        }
+                        NOTE_FAKE_LSTART -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_FAKE_LSTART
+                            nowLong[i] = i.toByte()
+                            newLong[i] = newPos.toByte()
+                        }
+                        NOTE_PHANTOM_LSTART -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_PHANTOM_LSTART
                             nowLong[i] = i.toByte()
                             newLong[i] = newPos.toByte()
                         }
@@ -464,10 +559,38 @@ class KsfProccess {
                                 newLine[newPos] = NOTE_LNOTE
                             }
                         }
+                        NOTE_FAKE_LNOTE -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_FAKE_LNOTE
+                            }
+                        }
+                        NOTE_PHANTOM_LNOTE -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_PHANTOM_LNOTE
+                            }
+                        }
                         NOTE_LEND -> {
                             if (nowLong[i] != 255.toByte()) {
                                 val newPos = newLong[i].toInt()
                                 newLine[newPos] = NOTE_LEND
+                                nowLong[i] = 255.toByte()
+                                newLong[i] = 255.toByte()
+                            }
+                        }
+                        NOTE_FAKE_LEND -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_FAKE_LEND
+                                nowLong[i] = 255.toByte()
+                                newLong[i] = 255.toByte()
+                            }
+                        }
+                        NOTE_PHANTOM_LEND -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_PHANTOM_LEND
                                 nowLong[i] = 255.toByte()
                                 newLong[i] = 255.toByte()
                             }
@@ -504,9 +627,33 @@ class KsfProccess {
                             val newPos = mirrorMap[i]
                             newLine[newPos] = NOTE_NOTE
                         }
+                        NOTE_FAKE -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_FAKE
+                        }
+                        NOTE_PHANTOM -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_PHANTOM
+                        }
+                        NOTE_MINE -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_MINE
+                        }
                         NOTE_LSTART -> {
                             val newPos = mirrorMap[i]
                             newLine[newPos] = NOTE_LSTART
+                            nowLong[i] = i.toByte()
+                            newLong[i] = newPos.toByte()
+                        }
+                        NOTE_FAKE_LSTART -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_FAKE_LSTART
+                            nowLong[i] = i.toByte()
+                            newLong[i] = newPos.toByte()
+                        }
+                        NOTE_PHANTOM_LSTART -> {
+                            val newPos = mirrorMap[i]
+                            newLine[newPos] = NOTE_PHANTOM_LSTART
                             nowLong[i] = i.toByte()
                             newLong[i] = newPos.toByte()
                         }
@@ -516,10 +663,38 @@ class KsfProccess {
                                 newLine[newPos] = NOTE_LNOTE
                             }
                         }
+                        NOTE_FAKE_LNOTE -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_FAKE_LNOTE
+                            }
+                        }
+                        NOTE_PHANTOM_LNOTE -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_PHANTOM_LNOTE
+                            }
+                        }
                         NOTE_LEND -> {
                             if (nowLong[i] != 255.toByte()) {
                                 val newPos = newLong[i].toInt()
                                 newLine[newPos] = NOTE_LEND
+                                nowLong[i] = 255.toByte()
+                                newLong[i] = 255.toByte()
+                            }
+                        }
+                        NOTE_FAKE_LEND -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_FAKE_LEND
+                                nowLong[i] = 255.toByte()
+                                newLong[i] = 255.toByte()
+                            }
+                        }
+                        NOTE_PHANTOM_LEND -> {
+                            if (nowLong[i] != 255.toByte()) {
+                                val newPos = newLong[i].toInt()
+                                newLine[newPos] = NOTE_PHANTOM_LEND
                                 nowLong[i] = 255.toByte()
                                 newLong[i] = 255.toByte()
                             }

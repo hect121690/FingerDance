@@ -141,9 +141,15 @@ class LoadSongsKsf {
         val listSongs = ArrayList<SongKsf>()
         val rutaBitActive = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
         val rutaBitActiveHalfDouble = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_hd.png").toString()
-
+        val typeStepsOrder = mapOf(
+            "NORMAL" to 0,
+            "UCS" to 1,
+            "ANOTHER" to 2,
+            "QUEST" to 3
+        )
         val listRutas = getRutasSongs(rutaChannel)
         val listOthers = arrayListOf("03-SHORT CUT - V2", "04-REMIX - V2", "05-FULLSONGS - V2")
+
         for(index in 0 until listRutas.size){
             val listKsf = arrayListOf<Ksf>()
             val songKsf = SongKsf("","","","","","","","", arrayListOf())
@@ -194,6 +200,7 @@ class LoadSongsKsf {
                         if(it.toString().endsWith(".ksf", ignoreCase = true)){
                             val ksf = Ksf()
                             ksf.typePlayer = "A"
+                            ksf.typeSteps = "NORMAL"
                             val file = File(it.toString())
 
                             /*
@@ -214,6 +221,9 @@ class LoadSongsKsf {
                                         }
                                         line.startsWith("#STARTTIME:") ->{
                                             songKsf.offset = if(getValue(line) != "") getValue(line).trim().toDouble().toLong() else 0
+                                        }
+                                        line.startsWith("#TYPE:") ->{
+                                            ksf.typeSteps = getValue(line)
                                         }
                                         line.startsWith("#STEP:") && line.trim().length > 6 ->{
                                             ksf.stepmaker = getValue(line)
@@ -250,8 +260,11 @@ class LoadSongsKsf {
                         }
 
                         listKsf.sortWith(
-                            compareBy<Ksf> { it.typePlayer == "B" }
-                                .thenBy { it.level }
+                            compareBy<Ksf>(
+                                { it.typePlayer == "B" },
+                                { it.level },
+                                { typeStepsOrder[it.typeSteps] ?: 99 }
+                            )
                         )
                         songKsf.listKsf = listKsf
                     }
@@ -669,7 +682,8 @@ data class Ksf(var rutaKsf: String = "",
                var rutaBitActive: String = "",
                var stepmaker: String = "",
                var typePlayer: String = "",
-               var checkedValues: String = "")
+               var checkedValues: String = "",
+               var typeSteps: String = "")
 
 data class SongKsf(
     var title: String,
@@ -682,4 +696,5 @@ data class SongKsf(
     var rutaBGA: String,
     var listKsf: ArrayList<Ksf>,
     var offset: Long = 0L,
-    var channel: String = "")
+    var channel: String = "",
+    var isFavorite: Boolean = false)

@@ -34,9 +34,9 @@
         <item>Algunas canciones tienen Nivel HalfDouble.</item>
     </string-array>
 
-    <string name="MessageOfflineOn">-Al activar el modo Offline podra jugar sin necesidad de conectarse a internet. \n
+    <string name="MessageOfflineOn">-Al activar el modo Offline podras jugar sin necesidad de conectarse a internet. \n
                                     -Este modo debera activarse cada que abra la aplicación. \n
-                                    -No se guardaran su puntajes mas altos ni se visualizaran los resultados en el Ranking Global. \n
+                                    -No se guardaran sus puntajes mas altos ni local ni gloablalmente. \n
                                      \n
                                     Confirma que desea activar el modo Offline?
     </string>
@@ -85,5 +85,7 @@
         Si continúas modificando archivos, este dispositivo podría ser bloqueado en Finger Dance.
     </string>
 
+    <string name="favorites_description">En este canal encontraras tus canciones favoritas.
+    </string>
 
 </resources>

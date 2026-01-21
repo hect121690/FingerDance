@@ -744,7 +744,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         }
 
                         //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
-                        load(playerSong.rutaKsf!!)
+                        load(playerSong.rutaKsf)
 
                         if(isPlayer1){
                             activeSala.jugador1.listo = true

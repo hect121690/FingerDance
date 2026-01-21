@@ -1,20 +1,14 @@
 package com.fingerdance
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
-import android.media.Image
 import android.media.MediaPlayer
 import android.media.SoundPool
 import android.os.Bundle
@@ -22,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
+import android.view.KeyEvent
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
@@ -90,6 +85,21 @@ class SelectChannel : AppCompatActivity() {
     private lateinit var indicatorDer: ImageView
     private lateinit var bgaSelectChannel: VideoView
     private lateinit var imageCircle : ImageView
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.repeatCount > 0) return true
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            return when (event.keyCode) {
+                KeyEvent.KEYCODE_1 -> nav_izq.performClick()
+                KeyEvent.KEYCODE_3 -> nav_der.performClick()
+                KeyEvent.KEYCODE_5 -> imgAceptar.performClick()
+                KeyEvent.KEYCODE_7 -> nav_back_Izq.performClick()
+                KeyEvent.KEYCODE_9 -> nav_back_der.performClick()
+                else -> super.dispatchKeyEvent(event)
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         supportActionBar?.hide()
@@ -212,8 +222,6 @@ class SelectChannel : AppCompatActivity() {
         nav_back_Izq.setImageDrawable(navBackIzq)
         nav_back_der.setImageDrawable(navBackDer)
 
-        //context = this
-
         val ancho = (width * 0.6).toInt()
         val imageViewTheme = findViewById<ImageView>(R.id.imgChannel)
         val bitTheme = BitmapFactory.decodeFile(this.getExternalFilesDir("/FingerDance/Themes/$tema/logo_theme.png")!!.absolutePath)
@@ -230,7 +238,6 @@ class SelectChannel : AppCompatActivity() {
         objectAnimator = ObjectAnimator.ofFloat(recyclerChannels.getChildAt(position), "rotationY", 180f, 360f)
         objectAnimator.duration = 500
         objectAnimator.interpolator = AccelerateDecelerateInterpolator()
-
 
         isFocusChannel(position)
 
@@ -305,9 +312,15 @@ class SelectChannel : AppCompatActivity() {
             isFocusChannel(position)
         }
 
+        var message = if(listChannels[position].nombre == "06-FAVORITES"){
+            "Aun no has marcado canciones como favoritas."
+        } else {
+            "Este canal no contiene canciones."
+        }
+
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Aviso")
-        builder.setMessage("Este canal no contiene canciones.")
+        builder.setMessage(message)
         builder.setPositiveButton("OK") { dialog, _ ->
             dialog.dismiss()
         }
@@ -316,7 +329,7 @@ class SelectChannel : AppCompatActivity() {
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
-            if(listChannels[position].listCanciones.isNotEmpty() || listChannels[position].listCancionesKsf.isNotEmpty()){
+            if(listChannels[position].listCancionesKsf.isNotEmpty()){
 
                 /*
                 val gson = GsonBuilder().setPrettyPrinting().create()
@@ -329,7 +342,9 @@ class SelectChannel : AppCompatActivity() {
                         for (b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size) {
                             val checkedValues = listChannels[i].listCancionesKsf[a].listKsf[b].checkedValues
                             val level = listChannels[i].listCancionesKsf[a].listKsf[b].level
-                            val n = Nivel(level, checkedValues, ArrayList(List(3) { FirstRank() }))
+                            val type = listChannels[i].listCancionesKsf[a].listKsf[b].typeSteps
+                            val player = listChannels[i].listCancionesKsf[a].listKsf[b].typePlayer
+                            val n = Nivel(level, checkedValues, type, player, ArrayList(List(3) { FirstRank() }))
                             listNiveles.add(n)
                         }
                         val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNiveles)
@@ -340,8 +355,8 @@ class SelectChannel : AppCompatActivity() {
                 }
 
                 val json = gson.toJson(listCanales)
-                */
 
+                */
                 if(!isOffline){
                     listenScoreChannel(listChannels[position].nombre) { listSongs ->
                         listGlobalRanking = listSongs
@@ -351,7 +366,6 @@ class SelectChannel : AppCompatActivity() {
                 //listSongsChannel = listChannels[position].listCanciones
                 listSongsChannelKsf = listChannels[position].listCancionesKsf
                 currentChannel = listChannels[position].nombre
-                channelIndex = validFolders.indexOf(currentChannel)
 
                 Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
                 thisHandler.postDelayed({
@@ -392,7 +406,8 @@ class SelectChannel : AppCompatActivity() {
                         for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
                             val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
                             val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
-
+                            val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
+                            val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -401,7 +416,7 @@ class SelectChannel : AppCompatActivity() {
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
 
-                            niveles.add(Nivel(numberNivel, checkedValues, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))
@@ -480,6 +495,7 @@ class SelectChannel : AppCompatActivity() {
             bgaSelectChannel.setVideoPath(bgaPathSelectChannel)
             bgaSelectChannel.start()
         }
+
     }
 
     override fun onPause() {
@@ -523,6 +539,8 @@ data class FirstRank(
 data class Nivel(
     val nivel: String = "??",
     val checkedValues: String = "",
+    val type: String = "",
+    val player: String = "",
     val fisrtRank: ArrayList<FirstRank> = arrayListOf()
 )
 

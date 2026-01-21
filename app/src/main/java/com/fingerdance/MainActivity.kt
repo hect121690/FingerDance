@@ -46,13 +46,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
-import androidx.core.view.marginTop
 import androidx.lifecycle.lifecycleScope
+import com.android.volley.Request
+import com.android.volley.toolbox.JsonObjectRequest
+import com.android.volley.toolbox.Volley
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -75,17 +78,8 @@ import java.net.URL
 import java.net.URLEncoder
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.text.SimpleDateFormat
 import java.util.UUID
 import kotlin.system.exitProcess
-import androidx.core.graphics.toColorInt
-import androidx.core.view.children
-import com.android.volley.Request
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.Volley
-import java.time.Year
-import java.time.temporal.ChronoUnit
-import kotlin.collections.listOf
 
 lateinit var themes : SharedPreferences
 var tema : String = ""
@@ -181,11 +175,15 @@ private val ls = LoadSongsKsf()
 lateinit var arrayGrades : ArrayList<Bitmap>
 var TIME_ADJUST = 0L
 var timeToPresiscionHD = 0
+var timeToPresiscion = 0
 
 lateinit var validFolders : List<String>
 
 lateinit var arrGradesDesc : ArrayList<Bitmap>
 lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
+lateinit var channelFavorites : Channels
+lateinit var listFavorites : ArrayList<SongKsf>
+lateinit var mockListChannels : ArrayList<Canal>
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -212,6 +210,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         FirebaseApp.initializeApp(this)
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        Thread.setDefaultUncaughtExceptionHandler(CrashHandler(this))
         setContentView(R.layout.activity_main)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -235,8 +234,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         isCounter = themes.getBoolean("isCounter",false)
         breakSong = themes.getBoolean("breakSong",true)
         idWithRegister = themes.getString("idWithRegister", "").toString()
-
-        //isFree = false
+        //themes.edit().putString("favorites", "").apply()
 
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(metrics)
@@ -276,6 +274,25 @@ class MainActivity : AppCompatActivity(), Serializable {
             "50-Prex Metal"
         )
         */
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val json = assets.open("mockChannels.json")
+                    .bufferedReader().use { it.readText() }
+
+                val listChannelsJson: ArrayList<Canal> = Gson().fromJson(
+                    json,
+                    object : TypeToken<ArrayList<Canal>>() {}.type
+                )
+
+                withContext(Dispatchers.Main) {
+                    mockListChannels = listChannelsJson
+                }
+
+            } catch (e: Exception) {
+                Log.e("MOCK", "Error cargando JSON: ${e.message}")
+            }
+        }
 
         medidaFlechas = (width / 7f)
 
@@ -615,11 +632,14 @@ class MainActivity : AppCompatActivity(), Serializable {
                     flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false
                     numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java)?: ""
                     val startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false
+                    val resetRegister = snapshot.child("resetRegister").getValue(Boolean::class.java) ?: false
                     val paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false
+                    val mpOn = snapshot.child("mpOn").getValue(Boolean::class.java) ?: false
                     val timeAdjust = snapshot.child("time_adjust").getValue(String::class.java) ?: ""
                     TIME_ADJUST = timeAdjust.toLong()
                     val timeHalfDouble = snapshot.child("timeHalfDouble").getValue(String::class.java) ?: ""
                     timeToPresiscionHD = timeHalfDouble.toInt()
+                    timeToPresiscion = snapshot.child("timeToPresiscion").getValue(Int::class.java) ?: 0
                     CoroutineScope(Dispatchers.Main).launch {
                         getFilesDrive()
                         listFilesDrive.sortBy { it.first }
@@ -632,6 +652,11 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     val packageInfo = packageManager.getPackageInfo(packageName, 0)
                     versionApp = packageInfo.versionName!!
+
+                    if(resetRegister){
+                        themes.edit().putString("idWithRegister", "").apply()
+                        idWithRegister = ""
+                    }
 
                     if(version == versionApp){
                         if(versionUpdate != numberUpdate){
@@ -696,7 +721,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                             }
                         }else{
                             runOnUiThread {
-                                createMain(startOnline, paypalOn)
+                                createMain(startOnline, paypalOn, mpOn)
                             }
                         }
 
@@ -789,7 +814,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun createMain(startOnline: Boolean, paypalOn: Boolean =  false){
+    private fun createMain(startOnline: Boolean, paypalOn: Boolean =  false, mpOn: Boolean = false){
         linearDownload.isVisible = false
         lbDescargando.isVisible = false
         progressBar.isVisible = false
@@ -863,7 +888,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
         btnPlay.setOnClickListener {
             btnPlay.isEnabled = false
-            //flagActiveAllows = true
             if(flagActiveAllows){
                 if(idWithRegister == ""){
                     showLoadingOverlay("Espere por favor...")
@@ -880,13 +904,13 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 val lastRegister = LocalDate.parse(register, formatter)
                                 loadingLayout.visibility = View.INVISIBLE
                                 if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription(paypalOn)
+                                    showPaySuscription(paypalOn, mpOn)
                                 } else {
                                     goPlay(goSound, animation)
                                 }
                             }else{
                                 loadingLayout.visibility = View.INVISIBLE
-                                showPaySuscription(paypalOn)
+                                showPaySuscription(paypalOn, mpOn)
                             }
                         }else{
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
@@ -896,7 +920,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister) ){
-                        showPaySuscription(paypalOn)
+                        showPaySuscription(paypalOn, mpOn)
                     } else {
                         goPlay(goSound, animation)
                     }
@@ -922,13 +946,13 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 val lastRegister = LocalDate.parse(register, formatter)
                                 loadingLayout.visibility = View.INVISIBLE
                                 if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription(paypalOn)
+                                    showPaySuscription(paypalOn, mpOn)
                                 } else {
                                     showOnlineMode(animation, goSound)
                                 }
                             }else{
                                 loadingLayout.visibility = View.INVISIBLE
-                                showPaySuscription(paypalOn)
+                                showPaySuscription(paypalOn, mpOn)
                             }
                         } else{
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
@@ -938,7 +962,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister)){
-                        showPaySuscription(paypalOn)
+                        showPaySuscription(paypalOn, mpOn)
                     } else {
                         showOnlineMode(animation, goSound)
                     }
@@ -966,13 +990,13 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 val lastRegister = LocalDate.parse(register, formatter)
                                 loadingLayout.visibility = View.INVISIBLE
                                 if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription(paypalOn)
+                                    showPaySuscription(paypalOn, mpOn)
                                 } else {
                                     goOption(goOptionMP, animation)
                                 }
                             }else{
                                 loadingLayout.visibility = View.INVISIBLE
-                                showPaySuscription(paypalOn)
+                                showPaySuscription(paypalOn, mpOn)
                             }
                         } else {
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
@@ -982,7 +1006,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister) ){
-                        showPaySuscription(paypalOn)
+                        showPaySuscription(paypalOn, mpOn)
                     } else {
                         goOption(goOptionMP, animation)
                     }
@@ -1050,6 +1074,9 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
+            Handler(Looper.getMainLooper()).postDelayed({
+                loadingLayout.visibility = View.INVISIBLE
+            }, 2500)
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1058,22 +1085,37 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = ls.getChannels(this@MainActivity)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-            loadingLayout.visibility = View.INVISIBLE
         }
         if(themes.getString("efects", "").toString() == ""){
             showLoadingOverlay("Espere por favor...")
+            Handler(Looper.getMainLooper()).postDelayed({
+                loadingLayout.visibility = View.INVISIBLE
+            }, 1250)
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-            loadingLayout.visibility = View.INVISIBLE
         }else{
             val jsonListCommands = themes.getString("efects", "")
             listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
             //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
         }
         ls.loadSounds(this@MainActivity)
+        if(themes.getString("favorites", "").toString() != ""){
+            val jsonListFavoites = themes.getString("favorites", "")
+            listFavorites = gson.fromJson(jsonListFavoites, object : TypeToken<ArrayList<SongKsf>>() {}.type)
+            val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
+            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCancionesKsf = listFavorites)
+            listChannels.add(channelFavorites)
+            listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+        }else{
+            listFavorites = arrayListOf()
+            val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
+            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCancionesKsf = listFavorites)
+            listChannels.add(channelFavorites)
+            listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+        }
 
         val intent = Intent(this@MainActivity, SelectChannel::class.java)
         startActivity(intent)
@@ -1087,11 +1129,14 @@ class MainActivity : AppCompatActivity(), Serializable {
             val jsonListChannels = themes.getString("allTunes", "")
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
+            showLoadingOverlay("Espere por favor...")
+            Handler(Looper.getMainLooper()).postDelayed({
+                loadingLayout.visibility = View.INVISIBLE
+            }, 2500)
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
             listChannels = ls.getChannels(this@MainActivity)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
@@ -1316,7 +1361,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         fileOrDirectory.delete()
     }
 
-    private fun showPaySuscription(paypalOn: Boolean) {
+    private fun showPaySuscription(paypalOn: Boolean, mpOn: Boolean) {
         /*
         val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
         val isPass = deviceFree == deviceIdFind
@@ -1353,7 +1398,13 @@ class MainActivity : AppCompatActivity(), Serializable {
             setPadding(16, 16, 16, 32)
         }
 
-        fun createStyledButton(text: String, iconRes: Int, bgColor: Int,textColor: Int = Color.WHITE, colorIconDraw: Boolean = false): Button {
+        fun createStyledButton(
+            text: String,
+            iconRes: Int,
+            bgColor: Int,
+            textColor: Int = Color.WHITE,
+            colorIconDraw: Boolean = false
+        ): Button {
             return Button(this).apply {
                 this.text = text
                 isAllCaps = false
@@ -1365,7 +1416,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 compoundDrawablePadding = 16
                 gravity = Gravity.CENTER_VERTICAL or Gravity.START
                 val icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
-                if(colorIconDraw){
+                if (colorIconDraw) {
                     icon?.setTint(textColor)
                 }
                 setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null)
@@ -1376,7 +1427,8 @@ class MainActivity : AppCompatActivity(), Serializable {
                 ).apply {
                     setMargins(0, 16, 0, 0)
                 }
-                stateListAnimator = AnimatorInflater.loadStateListAnimator(context, android.R.animator.fade_in)
+                stateListAnimator =
+                    AnimatorInflater.loadStateListAnimator(context, android.R.animator.fade_in)
             }
         }
 
@@ -1433,7 +1485,9 @@ class MainActivity : AppCompatActivity(), Serializable {
         layoutAviso.addView(tvMensaje)
         layoutAviso.addView(btnFacebook)
         layoutAviso.addView(btnWhatsapp)
-        layoutAviso.addView(btnMercadoPago)
+        if (mpOn) {
+            layoutAviso.addView(btnMercadoPago)
+        }
         if(paypalOn){
             layoutAviso.addView(btnPaypal)
         }
@@ -1454,6 +1508,9 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         btnMercadoPago.setOnClickListener {
             showLoadingOverlay("redirigiendo...")
+            Handler(Looper.getMainLooper()).postDelayed({
+                loadingLayout.visibility = View.INVISIBLE
+            }, 250)
             val jsonBody = JSONObject().apply {
                 put("descripcion", "Suscripción mensual Finger Dance")
                 put("monto", 25)
@@ -1469,7 +1526,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val preferenceId = response.getString("preferenceId")
                     val mpUrl = "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=$preferenceId"
                     startActivity(Intent(Intent.ACTION_VIEW, mpUrl.toUri()))
-                    loadingLayout.visibility = View.INVISIBLE
                 },
                 { error ->
                     Toast.makeText(this, "Error al generar pago: ${error.message}", Toast.LENGTH_LONG).show()
@@ -1480,6 +1536,9 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         btnPaypal.setOnClickListener {
             showLoadingOverlay("redirigiendo...")
+            Handler(Looper.getMainLooper()).postDelayed({
+                loadingLayout.visibility = View.INVISIBLE
+            }, 250)
             val url = "https://createpaypalorder-pc2otnl6da-uc.a.run.app"
             val jsonBody = JSONObject().apply {
                 put("descripcion", "Suscripción Finger Dance")
@@ -1495,7 +1554,16 @@ class MainActivity : AppCompatActivity(), Serializable {
                     try {
                         val orderId = response.getString("orderId")
                         val paypalUrl = "https://www.paypal.com/checkoutnow?token=$orderId"
-                        startActivity(Intent(Intent.ACTION_VIEW, paypalUrl.toUri()))
+                        val intent = Intent(Intent.ACTION_VIEW, paypalUrl.toUri()).apply {
+                            addCategory(Intent.CATEGORY_BROWSABLE)
+                            setPackage("com.android.chrome") // fuerza Chrome
+                        }
+                        try {
+                            startActivity(intent)
+                        } catch (e: Exception) {
+                            // si no hay Chrome, abre con cualquier navegador disponible
+                            startActivity(Intent(Intent.ACTION_VIEW, paypalUrl.toUri()))
+                        }
                         loadingLayout.visibility = View.INVISIBLE
                     } catch (e: Exception) {
                         Log.e("PAYPAL", "Error procesando respuesta: ${e.message}")
@@ -1825,7 +1893,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         return gradesList
     }
 
-
     private fun getGradesDescription(rutaGrades: String): ArrayList<Bitmap> {
         val bit = BitmapFactory.decodeFile(rutaGrades)
         val cellWidth = bit.width
@@ -1973,7 +2040,13 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 }
 
-class ObjPuntaje(var cancion: String = "", var puntaje: String = "", var grade: String = "")
+class ObjPuntaje(
+    var cancion: String = "",
+    var puntaje: String = "",
+    var grade: String = "",
+    var type: String,
+    var player: String,
+)
 
 data class Resultado(
     var perfect: String = "0",

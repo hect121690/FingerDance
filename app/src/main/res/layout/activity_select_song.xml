@@ -526,7 +526,7 @@
             app:layout_constraintEnd_toEndOf="@+id/imageCircleSS"
             app:layout_constraintStart_toStartOf="@+id/imageCircleSS"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.525">
+            app:layout_constraintVertical_bias="0.532">
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerNoLvs"
@@ -732,6 +732,16 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.01" />
+
+        <ImageView
+            android:id="@+id/imgFavorite"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toTopOf="@+id/linearListSongs"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>

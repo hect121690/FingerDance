@@ -120,7 +120,7 @@ lateinit var currentBestGrade : Bitmap
 lateinit var listSongScores: Array<ObjPuntaje>
 
 private var currentPathSong: String = ""
-private var niveles = arrayListOf<Nivel>()
+private lateinit var niveles: ArrayList<Nivel>
 
 var isVideo = false
 var isMediaPlayerPrepared = false
@@ -202,13 +202,15 @@ class SelectSong : AppCompatActivity() {
     private lateinit var btnAddBga: Button
     private lateinit var imgContador: ImageView
     private lateinit var smoothScroller : RecyclerView. SmoothScroller
+    private lateinit var imgFavorite : ImageView
+    private lateinit var bitFavorite : Bitmap
+    private lateinit var bitFavoriteListed: Bitmap
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
             saveFileToDestination(it, namePreview + "_p.mp4", false)
         }
-
     }
 
     private val pickBgaFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -226,11 +228,11 @@ class SelectSong : AppCompatActivity() {
             onWindowFocusChanged(true)
 
             isOnline = false
+            niveles = arrayListOf<Nivel>()
+            recyclerView = findViewById(R.id.recyclerView)
 
-            recyclerView = findViewById(R.id.recyclerView)//binding.recyclerView
-
-            recyclerLvs = findViewById(R.id.recyclerLvs)//binding.recyclerLvs
-            recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)//binding.recyclerNoLvs
+            recyclerLvs = findViewById(R.id.recyclerLvs)
+            recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
 
             recyclerCommands = findViewById(R.id.recyclerCommands)
             recyclerCommands.isUserInputEnabled = false
@@ -366,6 +368,11 @@ class SelectSong : AppCompatActivity() {
             val bmIndicator= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator_lv.png")!!.absolutePath)
             indicatorLayout.setImageBitmap(bmIndicator)
             indicatorLayout.layoutParams.width = sizeLvs
+
+            bitFavorite = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")!!.absolutePath)
+            bitFavoriteListed = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")!!.absolutePath)
+            imgFavorite = findViewById(R.id.imgFavorite)
+            imgFavorite.layoutParams.width = (medidaFlechas).toInt()
 
             val anchoRecyclerCommands = linearMenus.layoutParams.width / 3
             recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)
@@ -530,11 +537,11 @@ class SelectSong : AppCompatActivity() {
             repeat(20) {
                 listVacios.add(Ksf("", "", rutaLvSelected))
             }
-            llenaLvsVacios(null, listVacios, recyclerLvsVacios)
+            llenaLvsVacios(listVacios)
 
-            if(listSongsChannel.size > 0){
+            if(listSongsChannel.isNotEmpty()){
                 //listItems = createSongList()
-            }else if (listSongsChannelKsf.size > 0){
+            }else if (listSongsChannelKsf.isNotEmpty()){
                 listItemsKsf = createSongListKsf()
             }
 
@@ -620,8 +627,36 @@ class SelectSong : AppCompatActivity() {
                 })
             }
 
+            imgFavorite.setOnClickListener {
+                val song = listItemsKsf[oldValue]
+                val favChannel = listChannels.find { it.nombre == "06-FAVORITES" }
+
+                if (song.isFavorite) {
+                    // Quitar de favoritos
+                    song.isFavorite = false
+                    imgFavorite.setImageBitmap(bitFavorite)
+
+                    val fav = listFavorites.find { it.title == song.title }
+                    if (fav != null) listFavorites.remove(fav)
+
+                    favChannel?.listCancionesKsf = listFavorites
+
+                } else {
+                    // Agregar a favoritos
+                    song.isFavorite = true
+                    imgFavorite.setImageBitmap(bitFavoriteListed)
+                    imgFavorite.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
+
+                    listFavorites.add(song)  // se agrega la MISMA referencia del objeto
+                    listFavorites.sortBy { it.channel }
+
+                    favChannel?.listCancionesKsf = listFavorites
+                }
+            }
+
+
             imgBestScore.setOnClickListener{
-                if(niveles[positionActualLvs].fisrtRank.size > 0){
+                if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
                     if(!commandWindow.isVisible){
                         soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                         rankingView.visibility = View.VISIBLE
@@ -899,7 +934,15 @@ class SelectSong : AppCompatActivity() {
                         }
                         if(!isOnline){
                             if(!isOffline){
-                                songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
+                                if(currentChannel == "06-FAVORITES"){
+                                    val nameChannels = listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
+                                    channelIndex = validFolders.indexOf(nameChannels)
+                                    val canciones = mockListChannels.find { it.canal == nameChannels }?.canciones
+                                    songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
+                                }else {
+                                    channelIndex = validFolders.indexOf(currentChannel)
+                                    songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
+                                }
                                 levelIndex = positionActualLvs
                             }
                         }
@@ -1087,7 +1130,6 @@ class SelectSong : AppCompatActivity() {
                         imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
 
                     }
-
                     if(itemCommand.value.contains("Path", ignoreCase = true)){
                         linearCurrent.isVisible = false
                         imgDisplay.isVisible=true
@@ -1127,7 +1169,6 @@ class SelectSong : AppCompatActivity() {
                                 imgNoteSkin.setImageBitmap(bm)
                                 playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
                                 //themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
-
                             }
                         }else{
                             imgNoteSkin.setImageBitmap(bm)
@@ -1505,7 +1546,6 @@ class SelectSong : AppCompatActivity() {
         val itemView = layoutManager?.findViewByPosition(position)
         val indicatorX = itemView?.left ?: 0
         indicatorLayout.x = indicatorX.toFloat()
-
     }
 
     private fun performAction() {
@@ -1578,32 +1618,6 @@ class SelectSong : AppCompatActivity() {
         moverLvs(positionActualLvs)
     }
 
-    /*
-    private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
-        var bestGrade = createBitmap(100, 100)
-        when (listSongScores[positionActualLvs].grade.substringBefore("|")){
-            "SSS+" ->{bestGrade = arrayGrades[0]}
-            "SSS" ->{bestGrade = arrayGrades[1]}
-            "SS+" ->{bestGrade = arrayGrades[2]}
-            "SS" ->{bestGrade = arrayGrades[3]}
-            "S+" ->{bestGrade = arrayGrades[4]}
-            "S" ->{bestGrade = arrayGrades[5]}
-            "AAA+" ->{bestGrade = arrayGrades[6]}
-            "AAA" ->{bestGrade = arrayGrades[7]}
-            "AA+" ->{bestGrade = arrayGrades[8]}
-            "AA" ->{bestGrade = arrayGrades[9]}
-            "A+" ->{bestGrade = arrayGrades[10]}
-            "A" ->{bestGrade = arrayGrades[11]}
-            "B" ->{bestGrade = arrayGrades[12]}
-            "C" ->{bestGrade = arrayGrades[13]}
-            "D" ->{bestGrade = arrayGrades[14]}
-            "F" ->{bestGrade = arrayGrades[15]}
-        }
-
-        return bestGrade
-    }
-    */
-
     private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
         val gradeFull = listSongScores[positionActualLvs].grade
         if (gradeFull.isEmpty()) return createBitmap(100, 100)
@@ -1611,7 +1625,6 @@ class SelectSong : AppCompatActivity() {
         val gradeMain = gradeFull.substringBefore("|")
         val gradeExtra = gradeFull.substringAfter("|", "")
 
-        // --- Obtener bitmap principal ---
         var mainGrade = when (gradeMain) {
             "SSS+" -> arrayGrades[0]
             "SSS" -> arrayGrades[1]
@@ -1635,10 +1648,8 @@ class SelectSong : AppCompatActivity() {
         val targetHeight = (medidaFlechas / 2).toInt()
         val scaledMain = scaleToHeight(mainGrade, targetHeight)
 
-        // --- Si no hay grade extra ---
         if (gradeExtra.isEmpty()) return scaledMain
 
-        // --- Obtener bitmap extra ---
         val extraBitmap = when (gradeExtra) {
             "PG" -> arrGradesDescAbrev[0]
             "UG" -> arrGradesDescAbrev[1]
@@ -1667,7 +1678,6 @@ class SelectSong : AppCompatActivity() {
         return result
     }
 
-    // --- Auxiliar para mantener proporción ---
     private fun scaleToHeight(bitmap: Bitmap, targetHeight: Int): Bitmap {
         val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
         val targetWidth = (targetHeight * aspectRatio).toInt()
@@ -1685,7 +1695,6 @@ class SelectSong : AppCompatActivity() {
         val gradeMain = gradeFull.substringBefore("|")
         val gradeExtra = gradeFull.substringAfter("|", "")
 
-        // --- Bitmap principal ---
         val mainGrade = when (gradeMain) {
             "SSS+" -> arrayGrades[0]
             "SSS" -> arrayGrades[1]
@@ -1709,10 +1718,8 @@ class SelectSong : AppCompatActivity() {
         val targetHeight = (medidaFlechas / 2).toInt()
         val scaledMain = scaleToHeight(mainGrade, targetHeight)
 
-        // --- Si no hay grade extra ---
         if (gradeExtra.isEmpty()) return scaledMain
 
-        // --- Bitmap extra ---
         val extraBitmap = when (gradeExtra) {
             "PG" -> arrGradesDescAbrev[0]
             "UG" -> arrGradesDescAbrev[1]
@@ -1740,35 +1747,6 @@ class SelectSong : AppCompatActivity() {
 
         return result
     }
-
-    /*
-    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
-        var bestGrade = createBitmap(100, 100)
-        return if(niveles[positionActualLvs].fisrtRank.size > 0){
-            when (niveles[positionActualLvs].fisrtRank[0].grade.substringBefore("|")){
-                "SSS+" ->{bestGrade = arrayGrades[0]}
-                "SSS" ->{bestGrade = arrayGrades[1]}
-                "SS+" ->{bestGrade = arrayGrades[2]}
-                "SS" ->{bestGrade = arrayGrades[3]}
-                "S+" ->{bestGrade = arrayGrades[4]}
-                "S" ->{bestGrade = arrayGrades[5]}
-                "AAA+" ->{bestGrade = arrayGrades[6]}
-                "AAA" ->{bestGrade = arrayGrades[7]}
-                "AA+" ->{bestGrade = arrayGrades[8]}
-                "AA" ->{bestGrade = arrayGrades[9]}
-                "A+" ->{bestGrade = arrayGrades[10]}
-                "A" ->{bestGrade = arrayGrades[11]}
-                "B" ->{bestGrade = arrayGrades[12]}
-                "C" ->{bestGrade = arrayGrades[13]}
-                "D" ->{bestGrade = arrayGrades[14]}
-                "F" ->{bestGrade = arrayGrades[15]}
-            }
-            bestGrade
-        }else{
-            bestGrade
-        }
-    }
-    */
 
     private fun openCommandWindow() {
         if(!commandWindow.isVisible){
@@ -1794,12 +1772,7 @@ class SelectSong : AppCompatActivity() {
             linearInfo.startAnimation(animOn)
             soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             //oldValueCommand = 0
-            nav_izq.performClick()
-            nav_izq.performClick()
-            nav_izq.performClick()
-            nav_izq.performClick()
-            nav_izq.performClick()
-            isFocusCommandWindow(0)
+            isFocusCommandWindow(1)
         }else{
             commandWindow.visibility = View.GONE
             commandWindowBG.visibility = View.GONE
@@ -1825,6 +1798,12 @@ class SelectSong : AppCompatActivity() {
 
     private fun goSelectChannel(){
         soundPoolSelectSongKsf.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        listChannels.remove(channelFavorites)
+        themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+        themes.edit().putString("favorites", gson.toJson(listFavorites)).apply()
+        listChannels.add(channelFavorites)
+        listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+
         nav_back_der.startAnimation(animOn)
         if (mediPlayer.isPlaying){
             mediPlayer.pause()
@@ -1907,6 +1886,8 @@ class SelectSong : AppCompatActivity() {
         }
 
         playerSong.level = lv.level
+        playerSong.player = lv.typePlayer
+        playerSong.type = lv.typeSteps
         playerSong.stepMaker = lv.stepmaker
 
         layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
@@ -1918,35 +1899,6 @@ class SelectSong : AppCompatActivity() {
             }
         }
     }
-
-    private fun showTransitionVideo(isNext: Boolean) {
-        if(isNext){
-            prev.visibility = View.GONE
-            next.visibility = View.VISIBLE
-            next.seekTo(0) // vuelve al inicio
-            next.start()
-            next.setOnCompletionListener {
-                next.visibility = View.GONE
-                mediPlayer.start()
-                if(isVideo){
-                    video_fondo.start()
-                }
-            }
-        }else {
-            next.visibility = View.GONE
-            prev.visibility = View.VISIBLE
-            prev.seekTo(0) // vuelve al inicio
-            prev.start()
-            prev.setOnCompletionListener {
-                prev.visibility = View.GONE
-                mediPlayer.start()
-                if(isVideo){
-                    video_fondo.start()
-                }
-            }
-        }
-    }
-
 
     private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int, isNext: Boolean = false) {
         soundPoolSelectSongKsf.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
@@ -1993,6 +1945,7 @@ class SelectSong : AppCompatActivity() {
             }
         }
     }
+
     private var isVideo: Boolean = false
     private fun isFocus (position: Int){
         val item = listItemsKsf[position]
@@ -2007,7 +1960,12 @@ class SelectSong : AppCompatActivity() {
         }
 
         currentSong = item.title
-        listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
+        if(currentChannel == "06-FAVORITES") {
+            val nameChannels = item.channel //listSongsChannelKsf.find { it.title == currentSong }?.channel
+            listSongScores = db.getSongScores(db.readableDatabase, nameChannels.toString(), currentSong)
+        }else{
+            listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
+        }
         if(listSongScores.find { it.cancion == item.title } != null){
             if(item.listKsf.size != listSongScores.size){
                 db.deleteCancion(item.title)
@@ -2021,24 +1979,31 @@ class SelectSong : AppCompatActivity() {
                     cancion = item.title,
                     nivel = nivel.level,
                     puntaje = "0",
-                    grade = ""
+                    grade = "",
+                    type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
+                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
 
         val rankingItem = listGlobalRanking.find { it.cancion == item.title }
-        if(rankingItem != null){
+        if(rankingItem != null && !isOffline){
             niveles = rankingItem.niveles
+            isOficialSong = true
+            if(item.isFavorite){
+                imgFavorite.setImageBitmap(bitFavoriteListed)
+            }else{
+                imgFavorite.setImageBitmap(bitFavorite)
+            }
+        }else if (item.isFavorite) {
+            niveles = ArrayList(List(listSongScores.size) { Nivel() })
             isOficialSong = true
         }else{
             niveles = ArrayList(List(listSongScores.size) { Nivel() })
             isOficialSong = false
         }
-        //niveles = rankingItem?.niveles ?: ArrayList(List(listSongScores.size) { Nivel() })
-        //val salaId = UUID.randomUUID().toString()
 
-        //if(isFileExists(File(item.rutaPrevVideo))){
         if (isFileExists(File(item.rutaPreview))) {
             isVideo = !(item.rutaPreview.endsWith(".png", true)
                     || item.rutaPreview.endsWith(".jpg", true)
@@ -2047,17 +2012,14 @@ class SelectSong : AppCompatActivity() {
                     || item.rutaPreview.isEmpty())
 
             if (isVideo) {
-                // Configurar video
                 video_fondo.setVideoPath(item.rutaPreview)
                 video_fondo.setOnPreparedListener { it.setVolume(0f, 0f) }
                 video_fondo.visibility = View.VISIBLE
                 imgPrev.visibility = View.INVISIBLE
-                //video_fondo.start()
                 video_fondo.setOnCompletionListener { video_fondo.start() }
 
                 playMedia(item.rutaSong,)
             } else {
-                // Configurar imagen
                 imgPrev.setImageBitmap(BitmapFactory.decodeFile(item.rutaDisc))
                 video_fondo.visibility = View.GONE
                 imgPrev.visibility = View.VISIBLE
@@ -2065,20 +2027,12 @@ class SelectSong : AppCompatActivity() {
                 playMedia(item.rutaSong)
             }
         } else {
-            // Si no existe preview → solo imagen
             imgPrev.setImageBitmap(BitmapFactory.decodeFile(item.rutaDisc))
             video_fondo.visibility = View.GONE
             imgPrev.visibility = View.VISIBLE
 
             playMedia(item.rutaSong)
         }
-
-        /*
-        if(currentVideoPosition != 0){
-            mediPlayer.seekTo(currentVideoPosition)
-            mediPlayer.start()
-        }
-        */
         if(item.title == ""){
             lbNameSong.text = "NO TITLE"
         }else{
@@ -2099,6 +2053,35 @@ class SelectSong : AppCompatActivity() {
         llenaLvsKsf(item.listKsf)
     }
 
+
+    private fun showTransitionVideo(isNext: Boolean) {
+        if(isNext){
+            prev.visibility = View.GONE
+            next.visibility = View.VISIBLE
+            next.seekTo(0)
+            next.start()
+            next.setOnCompletionListener {
+                next.visibility = View.GONE
+                mediPlayer.start()
+                if(isVideo){
+                    video_fondo.start()
+                }
+            }
+        }else {
+            next.visibility = View.GONE
+            prev.visibility = View.VISIBLE
+            prev.seekTo(0)
+            prev.start()
+            prev.setOnCompletionListener {
+                prev.visibility = View.GONE
+                mediPlayer.start()
+                if(isVideo){
+                    video_fondo.start()
+                }
+            }
+        }
+    }
+
     private fun playMedia(path: String) {
         mediPlayer.release()
         mediPlayer = MediaPlayer().apply {
@@ -2116,7 +2099,6 @@ class SelectSong : AppCompatActivity() {
         timer?.start()
         isTimerRunning = true
     }
-
 
     class CenterSmoothScroller(context: Context?) : LinearSmoothScroller(context) {
         override fun calculateDtToFit(
@@ -2210,105 +2192,32 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private fun llenaLvs(listLvs : MutableList<Lvs>){
-        recyclerLvs.apply {
-            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = LvsAdapter(listLvs, null, sizeLvs)
-        }
-        recyclerLvs.onFlingListener = null
-    }
-
     private fun llenaLvsKsf(listLvs : MutableList<Ksf>){
         recyclerLvs.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = LvsAdapter(null, listLvs, sizeLvs)
+            adapter = LvsAdapter(listLvs, sizeLvs)
         }
         recyclerLvs.onFlingListener = null
     }
 
-    private fun llenaLvsVacios(
-        listLvs: ArrayList<Lvs>? = arrayListOf(),
-        listLvsKsf: ArrayList<Ksf>? = arrayListOf(),
-        recyclerNoLvs: RecyclerView,
-    ){
-        recyclerNoLvs.apply {
+    private fun llenaLvsVacios(listLvsKsf: MutableList<Ksf> = mutableListOf<Ksf>()){
+        recyclerLvsVacios.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            if(listLvs != null){
-                adapter = LvsAdapter(listLvs, null, (sizeLvs))
-            }else if(listLvsKsf != null){
-                adapter = LvsAdapter(null, listLvsKsf, (sizeLvs))
-            }
-
+            adapter = LvsAdapter(listLvsKsf, (sizeLvs))
         }
     }
 
     private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
         recyclerView.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = CustomAdapter(null, listItemsKsf, heightBanner, widhtBanner)
+            adapter = CustomAdapter(listItemsKsf, heightBanner, widhtBanner)
         }
-    }
-
-    private fun createSongList(): ArrayList<Song> {
-        val arraylist=ArrayList<Song>()
-        for(index in 0 until listSongsChannel.size) {
-            arraylist.add(Song(
-                listSongsChannel[index].name,
-                listSongsChannel[index].artist,
-                listSongsChannel[index].bpm,
-                listSongsChannel[index].tickCount,
-                listSongsChannel[index].prevVideo,
-                listSongsChannel[index].rutaPrevVideo,
-                listSongsChannel[index].video,
-                listSongsChannel[index].song,
-                listSongsChannel[index].rutaBanner,
-                listSongsChannel[index].rutaCancion,
-                listSongsChannel[index].rutaSteps,
-                listSongsChannel[index].rutaVideo,
-                listSongsChannel[index].listLvs))
-        }
-
-        if(arraylist.size > 50){
-            arraylist.addAll(arraylist)
-        }
-        if(arraylist.size > 10 && arraylist.size <= 50){
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-        }
-        if(arraylist.size > 5 && arraylist.size <= 10){
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-        }
-        if(arraylist.size > 3 && arraylist.size <= 5){
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-        }
-        if(arraylist.size <= 3){
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-            arraylist.addAll(arraylist)
-        }
-        return arraylist
     }
 
     private fun createSongListKsf(): ArrayList<SongKsf> {
         val arraylist=ArrayList<SongKsf>()
         for(index in 0 until listSongsChannelKsf.size) {
-            arraylist.add(SongKsf(
-                listSongsChannelKsf[index].title,
-                listSongsChannelKsf[index].artist,
-                listSongsChannelKsf[index].displayBpm,
-                listSongsChannelKsf[index].rutaDisc,
-                listSongsChannelKsf[index].rutaTitle,
-                listSongsChannelKsf[index].rutaSong,
-                listSongsChannelKsf[index].rutaPreview,
-                listSongsChannelKsf[index].rutaBGA,
-                listSongsChannelKsf[index].listKsf))
+            arraylist.add(listSongsChannelKsf[index])
         }
 
         if(arraylist.size > 50){

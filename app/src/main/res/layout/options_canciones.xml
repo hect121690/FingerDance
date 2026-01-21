@@ -1,81 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-    <androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-        xmlns:tools="http://schemas.android.com/tools"
-        android:id="@+id/layoutCanciones"
-        android:layout_width="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layoutCanciones"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toBottomOf="@+id/btnCanciones">
+
+
+    <Button
+        android:id="@+id/createChannel"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:backgroundTint="#0277BD"
+        android:text="Crear canal"
+        android:textSize="10dp"
+        app:icon="@android:drawable/ic_input_add"
+        app:iconPadding="2dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.05"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnCanciones">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.98" />
 
+    <Button
+        android:id="@+id/deleteChannel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#C62828"
+        android:text="Borrar canal"
+        android:textSize="10dp"
+        app:icon="@android:drawable/ic_delete"
+        app:iconPadding="2dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.98"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.98" />
 
-        <Button
-            android:id="@+id/createChannel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Crear canal"
-            android:textSize="10dp"
-            app:icon="@android:drawable/ic_input_add"
-            app:iconPadding="2dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollChannels"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:fillViewport="true"
+        android:scrollbars="vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <Button
-            android:id="@+id/deleteChannel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Borrar canal"
-            android:textSize="10dp"
-            app:icon="@android:drawable/ic_delete"
-            app:iconPadding="2dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/createChannel" />
+    <TextView
+        android:id="@+id/txSlide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:text="Desliza hacia abajo"
+        android:textColor="#F9A825"
+        android:textStyle="italic"
+        app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
+        app:layout_constraintStart_toStartOf="@+id/scrollChannels"
+        app:layout_constraintTop_toBottomOf="@+id/scrollChannels" />
 
-        <androidx.core.widget.NestedScrollView
-            android:id="@+id/scrollChannels"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fillViewport="true"
-            android:scrollbars="vertical"
-            android:layout_marginBottom="8dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/txSlide"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Desliza hacia abajo"
-            android:textColor="#F9A825"
-            android:textStyle="italic"
-            android:layout_marginBottom="12dp"
-            app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
-            app:layout_constraintStart_toStartOf="@+id/scrollChannels"
-            app:layout_constraintTop_toBottomOf="@+id/scrollChannels" />
-
-        <ImageView
-            android:id="@+id/arrowIndicator"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_gravity="center_horizontal"
-            android:alpha="0.9"
-            android:visibility="visible"
-            app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
-            app:layout_constraintStart_toStartOf="@+id/scrollChannels"
-            app:layout_constraintTop_toBottomOf="@+id/txSlide"
-            app:srcCompat="@android:drawable/arrow_down_float" />
+    <ImageView
+        android:id="@+id/arrowIndicator"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="center_horizontal"
+        android:alpha="0.9"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="@+id/scrollChannels"
+        app:layout_constraintStart_toStartOf="@+id/scrollChannels"
+        app:layout_constraintTop_toBottomOf="@+id/txSlide"
+        app:srcCompat="@android:drawable/arrow_down_float" />
 
     <Button
         android:id="@+id/download_button_channel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Descargar"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/scrollChannels"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@+id/scrollChannels" />
 
     <LinearLayout
         android:id="@+id/linearTextProgressChannel"
@@ -107,5 +116,5 @@
 
     </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -382,20 +382,14 @@ class SelectSongOnline : AppCompatActivity() {
 
             //Por ahora solo se enviaran KSF
             //val listVacios = ArrayList<Lvs>()
-            val listVacios = ArrayList<Ksf>()
+            val listVacios = mutableListOf<Ksf>()
             val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
 
             for (index in 0..19) {
                 listVacios.add(Ksf("", "",  rutaLvSelected))
             }
-            llenaLvsVacios(null, listVacios)
-
-            if(listSongsChannel.size > 0){
-                //listItems = createSongList()
-            }else if (listSongsChannelKsf.size > 0){
-                listItemsKsf = createSongListKsf()
-            }
-
+            llenaLvsVacios(listVacios)
+            listItemsKsf = createSongListKsf()
 
             setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
             //var num = listItems.size / 2
@@ -1187,6 +1181,7 @@ class SelectSongOnline : AppCompatActivity() {
         }
 
         currentSong = item.title
+        /*
         listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         if(listSongScores.isEmpty()){
             for (nivel in item.listKsf) {
@@ -1195,11 +1190,13 @@ class SelectSongOnline : AppCompatActivity() {
                     cancion = item.title,
                     nivel = nivel.level,
                     puntaje = "0",
-                    grade = ""
+                    grade = "",
+                    ""
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
+        */
 
         //if(isFileExists(File(item.rutaPrevVideo))){
         if(isFileExists(File(item.rutaPreview))){
@@ -1394,27 +1391,22 @@ class SelectSongOnline : AppCompatActivity() {
     private fun llenaLvsKsf(listLvs : MutableList<Ksf>){
         /*binding.*/recyclerLvs.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = LvsAdapter(null, listLvs, sizeLvs)
+            adapter = LvsAdapter(listLvs, sizeLvs)
         }
         recyclerLvs.onFlingListener = null
     }
 
-    private fun llenaLvsVacios(listLvs : ArrayList<Lvs>? = arrayListOf(), listLvsKsf:  ArrayList<Ksf>? = arrayListOf()){
+    private fun llenaLvsVacios(listLvsKsf: MutableList<Ksf>){
         recyclerLvsVacios.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            if(listLvs != null){
-                adapter = LvsAdapter(listLvs, null, (sizeLvs))
-            }else if(listLvsKsf != null){
-                adapter = LvsAdapter(null, listLvsKsf, (sizeLvs))
-            }
-
+            adapter = LvsAdapter(listLvsKsf, (sizeLvs))
         }
     }
 
     private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
         recyclerView.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = CustomAdapter(null, listItemsKsf, heightBanner, widhtBanner)
+            adapter = CustomAdapter(listItemsKsf, heightBanner, widhtBanner)
         }
     }
 

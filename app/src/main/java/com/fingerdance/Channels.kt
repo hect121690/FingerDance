@@ -8,8 +8,4 @@ class Channels(
     var banner: String,
     var listCanciones: ArrayList<Song> = arrayListOf(),
     var listCancionesKsf: ArrayList<SongKsf> = arrayListOf()
-) : Serializable {
-
-
-
-}
+) : Serializable

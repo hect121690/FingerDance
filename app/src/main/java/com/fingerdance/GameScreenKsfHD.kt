@@ -60,13 +60,6 @@ open class GameScreenKsfHD(activity: GameScreenActivity) : Screen {
     val barTip = Sprite(barTipTexture)
 
     private lateinit var padB : TextureRegion
-    lateinit var spritePadB: Sprite
-
-    lateinit var padLefDownC : Array<TextureRegion>
-    lateinit var padLeftUpC : Array<TextureRegion>
-    lateinit var padCenterC : Array<TextureRegion>
-    lateinit var padRightUpC : Array<TextureRegion>
-    lateinit var padRightDownC : Array<TextureRegion>
 
     lateinit var arrPadsC : Array<Array<TextureRegion>>
 
@@ -122,13 +115,13 @@ open class GameScreenKsfHD(activity: GameScreenActivity) : Screen {
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechas
 
-        if(showPadB == 0){
+
             padLefDown.flip(false, true)
             padLeftUp.flip(false, true)
             padCenter.flip(false, true)
             padRightUp.flip(false, true)
             padRightDown.flip(false, true)
-        }
+
     }
 
     override fun render(delta: Float) {

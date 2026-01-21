@@ -908,7 +908,7 @@ class PlayerHD(private val batch: SpriteBatch, activity: GameScreenActivity) : G
             4 -> {
                 curCombo = 0
                 curComboMiss++
-                //resultSong.miss++
+                resultSong.miss++
             }
         }
 

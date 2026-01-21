@@ -26,7 +26,7 @@ class PlayerSong(
     var rs: Boolean = false,
     var mirror: Boolean = false,
     var isBAGDark: Boolean = false,
-    var pathImgRS: String = "",
-    var pathImgMirror: String = "",
+    var player: String = "",
+    var type: String = "",
     var snake: Boolean = false
 ) : Serializable

@@ -6,8 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ItemBinding
 
-class CustomAdapter(private val songList: ArrayList<Song>?,
-                    private val songListKsf: ArrayList<SongKsf>?,
+class CustomAdapter(private val songListKsf: ArrayList<SongKsf>,
                     private val heightBanners : Int,
                     private val widthBanners: Int) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
@@ -17,29 +16,21 @@ class CustomAdapter(private val songList: ArrayList<Song>?,
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        if(songList != null){
-            holder.bindItem(songList[position], null)
-        }else if(songListKsf != null){
-            holder.bindItem(null, songListKsf[position])
-        }
+        holder.bindItem(songListKsf[position])
     }
 
     override fun getItemCount(): Int {
-        return songList?.size ?: songListKsf?.size ?: 0
+        return songListKsf.size
     }
 
     class ViewHolder(var itemBinding: ItemBinding, heightBanners : Int, widthBanners: Int) :
         RecyclerView.ViewHolder(itemBinding.root) {
         val heightB = heightBanners
         val widthB = widthBanners
-        fun bindItem(song: Song?, songKsf: SongKsf?) {
+        fun bindItem(songKsf: SongKsf) {
             itemBinding.image.layoutParams.height = heightB
             itemBinding.image.layoutParams.width = widthB
-            if(song != null){
-                itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(song.rutaBanner))
-            }else if(songKsf != null){
-                itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(songKsf.rutaDisc))
-            }
+            itemBinding.image.setImageBitmap(BitmapFactory.decodeFile(songKsf.rutaDisc))
         }
     }
 }

@@ -83,20 +83,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     val recept3Frames = getReceptsTexture(textureLU, true)
     val recept4Frames = getReceptsTexture(textureLD, true)
 
-    /*
-    val gm = "FingerDance/Themes/$tema/GraphicsStatics/game_play"
-    val textureGirl = Texture(Gdx.files.external("$gm/girl_battle.png"))
-    val textureBoy = Texture(Gdx.files.external("$gm/boy_battle.png"))
-
-    private val girlBattleHappy = getBattleAnim(textureGirl, 0)
-    private val girlBattleSad = getBattleAnim(textureGirl, 1)
-    private val boyBattleHappy = getBattleAnim(textureBoy, 0)
-    private val boyBattleSad = getBattleAnim(textureBoy, 1)
-
-    val girlBattle = arrayOf(girlBattleHappy, girlBattleSad)
-    val boyBattle = arrayOf(boyBattleHappy, boyBattleSad)
-    */
-
     var targetTop = 0f
     private var elapsedTime = 0f
     private var rithymAnim = 0f
@@ -212,20 +198,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         return SystemClock.uptimeMillis()
     }
 
-    private fun getBattleAnim(texture: Texture, row: Int): Array<TextureRegion> {
-        val tmp = TextureRegion.split(texture, texture.width / 4, texture.height / 2)
-        val frames = arrayOf(
-            tmp[row][0], tmp[row][1],
-            tmp[row][2], tmp[row][3]
-        )
-        frames[0].flip(false, true)
-        frames[1].flip(false, true)
-        frames[2].flip(false, true)
-        frames[3].flip(false, true)
-
-        return frames
-    }
-
     private fun getTexturePad4(texture: Texture): Array<TextureRegion> {
         val tmp = TextureRegion.split(texture, texture.width / 5, texture.height)
         val frames = arrayOf(
@@ -272,16 +244,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                 batch.draw(padCenter, padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
                 batch.draw(padRightUp, padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
                 batch.draw(padRightDown, padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
-
-                /*
-                //HalfDouble
-                batch.draw(padCenter, padPositions[0][0], padPositions[0][1], colWidth, heightBtns)
-                batch.draw(padRightDown, padPositions[1][0], padPositions[1][1], colWidth, heightBtns)
-                batch.draw(padRightUp, padPositions[2][0], padPositions[2][1], colWidth, heightBtns)
-                batch.draw(padLefDown, padPositions[3][0], padPositions[3][1], colWidth, heightBtns)
-                batch.draw(padLeftUp, padPositions[4][0], padPositions[4][1], colWidth, heightBtns)
-                batch.draw(padCenter, padPositions[5][0], padPositions[5][1], colWidth, heightBtns)
-                */
             }
         }else if (showPadB == 1){
             spritePadB.setAlpha(alphaPadB)

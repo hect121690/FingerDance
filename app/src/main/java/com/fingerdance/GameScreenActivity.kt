@@ -7,6 +7,7 @@ import android.graphics.PixelFormat
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
@@ -20,7 +21,11 @@ import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import java.io.File
+import kotlin.properties.Delegates
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -113,7 +118,6 @@ open class GameScreenActivity : AndroidApplication() {
                 checkedValues = generateCheckedValues(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
             }
         }
-
     }
 
     private fun trimTransparentEdges(source: Bitmap): Bitmap {
@@ -220,6 +224,26 @@ open class GameScreenActivity : AndroidApplication() {
 
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
+            if(currentChannel == "06-FAVORITES"){
+                val nameChannels = listSongsChannelKsf.find { it.title == currentSong }?.channel
+                listenScoreChannel(nameChannels.toString()) { listaCanciones ->
+                    listGlobalRanking = listaCanciones
+                }
+                thisHandler.postDelayed({
+                    val rankingItem = listGlobalRanking.find { it.cancion == currentSong }
+                    if(rankingItem != null) {
+                        currentWorldScore = if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
+                            listOf(
+                                rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
+                                rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
+                                rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
+                            )
+                        }else{
+                            listOf("1000000", "1000000", "1000000")
+                        }
+                    }
+                }, 7000)
+            }
             thisHandler.postDelayed({
                 getEndSong()
             },1000)
@@ -230,6 +254,46 @@ open class GameScreenActivity : AndroidApplication() {
             }, 4000)
         }
 
+    }
+
+    private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
+        val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
+        val listResult = arrayListOf<Cancion>()
+        canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (canalSnapshot in snapshot.children) {
+                    val cancionesSnapshot = canalSnapshot.child("canciones")
+                    for (cancionSnapshot in cancionesSnapshot.children) {
+                        val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+                        val niveles = arrayListOf<Nivel>()
+
+                        for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
+                            val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                            val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
+                            val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
+                            val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
+                            val rankings = arrayListOf<FirstRank>()
+                            for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
+                                val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                                val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                                val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
+                                rankings.add(FirstRank(nombre, puntaje, grade))
+                            }
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
+                        }
+
+                        listResult.add(Cancion(nombreCancion, niveles))
+                    }
+                }
+
+                callback(listResult)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
+                callback(listGlobalRanking)
+            }
+        })
     }
 
     private fun getEndSong(){
