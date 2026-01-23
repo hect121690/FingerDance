@@ -7,9 +7,7 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
-import com.badlogic.gdx.graphics.glutils.FrameBuffer
 import com.badlogic.gdx.math.MathUtils.sin
-import com.badlogic.gdx.math.Matrix4
 import java.io.File
 import java.lang.Math.abs
 import kotlin.experimental.and
@@ -54,6 +52,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_END_CHK: Byte = 8
         const val NOTE_PRESS_CHK: Byte = 16
         const val NOTE_MISS_CHK: Byte = 32
+        const val NOTE_FAKE_CHK: Byte = 64  // Flag para notas fake
 
         private var ZONE_PERFECT: Long = if(playerSong.hj) 18 else 40
         private var ZONE_GREAT: Long = if(playerSong.hj) 40 else 80
@@ -73,14 +72,14 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
         // Fake notes - visible pero no hacen nada
         const val NOTE_FAKE: Byte = 3
-        const val NOTE_FAKE_LSTART: Byte = 11
-        const val NOTE_FAKE_LNOTE: Byte = 12
-        const val NOTE_FAKE_LEND: Byte = 13
-        const val NOTE_FAKE_LSTART_PRESS: Byte = 23
-        const val NOTE_FAKE_LEND_PRESS: Byte = 27
+        const val NOTE_FAKE_LSTART: Byte = (6 or 64).toByte()  // NOTE_LSTART | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LNOTE: Byte = (2 or 64).toByte()   // NOTE_LNOTE | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LEND: Byte = (10 or 64).toByte()   // NOTE_LEND | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LSTART_PRESS: Byte = (22 or 64).toByte()  // NOTE_LSTART_PRESS | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LEND_PRESS: Byte = (26 or 64).toByte()    // NOTE_LEND_PRESS | NOTE_FAKE_CHK
         const val NOTE_FAKE_MISS: Byte = 34
-        const val NOTE_FAKE_LSTART_MISS: Byte = 39
-        const val NOTE_FAKE_LEND_MISS: Byte = 43
+        const val NOTE_FAKE_LSTART_MISS: Byte = (38 or 64).toByte()  // NOTE_LSTART_MISS | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LEND_MISS: Byte = (42 or 64).toByte()    // NOTE_LEND_MISS | NOTE_FAKE_CHK
 
         // Phantom notes - no visibles pero se juzgan
         const val NOTE_PHANTOM: Byte = 5
@@ -97,6 +96,9 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_MINE: Byte = 7
         const val NOTE_MINE_MISS: Byte = 36
         const val MINE_PENALTY = 0.025f
+
+        private lateinit var pixmap: Pixmap
+        private lateinit var flashTexture: Texture
 
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
@@ -238,6 +240,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         flareArrowFrame = getArrows6x1(sprFlare)
 
         arrMines = getArrows3x2(mine)
+        getPixmap()
 
         inputProcessor.resetState()
     }
@@ -356,7 +359,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             drawNote(iStepNo, iNoteTop)
                         } else if (nowstep and NOTE_LONG_CHK != 0.toByte()) {
                             if (nowstep and NOTE_START_CHK != 0.toByte()) {
-                                if (nowstep and NOTE_PRESS_CHK != 0.toByte()) {
+                                if (nowstep and NOTE_PRESS_CHK != 0.toByte() ) {
                                     bDrawLong[iStepNo] = true
                                     iLongTop[iStepNo] = STEPSIZE.toLong()
                                     bDrawLongPress[iStepNo] = true
@@ -498,21 +501,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             }
 
                             // Fake notes - ignore input (no hacer nada)
-                            if (nnote == NOTE_FAKE) {
-                                continue
-                            }
-
-                            // Mines - penalize with extra damage
-                            if (nnote == NOTE_MINE) {
-                                ptn_now.vLine[c].step[x] = NOTE_MINE_MISS
-                                ksf.patterns[i].vLine[c].step[x] = NOTE_MINE_MISS
-                                getJudge(JUDGE_MISS)
-                                m_fGauge -= MINE_PENALTY // Extra penalty for mines
-                                m_fGauge += GaugeInc[JUDGE_MISS]
-                                newJudge(JUDGE_MISS, timeGetTime())
-                                newFlare(x, timeGetTime())
-                                mineFlashStartTime = timeGetTime() // Activate mine flash
-                                key[x] = KEY_NONE
+                            if (nnote == NOTE_FAKE || nnote and NOTE_FAKE_CHK != 0.toByte()) {
                                 continue
                             }
 
@@ -528,8 +517,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 key[x] = KEY_NONE
 
                             }else if (nnote == NOTE_LSTART || nnote == NOTE_LNOTE ||
-                                     nnote == NOTE_PHANTOM_LSTART || nnote == NOTE_PHANTOM_LNOTE ||
-                                     nnote == NOTE_FAKE_LSTART || nnote == NOTE_FAKE_LNOTE) {
+                                     nnote == NOTE_PHANTOM_LSTART || nnote == NOTE_PHANTOM_LNOTE) {
                                 ksf.patterns[i].vLine[c].step[x] = NOTE_NONE
                                 var ptnToChange: KsfProccess.Pattern?
                                 var lineToChange: Int
@@ -552,20 +540,18 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
                                 val stepList = ptnToChange.vLine[lineToChange].step
                                 when (stepList[x]) {
-                                    NOTE_LNOTE, NOTE_PHANTOM_LNOTE, NOTE_FAKE_LNOTE -> {
+                                    NOTE_LNOTE, NOTE_PHANTOM_LNOTE -> {
                                         stepList[x] = when(stepList[x]) {
                                             NOTE_LNOTE -> NOTE_LSTART_PRESS
                                             NOTE_PHANTOM_LNOTE -> NOTE_PHANTOM_LSTART_PRESS
-                                            NOTE_FAKE_LNOTE -> NOTE_FAKE_LSTART_PRESS
                                             else -> NOTE_LSTART_PRESS
                                         }
                                         ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = stepList[x]
                                     }
-                                    NOTE_LEND, NOTE_PHANTOM_LEND, NOTE_FAKE_LEND -> {
+                                    NOTE_LEND, NOTE_PHANTOM_LEND -> {
                                         stepList[x] = when(stepList[x]) {
                                             NOTE_LEND -> NOTE_LEND_PRESS
                                             NOTE_PHANTOM_LEND -> NOTE_PHANTOM_LEND_PRESS
-                                            NOTE_FAKE_LEND -> NOTE_FAKE_LEND_PRESS
                                             else -> NOTE_LEND_PRESS
                                         }
                                         ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = stepList[x]
@@ -577,7 +563,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 key[x] = KEY_NONE
 
                                 // For Fake long notes, don't add to score/judge
-                                if (nnote == NOTE_FAKE_LSTART || nnote == NOTE_FAKE_LNOTE) {
+                                if (nnote and NOTE_FAKE_CHK != 0.toByte()) {
                                     // No scoring for fake long notes
                                 } else {
                                     judge_time = LONGNOTE[x].time shr 1
@@ -621,13 +607,11 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 if (nnote and NOTE_MISS_CHK != 0.toByte()) continue
 
                                 // Fake notes - ignore input
-                                if (nnote == NOTE_FAKE || nnote == NOTE_FAKE_LSTART ||
-                                    nnote == NOTE_FAKE_LNOTE) continue
+                                if (nnote == NOTE_FAKE || nnote and NOTE_FAKE_CHK != 0.toByte()) continue
 
                                 // SOLO para long notes que inician aquí
                                 if (nnote == NOTE_LSTART || nnote == NOTE_LNOTE ||
-                                    nnote == NOTE_PHANTOM_LSTART || nnote == NOTE_PHANTOM_LNOTE ||
-                                    nnote == NOTE_FAKE_LSTART || nnote == NOTE_FAKE_LNOTE) {
+                                    nnote == NOTE_PHANTOM_LSTART || nnote == NOTE_PHANTOM_LNOTE) {
                                     // ...existing code...
                                     ksf.patterns[i].vLine[c].step[x] = NOTE_NONE
                                     var ptnToChange: KsfProccess.Pattern?
@@ -1609,7 +1593,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             frameArray.forEach { it.texture.dispose() }
         }
         sprFlare.dispose()
-
+        pixmap.dispose()
+        flashTexture.dispose()
         curCombo = 0
         inputProcessor.dispose()
 
@@ -1638,6 +1623,13 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         return "normal"
     }
 
+    private fun getPixmap(){
+        pixmap = Pixmap(Gdx.graphics.width, Gdx.graphics.height, Pixmap.Format.RGBA8888)
+        pixmap.setColor(1f, 1f, 1f, 1f)
+        pixmap.fill()
+        flashTexture = Texture(pixmap)
+    }
+
     private fun drawMineFlash(timeCom: Long) {
         if (mineFlashStartTime == 0L) {
             return
@@ -1649,23 +1641,11 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             mineFlashStartTime = 0L
             return
         }
-
-        // Calcular la opacidad del flash (comienza en 1.0 y desaparece)
         val alpha = 1.0f - (elapsedTime.toFloat() / MINE_FLASH_DURATION.toFloat())
-
-        // Dibujar un rectángulo blanco que cubre toda la pantalla
-        val pixmap = Pixmap(Gdx.graphics.width, Gdx.graphics.height, Pixmap.Format.RGBA8888)
-        pixmap.setColor(1f, 1f, 1f, alpha)
-        pixmap.fill()
-
-        val flashTexture = Texture(pixmap)
-        pixmap.dispose()
 
         batch.setColor(1f, 1f, 1f, alpha)
         batch.draw(flashTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         batch.setColor(1f, 1f, 1f, 1f)
-
-        flashTexture.dispose()
     }
 }
 

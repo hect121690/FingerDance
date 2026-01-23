@@ -26,12 +26,13 @@ class KsfProccess {
 
         const val NOTE_START_CHK: Byte = 4
         const val NOTE_END_CHK: Byte = 8
+        const val NOTE_FAKE_CHK: Byte = 64  // Flag para notas fake
 
         // Fake notes - visible pero no hacen nada
         const val NOTE_FAKE: Byte = 3
-        const val NOTE_FAKE_LSTART: Byte = 11
-        const val NOTE_FAKE_LNOTE: Byte = 12
-        const val NOTE_FAKE_LEND: Byte = 13
+        const val NOTE_FAKE_LSTART: Byte = (6 or 64).toByte()  // NOTE_LSTART | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LNOTE: Byte = (2 or 64).toByte()   // NOTE_LNOTE | NOTE_FAKE_CHK
+        const val NOTE_FAKE_LEND: Byte = (10 or 64).toByte()   // NOTE_LEND | NOTE_FAKE_CHK
 
         // Phantom notes - no visibles pero se juzgan
         const val NOTE_PHANTOM: Byte = 5

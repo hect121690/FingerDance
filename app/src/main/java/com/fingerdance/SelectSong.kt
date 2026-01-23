@@ -7,6 +7,7 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.SurfaceTexture
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -18,9 +19,10 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.Surface
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.Animation
@@ -31,7 +33,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
@@ -66,7 +67,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.createBitmap
-import androidx.core.graphics.scale
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -189,9 +189,15 @@ class SelectSong : AppCompatActivity() {
 
     private lateinit var video_fondo : VideoView
     private lateinit var imgPrev: ImageView
-
+    /*
     private lateinit var next : VideoView
     private lateinit var prev : VideoView
+    */
+    private lateinit var prev: TextureView
+    private lateinit var next: TextureView
+
+    private lateinit var prevPlayer: MediaPlayer
+    private lateinit var nextPlayer: MediaPlayer
 
     private lateinit var indicatorLayout: ImageView
     private lateinit var imageCircle : ImageView
@@ -205,6 +211,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var imgFavorite : ImageView
     private lateinit var bitFavorite : Bitmap
     private lateinit var bitFavoriteListed: Bitmap
+    private var saveFavorites = false
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -224,7 +231,7 @@ class SelectSong : AppCompatActivity() {
             getSupportActionBar()?.hide()
             super.onCreate(savedInstanceState)
             setContentView(R.layout.activity_select_song)
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
             onWindowFocusChanged(true)
 
             isOnline = false
@@ -474,7 +481,7 @@ class SelectSong : AppCompatActivity() {
 
             imgSelected.layoutParams.height = width / 3
             imgSelected.layoutParams.width = width / 3
-            val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select);
+            val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select)
             imgSelected.startAnimation(anim)
 
             nav_izq = findViewById(R.id.nav_izq_song)
@@ -490,20 +497,43 @@ class SelectSong : AppCompatActivity() {
             next.layoutParams.height = (height * 0.3).toInt()
             prev.layoutParams.height = (height * 0.3).toInt()
 
-            next.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/next.mp4")!!.absolutePath)
-            prev.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/prev.mp4")!!.absolutePath)
-
-            next.setOnPreparedListener { mp ->
-                mp.isLooping = false
-                mp.setVolume(0f, 0f)
-            }
             next.visibility = View.GONE
-
-            prev.setOnPreparedListener { mp ->
-                mp.isLooping = false
-                mp.setVolume(0f, 0f)
-            }
             prev.visibility = View.GONE
+
+            nextPlayer = MediaPlayer().apply {
+                setDataSource(
+                    getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/next.mp4")!!.absolutePath
+                )
+                isLooping = false
+                setVolume(0f, 0f)
+                prepare()
+            }
+
+            next.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                    nextPlayer.setSurface(Surface(surface))
+                }
+                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+            }
+            prevPlayer = MediaPlayer().apply {
+                setDataSource(
+                    getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/prev.mp4")!!.absolutePath
+                )
+                isLooping = false
+                setVolume(0f, 0f)
+                prepare()
+            }
+            prev.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                    prevPlayer.setSurface(Surface(surface))
+                }
+                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+
+            }
 
             val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
             val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
@@ -628,6 +658,7 @@ class SelectSong : AppCompatActivity() {
             }
 
             imgFavorite.setOnClickListener {
+                saveFavorites = true
                 val song = listItemsKsf[oldValue]
                 val favChannel = listChannels.find { it.nombre == "06-FAVORITES" }
 
@@ -791,7 +822,7 @@ class SelectSong : AppCompatActivity() {
                     moveIndicatorToPosition(0)
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
-                    handleButtonPress(false)
+                    if (handleButtonPress(false)) return@setOnClickListener
                     soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     if (positionActualLvs != 0) {
                         positionActualLvs -= 1
@@ -830,7 +861,7 @@ class SelectSong : AppCompatActivity() {
                     moveIndicatorToPosition(0)
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
-                    handleButtonPress(true)
+                    if (handleButtonPress(true)) return@setOnClickListener
                     soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     ultimoLv = (recyclerLvs.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
                     if (positionActualLvs < ultimoLv) {
@@ -1553,20 +1584,24 @@ class SelectSong : AppCompatActivity() {
         sequence.clear()
     }
 
-    private fun handleButtonPress(isLeft: Boolean) {
+    private fun handleButtonPress(isLeft: Boolean): Boolean {
         sequence.add(isLeft)
 
         if (sequence.size >= sequencePattern.size) {
             val lastElements = sequence.takeLast(sequencePattern.size)
             if (lastElements == sequencePattern) {
                 performAction()
+                return true // 🔥 CLICK CONSUMIDO
             }
         }
 
         if (sequence != sequencePattern.take(sequence.size)) {
             sequence.clear()
         }
+
+        return false
     }
+
 
     private fun showProgressBar(duration: Long) {
         var currentTime: Long
@@ -1754,8 +1789,8 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private fun showCommandWindow(ver : Boolean){
-        if(ver){
+    private fun showCommandWindow(show : Boolean){
+        if(show){
             commandWindow.visibility = View.VISIBLE
             commandWindowBG.visibility = View.VISIBLE
             linearMenus.visibility = View.VISIBLE
@@ -1798,11 +1833,13 @@ class SelectSong : AppCompatActivity() {
 
     private fun goSelectChannel(){
         soundPoolSelectSongKsf.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-        listChannels.remove(channelFavorites)
-        themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-        themes.edit().putString("favorites", gson.toJson(listFavorites)).apply()
-        listChannels.add(channelFavorites)
-        listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+        if(saveFavorites){
+            listChannels.remove(channelFavorites)
+            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
+            themes.edit().putString("favorites", gson.toJson(listFavorites)).apply()
+            listChannels.add(channelFavorites)
+            listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+        }
 
         nav_back_der.startAnimation(animOn)
         if (mediPlayer.isPlaying){
@@ -2053,31 +2090,31 @@ class SelectSong : AppCompatActivity() {
         llenaLvsKsf(item.listKsf)
     }
 
-
     private fun showTransitionVideo(isNext: Boolean) {
-        if(isNext){
+        if (isNext) {
             prev.visibility = View.GONE
             next.visibility = View.VISIBLE
-            next.seekTo(0)
-            next.start()
-            next.setOnCompletionListener {
+
+            nextPlayer.seekTo(0)
+            nextPlayer.start()
+
+            nextPlayer.setOnCompletionListener {
                 next.visibility = View.GONE
                 mediPlayer.start()
-                if(isVideo){
-                    video_fondo.start()
-                }
+                if (isVideo) video_fondo.start()
             }
-        }else {
+
+        } else {
             next.visibility = View.GONE
             prev.visibility = View.VISIBLE
-            prev.seekTo(0)
-            prev.start()
-            prev.setOnCompletionListener {
+
+            prevPlayer.seekTo(0)
+            prevPlayer.start()
+
+            prevPlayer.setOnCompletionListener {
                 prev.visibility = View.GONE
                 mediPlayer.start()
-                if(isVideo){
-                    video_fondo.start()
-                }
+                if (isVideo) video_fondo.start()
             }
         }
     }
@@ -2304,9 +2341,12 @@ class SelectSong : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        if (::prevPlayer.isInitialized) prevPlayer.release()
+        if (::nextPlayer.isInitialized) nextPlayer.release()
         handlerContador.removeCallbacksAndMessages(null)
         handler.removeCallbacksAndMessages(null)
+
+        super.onDestroy()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
