@@ -300,7 +300,7 @@ class KsfProccess {
                     } else {
                         curPtn.fBPM = info.step.toFloat()
                     }
-                    curBPM = curPtn.fBPM.coerceIn(MIN_BPM, MAX_BPM)
+                    curBPM = curPtn.fBPM
 
                 }
                 STEPINFO_TICK -> {

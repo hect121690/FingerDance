@@ -97,6 +97,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private var intervalOverlay = 60000 / displayBPM
 
     val gdxHeight = Gdx.graphics.height
+    val gdxWidth = Gdx.graphics.width
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
 

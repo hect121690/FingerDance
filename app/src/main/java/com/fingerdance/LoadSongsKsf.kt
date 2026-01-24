@@ -19,6 +19,7 @@ var move_lvsKsf : Int = 0
 
 var rank_sound : Int = 0
 var new_record : Int = 0
+var sound_mine : Int = 0
 var sss_rank : Int = 0
 var ss_rank : Int = 0
 var s_rank : Int = 0
@@ -557,6 +558,10 @@ class LoadSongsKsf {
         val pathNewRecord = File("$pathSounds/Evaluation/new_record.ogg")
         val decriptorNewRecord = FileInputStream(pathNewRecord).fd
         new_record = soundPoolSelectSongKsf.load(decriptorNewRecord, 0, pathNewRecord.length(), 1)
+
+        val pathMine = File(c.getExternalFilesDir("/FingerDance/NoteSkins/Player mine.ogg").toString())
+        val decriptorMine = FileInputStream(pathMine).fd
+        sound_mine = soundPoolSelectSongKsf.load(decriptorMine, 0, pathMine.length(), 1)
 
         getRank(pathSounds)
         getRankB(pathSounds)

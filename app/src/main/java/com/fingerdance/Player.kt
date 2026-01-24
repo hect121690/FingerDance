@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
@@ -10,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import java.io.File
 import java.lang.Math.abs
+import java.lang.Math.min
 import kotlin.experimental.and
 
 private val chkPtnNum = IntArray(5)
@@ -97,9 +99,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         const val NOTE_MINE_MISS: Byte = 36
         const val MINE_PENALTY = 0.025f
 
-        private lateinit var pixmap: Pixmap
-        private lateinit var flashTexture: Texture
-
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
         private lateinit var upLeftTap: Texture
@@ -130,6 +129,9 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         private lateinit var flareArrowFrame : Array<TextureRegion>
 
         private val LONGNOTE = Array(5) { LongNotePress() }
+
+        private lateinit var whiteTex: Texture
+
     }
 
     data class PlayerFlare(var startTime: Long = 0)
@@ -151,7 +153,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
     // Mine flash variables
     private var mineFlashStartTime: Long = 0L
-    private val MINE_FLASH_DURATION: Long = 150L // Duración del flash en ms
+    private val MINE_FLASH_DURATION: Long = 100L
 
     private val widthFlare = medidaFlechas * 5f
     private var yFlare = medidaFlechas - (medidaFlechas * 2f)
@@ -240,7 +242,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         flareArrowFrame = getArrows6x1(sprFlare)
 
         arrMines = getArrows3x2(mine)
-        getPixmap()
+        createWhiteTexture()
 
         inputProcessor.resetState()
     }
@@ -251,6 +253,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         var ptn: Int = 0,
         var line: Int = 0,
     )
+
 
     fun render(delta: Long) {
         var time = delta
@@ -265,7 +268,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         if(showPadB == 0){
             inputProcessor.render(batch)
         }
-        val msPorBeat = (60000f / abs(m_fCurBPM))
+        val msPorBeat = (60000f / m_fCurBPM.coerceIn(1f, ksf.MAX_BPM))
         val msPorFrame = msPorBeat / 5
         arrowFrame = ((timeCom % msPorBeat) / msPorFrame).toInt()
 
@@ -313,6 +316,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 }
             }
         }
+        m_fCurBPM = m_fCurBPM.coerceIn(ksf.MIN_BPM, ksf.MAX_BPM)
 
         mCurPtnNum = iPtnNowNo
 
@@ -399,7 +403,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             m_fGauge = 0.0f
         }
 
-        var gaugeFind = (60000 / abs(m_fCurBPM))
+        var gaugeFind = (60000 / m_fCurBPM.coerceIn(1f, ksf.MAX_BPM))
         iPtnNoGauge = abs(ksf.patterns[iPtnNowNo].timePos - time).toInt()
 
         while(iPtnNoGauge >= gaugeFind){
@@ -505,6 +509,20 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 continue
                             }
 
+                            // Mines - penalize with extra damage
+                            if (nnote == NOTE_MINE) {
+                                ptn_now.vLine[c].step[x] = NOTE_MINE_MISS
+                                ksf.patterns[i].vLine[c].step[x] = NOTE_MINE_MISS
+                                getJudge(JUDGE_MISS)
+                                m_fGauge -= MINE_PENALTY // Extra penalty for mines
+                                m_fGauge += GaugeInc[JUDGE_MISS]
+                                newJudge(JUDGE_MISS, timeGetTime())
+                                newFlare(x, timeGetTime())
+                                onMineHit(timeGetTime()) // ✅ AQUÍ
+                                key[x] = KEY_NONE
+                                continue
+                            }
+
                             if(nnote == NOTE_NOTE || nnote == NOTE_PHANTOM) {
                                 ptn_now.vLine[c].step[x] = NOTE_NONE
                                 ksf.patterns[i].vLine[c].step[x] = NOTE_NONE
@@ -585,7 +603,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         break
                     }
                 }
-            }else if (key[x] == KEY_PRESS) {
+            }
+            else if (key[x] == KEY_PRESS) {
                 showExpand(x)
                 if (!LONGNOTE[x].pressed) {
                     for (i in 0 until iptnc) {
@@ -612,7 +631,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 // SOLO para long notes que inician aquí
                                 if (nnote == NOTE_LSTART || nnote == NOTE_LNOTE ||
                                     nnote == NOTE_PHANTOM_LSTART || nnote == NOTE_PHANTOM_LNOTE) {
-                                    // ...existing code...
                                     ksf.patterns[i].vLine[c].step[x] = NOTE_NONE
                                     var ptnToChange: KsfProccess.Pattern?
                                     var lineToChange: Int
@@ -664,9 +682,11 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
                                     // For Fake notes, don't add to score
                                     if (nnote != NOTE_FAKE_LSTART && nnote != NOTE_FAKE_LNOTE) {
-                                        getJudge(JUDGE_PERFECT)
-                                        m_fGauge += GaugeInc[JUDGE_PERFECT]
-                                        newJudge(JUDGE_PERFECT, timeGetTime())
+                                        if(ptn_now.fBPM <= ksf.MAX_BPM && ptn_now.iTick <= 16){
+                                            getJudge(0)
+                                            m_fGauge += GaugeInc[0]
+                                            newJudge(JUDGE_PERFECT, timeGetTime())
+                                        }
                                         newFlare(x, timeGetTime())
                                     }
                                     break // Solo engancha una long note por frame
@@ -710,16 +730,20 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_FAKE_LEND_PRESS
                             }
                             NOTE_LNOTE, NOTE_LSTART -> {
-                                getJudge(0)
-                                newJudge(0, timeGetTime())
-                                m_fGauge += GaugeInc[5]
+                                if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                    getJudge(0)
+                                    newJudge(0, timeGetTime())
+                                    m_fGauge += GaugeInc[5]
+                                }
                                 ptn_now.vLine[line_num].step[x] = NOTE_LSTART_PRESS
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
                             }
                             NOTE_PHANTOM_LNOTE, NOTE_PHANTOM_LSTART -> {
-                                getJudge(0)
-                                newJudge(0, timeGetTime())
-                                m_fGauge += GaugeInc[5]
+                                if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                    getJudge(0)
+                                    newJudge(0, timeGetTime())
+                                    m_fGauge += GaugeInc[5]
+                                }
                                 ptn_now.vLine[line_num].step[x] = NOTE_PHANTOM_LSTART_PRESS
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_PHANTOM_LSTART_PRESS
                             }
@@ -731,34 +755,41 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             else -> {
                                 LONGNOTE[x].pressed = false
                                 val judgeTime = LONGNOTE[x].time shr 1
-                                judge = getJudgement(judgeTime)
-                                getJudge(judge)
-                                m_fGauge += GaugeInc[judge]
-                                newJudge(judge, timeGetTime())
+                                if(ptn_now.fBPM <= ksf.MAX_BPM && ptn_now.iTick <= 16){
+                                    judge = getJudgement(judgeTime)
+                                    getJudge(judge)
+                                    m_fGauge += GaugeInc[judge]
+                                    newJudge(judge, timeGetTime())
+                                }
                                 newFlare(x, timeGetTime())
 
                             }
                         }
                     }
                 }
-            }else if (key[x] == KEY_UP){
+            }
+            else if (key[x] == KEY_UP){
                 if (LONGNOTE[x].pressed){
-                    LONGNOTE[x].pressed = false
+                    //LONGNOTE[x].pressed = false
                     judge_time = getLongNoteEndTime(x) - time
                     if (judge_time < ZONE_BAD){
                         clearLongNote(x)
                         judge_time = abs(judge_time)
                         judge_time += LONGNOTE[x].time
                         judge_time = judge_time shr 1
-                        judge = getJudgement(judge_time)
+
                         // For Fake long notes, don't add to score
                         val isFakeLong = getLongNoteType(x) == "fake"
                         if (!isFakeLong) {
-                            getJudge(judge)
-                            m_fGauge += GaugeInc[judge]
-                            newJudge(judge, timeGetTime())
-                            newFlare(x, timeGetTime())
+                            if(LONGNOTE[x].pressed) {
+                                judge = getJudgement(judge_time)
+                                getJudge(judge)
+                                newJudge(judge, timeGetTime())
+                                m_fGauge += GaugeInc[judge]
+                                newFlare(x, timeGetTime())
+                            }
                         }
+                        LONGNOTE[x].pressed = false
                     }else{
                         line_num = LONGNOTE[x].line
                         iptn = LONGNOTE[x].ptn
@@ -793,9 +824,11 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         }
 
                         if (!isFakeLong) {
-                            getJudge(JUDGE_MISS)
-                            m_fGauge += GaugeInc[JUDGE_MISS]
-                            newJudge(JUDGE_MISS, timeGetTime())
+                            if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                getJudge(JUDGE_MISS)
+                                m_fGauge += GaugeInc[JUDGE_MISS]
+                                newJudge(JUDGE_MISS, timeGetTime())
+                            }
                         }
                     }
                 }
@@ -846,17 +879,21 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     NOTE_LSTART -> {
                                         ptn_now.vLine[c].step[b] = NOTE_LSTART_MISS
                                         ksf.patterns[i].vLine[c].step[b] = NOTE_LSTART_MISS
-                                        getJudge(JUDGE_MISS)
-                                        m_fGauge += GaugeInc[JUDGE_MISS]
-                                        newJudge(JUDGE_MISS, timeGetTime())
+                                        if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                            getJudge(JUDGE_MISS)
+                                            m_fGauge += GaugeInc[JUDGE_MISS]
+                                            newJudge(JUDGE_MISS, timeGetTime())
+                                        }
                                     }
 
                                     NOTE_PHANTOM_LSTART -> {
                                         ptn_now.vLine[c].step[b] = NOTE_PHANTOM_LSTART_MISS
                                         ksf.patterns[i].vLine[c].step[b] = NOTE_PHANTOM_LSTART_MISS
-                                        getJudge(JUDGE_MISS)
-                                        m_fGauge += GaugeInc[JUDGE_MISS]
-                                        newJudge(JUDGE_MISS, timeGetTime())
+                                        if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                            getJudge(JUDGE_MISS)
+                                            m_fGauge += GaugeInc[JUDGE_MISS]
+                                            newJudge(JUDGE_MISS, timeGetTime())
+                                        }
                                     }
 
                                     NOTE_FAKE_LSTART -> {
@@ -867,17 +904,22 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     NOTE_LEND -> {
                                         ptn_now.vLine[c].step[b] = NOTE_LEND_MISS
                                         ksf.patterns[i].vLine[c].step[b] = NOTE_LEND_MISS
-                                        getJudge(JUDGE_MISS)
-                                        m_fGauge += GaugeInc[JUDGE_MISS]
-                                        newJudge(JUDGE_MISS, timeGetTime())
+                                        if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                            getJudge(JUDGE_MISS)
+                                            m_fGauge += GaugeInc[JUDGE_MISS]
+                                            newJudge(JUDGE_MISS, timeGetTime())
+                                        }
+
                                     }
 
                                     NOTE_PHANTOM_LEND -> {
                                         ptn_now.vLine[c].step[b] = NOTE_PHANTOM_LEND_MISS
                                         ksf.patterns[i].vLine[c].step[b] = NOTE_PHANTOM_LEND_MISS
-                                        getJudge(JUDGE_MISS)
-                                        m_fGauge += GaugeInc[JUDGE_MISS]
-                                        newJudge(JUDGE_MISS, timeGetTime())
+                                        if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                            getJudge(JUDGE_MISS)
+                                            m_fGauge += GaugeInc[JUDGE_MISS]
+                                            newJudge(JUDGE_MISS, timeGetTime())
+                                        }
                                     }
 
                                     NOTE_FAKE_LEND -> {
@@ -1396,6 +1438,11 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         }
     }
 
+    fun onMineHit(timeCom: Long) {
+        mineFlashStartTime = timeCom
+        soundPoolSelectSongKsf.play(sound_mine, 1f, 1f, 1, 0, 1f)
+    }
+
     private fun newJudge(judgeType: Int, time: Long){
         m_judge.judge = judgeType
         m_judge.startTime = time
@@ -1593,8 +1640,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             frameArray.forEach { it.texture.dispose() }
         }
         sprFlare.dispose()
-        pixmap.dispose()
-        flashTexture.dispose()
         curCombo = 0
         inputProcessor.dispose()
 
@@ -1623,30 +1668,30 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
         return "normal"
     }
 
-    private fun getPixmap(){
-        pixmap = Pixmap(Gdx.graphics.width, Gdx.graphics.height, Pixmap.Format.RGBA8888)
-        pixmap.setColor(1f, 1f, 1f, 1f)
+    fun createWhiteTexture() {
+        val pixmap = Pixmap(1, 1, Pixmap.Format.RGBA8888)
+        pixmap.setColor(Color.WHITE)
         pixmap.fill()
-        flashTexture = Texture(pixmap)
+        whiteTex = Texture(pixmap)
+        pixmap.dispose()
     }
 
     private fun drawMineFlash(timeCom: Long) {
-        if (mineFlashStartTime == 0L) {
-            return
-        }
+        if (mineFlashStartTime == 0L) return
 
-        val elapsedTime = timeCom - mineFlashStartTime
-
-        if (elapsedTime > MINE_FLASH_DURATION) {
+        val elapsed = timeCom - mineFlashStartTime
+        if (elapsed >= MINE_FLASH_DURATION) {
             mineFlashStartTime = 0L
             return
         }
-        val alpha = 1.0f - (elapsedTime.toFloat() / MINE_FLASH_DURATION.toFloat())
+        val t = elapsed.toFloat() / MINE_FLASH_DURATION
+        val alpha = 1f - (t * t) // caída más agresiva
 
         batch.setColor(1f, 1f, 1f, alpha)
-        batch.draw(flashTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-        batch.setColor(1f, 1f, 1f, 1f)
+        batch.draw(whiteTex, 0f, 0f, gdxWidth.toFloat(), gdxHeight.toFloat())
+        batch.setColor(Color.WHITE)
     }
+
 }
 
 
