@@ -13,6 +13,7 @@ import java.io.File
 import java.lang.Math.abs
 import java.lang.Math.min
 import kotlin.experimental.and
+import kotlin.math.pow
 
 private val chkPtnNum = IntArray(5)
 private val chkLineNum = IntArray(5)
@@ -682,10 +683,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
 
                                     // For Fake notes, don't add to score
                                     if (nnote != NOTE_FAKE_LSTART && nnote != NOTE_FAKE_LNOTE) {
-                                        if(ptn_now.fBPM <= ksf.MAX_BPM && ptn_now.iTick <= 16){
+                                        if(ptn_now.iTick <= 16){
                                             getJudge(0)
                                             m_fGauge += GaugeInc[0]
                                             newJudge(JUDGE_PERFECT, timeGetTime())
+                                        }else{
+                                            val factor = 0.5.pow((ptn_now.iTick / 16f - 1f).toDouble()).toFloat()
+                                            if (factor >= 1f) {
+                                                getJudge(0)
+                                                m_fGauge += GaugeInc[0]
+                                                newJudge(JUDGE_PERFECT, timeGetTime())
+                                            }
                                         }
                                         newFlare(x, timeGetTime())
                                     }
@@ -730,19 +738,33 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_FAKE_LEND_PRESS
                             }
                             NOTE_LNOTE, NOTE_LSTART -> {
-                                if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                if(ptn_now.iTick <= 16){
                                     getJudge(0)
                                     newJudge(0, timeGetTime())
                                     m_fGauge += GaugeInc[5]
+                                }else{
+                                    val factor = 0.5.pow((ptn_now.iTick / 16f - 1f).toDouble()).toFloat()
+                                    if (factor >= 1f) {
+                                        getJudge(0)
+                                        m_fGauge += GaugeInc[0]
+                                        newJudge(JUDGE_PERFECT, timeGetTime())
+                                    }
                                 }
                                 ptn_now.vLine[line_num].step[x] = NOTE_LSTART_PRESS
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_LSTART_PRESS
                             }
                             NOTE_PHANTOM_LNOTE, NOTE_PHANTOM_LSTART -> {
-                                if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                                if(ptn_now.iTick <= 16){
                                     getJudge(0)
                                     newJudge(0, timeGetTime())
                                     m_fGauge += GaugeInc[5]
+                                }else{
+                                    val factor = 0.5.pow((ptn_now.iTick / 16f - 1f).toDouble()).toFloat()
+                                    if (factor >= 1f) {
+                                        getJudge(0)
+                                        m_fGauge += GaugeInc[0]
+                                        newJudge(JUDGE_PERFECT, timeGetTime())
+                                    }
                                 }
                                 ptn_now.vLine[line_num].step[x] = NOTE_PHANTOM_LSTART_PRESS
                                 ksf.patterns[LONGNOTE[x].ptn].vLine[LONGNOTE[x].line].step[x] = NOTE_PHANTOM_LSTART_PRESS
@@ -755,11 +777,18 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                             else -> {
                                 LONGNOTE[x].pressed = false
                                 val judgeTime = LONGNOTE[x].time shr 1
-                                if(ptn_now.fBPM <= ksf.MAX_BPM && ptn_now.iTick <= 16){
+                                if(ptn_now.iTick <= 16){
                                     judge = getJudgement(judgeTime)
                                     getJudge(judge)
                                     m_fGauge += GaugeInc[judge]
                                     newJudge(judge, timeGetTime())
+                                }else{
+                                    val factor = 0.5.pow((ptn_now.iTick / 16f - 1f).toDouble()).toFloat()
+                                    if (factor >= 1f) {
+                                        getJudge(0)
+                                        m_fGauge += GaugeInc[0]
+                                        newJudge(JUDGE_PERFECT, timeGetTime())
+                                    }
                                 }
                                 newFlare(x, timeGetTime())
 
@@ -824,10 +853,17 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                         }
 
                         if (!isFakeLong) {
-                            if(ptn_now.iTick <= 16 && ptn_now.fBPM <= ksf.MAX_BPM){
+                            if(ptn_now.iTick <= 16){
                                 getJudge(JUDGE_MISS)
                                 m_fGauge += GaugeInc[JUDGE_MISS]
                                 newJudge(JUDGE_MISS, timeGetTime())
+                            }else{
+                                val factor = 0.5.pow((ptn_now.iTick / 16f - 1f).toDouble()).toFloat()
+                                if (factor >= 1f) {
+                                    getJudge(0)
+                                    m_fGauge += GaugeInc[0]
+                                    newJudge(JUDGE_PERFECT, timeGetTime())
+                                }
                             }
                         }
                     }
