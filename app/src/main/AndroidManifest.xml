@@ -2,19 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Network -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Bluetooth (solo si lo usas realmente) -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- Media access (Android 13+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Install APKs if needed -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -23,56 +24,62 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.FingerDance"
-        tools:targetApi="31">
+        tools:targetApi="36">
+
         <activity
             android:name=".OptionsActivity"
             android:exported="false" />
+
         <activity
             android:name=".CalibrationActivity"
             android:exported="false" />
+
         <activity
             android:name=".DanceGrade"
             android:exported="false" />
-        <activity
-            android:name=".Options"
-            android:exported="false" />
+
         <activity
             android:name=".BreakDance"
             android:exported="false" />
+
         <activity
             android:name=".GameScreenActivity"
+            android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+
         <activity
             android:name=".LoadingSongs"
             android:exported="false" />
+
         <activity
             android:name=".SelectSong"
             android:exported="false" />
+
         <activity
             android:name=".SelectSongOnline"
             android:exported="false" />
+
         <activity
             android:name=".SelectSongOnlineWait"
             android:exported="false" />
+
         <activity
             android:name=".SelectChannel"
-            android:exported="false"
-            android:requestLegacyExternalStorage="true" />
+            android:exported="false" />
+
         <activity
             android:name=".SelectChannelOnline"
-            android:exported="false"
-            android:requestLegacyExternalStorage="true" />
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:requestLegacyExternalStorage="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.GAME" />
             </intent-filter>
@@ -86,10 +93,13 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
-        </provider> <!-- Google Ads -->
+        </provider>
+
+        <!-- Google Ads -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-1525853918723620~7504447932" />
+
     </application>
 
 </manifest>

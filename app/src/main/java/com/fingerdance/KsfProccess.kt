@@ -26,7 +26,6 @@ class KsfProccess {
 
         const val NOTE_START_CHK: Byte = 4
         const val NOTE_END_CHK: Byte = 8
-        const val NOTE_FAKE_CHK: Byte = 64  // Flag para notas fake
 
         // Fake notes - visible pero no hacen nada
         const val NOTE_FAKE: Byte = 3
@@ -46,6 +45,8 @@ class KsfProccess {
 
     data class Line(val step: ByteArray = ByteArray(5))
 
+    data class iSpeedInfo(var iSpeed: Float, var timming: Long, var hasEvent: Boolean = false)
+
     data class Pattern(
         var timePos: Long = 0,
         var timeLen: Long = 0,
@@ -54,13 +55,35 @@ class KsfProccess {
         var iLastMissCheck: Int = 0,
         var fBPM: Float = 0f,
         val vLine: MutableList<Line> = mutableListOf(),
-        var iSpeed: Float = 0f //Pair<Float, Long> = Pair(0f, 0L)
+        var iSpeedInfo: iSpeedInfo = iSpeedInfo(0f, 0L),
+
+        var beatStart: Float = 0f,
+        var beatLen: Float = 0f
     )
 
     data class LoadingInfo(val tag: String, val value: String)
     data class StepInfo(val step: String, val type: Int)
     data class LongNoteInfo(var bUsed: Boolean = false, var iPrevPtn: Int = 0, var iPrevPos: Int = 0)
     val patterns = mutableListOf<Pattern>()
+
+    enum class VisualTarget {
+        RECEPTOR,
+        NOTES
+    }
+
+    data class LuaVisualEvent(
+        val startBeat: Float,
+        val durationBeat: Float,
+        val target: VisualTarget,
+        val params: Map<String, Float>,
+
+        var started: Boolean = false,
+        var runtimeStartBeat: Float = 0f
+    )
+
+
+    var luaFileName: String? = null
+    val luaEvents = mutableListOf<LuaVisualEvent>()
 
     fun load(filePath: String): Boolean {
         val loadInfo = mutableListOf<LoadingInfo>()
@@ -150,6 +173,7 @@ class KsfProccess {
                 "STARTTIME" -> startTime = ((round(info.value.toDouble()) + TIME_ADJUST + valueOffset) * 10).toLong()
                 "STARTTIME2" -> startTime2 = ((round(info.value.toDouble()) + TIME_ADJUST + valueOffset) * 10).toLong()
                 "STARTTIME3" -> startTime3 = ((round(info.value.toDouble()) + TIME_ADJUST + valueOffset) * 10).toLong()
+                "LUA" -> { luaFileName = info.value.trim() }
             }
         }
 
@@ -341,7 +365,8 @@ class KsfProccess {
                     } else {
                         patterns.removeAt(patterns.lastIndex)
                     }
-                    curPtn.iSpeed = info.step.trim().toFloat() //Pair(pair[0].trim().toFloat(), pair[1].trim().toLong())
+                    val pair = info.step.split(",")
+                    curPtn.iSpeedInfo = iSpeedInfo(pair[0].trim().toFloat(), pair[1].trim().toLong(), true)  //info.step.trim().toFloat()
                     patterns.add(curPtn)
                 }
 
@@ -474,9 +499,89 @@ class KsfProccess {
                 patterns[i].timeLen = npos - mpos
             }
         }
-
+        computePatternBeats()
+        loadLuaEvents(filePath)
         return true
     }
+
+    private fun loadLuaEvents(ksfPath: String) {
+        val luaName = luaFileName ?: return
+
+        val luaFile = File(File(ksfPath).parentFile, luaName)
+        if (!luaFile.exists()) return
+
+        luaFile.forEachLine { line ->
+            val clean = line.trim()
+            if (clean.isEmpty() || clean.startsWith("--")) return@forEachLine
+
+            // split: setRecept(...) , 52000
+            val parts = clean.split("),")
+            if (parts.size != 2) return@forEachLine
+
+            val callPart = parts[0] + ")"
+            val beat = parts[1].trim().toFloat()
+
+            // 🔹 nombre de la función
+            val funcName = callPart.substringBefore("(").trim()
+
+            val target = when (funcName) {
+                "setRecept" -> VisualTarget.RECEPTOR
+                "setNotes"  -> VisualTarget.NOTES
+                else -> return@forEachLine
+            }
+
+            // args
+            val nameAndArgs = callPart.substringAfter("(").substringBefore(")")
+            val args = nameAndArgs.split(",")
+
+            val paramMap = mutableMapOf<String, Float>()
+            var duration = 0F
+
+            args.forEach {
+                val pair = it.split("=")
+                if (pair.size == 2) {
+                    val key = pair[0].trim()
+                    val value = pair[1].trim().toFloat()
+
+                    if (key == "time") {
+                        duration = value.toFloat()
+                    } else {
+                        paramMap[key] = value
+                    }
+                }
+            }
+
+            luaEvents.add(
+                LuaVisualEvent(
+                    startBeat = beat,
+                    durationBeat = duration,
+                    target = target,
+                    params = paramMap
+                )
+            )
+        }
+    }
+
+    private fun computePatternBeats() {
+
+        var beatAccum = 0f
+
+        for (ptn in patterns) {
+
+            ptn.beatStart = beatAccum
+
+            if (ptn.fBPM <= 0f || ptn.timeLen <= 0L || ptn.timeDelay != 0L) {
+                ptn.beatLen = 0f
+            } else {
+
+                val msPerBeat = 60000f / ptn.fBPM
+                ptn.beatLen = ptn.timeLen.toFloat() / msPerBeat
+            }
+
+            beatAccum += ptn.beatLen
+        }
+    }
+
 
     private fun getPtnTimePos(bpm: Float, start: Long, bunki: Long, tick: Int): Long {
         val lastTick = start.toFloat()

@@ -85,6 +85,7 @@ class SelectChannel : AppCompatActivity() {
     private lateinit var indicatorDer: ImageView
     private lateinit var bgaSelectChannel: VideoView
     private lateinit var imageCircle : ImageView
+    private var handlerSelectChannel = Handler(Looper.getMainLooper())
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.repeatCount > 0) return true
@@ -108,6 +109,7 @@ class SelectChannel : AppCompatActivity() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
 
+        mediPlayer = MediaPlayer()
         soundSelecctChannel = MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
@@ -324,7 +326,6 @@ class SelectChannel : AppCompatActivity() {
         builder.setPositiveButton("OK") { dialog, _ ->
             dialog.dismiss()
         }
-        val thisHandler = Handler(Looper.getMainLooper())
         imgAceptar.setOnClickListener {
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -368,7 +369,7 @@ class SelectChannel : AppCompatActivity() {
                 currentChannel = listChannels[position].nombre
 
                 Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
-                thisHandler.postDelayed({
+                handlerSelectChannel.postDelayed({
                     val intent = Intent(this, SelectSong()::class.java)
                     startActivity(intent)
                     overridePendingTransition(R.anim.anim_command_window_on, 0)
@@ -495,7 +496,13 @@ class SelectChannel : AppCompatActivity() {
             bgaSelectChannel.setVideoPath(bgaPathSelectChannel)
             bgaSelectChannel.start()
         }
-
+        /*
+        handlerSelectChannel.postDelayed({
+            if(mediPlayer.isPlaying){
+                mediPlayer.stop()
+            }
+        }, 750L)
+        */
     }
 
     override fun onPause() {
@@ -510,6 +517,7 @@ class SelectChannel : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        handlerSelectChannel.removeCallbacksAndMessages(null)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

@@ -25,7 +25,6 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
-import kotlin.properties.Delegates
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -297,6 +296,11 @@ open class GameScreenActivity : AndroidApplication() {
     }
 
     private fun getEndSong(){
+        if(resultSong.miss == 0 && resultSong.bad == 0 && resultSong.good == 0
+            && resultSong.great == 0 && resultSong.perfect == 0) {
+            return
+
+        }
         if(resultSong.miss == 0 && resultSong.bad == 0 && resultSong.good == 0) {
             if (resultSong.great == 0) {
                 imgEndSong.setImageBitmap(bitPerfectGame)

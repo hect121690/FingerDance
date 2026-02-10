@@ -175,8 +175,8 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                     timer -= intervalOverlay
                     showOverlay = !showOverlay
                 }
-
-                getReceptsAnimation()
+                //ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
+                drawRecepts(player.luaReceptOffsetX)
             }
             showBgPads()
 
@@ -262,25 +262,123 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     }
     private var aBatch = 0
     private var bBatch = 0
-    private fun getReceptsAnimation() {
-        batch.draw(recept0Frames[0], medidaFlechas, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept1Frames[0], medidaFlechas * 2, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept2Frames[0], medidaFlechas * 3, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept3Frames[0], medidaFlechas * 4, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept4Frames[0], medidaFlechas * 5, targetTop, medidaFlechas, medidaFlechas)
+
+    private fun drawRecepts(luaReceptOffsetX: Float) {
+        batch.draw(recept0Frames[0], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept1Frames[0], (medidaFlechas * 2) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept2Frames[0], (medidaFlechas * 3) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept3Frames[0], (medidaFlechas * 4) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept4Frames[0], (medidaFlechas * 5) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(recept0Frames[1], medidaFlechas, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept1Frames[1], medidaFlechas * 2, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept2Frames[1], medidaFlechas * 3, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept3Frames[1], medidaFlechas * 4, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept4Frames[1], medidaFlechas * 5, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept0Frames[1], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)    
+            batch.draw(recept1Frames[1], (medidaFlechas * 2) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept2Frames[1], (medidaFlechas * 3) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept3Frames[1], (medidaFlechas * 4) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept4Frames[1], (medidaFlechas * 5) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
+
+    /*
+    private var ySpinAngle = 0f
+    private var ySpinSpeed = 3.5f
+    private var ySpinEnabled = true
+
+    private fun drawRecepts() {
+
+        // 🔁 actualizar ángulo (puedes mover esto a render())
+        if (ySpinEnabled) {
+            ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
+        }
+
+        val bases = floatArrayOf(
+            medidaFlechas * 1f,
+            medidaFlechas * 2f,
+            medidaFlechas * 3f,
+            medidaFlechas * 4f,
+            medidaFlechas * 5f
+        )
+
+        val frames = arrayOf(
+            recept0Frames,
+            recept1Frames,
+            recept2Frames,
+            recept3Frames,
+            recept4Frames
+        )
+
+        // 🎯 pivote = centro de las 5 columnas
+        val centerX = medidaFlechas * 3f + medidaFlechas * 0.5f
+
+        val cosA = MathUtils.cos(ySpinAngle)
+        val sinA = MathUtils.sin(ySpinAngle)
+
+        // ===== DRAW BASE =====
+
+        for (i in 0 until 5) {
+
+            val baseCenter = bases[i] + medidaFlechas * 0.5f
+            val xLocal = baseCenter - centerX
+
+            val depth = xLocal * sinA
+            val projCenter = centerX + xLocal * cosA + depth * 0.30f
+
+            val scaleX = abs(cosA).coerceAtLeast(0.2f)
+
+            batch.draw(
+                frames[i][0],
+                projCenter - medidaFlechas/2f,
+                targetTop,
+                medidaFlechas/2f,
+                medidaFlechas/2f,
+                medidaFlechas,
+                medidaFlechas,
+                scaleX,
+                1f,
+                0f
+            )
+        }
+
+        // ===== DRAW OVERLAY =====
+
+        if (showOverlay) {
+
+            aBatch = batch.blendSrcFunc
+            bBatch = batch.blendDstFunc
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+
+            for (i in 0 until 5) {
+
+                val baseCenter = bases[i] + medidaFlechas * 0.5f
+                val xLocal = baseCenter - centerX
+
+                val depth = xLocal * sinA
+                val projCenter = centerX + xLocal * cosA + depth * 0.30f
+
+                val scaleX = abs(cosA).coerceAtLeast(0.2f)
+
+                batch.draw(
+                    frames[i][1],
+                    projCenter - medidaFlechas/2f,
+                    targetTop,
+                    medidaFlechas/2f,
+                    medidaFlechas/2f,
+                    medidaFlechas,
+                    medidaFlechas,
+                    scaleX,
+                    1f,
+                    0f
+                )
+            }
+
+            batch.setBlendFunction(aBatch, bBatch)
+        }
+    }
+    */
 
     private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false) : Array<TextureRegion> {
         val tmp = TextureRegion.split(arrow, arrow.width, arrow.height / 3)

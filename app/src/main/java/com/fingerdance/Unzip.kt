@@ -26,11 +26,9 @@ class Unzip (private val context: Context) {
                 val intent = Intent(context, MainActivity::class.java)
                 context.startActivity(intent)
             }
+            themes.edit().putString("allTunes", "").apply()
             val file = File(Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/$fileToUnzip")
             file.delete()
         }
-
-        //zipInputStream.closeEntry()
-        //zipInputStream.close()
     }
 }

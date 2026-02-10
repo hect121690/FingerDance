@@ -187,7 +187,8 @@ class SelectSong : AppCompatActivity() {
     private lateinit var lbWorldScore: TextView
     private lateinit var imgWorldGrade: ImageView
 
-    private lateinit var video_fondo : VideoView
+    private lateinit var video_fondo : TextureView
+    private lateinit var video_preview: MediaPlayer
     private lateinit var imgPrev: ImageView
     /*
     private lateinit var next : VideoView
@@ -212,6 +213,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var bitFavorite : Bitmap
     private lateinit var bitFavoriteListed: Bitmap
     private var saveFavorites = false
+    val imageCache = HashMap<String, Bitmap>()
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -490,6 +492,16 @@ class SelectSong : AppCompatActivity() {
             nav_back_der = findViewById(R.id.back_der)
 
             video_fondo = findViewById(R.id.videoPreview)
+            video_fondo.layoutParams.height = (height * 0.3).toInt()
+            video_preview = MediaPlayer()
+            video_fondo.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                    video_preview.setSurface(Surface(surface))
+                }
+                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+            }
 
             next = findViewById(R.id.next)
             prev = findViewById(R.id.preview)
@@ -1252,7 +1264,7 @@ class SelectSong : AppCompatActivity() {
             }
 
             if(isVideo){
-                video_fondo.start()
+                video_preview.start()
             }
             mediPlayer.start()
         }
@@ -1853,6 +1865,12 @@ class SelectSong : AppCompatActivity() {
             }
         }
 
+        if (::prevPlayer.isInitialized) prevPlayer.release()
+        if (::nextPlayer.isInitialized) nextPlayer.release()
+        if (::video_preview.isInitialized) video_preview.release()
+        handlerContador.removeCallbacksAndMessages(null)
+        handler.removeCallbacksAndMessages(null)
+
         if(isTimerRunning()){
             timer?.cancel()
         }
@@ -2049,22 +2067,27 @@ class SelectSong : AppCompatActivity() {
                     || item.rutaPreview.isEmpty())
 
             if (isVideo) {
-                video_fondo.setVideoPath(item.rutaPreview)
-                video_fondo.setOnPreparedListener { it.setVolume(0f, 0f) }
+                video_preview.reset()
+                video_preview.apply {
+                    setDataSource(item.rutaPreview)
+                    isLooping = true
+                    prepare()
+                }
                 video_fondo.visibility = View.VISIBLE
                 imgPrev.visibility = View.INVISIBLE
-                video_fondo.setOnCompletionListener { video_fondo.start() }
 
-                playMedia(item.rutaSong,)
+                playMedia(item.rutaSong)
             } else {
-                imgPrev.setImageBitmap(BitmapFactory.decodeFile(item.rutaDisc))
+                setDiscImage(item.rutaDisc)
+
                 video_fondo.visibility = View.GONE
                 imgPrev.visibility = View.VISIBLE
 
                 playMedia(item.rutaSong)
             }
         } else {
-            imgPrev.setImageBitmap(BitmapFactory.decodeFile(item.rutaDisc))
+            setDiscImage(item.rutaDisc)
+
             video_fondo.visibility = View.GONE
             imgPrev.visibility = View.VISIBLE
 
@@ -2090,6 +2113,62 @@ class SelectSong : AppCompatActivity() {
         llenaLvsKsf(item.listKsf)
     }
 
+    fun trimTransparent(src: Bitmap): Bitmap {
+        val width = src.width
+        val height = src.height
+
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+
+        val pixels = IntArray(width * height)
+        src.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        var index = 0
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val alpha = pixels[index] ushr 24
+                if (alpha != 0) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+                index++
+            }
+        }
+
+        // Imagen completamente transparente → no recortamos
+        if (maxX < minX || maxY < minY) {
+            return src
+        }
+
+        return Bitmap.createBitmap(
+            src,
+            minX,
+            minY,
+            maxX - minX + 1,
+            maxY - minY + 1
+        )
+    }
+
+    fun setDiscImage(path: String) {
+        val cached = imageCache[path]
+        if (cached != null) {
+            imgPrev.setImageBitmap(cached)
+            return
+        }
+
+        imgPrev.post {
+            val original = BitmapFactory.decodeFile(path) ?: return@post
+            val trimmed = trimTransparent(original)
+
+            imageCache[path] = trimmed
+            imgPrev.setImageBitmap(trimmed)
+        }
+    }
+
     private fun showTransitionVideo(isNext: Boolean) {
         if (isNext) {
             prev.visibility = View.GONE
@@ -2101,7 +2180,7 @@ class SelectSong : AppCompatActivity() {
             nextPlayer.setOnCompletionListener {
                 next.visibility = View.GONE
                 mediPlayer.start()
-                if (isVideo) video_fondo.start()
+                if (isVideo) video_preview.start()
             }
 
         } else {
@@ -2114,7 +2193,7 @@ class SelectSong : AppCompatActivity() {
             prevPlayer.setOnCompletionListener {
                 prev.visibility = View.GONE
                 mediPlayer.start()
-                if (isVideo) video_fondo.start()
+                if (isVideo) video_preview.start()
             }
         }
     }
@@ -2335,17 +2414,36 @@ class SelectSong : AppCompatActivity() {
         resetRunnable()
         detenerContador()
         bgaSelectSong.start()
-        if(listEfectsDisplay.size > 0) {
+        if(listEfectsDisplay.isNotEmpty()) {
             handler.postDelayed(runnable, 1200)
         }
+
+        // Reproducir el MediaPlayer después de que isFocus() haya preparado la canción
+        handler.postDelayed({
+            if (!mediPlayer.isPlaying) {
+                mediPlayer.start()
+                if (isVideo && ::video_preview.isInitialized) {
+                    video_preview.start()
+                }
+            }
+        }, 500)
+
     }
 
     override fun onDestroy() {
+        /*
         if (::prevPlayer.isInitialized) prevPlayer.release()
         if (::nextPlayer.isInitialized) nextPlayer.release()
+        if (::video_preview.isInitialized) video_preview.release()
         handlerContador.removeCallbacksAndMessages(null)
         handler.removeCallbacksAndMessages(null)
-
+        timer?.cancel()
+        if(true){
+            if(mediPlayer.isPlaying){
+                mediPlayer.stop()
+            }
+        }
+        */
         super.onDestroy()
     }
 

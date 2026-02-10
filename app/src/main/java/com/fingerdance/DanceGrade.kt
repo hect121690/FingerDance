@@ -12,7 +12,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -38,7 +37,6 @@ import androidx.core.view.isVisible
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -1020,40 +1018,47 @@ class DanceGrade : AppCompatActivity() {
                 newGrade = "F"
             }
         }
-
-        if (resultSong.miss == 0) {
-            // Casos sin misses
-            if (resultSong.bad == 0 && resultSong.good == 0 && resultSong.great == 0) {
-                newGrade = "$newGrade|PG"  // Perfect Game
-                gradeDescription = arrGradesDesc[0]
-            } else if (resultSong.bad == 0 && resultSong.good == 0) {
-                newGrade = "$newGrade|UG"  // Ultimate Game
-                gradeDescription = arrGradesDesc[1]
-            } else if (resultSong.bad == 0) {
-                newGrade = "$newGrade|EG"  // Extreme Game
-                gradeDescription = arrGradesDesc[2]
-            } else {
-                newGrade = "$newGrade|SG"  // Superb Game
-                gradeDescription = arrGradesDesc[3]
-            }
+        if(totalScore == 0){
+            newGrade = "$newGrade|RG"  // Rough Game
+            gradeDescription = arrGradesDesc[7]
         } else {
-            // Casos con misses
-            when {
-                resultSong.miss <= 5 -> {
-                    newGrade = "$newGrade|MG"  // Marvelous Game
-                    gradeDescription = arrGradesDesc[4]
+            if (resultSong.miss == 0) {
+                // Casos sin misses
+                if (resultSong.bad == 0 && resultSong.good == 0 && resultSong.great == 0) {
+                    newGrade = "$newGrade|PG"  // Perfect Game
+                    gradeDescription = arrGradesDesc[0]
+                } else if (resultSong.bad == 0 && resultSong.good == 0) {
+                    newGrade = "$newGrade|UG"  // Ultimate Game
+                    gradeDescription = arrGradesDesc[1]
+                } else if (resultSong.bad == 0) {
+                    newGrade = "$newGrade|EG"  // Extreme Game
+                    gradeDescription = arrGradesDesc[2]
+                } else {
+                    newGrade = "$newGrade|SG"  // Superb Game
+                    gradeDescription = arrGradesDesc[3]
                 }
-                resultSong.miss <= 10 -> {
-                    newGrade = "$newGrade|TG"  // Talented Game
-                    gradeDescription = arrGradesDesc[5]
-                }
-                resultSong.miss <= 20 -> {
-                    newGrade = "$newGrade|FG"  // Fair Game
-                    gradeDescription = arrGradesDesc[6]
-                }
-                resultSong.miss > 20 -> {
-                    newGrade = "$newGrade|RG"  // Rough Game
-                    gradeDescription = arrGradesDesc[7]
+            } else {
+                // Casos con misses
+                when {
+                    resultSong.miss <= 5 -> {
+                        newGrade = "$newGrade|MG"  // Marvelous Game
+                        gradeDescription = arrGradesDesc[4]
+                    }
+
+                    resultSong.miss <= 10 -> {
+                        newGrade = "$newGrade|TG"  // Talented Game
+                        gradeDescription = arrGradesDesc[5]
+                    }
+
+                    resultSong.miss <= 20 -> {
+                        newGrade = "$newGrade|FG"  // Fair Game
+                        gradeDescription = arrGradesDesc[6]
+                    }
+
+                    resultSong.miss > 20 -> {
+                        newGrade = "$newGrade|RG"  // Rough Game
+                        gradeDescription = arrGradesDesc[7]
+                    }
                 }
             }
         }
