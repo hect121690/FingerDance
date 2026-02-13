@@ -1,11 +1,15 @@
 package com.fingerdance
 
 import java.io.File
+import kotlin.Array
 import kotlin.experimental.and
 import kotlin.experimental.or
 import kotlin.math.round
 
 class KsfProccessHD {
+
+    val MAX_BPM = 999f
+    val MIN_BPM = -999f
     companion object {
         const val STEPINFO_STEP = 0
         const val STEPINFO_BPM = 1
@@ -25,7 +29,21 @@ class KsfProccessHD {
         const val NOTE_END_CHK: Byte = 8
     }
 
-    data class Line(val step: ByteArray = ByteArray(10))
+    enum class TypeNote {
+        NORMAL,
+        FAKE,
+        PHANTOM,
+        MINE
+    }
+
+    data class Note(
+        var step: Byte = NOTE_NONE,
+        var type: TypeNote = TypeNote.NORMAL
+    )
+
+    data class Line(val note: Array<Note> = Array(10) { Note() })
+
+    data class iSpeedInfo(var iSpeed: Float, var timming: Long, var hasEvent: Boolean = false)
 
     data class Pattern(
         var timePos: Long = 0,
@@ -35,13 +53,35 @@ class KsfProccessHD {
         var iLastMissCheck: Int = 0,
         var fBPM: Float = 0f,
         val vLine: MutableList<Line> = mutableListOf(),
-        var iSpeed: Float = 0f
+        var iSpeedInfo: iSpeedInfo = iSpeedInfo(0f, 0L),
+
+        var beatStart: Float = 0f,
+        var beatLen: Float = 0f
     )
 
     data class LoadingInfo(val tag: String, val value: String)
     data class StepInfo(val step: String, val type: Int)
     data class LongNoteInfo(var bUsed: Boolean = false, var iPrevPtn: Int = 0, var iPrevPos: Int = 0)
     val patterns = mutableListOf<Pattern>()
+
+    enum class VisualTarget {
+        RECEPTOR,
+        NOTES
+    }
+
+    data class LuaVisualEvent(
+        val startBeat: Float,
+        val durationBeat: Float,
+        val target: VisualTarget,
+        val params: Map<String, Float>,
+
+        var started: Boolean = false,
+        var runtimeStartBeat: Float = 0f
+    )
+
+
+    var luaFileName: String? = null
+    val luaEvents = mutableListOf<LuaVisualEvent>()
 
     fun load(filePath: String): Boolean {
         val loadInfo = mutableListOf<LoadingInfo>()
@@ -53,14 +93,14 @@ class KsfProccessHD {
                 var readingSteps = false
                 while (reader.readLine().also { line = it } != null) {
                     if (line!!.startsWith("#") && !readingSteps) {
-                        val parts = line!!.split(":", limit = 2)
+                        val parts = line.split(":", limit = 2)
                         if (parts.size == 2) {
                             val tag = parts[0].substring(1)
                             var value = parts[1]
                             if (value.endsWith(";")) {
                                 value = value.substring(0, value.length - 1)
                             }
-                            if (tag == "STEP" && line!!.length == 6) {
+                            if (tag == "STEP" && line.length == 6) {
                                 readingSteps = true
                             } else {
                                 loadInfo.add(LoadingInfo(tag, value))
@@ -68,8 +108,8 @@ class KsfProccessHD {
                         }
                     } else if (readingSteps) {
                         when {
-                            line!!.startsWith("|") && line!!.endsWith("|") -> {
-                                val type = when (line!![1]) {
+                            line.startsWith("|") && line.endsWith("|") -> {
+                                val type = when (line[1]) {
                                     'B' -> STEPINFO_BPM
                                     'T' -> STEPINFO_TICK
                                     'D' -> STEPINFO_DELAY
@@ -77,10 +117,10 @@ class KsfProccessHD {
                                     'S' -> STEPINFO_SPEED
                                     else -> STEPINFO_UNKNOWN
                                 }
-                                stepInfo.add(StepInfo(line!!.substring(2, line!!.length - 1), type))
+                                stepInfo.add(StepInfo(line.substring(2, line.length - 1), type))
                             }
-                            line!!.startsWith("#") -> {
-                                val parts = line!!.split(":", limit = 2)
+                            line.startsWith("#") -> {
+                                val parts = line.split(":", limit = 2)
                                 if (parts.size == 2) {
                                     val tag = parts[0].substring(1)
                                     var value = parts[1]
@@ -97,8 +137,8 @@ class KsfProccessHD {
                                     stepInfo.add(StepInfo(value, type))
                                 }
                             }
-                            line!!.length == 13 -> {
-                                stepInfo.add(StepInfo(line!!, STEPINFO_STEP))
+                            line.length == 13 -> {
+                                stepInfo.add(StepInfo(line, STEPINFO_STEP))
                             }
                         }
                     }
@@ -131,15 +171,10 @@ class KsfProccessHD {
                 "STARTTIME" -> startTime = ((round(info.value.toDouble()) + TIME_ADJUST + valueOffset) * 10).toLong()
                 "STARTTIME2" -> startTime2 = ((round(info.value.toDouble()) + TIME_ADJUST + valueOffset) * 10).toLong()
                 "STARTTIME3" -> startTime3 = ((round(info.value.toDouble()) + TIME_ADJUST + valueOffset) * 10).toLong()
+                "LUA" -> { luaFileName = info.value.trim() }
             }
         }
 
-        //if (bpm < 0) bpm = 0f
-        //if (bpm2 < 0) bpm2 = 0f
-        //if (bpm3 < 0) bpm3 = 0f
-        //if (startTime < 0) startTime = 0
-        //if (startTime2 < 0) startTime2 = 0
-        //if (startTime3 < 0) startTime3 = 0
         if (bunki < 0) bunki = 0
         if (bunki2 < 0) bunki2 = 0
 
@@ -181,21 +216,35 @@ class KsfProccessHD {
                     val line = Line()
                     for (iStep in 0 until buttonCount) {
                         when (info.step[iStep]) {
-                            '1' -> {
-                                line.step[iStep] = NOTE_NOTE
+                            // Normal notes
+                            '1', 'P', 'F', 'M'-> {
+                                line.note[iStep].step = NOTE_NOTE
+                                if (info.step[iStep] == 'F') {
+                                    line.note[iStep].type = TypeNote.FAKE
+                                } else if (info.step[iStep] == 'M') {
+                                    line.note[iStep].type = TypeNote.MINE
+                                } else if (info.step[iStep] == 'P') {
+                                    line.note[iStep].type = TypeNote.PHANTOM
+                                }
                                 if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step
                                     curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = (prevStep or NOTE_END_CHK)
                                     if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = NOTE_NOTE
                                     }
                                 }
                             }
-                            '4' -> {
-                                line.step[iStep] = NOTE_LNOTE
+                            // Long notes
+                            '4', 'L', 'H' -> {
+                                line.note[iStep].step = NOTE_LNOTE
+                                if (info.step[iStep] == 'L'){
+                                    line.note[iStep].type = TypeNote.FAKE
+                                } else if (info.step[iStep] == 'H') {
+                                    line.note[iStep].type = TypeNote.PHANTOM
+                                }
                                 if (!curLongNote[iStep].bUsed) {
-                                    line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
+                                    line.note[iStep].step = (line.note[iStep].step or NOTE_START_CHK)
                                 }
                                 curLongNote[iStep].bUsed = true
                                 curLongNote[iStep].iPrevPtn = patterns.size - 1
@@ -203,14 +252,14 @@ class KsfProccessHD {
                             }
                             else -> {
                                 if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step
                                     curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = (prevStep or NOTE_END_CHK)
                                     if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = NOTE_NOTE
                                     }
                                 }
-                                line.step[iStep] = NOTE_NONE
+                                line.note[iStep].step = NOTE_NONE
                             }
                         }
                     }
@@ -224,12 +273,7 @@ class KsfProccessHD {
                         curPtn.fBPM = info.step.toFloat()
                     }
                     curBPM = curPtn.fBPM
-                    if(curBPM < -999){
-                        curBPM = -999F
-                    }
-                    if(curBPM > 999){
-                        curBPM = 999F
-                    }
+
                 }
                 STEPINFO_TICK -> {
                     if (patterns.last().vLine.isNotEmpty()) {
@@ -258,7 +302,6 @@ class KsfProccessHD {
                         patterns.removeAt(patterns.lastIndex)
                     }
                     delayPtn.timeDelay = ((60000 / curBPM / curTick) * info.step.toFloat()).toLong()
-                    //delayPtn.timeDelay = (60000 / curBPM * info.step.toFloat() / curTick).toLong()
                     patterns.add(delayPtn)
                     patterns.add(curPtn)
                 }
@@ -269,7 +312,8 @@ class KsfProccessHD {
                     } else {
                         patterns.removeAt(patterns.lastIndex)
                     }
-                    curPtn.iSpeed = info.step.trim().toFloat() //Pair(pair[0].trim().toFloat(), pair[1].trim().toLong())
+                    val pair = info.step.split(",")
+                    curPtn.iSpeedInfo = iSpeedInfo(pair[0].trim().toFloat(), pair[1].trim().toLong(), true)
                     patterns.add(curPtn)
                 }
 
@@ -297,7 +341,6 @@ class KsfProccessHD {
                         if (cuttingPos < cuttingPos2) {
                             ptn2 = Pattern(fBPM = bpm3, timePos = startTime3, iTick = ptn1.iTick)
                             patterns.add(ptn2)
-                            //val newCuttingPos = cuttingPos2 - cuttingPos
                             cuttingPos = cuttingPos2 - cuttingPos
                             while  (ptn1.vLine.size > cuttingPos) {
                                 val newLine = ptn1.vLine[cuttingPos]
@@ -311,7 +354,6 @@ class KsfProccessHD {
                             patterns.add(ptn2)
                             cuttingPos -= cuttingPos2
                             cuttingPos = ptn0.vLine.size - cuttingPos
-                            //val newCuttingPos = ptn0.vLine.size - (cuttingPos2 - cuttingPos)
                             while (ptn0.vLine.size > cuttingPos) {
                                 val newLine = ptn0.vLine[cuttingPos]
                                 ptn2.vLine.add(newLine)
@@ -379,7 +421,7 @@ class KsfProccessHD {
         }
 
         for(i in 0 until patterns.size){
-                val ptn = patterns[i]
+            val ptn = patterns[i]
             if(ptn.timeDelay != 0L){
                 ptn.timeLen = ptn.timeDelay
             }else{
@@ -390,20 +432,6 @@ class KsfProccessHD {
                 }
             }
         }
-
-        /*
-        patterns.forEach { ptn ->
-            ptn.timeLen = if (ptn.timeDelay != 0L) {
-                ptn.timeDelay
-            } else {
-                if (ptn.fBPM != 0F) {
-                    (60000 / ptn.fBPM * ptn.vLine.size / ptn.iTick).toLong()
-                } else {
-                    0
-                }
-            }
-        }
-        */
 
         for (i in 0 until patterns.size - 1) {
             val mpos = patterns[i].timePos
@@ -416,8 +444,84 @@ class KsfProccessHD {
                 patterns[i].timeLen = npos - mpos
             }
         }
-
+        computePatternBeats()
+        loadLuaEvents(filePath)
         return true
+    }
+
+    private fun loadLuaEvents(ksfPath: String) {
+        val luaName = luaFileName ?: return
+
+        val luaFile = File(File(ksfPath).parentFile, luaName)
+        if (!luaFile.exists()) return
+
+        luaFile.forEachLine { line ->
+            val clean = line.trim()
+            if (clean.isEmpty() || clean.startsWith("--")) return@forEachLine
+
+            val parts = clean.split("),")
+            if (parts.size != 2) return@forEachLine
+
+            val callPart = parts[0] + ")"
+            val beat = parts[1].trim().toFloat()
+
+            val funcName = callPart.substringBefore("(").trim()
+
+            val target = when (funcName) {
+                "setRecept" -> VisualTarget.RECEPTOR
+                "setNotes"  -> VisualTarget.NOTES
+                else -> return@forEachLine
+            }
+
+            val nameAndArgs = callPart.substringAfter("(").substringBefore(")")
+            val args = nameAndArgs.split(",")
+
+            val paramMap = mutableMapOf<String, Float>()
+            var duration = 0F
+
+            args.forEach {
+                val pair = it.split("=")
+                if (pair.size == 2) {
+                    val key = pair[0].trim()
+                    val value = pair[1].trim().toFloat()
+
+                    if (key == "time") {
+                        duration = value.toFloat()
+                    } else {
+                        paramMap[key] = value
+                    }
+                }
+            }
+
+            luaEvents.add(
+                LuaVisualEvent(
+                    startBeat = beat,
+                    durationBeat = duration,
+                    target = target,
+                    params = paramMap
+                )
+            )
+        }
+    }
+
+    private fun computePatternBeats() {
+
+        var beatAccum = 0f
+
+        for (ptn in patterns) {
+
+            ptn.beatStart = beatAccum
+
+            if (ptn.fBPM <= 0f || ptn.timeLen <= 0L || ptn.timeDelay != 0L) {
+                ptn.beatLen = 0f
+            } else {
+
+                val msPerBeat = 60000f / ptn.fBPM
+                ptn.beatLen = ptn.timeLen.toFloat() / msPerBeat
+            }
+
+            beatAccum += ptn.beatLen
+        }
     }
 
     private fun getPtnTimePos(bpm: Float, start: Long, bunki: Long, tick: Int): Long {
@@ -450,102 +554,166 @@ class KsfProccessHD {
     }
 
     fun makeMirror() {
-        val mirrorMap = intArrayOf(7, 3, 2, 5, 4, 6)
+        val mirrorMap = intArrayOf(9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
         val stepWidth = 10
+        val NONE = -1
 
         patterns.forEach { ptn ->
-            val nowLong = ByteArray(10) { 255.toByte() }
-            val newLong = ByteArray(10) { 255.toByte() }
+
+            val nowLong = IntArray(stepWidth) { NONE }
+            val newLong = IntArray(stepWidth) { NONE }
 
             ptn.vLine.forEach { line ->
-                val newLine = ByteArray(stepWidth) { NOTE_NONE }
+
+                val newLine = Array(stepWidth) { Note() }
 
                 for (i in 0 until stepWidth) {
-                    when (line.step[i]) {
+
+                    val src = line.note[i]
+                    val step = src.step
+                    val newPos = mirrorMap[i]
+
+                    when (step) {
+
+                        // ---------- TAP ----------
                         NOTE_NOTE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_NOTE
+                            newLine[newPos].step = NOTE_NOTE
+                            newLine[newPos].type = src.type
                         }
+
+                        // ---------- LONG START ----------
                         NOTE_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
+                            newLine[newPos].step = NOTE_LSTART
+                            newLine[newPos].type = src.type
+
+                            nowLong[i] = i
+                            newLong[i] = newPos
                         }
+
+                        // ---------- LONG BODY ----------
                         NOTE_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LNOTE
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+                                newLine[pos].step = NOTE_LNOTE
+                                newLine[pos].type = src.type
                             }
                         }
+
+                        // ---------- LONG END ----------
                         NOTE_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+
+                                newLine[pos].step = NOTE_LEND
+                                newLine[pos].type = src.type
+
+                                nowLong[i] = NONE
+                                newLong[i] = NONE
                             }
                         }
                     }
                 }
 
+                // Copiar resultado a línea real
                 for (i in 0 until stepWidth) {
-                    line.step[i] = newLine[i]
+                    line.note[i].step = newLine[i].step
+                    line.note[i].type = newLine[i].type
                 }
             }
         }
     }
 
     fun makeRandom() {
-        val mirrorMap1 = intArrayOf(4, 7, 2, 3, 5, 6)
-        val mirrorMap2 = intArrayOf(2, 4, 6, 5, 3, 7)
-        val mirrorMap3 = intArrayOf(3, 5, 7, 4, 6, 2)
 
-        val mirrorMaps = listOf(mirrorMap1, mirrorMap2, mirrorMap3)
-        val mirrorMap = mirrorMaps.random()
+        val randomMap = generateSafeRandomMap()
+
         val stepWidth = 10
+        val NONE = -1
 
         patterns.forEach { ptn ->
-            val nowLong = ByteArray(stepWidth) { 255.toByte() }
-            val newLong = ByteArray(stepWidth) { 255.toByte() }
+
+            val nowLong = IntArray(stepWidth) { NONE }
+            val newLong = IntArray(stepWidth) { NONE }
 
             ptn.vLine.forEach { line ->
-                val newLine = ByteArray(stepWidth) { NOTE_NONE }
+
+                val newLine = Array(stepWidth) { Note() }
 
                 for (i in 0 until stepWidth) {
-                    when (line.step[i]) {
+
+                    val src = line.note[i]
+                    val step = src.step
+                    val newPos = randomMap[i]
+
+                    when (step) {
+
                         NOTE_NOTE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_NOTE
+                            newLine[newPos].step = NOTE_NOTE
+                            newLine[newPos].type = src.type
                         }
+
                         NOTE_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
+                            newLine[newPos].step = NOTE_LSTART
+                            newLine[newPos].type = src.type
+                            nowLong[i] = i
+                            newLong[i] = newPos
                         }
+
                         NOTE_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LNOTE
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+                                newLine[pos].step = NOTE_LNOTE
+                                newLine[pos].type = src.type
                             }
                         }
+
                         NOTE_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+                                newLine[pos].step = NOTE_LEND
+                                newLine[pos].type = src.type
+                                nowLong[i] = NONE
+                                newLong[i] = NONE
                             }
                         }
                     }
                 }
 
                 for (i in 0 until stepWidth) {
-                    line.step[i] = newLine[i]
+                    line.note[i].step = newLine[i].step
+                    line.note[i].type = newLine[i].type
                 }
             }
         }
     }
+
+    fun generateSafeRandomMap(): IntArray {
+
+        val base = intArrayOf(0,1,2,3,4,5,6,7,8,9)
+
+        while (true) {
+
+            val map = base.clone()
+            map.shuffle()
+
+            // centro no fijo - mitad izquierda/derecha
+            if (map[4] == 4 || map[5] == 5) continue
+
+            // no demasiados iguales
+            var same = 0
+            for (i in 0..9) if (map[i] == i) same++
+            if (same > 3) continue
+
+            val leftSide = setOf(0,1,2,3,4)
+            val mapped0Left = map[0] in leftSide
+            val mapped9Left = map[9] in leftSide
+
+            // extremos no colapsan lado
+            if (mapped0Left && mapped9Left) continue
+
+            return map
+        }
+    }
+
 
 }

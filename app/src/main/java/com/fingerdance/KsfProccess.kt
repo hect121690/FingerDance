@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import java.io.File
+import kotlin.Array
 import kotlin.experimental.and
 import kotlin.experimental.or
 import kotlin.math.round
@@ -26,24 +27,21 @@ class KsfProccess {
 
         const val NOTE_START_CHK: Byte = 4
         const val NOTE_END_CHK: Byte = 8
-
-        // Fake notes - visible pero no hacen nada
-        const val NOTE_FAKE: Byte = 3
-        const val NOTE_FAKE_LSTART: Byte = (6 or 64).toByte()  // NOTE_LSTART | NOTE_FAKE_CHK
-        const val NOTE_FAKE_LNOTE: Byte = (2 or 64).toByte()   // NOTE_LNOTE | NOTE_FAKE_CHK
-        const val NOTE_FAKE_LEND: Byte = (10 or 64).toByte()   // NOTE_LEND | NOTE_FAKE_CHK
-
-        // Phantom notes - no visibles pero se juzgan
-        const val NOTE_PHANTOM: Byte = 5
-        const val NOTE_PHANTOM_LSTART: Byte = 14
-        const val NOTE_PHANTOM_LNOTE: Byte = 15
-        const val NOTE_PHANTOM_LEND: Byte = 16
-
-        // Mines - no deben tocarse
-        const val NOTE_MINE: Byte = 7
     }
 
-    data class Line(val step: ByteArray = ByteArray(5))
+    enum class TypeNote {
+        NORMAL,
+        FAKE,
+        PHANTOM,
+        MINE
+    }
+
+    data class Note(
+        var step: Byte = NOTE_NONE,
+        var type: TypeNote = TypeNote.NORMAL
+    )
+
+    data class Line(val note: Array<Note> = Array(5) { Note() })
 
     data class iSpeedInfo(var iSpeed: Float, var timming: Long, var hasEvent: Boolean = false)
 
@@ -225,78 +223,34 @@ class KsfProccess {
                     for (iStep in 0 until buttonCount) {
                         when (info.step[iStep]) {
                             // Normal notes
-                            '1' -> {
-                                line.step[iStep] = NOTE_NOTE
-                                if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
-                                    curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
-                                    if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
-                                    }
+                            '1', 'P', 'F', 'M'-> {
+                                line.note[iStep].step = NOTE_NOTE
+                                if (info.step[iStep] == 'F') {
+                                    line.note[iStep].type = TypeNote.FAKE
+                                } else if (info.step[iStep] == 'M') {
+                                    line.note[iStep].type = TypeNote.MINE
+                                } else if (info.step[iStep] == 'P') {
+                                    line.note[iStep].type = TypeNote.PHANTOM
                                 }
-                            }
-                            // Fake normal notes - visible pero no hacen nada
-                            'F' -> {
-                                line.step[iStep] = NOTE_FAKE
                                 if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step
                                     curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = (prevStep or NOTE_END_CHK)
                                     if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_FAKE
-                                    }
-                                }
-                            }
-                            // Phantom notes - no visibles pero se juzgan
-                            'P' -> {
-                                line.step[iStep] = NOTE_PHANTOM
-                                if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
-                                    curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
-                                    if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_PHANTOM
-                                    }
-                                }
-                            }
-                            // Mines - no deben tocarse
-                            'M' -> {
-                                line.step[iStep] = NOTE_MINE
-                                if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
-                                    curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
-                                    if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_MINE
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = NOTE_NOTE
                                     }
                                 }
                             }
                             // Long notes
-                            '4' -> {
-                                line.step[iStep] = NOTE_LNOTE
-                                if (!curLongNote[iStep].bUsed) {
-                                    line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
+                            '4', 'L', 'H' -> {
+                                line.note[iStep].step = NOTE_LNOTE
+                                if (info.step[iStep] == 'L'){
+                                    line.note[iStep].type = TypeNote.FAKE
+                                } else if (info.step[iStep] == 'H') {
+                                    line.note[iStep].type = TypeNote.PHANTOM
                                 }
-                                curLongNote[iStep].bUsed = true
-                                curLongNote[iStep].iPrevPtn = patterns.size - 1
-                                curLongNote[iStep].iPrevPos = patterns.last().vLine.size
-                            }
-                            // Fake long notes - visible pero no hacen nada
-                            'L' -> {
-                                line.step[iStep] = NOTE_FAKE_LNOTE
                                 if (!curLongNote[iStep].bUsed) {
-                                    line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
-                                }
-                                curLongNote[iStep].bUsed = true
-                                curLongNote[iStep].iPrevPtn = patterns.size - 1
-                                curLongNote[iStep].iPrevPos = patterns.last().vLine.size
-                            }
-                            // Phantom long notes - no visibles pero se juzgan
-                            'H' -> {
-                                line.step[iStep] = NOTE_PHANTOM_LNOTE
-                                if (!curLongNote[iStep].bUsed) {
-                                    line.step[iStep] = (line.step[iStep] or NOTE_START_CHK)
+                                    line.note[iStep].step = (line.note[iStep].step or NOTE_START_CHK)
                                 }
                                 curLongNote[iStep].bUsed = true
                                 curLongNote[iStep].iPrevPtn = patterns.size - 1
@@ -304,14 +258,14 @@ class KsfProccess {
                             }
                             else -> {
                                 if (curLongNote[iStep].bUsed) {
-                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep]
+                                    val prevStep = patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step
                                     curLongNote[iStep].bUsed = false
-                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = (prevStep or NOTE_END_CHK)
+                                    patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = (prevStep or NOTE_END_CHK)
                                     if ((prevStep and (NOTE_START_CHK or NOTE_END_CHK)) == (NOTE_START_CHK or NOTE_END_CHK)) {
-                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].step[iStep] = NOTE_NOTE
+                                        patterns[curLongNote[iStep].iPrevPtn].vLine[curLongNote[iStep].iPrevPos].note[iStep].step = NOTE_NOTE
                                     }
                                 }
-                                line.step[iStep] = NOTE_NONE
+                                line.note[iStep].step = NOTE_NONE
                             }
                         }
                     }
@@ -582,7 +536,6 @@ class KsfProccess {
         }
     }
 
-
     private fun getPtnTimePos(bpm: Float, start: Long, bunki: Long, tick: Int): Long {
         val lastTick = start.toFloat()
         val ticks = 60000 / bpm
@@ -615,203 +568,166 @@ class KsfProccess {
     fun makeMirror() {
         val mirrorMap = intArrayOf(1, 0, 2, 4, 3)
         val stepWidth = 5
+        val NONE = -1
 
         patterns.forEach { ptn ->
-            val nowLong = ByteArray(5) { 255.toByte() }
-            val newLong = ByteArray(5) { 255.toByte() }
+
+            val nowLong = IntArray(stepWidth) { NONE }
+            val newLong = IntArray(stepWidth) { NONE }
 
             ptn.vLine.forEach { line ->
-                val newLine = ByteArray(stepWidth) { NOTE_NONE }
+
+                val newLine = Array(stepWidth) { Note() }
 
                 for (i in 0 until stepWidth) {
-                    when (line.step[i]) {
+
+                    val src = line.note[i]
+                    val step = src.step
+                    val newPos = mirrorMap[i]
+
+                    when (step) {
+
+                        // ---------- TAP ----------
                         NOTE_NOTE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_NOTE
+                            newLine[newPos].step = NOTE_NOTE
+                            newLine[newPos].type = src.type
                         }
-                        NOTE_FAKE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_FAKE
-                        }
-                        NOTE_PHANTOM -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_PHANTOM
-                        }
-                        NOTE_MINE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_MINE
-                        }
+
+                        // ---------- LONG START ----------
                         NOTE_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
+                            newLine[newPos].step = NOTE_LSTART
+                            newLine[newPos].type = src.type
+
+                            nowLong[i] = i
+                            newLong[i] = newPos
                         }
-                        NOTE_FAKE_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_FAKE_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
-                        }
-                        NOTE_PHANTOM_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_PHANTOM_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
-                        }
+
+                        // ---------- LONG BODY ----------
                         NOTE_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LNOTE
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+                                newLine[pos].step = NOTE_LNOTE
+                                newLine[pos].type = src.type
                             }
                         }
-                        NOTE_FAKE_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_FAKE_LNOTE
-                            }
-                        }
-                        NOTE_PHANTOM_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_PHANTOM_LNOTE
-                            }
-                        }
+
+                        // ---------- LONG END ----------
                         NOTE_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
-                            }
-                        }
-                        NOTE_FAKE_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_FAKE_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
-                            }
-                        }
-                        NOTE_PHANTOM_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_PHANTOM_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+
+                                newLine[pos].step = NOTE_LEND
+                                newLine[pos].type = src.type
+
+                                nowLong[i] = NONE
+                                newLong[i] = NONE
                             }
                         }
                     }
                 }
 
+                // Copiar resultado a línea real
                 for (i in 0 until stepWidth) {
-                    line.step[i] = newLine[i]
+                    line.note[i].step = newLine[i].step
+                    line.note[i].type = newLine[i].type
                 }
             }
         }
     }
 
     fun makeRandom() {
-        val mirrorMap1 = intArrayOf(4, 1, 2, 3, 0)
-        val mirrorMap2 = intArrayOf(2, 4, 0, 1, 3)
-        val mirrorMap3 = intArrayOf(3, 0, 1, 4, 2)
 
-        val mirrorMaps = listOf(mirrorMap1, mirrorMap2, mirrorMap3)
-        val mirrorMap = mirrorMaps.random()
+        val randomMap = generateSafeRandomMap()
+
         val stepWidth = 5
+        val NONE = -1
 
         patterns.forEach { ptn ->
-            val nowLong = ByteArray(stepWidth) { 255.toByte() }
-            val newLong = ByteArray(stepWidth) { 255.toByte() }
+
+            val nowLong = IntArray(stepWidth) { NONE }
+            val newLong = IntArray(stepWidth) { NONE }
 
             ptn.vLine.forEach { line ->
-                val newLine = ByteArray(stepWidth) { NOTE_NONE }
+
+                val newLine = Array(stepWidth) { Note() }
 
                 for (i in 0 until stepWidth) {
-                    when (line.step[i]) {
+
+                    val src = line.note[i]
+                    val step = src.step
+                    val newPos = randomMap[i]
+
+                    when (step) {
+
                         NOTE_NOTE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_NOTE
+                            newLine[newPos].step = NOTE_NOTE
+                            newLine[newPos].type = src.type
                         }
-                        NOTE_FAKE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_FAKE
-                        }
-                        NOTE_PHANTOM -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_PHANTOM
-                        }
-                        NOTE_MINE -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_MINE
-                        }
+
                         NOTE_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
+                            newLine[newPos].step = NOTE_LSTART
+                            newLine[newPos].type = src.type
+                            nowLong[i] = i
+                            newLong[i] = newPos
                         }
-                        NOTE_FAKE_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_FAKE_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
-                        }
-                        NOTE_PHANTOM_LSTART -> {
-                            val newPos = mirrorMap[i]
-                            newLine[newPos] = NOTE_PHANTOM_LSTART
-                            nowLong[i] = i.toByte()
-                            newLong[i] = newPos.toByte()
-                        }
+
                         NOTE_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LNOTE
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+                                newLine[pos].step = NOTE_LNOTE
+                                newLine[pos].type = src.type
                             }
                         }
-                        NOTE_FAKE_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_FAKE_LNOTE
-                            }
-                        }
-                        NOTE_PHANTOM_LNOTE -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_PHANTOM_LNOTE
-                            }
-                        }
+
                         NOTE_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
-                            }
-                        }
-                        NOTE_FAKE_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_FAKE_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
-                            }
-                        }
-                        NOTE_PHANTOM_LEND -> {
-                            if (nowLong[i] != 255.toByte()) {
-                                val newPos = newLong[i].toInt()
-                                newLine[newPos] = NOTE_PHANTOM_LEND
-                                nowLong[i] = 255.toByte()
-                                newLong[i] = 255.toByte()
+                            if (nowLong[i] != NONE) {
+                                val pos = newLong[i]
+                                newLine[pos].step = NOTE_LEND
+                                newLine[pos].type = src.type
+                                nowLong[i] = NONE
+                                newLong[i] = NONE
                             }
                         }
                     }
                 }
 
                 for (i in 0 until stepWidth) {
-                    line.step[i] = newLine[i]
+                    line.note[i].step = newLine[i].step
+                    line.note[i].type = newLine[i].type
                 }
             }
         }
     }
+
+
+
+    fun generateSafeRandomMap(): IntArray {
+
+        val base = intArrayOf(0,1,2,3,4)
+
+        while (true) {
+
+            val map = base.clone()
+            map.shuffle()
+
+            // centro no fijo
+            if (map[2] == 2) continue
+
+            // no demasiados iguales
+            var same = 0
+            for (i in 0..4) if (map[i] == i) same++
+            if (same > 2) continue
+
+            val leftSide = setOf(0,1)
+            val mapped0Left = map[0] in leftSide
+            val mapped4Left = map[4] in leftSide
+
+            // extremos no colapsan lado
+            if (mapped0Left && mapped4Left) continue
+
+            return map
+        }
+    }
+
+
 }

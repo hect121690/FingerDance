@@ -53,8 +53,6 @@ class CustomAdapter(
             }
 
             val path = songKsf.rutaDisc
-
-            // 🔒 Tag de seguridad
             itemBinding.image.tag = path
 
             val cached = cache.get(path)

@@ -943,6 +943,11 @@ class SelectSong : AppCompatActivity() {
                         hideSelectLv(anim)
                         playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
                         playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
+
+                        if(listItemsKsf[oldValue].listKsf[positionActualLvs].songFile != ""){
+                            playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + listItemsKsf[oldValue].listKsf[positionActualLvs].songFile
+                        }
+
                         playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
 
                         mediaPlayer = MediaPlayer().apply {

@@ -146,7 +146,8 @@ class LoadSongsKsf {
             "NORMAL" to 0,
             "UCS" to 1,
             "ANOTHER" to 2,
-            "QUEST" to 3
+            "QUEST" to 3,
+            "NEW" to 4
         )
         val listRutas = getRutasSongs(rutaChannel)
         val listOthers = arrayListOf("03-SHORT CUT - V2", "04-REMIX - V2", "05-FULLSONGS - V2")
@@ -225,6 +226,9 @@ class LoadSongsKsf {
                                         }
                                         line.startsWith("#TYPE:") ->{
                                             ksf.typeSteps = getValue(line)
+                                        }
+                                        line.startsWith("#SONGFILE:") ->{
+                                            ksf.songFile = getValue(line)
                                         }
                                         line.startsWith("#STEP:") && line.trim().length > 6 ->{
                                             ksf.stepmaker = getValue(line)
@@ -688,7 +692,8 @@ data class Ksf(var rutaKsf: String = "",
                var stepmaker: String = "",
                var typePlayer: String = "",
                var checkedValues: String = "",
-               var typeSteps: String = "")
+               var typeSteps: String = "",
+               var songFile: String = "")
 
 data class SongKsf(
     var title: String,

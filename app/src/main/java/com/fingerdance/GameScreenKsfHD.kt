@@ -90,6 +90,8 @@ open class GameScreenKsfHD(activity: GameScreenActivity) : Screen {
     private var intervalOverlay = 60000 / displayBPM
 
     val gdxHeight = Gdx.graphics.height
+    val gdxWidth = Gdx.graphics.width
+
     val arrowsSize = width / 8f
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
@@ -115,12 +117,11 @@ open class GameScreenKsfHD(activity: GameScreenActivity) : Screen {
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechas
 
-
-            padLefDown.flip(false, true)
-            padLeftUp.flip(false, true)
-            padCenter.flip(false, true)
-            padRightUp.flip(false, true)
-            padRightDown.flip(false, true)
+        padLefDown.flip(false, true)
+        padLeftUp.flip(false, true)
+        padCenter.flip(false, true)
+        padRightUp.flip(false, true)
+        padRightDown.flip(false, true)
 
     }
 

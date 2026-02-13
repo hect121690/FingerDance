@@ -188,12 +188,12 @@ open class GameScreenActivity : AndroidApplication() {
             width = newWidth
             height = newHeight
         }
-
+        /*
         linearBGADark.y = medidaFlechas * 2
         linearBGADark.layoutParams = linearBGADark.layoutParams.apply {
             height = newHeight
         }
-
+        */
         if(isFileExists(File(playerSong.rutaVideo!!))){
             if(playerSong.isBGAOff == false){
                 videoViewBgaoff.isVisible = false
