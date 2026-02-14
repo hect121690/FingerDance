@@ -4,11 +4,15 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
+import android.graphics.SurfaceTexture
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Surface
 import android.view.SurfaceView
+import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AnimationUtils
@@ -38,7 +42,9 @@ open class GameScreenActivity : AndroidApplication() {
     private var currentVideoPositionScreen : Int = 0
 
     lateinit var videoViewBgaoff : VideoView
-    lateinit var videoViewBgaOn : VideoView
+    //lateinit var videoViewBgaOn : VideoView
+    lateinit var videoBgaOn : TextureView
+    lateinit var videoBgaOnPLayer: MediaPlayer
 
     private lateinit var imgEndSong : ImageView
     private lateinit var bitPerfectGame : Bitmap
@@ -80,7 +86,7 @@ open class GameScreenActivity : AndroidApplication() {
         imgEndSong.visibility = View.INVISIBLE
 
         val linearBGADark = findViewById<LinearLayout>(R.id.linearBGADark)
-        addVideoBackground(linearBGADark)
+        addVideoBackground()
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
@@ -92,7 +98,7 @@ open class GameScreenActivity : AndroidApplication() {
         gdxContainer.addView(gdxView)
         thisHandler.postDelayed({
             if (isVideo) {
-                videoViewBgaOn.start()
+                videoBgaOnPLayer.start()
                 if(playerSong.isBAGDark){
                     linearBGADark.visibility = View.VISIBLE
                 }else {
@@ -176,42 +182,51 @@ open class GameScreenActivity : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
-    private fun addVideoBackground(linearBGADark: LinearLayout) {
+    private fun addVideoBackground() {
         videoViewBgaoff = findViewById(R.id.videoViewBgaoff)
         videoViewBgaoff.isVisible = false
+        videoBgaOnPLayer = MediaPlayer()
 
-        videoViewBgaOn = findViewById(R.id.videoViewBgaOn)
-        videoViewBgaOn.y = medidaFlechas * 2
-        val newWidth = (width * 1.2).toInt()
+        videoBgaOn = findViewById(R.id.videoViewBgaOn)
+        videoBgaOn.y = medidaFlechas * 2
+        val newWidth = (width * 1.25).toInt()
         val newHeight = (newWidth * 9 / 16).toInt()
-        videoViewBgaOn.layoutParams = videoViewBgaOn.layoutParams.apply {
+
+        videoBgaOn.layoutParams = videoBgaOn.layoutParams.apply {
             width = newWidth
             height = newHeight
         }
-        /*
-        linearBGADark.y = medidaFlechas * 2
-        linearBGADark.layoutParams = linearBGADark.layoutParams.apply {
-            height = newHeight
+
+        videoBgaOn.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                videoBgaOnPLayer.setSurface(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
         }
-        */
+
+
         if(isFileExists(File(playerSong.rutaVideo!!))){
             if(playerSong.isBGAOff == false){
                 videoViewBgaoff.isVisible = false
-                videoViewBgaOn.isVisible = true
-                videoViewBgaOn.setVideoPath(playerSong.rutaVideo)
-                videoViewBgaOn.setOnPreparedListener { mp ->
-                    mp.setVolume(0f, 0f)
+                videoBgaOn.isVisible = true
+                videoBgaOnPLayer.reset()
+                videoBgaOnPLayer.apply {
+                    setDataSource(playerSong.rutaVideo)
+                    prepare()
+                    seekTo(1000)
                 }
                 isVideo = true
             }else{
                 videoViewBgaoff.isVisible = true
-                videoViewBgaOn.isVisible = false
+                videoBgaOn.isVisible = false
                 videoViewBgaoff.setVideoPath(bgaOff)
                 isVideo = false
             }
         }else{
             videoViewBgaoff.isVisible = true
-            videoViewBgaOn.isVisible = false
+            videoBgaOn.isVisible = false
             videoViewBgaoff.setVideoPath(bgaOff)
             isVideo = false
         }
@@ -354,7 +369,7 @@ open class GameScreenActivity : AndroidApplication() {
         currentVideoPositionScreen = 0
         currentVideoPositionScreen = 0
         if (isVideo) {
-            videoViewBgaOn.seekTo(0)
+            videoBgaOnPLayer.seekTo(0)
         } else {
             videoViewBgaoff.seekTo(0)
         }
@@ -401,7 +416,7 @@ open class GameScreenActivity : AndroidApplication() {
         currentVideoPositionScreen = mediaPlayer.currentPosition
         mediaPlayer.pause()
         if (isVideo) {
-            videoViewBgaOn.pause()
+            videoBgaOnPLayer.pause()
         } else {
             videoViewBgaoff.pause()
         }
@@ -429,9 +444,9 @@ open class GameScreenActivity : AndroidApplication() {
 
     private fun startVideoFromPosition() {
         if (isVideo) {
-            videoViewBgaOn.seekTo(currentVideoPositionScreen)
-            if (!videoViewBgaOn.isPlaying) {
-                videoViewBgaOn.start()
+            videoBgaOnPLayer.seekTo(currentVideoPositionScreen)
+            if (!videoBgaOnPLayer.isPlaying) {
+                videoBgaOnPLayer.start()
             }
         } else {
             videoViewBgaoff.seekTo(currentVideoPositionScreen)
