@@ -407,8 +407,6 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                                     }
                                     drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
                                 }
-                            } else if(nowstep.type == TypeNote.FAKE){
-                                drawLongNote(iStepNo, iLongTop[iStepNo].toInt(), iNoteTop)
                             }
                         }
                     }

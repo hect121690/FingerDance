@@ -364,6 +364,12 @@ class MainActivity : AppCompatActivity(), Serializable {
         loadingLayout = findViewById(R.id.loadingLayout)
 
         loadingLayout.apply {
+            setOnClickListener(object : View.OnClickListener {
+                override fun onClick(v: View?) {
+                    // No hace nada
+                }
+            })
+
             gravity = Gravity.CENTER
             setBackgroundColor("#AA000000".toColorInt())
             visibility = View.INVISIBLE
@@ -380,8 +386,8 @@ class MainActivity : AppCompatActivity(), Serializable {
                 setPadding(0, 30, 0, 0)
             }
 
-            addView(progressBar)
-            addView(text)
+            addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(text, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         }
 
         val folder = File(getExternalFilesDir(null), "FingerDance")
@@ -480,25 +486,25 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun iniciarDescarga() {
+        val downloadDialog = WebDownloadDialog(this@MainActivity)
+        downloadDialog.show("FingerDance.zip")
+
         CoroutineScope(Dispatchers.Main).launch {
             val downloadedFile = iniciarDescargaDrive("1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI", "zip") { progress ->
                 runOnUiThread {
-                    progressBar.progress = progress
-                    lbDescargando.text = "Descargando $progress%"
-
-                    if (progress == 100) {
-                        lbDescargando.text = "Descarga finalizada, espere por favor..."
-                    }
+                    downloadDialog.updateProgress(progress)
                 }
             }
 
             if (downloadedFile != null) {
+                downloadDialog.dismiss()
                 lifecycleScope.launch {
                     val unzip = Unzip(this@MainActivity)
                     val rutaZip = getExternalFilesDir("FingerDance.zip").toString()
                     unzip.performUnzip(rutaZip, "FingerDance.zip", true)
                 }
             } else {
+                downloadDialog.dismiss()
                 Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
             }
         }
@@ -660,62 +666,28 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     if(version == versionApp){
                         if(versionUpdate != numberUpdate){
-                            val lbDescargandoUpdate = TextView(this@MainActivity).apply {
-                                id = View.generateViewId()
-                                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                                setTextColor(Color.WHITE)
-                                visibility = View.INVISIBLE
-                            }
-                            lbDescargandoUpdate.textSize = 16f
-
-                            val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                                id = View.generateViewId()
-                                layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 15.dpToPx())
-                                visibility = View.INVISIBLE
-                            }
-
-                            val linearDowload = LinearLayout(this@MainActivity)
-                            linearDowload.orientation = LinearLayout.VERTICAL // Alineación vertical
-                            linearDowload.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-                            linearDowload.layoutParams = LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-
-                            linearDowload.addView(lbDescargandoUpdate)
-                            linearDowload.addView(progressBar)
-
-                            val dialogUpdate = AlertDialog.Builder(this@MainActivity, R.style.TransparentDialog)
-                                .setCancelable(false)
-                                .setTitle("Atualización adicional")
-                                .setMessage("Se descargaran los recursos adicionales, espera por favor.")
-                                .setView(linearDowload)
-                                .show()
+                            val downloadDialog = WebDownloadDialog(this@MainActivity)
+                            downloadDialog.show("FingerDance-Update.zip")
 
                             CoroutineScope(Dispatchers.Main).launch {
                                 val downloadedFile = iniciarDescargaUpdate { progress ->
                                     runOnUiThread {
-                                        progressBar.visibility = View.VISIBLE
-                                        progressBar.progress = progress
-                                        lbDescargandoUpdate.text = "Descargando $progress%"
-
-                                        if (progress == 100) {
-                                            lbDescargandoUpdate.text = "Descarga finalizada, espere por favor..."
-                                            themes.edit().putString("versionUpdate", numberUpdate).apply()
-                                            themes.edit().putString("efects", "").apply()
-                                            versionUpdate = numberUpdate
-                                            dialogUpdate.dismiss()
-                                        }
+                                        downloadDialog.updateProgress(progress)
                                     }
                                 }
                                 if (downloadedFile != null) {
+                                    downloadDialog.dismiss()
+                                    themes.edit().putString("versionUpdate", numberUpdate).apply()
+                                    themes.edit().putString("efects", "").apply()
+                                    versionUpdate = numberUpdate
+
                                     lifecycleScope.launch {
                                         val unzip = Unzip(this@MainActivity)
-                                        val rutaZip =
-                                            getExternalFilesDir("FingerDance.zip").toString() //Environment.getExternalStorageDirectory().toString() + "/Android/data/com.fingerdance/files/FingerDance.zip"
+                                        val rutaZip = getExternalFilesDir("FingerDance.zip").toString()
                                         unzip.performUnzip(rutaZip, "FingerDance.zip", true)
                                     }
                                 } else {
+                                    downloadDialog.dismiss()
                                     Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
                                 }
                             }
@@ -726,39 +698,25 @@ class MainActivity : AppCompatActivity(), Serializable {
                         }
 
                     }else{
-                        val lbDescargando = TextView(this@MainActivity).apply {
-                            id = View.generateViewId()
-                            text = "Descargando:"
-                            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                            setTextColor(Color.BLACK)
-                            visibility = View.GONE
-                        }
-                        lbDescargando.textSize = 16f
-
-                        val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                            id = View.generateViewId()
-                            layoutParams = ConstraintLayout.LayoutParams(
-                                ConstraintLayout.LayoutParams.MATCH_PARENT,
-                                25.dpToPx()
-                            )
-                            visibility = View.GONE
-                        }
                         val btnAceptarDownload = Button(this@MainActivity).apply {
                             text = "Descargar"
                             setBackgroundColor(Color.BLUE)
                             setTextColor(Color.WHITE)
+                            layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                topMargin = 16
+                            }
                         }
 
                         val linearDowload = LinearLayout(this@MainActivity)
-                        linearDowload.orientation = LinearLayout.VERTICAL // Alineación vertical
-                        linearDowload.gravity = Gravity.CENTER // Centra los elementos horizontalmente
+                        linearDowload.orientation = LinearLayout.VERTICAL
+                        linearDowload.gravity = Gravity.CENTER
                         linearDowload.layoutParams = LinearLayout.LayoutParams(
                             LinearLayout.LayoutParams.MATCH_PARENT,
                             LinearLayout.LayoutParams.WRAP_CONTENT
                         )
-
-                        linearDowload.addView(lbDescargando)
-                        linearDowload.addView(progressBar)
                         linearDowload.addView(btnAceptarDownload)
 
                         val dialog = AlertDialog.Builder(this@MainActivity)
@@ -769,18 +727,16 @@ class MainActivity : AppCompatActivity(), Serializable {
                             .show()
 
                         btnAceptarDownload.setOnClickListener {
-                            lbDescargando.visibility = View.VISIBLE
-                            progressBar.visibility = View.VISIBLE
-                            btnAceptarDownload.visibility = View.GONE
-                            dialog.setMessage("Espere por favor")
+                            dialog.dismiss()
+                            val downloadDialog = WebDownloadDialog(this@MainActivity)
+                            downloadDialog.show("FingerDance.apk")
+
                             CoroutineScope(Dispatchers.Main).launch {
                                 val packageApp = iniciarDescargaDrive("199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM", "apk", true) { progress ->
                                     runOnUiThread {
-                                        progressBar.progress = progress
-                                        lbDescargando.text = "Descargando $progress%"
+                                        downloadDialog.updateProgress(progress)
                                         if (progress == 100) {
-                                            lbDescargando.text = "Descarga finalizada, espere por favor..."
-                                            dialog.dismiss()
+                                            downloadDialog.dismiss()
                                         }
                                     }
                                 }
@@ -893,8 +849,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                     showLoadingOverlay("Espere por favor...")
                     getAllowDevices { toListFreeDevices ->
                         listAllowDevices = toListFreeDevices
-                    }
-                    Handler(Looper.getMainLooper()).postDelayed({
                         if(listAllowDevices.isNotEmpty()){
                             val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
                             if(deviceFree != null) {
@@ -906,7 +860,9 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 if(LocalDate.now().isAfter(lastRegister) ){
                                     showPaySuscription(paypalOn, mpOn)
                                 } else {
-                                    goPlay(goSound, animation)
+                                    lifecycleScope.launch {
+                                        goPlay(goSound, animation)
+                                    }
                                 }
                             }else{
                                 loadingLayout.visibility = View.INVISIBLE
@@ -915,18 +871,22 @@ class MainActivity : AppCompatActivity(), Serializable {
                         }else{
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
                         }
-                    }, 3000L)
+                    }
                 }else{
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister) ){
                         showPaySuscription(paypalOn, mpOn)
                     } else {
-                        goPlay(goSound, animation)
+                        lifecycleScope.launch {
+                            goPlay(goSound, animation)
+                        }
                     }
                 }
             }else{
-                goPlay(goSound, animation)
+                lifecycleScope.launch {
+                    goPlay(goSound, animation)
+                }
             }
         }
         btnPlayOnline.setOnClickListener{
@@ -935,8 +895,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                     showLoadingOverlay("Espere por favor...")
                     getAllowDevices { toListFreeDevices ->
                         listAllowDevices = toListFreeDevices
-                    }
-                    Handler(Looper.getMainLooper()).postDelayed({
                         if(listAllowDevices.isNotEmpty()){
                             val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
                             if(deviceFree != null) {
@@ -957,7 +915,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                         } else{
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
                         }
-                    }, 3000L)
+                    }
                 }else{
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
@@ -979,8 +937,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                     showLoadingOverlay("Espere por favor...")
                     getAllowDevices { toListFreeDevices ->
                         listAllowDevices = toListFreeDevices
-                    }
-                    Handler(Looper.getMainLooper()).postDelayed({
                         if(listAllowDevices.isNotEmpty()){
                             val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
                             if(deviceFree != null) {
@@ -992,7 +948,9 @@ class MainActivity : AppCompatActivity(), Serializable {
                                 if(LocalDate.now().isAfter(lastRegister) ){
                                     showPaySuscription(paypalOn, mpOn)
                                 } else {
-                                    goOption(goOptionMP, animation)
+                                    lifecycleScope.launch {
+                                        goOption(goOptionMP, animation)
+                                    }
                                 }
                             }else{
                                 loadingLayout.visibility = View.INVISIBLE
@@ -1001,18 +959,22 @@ class MainActivity : AppCompatActivity(), Serializable {
                         } else {
                             (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
                         }
-                    }, 3000L)
+                    }
                 }else{
                     val register = idWithRegister.substringAfterLast("-")
                     val lastRegister = LocalDate.parse(register, formatter)
                     if(LocalDate.now().isAfter(lastRegister) ){
                         showPaySuscription(paypalOn, mpOn)
                     } else {
-                        goOption(goOptionMP, animation)
+                        lifecycleScope.launch {
+                            goOption(goOptionMP, animation)
+                        }
                     }
                 }
             }else{
-                goOption(goOptionMP, animation)
+                lifecycleScope.launch {
+                    goOption(goOptionMP, animation)
+                }
             }
         }
 
@@ -1065,7 +1027,8 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     }
 
-    private fun goPlay(goSound: MediaPlayer, animation: Animation){
+
+    private suspend fun goPlay(goSound: MediaPlayer, animation: Animation){
         isOnline = false
         goSound.start()
         btnPlay.startAnimation(animation)
@@ -1074,9 +1037,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadingLayout.visibility = View.INVISIBLE
-            }, 2500)
+            getFilesDrive()
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1088,9 +1049,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
         if(themes.getString("efects", "").toString() == ""){
             showLoadingOverlay("Espere por favor...")
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadingLayout.visibility = View.INVISIBLE
-            }, 1250)
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1099,7 +1057,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }else{
             val jsonListCommands = themes.getString("efects", "")
             listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-            //themes.edit().putString("efects", gson.toJson(listCommands)).apply()
         }
         ls.loadSounds(this@MainActivity)
         if(themes.getString("favorites", "").toString() != ""){
@@ -1117,6 +1074,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels.sortBy { it.nombre.substringBefore("-").trim() }
         }
 
+        loadingLayout.visibility = View.INVISIBLE
         val intent = Intent(this@MainActivity, SelectChannel::class.java)
         startActivity(intent)
         mediaPlayerMain.pause()
@@ -1124,15 +1082,13 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnPlay.isEnabled = true
     }
 
-    private fun goOption(goOption: MediaPlayer, animation: Animation){
+    private suspend fun goOption(goOption: MediaPlayer, animation: Animation){
         if(themes.getString("allTunes", "").toString() != ""){
             val jsonListChannels = themes.getString("allTunes", "")
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadingLayout.visibility = View.INVISIBLE
-            }, 2500)
+            getFilesDrive()
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1142,17 +1098,15 @@ class MainActivity : AppCompatActivity(), Serializable {
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
 
         }
-        //btnOptions.isEnabled = true
         Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
         btnOptions.startAnimation(animation)
         goOption.start()
         soundPlayer!!.pause()
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            val intent = Intent(applicationContext, OptionsActivity()::class.java)
-            startActivity(intent)
-            this@MainActivity.finish()
-        }, 1000L)
+        loadingLayout.visibility = View.INVISIBLE
+        val intent = Intent(applicationContext, OptionsActivity()::class.java)
+        startActivity(intent)
+        this@MainActivity.finish()
     }
 
     private fun showLoadingOverlay(message: String) {

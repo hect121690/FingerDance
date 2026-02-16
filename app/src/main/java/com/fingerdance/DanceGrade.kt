@@ -202,6 +202,15 @@ class DanceGrade : AppCompatActivity() {
         val imgMyBestGrade = findViewById<ImageView>(R.id.imgBestGradeDG)
         val lbBestScoreDG = findViewById<TextView>(R.id.lbBestScoreDG)
 
+        imgMyBestScore.post {
+            val newHeight = (imgMyBestScore.height * 0.8).toInt()
+
+            val params = imgMyBestGrade.layoutParams
+            params.height = newHeight
+            imgMyBestGrade.layoutParams = params
+        }
+
+
         val imgNewRecord = findViewById<ImageView>(R.id.imgNewRecord)
         imgNewRecord.visibility = View.INVISIBLE
         imgNewRecord.layoutParams.height = heigthGrades

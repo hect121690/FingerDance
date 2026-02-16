@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Progress Dialog</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .dialog-container {
+            background: white;
+            border-radius: 0;
+            padding: 40px;
+            box-shadow: none;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .file-name {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+
+        .progress-circle-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        svg {
+            width: 400px;
+            height: 400px;
+            transform: rotate(-90deg);
+            margin: 30px 0;
+        }
+
+        .progress-background {
+            fill: none;
+            stroke: #e8e8e8;
+            stroke-width: 20;
+            stroke-linecap: round;
+        }
+
+        .progress-fill {
+            fill: none;
+            stroke-width: 20;
+            stroke-linecap: round;
+            stroke-dasharray: 471.24;
+            stroke-dashoffset: 471.24;
+            transition: stroke-dashoffset 0.3s ease;
+            stroke: url(#progressGradient);
+        }
+
+        .progress-fill.completed {
+            stroke: url(#completedGradient);
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .progress-label {
+            color: #bdbdbd;
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            min-width: 180px;
+            height: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .progress-label.completed {
+            color: #2e7d32;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: #bdbdbd;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: blink 1.4s infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .progress-label.completed .dot {
+            display: none;
+        }
+
+        @keyframes blink {
+            0%, 60%, 100% {
+                opacity: 0.3;
+            }
+            30% {
+                opacity: 1;
+            }
+        }
+
+        .progress-percentage {
+            color: #2196F3;
+            font-size: 96px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .progress-fill.completed ~ .progress-text .progress-percentage {
+            color: #2e7d32;
+        }
+
+        .separator {
+            height: 1px;
+            background: #eeeeee;
+            margin: 30px 0;
+        }
+
+        .info-text {
+            color: #9e9e9e;
+            font-size: 12px;
+            margin-bottom: 0;
+        }
+
+        @keyframes rotateCircle {
+            from {
+                transform: rotate(-90deg);
+            }
+            to {
+                transform: rotate(-90deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .dialog-container {
+                padding: 20px;
+            }
+
+            svg {
+                width: 300px;
+                height: 300px;
+            }
+
+            .progress-percentage {
+                font-size: 72px;
+            }
+
+            .progress-label {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dialog-container">
+        <div class="file-name" id="fileName">FingerDance.apk</div>
+
+        <div class="progress-circle-container">
+            <svg viewBox="0 0 200 200">
+                <defs>
+                    <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#E91E63;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#2196F3;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="completedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#66BB6A;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Círculo de fondo -->
+                <circle class="progress-background" cx="100" cy="100" r="75"></circle>
+
+                <!-- Círculo de progreso -->
+                <circle class="progress-fill" id="progressCircle" cx="100" cy="100" r="75"></circle>
+            </svg>
+
+            <div class="progress-text">
+                <div class="progress-label" id="progressLabel">
+                    <span id="labelText">Descargando</span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+                <div class="progress-percentage" id="progressPercentage">0%</div>
+            </div>
+        </div>
+
+        <div class="separator"></div>
+        <div class="info-text">Por favor, no cierres la aplicación</div>
+    </div>
+
+    <script>
+        const radius = 75;
+        const circumference = 2 * Math.PI * radius;
+        const progressCircle = document.getElementById('progressCircle');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const fileNameElement = document.getElementById('fileName');
+        const progressLabel = document.getElementById('progressLabel');
+        const labelText = document.getElementById('labelText');
+
+        progressCircle.style.strokeDasharray = circumference;
+        progressCircle.style.strokeDashoffset = circumference;
+
+        // Función que será llamada desde Android
+        function updateProgress(progress) {
+            const offset = circumference - (progress / 100) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+            progressPercentage.textContent = progress + '%';
+
+            // Cambiar a verde cuando completa
+            if (progress >= 100) {
+                progressCircle.classList.add('completed');
+                labelText.textContent = '¡Completado!';
+                progressLabel.classList.add('completed');
+            } else {
+                progressCircle.classList.remove('completed');
+                labelText.textContent = 'Descargando';
+                progressLabel.classList.remove('completed');
+            }
+        }
+
+        // Función para establecer el nombre del archivo
+        function setFileName(name) {
+            fileNameElement.textContent = name;
+        }
+
+        // Test inicial (opcional, comentar cuando esté en producción)
+        // updateProgress(0);
+    </script>
+</body>
+</html>
