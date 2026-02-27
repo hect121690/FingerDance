@@ -3,23 +3,11 @@ package com.fingerdance
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
-import android.os.Bundle
-import android.view.View
-import androidx.appcompat.app.AppCompatActivity
-//import com.arthenica.mobileffmpeg.FFmpeg
 import java.io.File
 import java.io.FileInputStream
-import java.lang.Double.parseDouble
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
-
-private lateinit var channels: Channels
-private lateinit var songs :Song
-
-
-//var barLife1 : Drawable? = null
-//var barLife : Drawable? = null
 
 private lateinit var soundPoolSelectSong: SoundPool
 
@@ -36,27 +24,7 @@ private var command_mod : Int = 0
 private var select : Int = 0
 private var start : Int = 0
 
-class LoadingSongs() : AppCompatActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        getSupportActionBar()?.hide()
-        super.onCreate(savedInstanceState)
-        //setContentView(R.layout.activity_loading_songs)
-        onWindowFocusChanged(true)
-
-        songs = Song("","","","","","","","",
-             "", "", "","", arrayListOf())
-
-        //listChannels.clear()
-        //listCommands.clear()
-        //listEfectsDisplay.clear()
-        //listChannels = getChannels(this)
-        //listCommands = getFilesCW(this)
-
-        //loadSounds(this)
-        loadImages(this)
-        //val intent = Intent(this, SelectChannel()::class.java)
-        //startActivity(intent)
-    }
+class LoadingSongs (context: Context) {
 
     fun loadImages(c: Context) {
         bgaOff = c.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
@@ -124,10 +92,10 @@ class LoadingSongs() : AppCompatActivity() {
         val listRutasChannels = mutableListOf<String>()
         if (dir != null){
             dir.walkTopDown().forEach {
-                if(it.toString().endsWith("info", true)){
+                if(it.toString().endsWith("info_ssc", true)){
                     when {
                         it.isDirectory -> {
-                            listRutasChannels.add(it.toString().replace("/info", "", ignoreCase = true))
+                            listRutasChannels.add(it.toString().replace("/info_ssc", "", ignoreCase = true))
                         }
                     }
                 }
@@ -139,14 +107,12 @@ class LoadingSongs() : AppCompatActivity() {
             var rutaChannel: String
             var listSongs: ArrayList<Song>
             for (index in 0 until listRutasChannels.size) {
-                nombre = listRutasChannels[index].removeRange(0, 82)
-                descripcion = readFile(listRutasChannels[index] + "/info/text.ini")
-                banner = listRutasChannels[index] + "/banner.png"
+                nombre = File(listRutasChannels[index]).name
+                descripcion = readFile(listRutasChannels[index] + "/info_ssc/text.ini")
+                banner = listRutasChannels[index] + "/banner_ssc.png"
                 rutaChannel = listRutasChannels[index]
                 listSongs = getSongs(rutaChannel, c)
-                channels = Channels(nombre, descripcion, banner, listSongs) //, listCommands)
-
-                listChannels.add(channels)
+                listChannels.add(Channels(nombre, descripcion, banner, listSongs))
             }
         }
         return listChannels
@@ -154,170 +120,151 @@ class LoadingSongs() : AppCompatActivity() {
 
     private fun getSongs(rutaChannel: String, c: Context): ArrayList<Song> {
         var ssc = ""
-        var nombre = ""
+        var name = ""
         var artist = ""
-        var bpm = ""
+        var displayBpm = ""
         var banner = ""
+        var rutaDisc = ""
         var rutaBanner = ""
         var rutaPrevVideo = ""
-        var prevVideo = ""
-        var rutaVideo = ""
-        var song  = ""
         var rutaCancion = ""
-        var textLvs  = ""
-        var rutaSteps = ""
+        var rutaBga = ""
+        var listLevels = mutableListOf<Lvs>()
         val listSongs = ArrayList<Song>()
-        val rutaBitActive = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
+        val rutaBitActiveSingle = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
+        val rutaBitActiveHalfDouble = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_hd.png").toString()
 
         val listRutas = getRutasSongs(rutaChannel)
         for(index in 0 until listRutas.size) {
             val dir = File(listRutas[index])
             if (dir != null) {
                 dir.walkTopDown().forEach {
-                    //if (it.toString().endsWith(".sma", true) || it.toString().endsWith(".ssc", true)){
                     if (it.toString().endsWith(".ssc", true)){
                         ssc = readFile(it.toString())
-                        rutaSteps= it.toString()
-                        val arrSecs = ssc.split("---------------").toTypedArray()
-                        val listSecs = mutableListOf<String>()
-                        listSecs.add(arrSecs[0])
-                        for(index in 1 until arrSecs.size){
-                            if(arrSecs[index].contains("pump-single")){
-                                listSecs.add(arrSecs[index])
-                            }
-                        }
-                        val arr  = listSecs[0].split("\r\n").toTypedArray()
-                        for (i in 0..arr.size -1){
-                            if (arr[i].contains("#BANNER:")){
-                                banner = arr[i].replace("#BANNER:", "",true)
-                                banner = banner.replace(";","")
-                                break
-                            }
-                        }
-                        rutaBanner = listRutas[index] + "/" + banner
-
-                        for (c in 0..arr.size -1){
-                            if (arr[c].contains("#ARTIST")){
-                                artist = arr[c].replace("#ARTIST:", "",true)
-                                artist = artist.replace(";","")
-                                artist = "     $artist"
-                                break
-                            }
-                        }
-                        for (a in 0..arr.size -1){
-                            if (arr[a].contains("#BPMS:")){
-                                bpm = arr[a].replace("#BPMS:0.000=", "",true)
-                                bpm = bpm.replace(";","")
-                                val ar = bpm.split(".").toTypedArray()
-                                bpm = ar[0]
-                                bpm = "BPM " + (getNumericValues(bpm).toInt())
-                                break
-                            }
-                        }
-                        for (e in 0 until arr.size -1){
-                            if (arr[e].contains("#TITLE:")){
-                                nombre = arr[e].replace("#TITLE:", "",true)
-                                nombre = nombre.replace(";","")
-                                break
-                            }
-                        }
-                        for (f in 0 until arr.size -1){
-                            if (arr[f].contains("#PREVIEWVID:")){
-                                prevVideo = arr[f].replace("#PREVIEWVID:", "",true)
-                                prevVideo = prevVideo.replace(";","")
-                                break
-                            }
-                            if (arr[f].contains("#PREVIEW")){
-                                prevVideo = arr[f].replace("#PREVIEW:", "",true)
-                                prevVideo = prevVideo.replace(";","")
-                                break
-                            }
-                        }
-                        if (isFileExists(File(listRutas[index] + "/" + prevVideo))) {
-                            if (prevVideo.endsWith(".mpg", ignoreCase = true) || prevVideo.endsWith(".avi", ignoreCase = true)) {
-                                val inputVideoPath = File(listRutas[index] + "/" + prevVideo)
-                                var outputVideoPath = ""
-                                if(inputVideoPath.absolutePath.endsWith(".mpg", ignoreCase = true)){
-                                    outputVideoPath = (listRutas[index] + "/" + prevVideo).replace(".mpg", ".mp4", ignoreCase = true)
+                        val seccions = ssc.split("#NOTEDATA:;").toTypedArray()
+                        val arr  = seccions[0].split("\r\n").toTypedArray()
+                        for (e in 0 until arr.size -1) {
+                            when {
+                                arr[e].startsWith("#TITLE:") -> {
+                                    name = getValue(arr[e])
                                 }
-                                if(inputVideoPath.absolutePath.endsWith(".avi", ignoreCase = true)){
-                                    outputVideoPath = (listRutas[index] + "/" + prevVideo).replace(".avi", ".mp4", ignoreCase = true)
+                                arr[e].startsWith("#ARTIST:") -> {
+                                    artist = getValue(arr[e])
                                 }
-
-                                //val command = arrayOf("-y", "-i", inputVideoPath.absolutePath, outputVideoPath)
-                                //FFmpeg.execute(command)
-
-                                rutaPrevVideo = outputVideoPath
-
-                                if (isFileExists(File(outputVideoPath))) {
-                                    inputVideoPath.delete()
-                                } else {
+                                arr[e].startsWith("#BANNER:") || arr[e].startsWith("#BACKGROUND")-> {
+                                    banner = getValue(arr[e])
+                                    rutaBanner = listRutas[index] + "/" + banner
+                                }
+                                arr[e].startsWith("#CDIMAGE:") || arr[e].startsWith("#DISCIMAGE") -> {
+                                    val disc = getValue(arr[e])
+                                    rutaDisc = listRutas[index] + "/" + disc
+                                }
+                                arr[e].startsWith("#MUSIC:") -> {
+                                    val song = getValue(arr[e])
+                                    rutaCancion = listRutas[index] + "/" + song
+                                    if(song.endsWith(".mp3", true)){
+                                        rutaBga = listRutas[index] + "/" + song.replace(".mp3", ".mp4", true)
+                                    }
+                                    if(song.endsWith(".ogg", true)){
+                                        rutaBga = listRutas[index] + "/" + song.replace(".ogg", ".mp4", true)
+                                    }
+                                }
+                                arr[e].startsWith("#PREVIEW:") || arr[e].startsWith("#PREVIEWVID") -> {
+                                    val prevVideo = getValue(arr[e])
                                     rutaPrevVideo = listRutas[index] + "/" + prevVideo
                                 }
-                            } else {
-                                rutaPrevVideo = listRutas[index] + "/" + prevVideo
-                            }
-                        }else{
-                            if (isFileExists(File(listRutas[index] + "/" + prevVideo.replace(".mpg", ".mp4", ignoreCase = true)))) {
-                                rutaPrevVideo = listRutas[index] + "/" + prevVideo.replace(".mpg", ".mp4", ignoreCase = true)
+                                arr[e].startsWith("#DISPLAYBPM:") -> {
+                                    displayBpm = getDisplayBpm(arr[e])
+                                }
                             }
                         }
-
-                        for (index in 0 until arr.size -1){
-                            if (arr[index].contains("#MUSIC:")){
-                                song = arr[index].replace("#MUSIC:", "",true)
-                                song = song.replace(";","")
-                                break
-                            }
+                        if(rutaDisc == ""){
+                            rutaDisc = banner + "_B"
                         }
-
-                        rutaCancion = listRutas[index] + "/" + song
-                        rutaVideo = if(rutaCancion.endsWith(".ogg")){
-                            rutaCancion.replace(".ogg", ".mp4",true)
-                        }else{
-                            rutaCancion.replace(".mp3", ".mp4",true)
-                        }
-
-
-                        /*if(!isFileExists(File(rutaVideo))){
-                            rutaVideo = ""
-                        }
-                        */
-
-                        val listLvs = mutableListOf<Lvs>()
-                        val listNumLv = mutableListOf<String>()
-
-                        for(index in 1 until arrSecs.size){
-                            if(arrSecs[index].contains("pump-single - ")) {
-                                val listLvs = arrSecs[index + 1].split(";")
-                                for(level in listLvs){
-                                    if(level.contains("#METER:")){
-                                        textLvs = getNumericValues(level)
-                                        if(textLvs != ""){
-                                            if (textLvs.length == 1) {
-                                                textLvs = "0$textLvs"
-                                            }
-                                            listNumLv.add(textLvs)
-                                        }else{
-                                            textLvs = "??"
+                        listLevels = mutableListOf<Lvs>()
+                        for(index in 1 until seccions.size){
+                            var numberLevel = ""
+                            var rutaBitlevel = ""
+                            var noteString = seccions[index]
+                            var stepType = ""
+                            val arr  = seccions[index].split("\r\n").toTypedArray()
+                            for(i in 0 until arr.size -1){
+                                when {
+                                    arr[i].startsWith("#STEPSTYPE:") -> {
+                                        stepType = getValue(arr[i])
+                                        if(stepType.equals("pump-single", true)){
+                                            rutaBitlevel = rutaBitActiveSingle
                                         }
-                                        textLvs = ""
+                                        if(stepType.equals("pump-halfdouble", true)){
+                                            rutaBitlevel = rutaBitActiveHalfDouble
+                                        }
+
+                                    }
+                                    arr[i].startsWith("#METER:") -> {
+                                        numberLevel = getValue(arr[i]).padStart(2, '0')
+                                    }
+                                    arr[i].startsWith("#NOTES:") -> {
+                                        break
+                                    }
+                                    arr[i].startsWith("#BPMS:") ->{
+                                        if(displayBpm == "" || displayBpm.toDouble() < 0){
+                                            displayBpm = getDisplayBpmEmpty(arr[i])
+                                        }
                                     }
                                 }
                             }
+                            if(stepType.equals("pump-single", true) || stepType.equals("pump-half-double", true) || stepType.equals("pump-halfdouble", true)){
+                                listLevels.add(Lvs(lvl = numberLevel, rutaLvImg = rutaBitlevel, steps = noteString, typePlayer = stepType))
+                            }
+                            listLevels.sortWith(compareBy<Lvs> {
+                                when (it.typePlayer) {
+                                    "pump-single" -> 1
+                                    "pump-half-double" -> 2
+                                    else -> 3
+                                }
+                            }.thenBy {
+                                it.lvl
+                            })
                         }
-
-                        listNumLv.sortBy { it }
-                        for(i in 0 until listNumLv.size){
-                            listLvs.add(Lvs(listNumLv[i] , rutaBitActive))
-                        }
-                        songs = Song(nombre, artist, bpm, "",prevVideo, rutaPrevVideo, "", song, rutaBanner, rutaCancion, rutaSteps,rutaVideo, listLvs)
-                        listSongs.add(songs)
+                        listSongs.add(
+                            Song(
+                                name = name,
+                                artist = artist,
+                                rutaCancion = rutaCancion,
+                                rutaPrevVideo = rutaPrevVideo,
+                                rutaBga = rutaBga,
+                                displayBpm = displayBpm,
+                                rutaDisc = rutaDisc,
+                                rutaBanner = rutaBanner,
+                                listLvs = listLevels
+                            )
+                        )
                     }
                 }
             }
         }
         return listSongs
+    }
+
+    private fun getDisplayBpmEmpty(line: String): String {
+        val bpm = line.substringAfter("=").substringBefore(";").substringBefore(",")
+        return "%.2f".format(bpm.toDouble())
+
+    }
+
+    private fun getDisplayBpm(line: String): String {
+        val bpm = line.substringAfter(":").substringBefore(";")
+        if(bpm.contains(":")){
+            val bpmSplit = bpm.split(":").toTypedArray()
+            return "%.2f".format(bpmSplit[0].toDouble())
+
+        }
+        return "%.2f".format(bpm.toDouble())
+
+    }
+
+    private fun getValue(line: String): String {
+        return line.substringAfter(":").substringBefore(";")
     }
 
     private fun getRutasSongs(rutaChannel: String): MutableList<String> {
@@ -327,7 +274,7 @@ class LoadingSongs() : AppCompatActivity() {
             when {
                 it.isDirectory -> {
                     if (it.toString() != rutaChannel) {
-                        if (it.toString() != "$rutaChannel/info") {
+                        if (it.toString() != "$rutaChannel/info_ssc") {
                             listRutas.add(it.toString())
                         }
                     }
@@ -337,122 +284,9 @@ class LoadingSongs() : AppCompatActivity() {
         return listRutas
     }
 
-    fun getFilesCW(c: Context) : ArrayList<Command>{
-        val rutaImgsCommands = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands").toString()
-        val listRutaImgs = ArrayList<String>()
-        val listDescripciones = ArrayList<String>()
-        val listCommands = ArrayList<Command>()
-        var rutaImagenNS = ""
-
-        val dirCommands = File(rutaImgsCommands)
-        if (dirCommands != null) {
-            val info = readFile(rutaImgsCommands + "/info.txt")
-            val arr = info.split("\r\n").toTypedArray()
-            dirCommands.walkTopDown().forEach {
-                if (it.isDirectory) {
-                    if (it.toString() != c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands").toString()) {
-                        if(it.toString().contains("noteskin", ignoreCase = true)){
-                            rutaImagenNS = it.toString()
-                            listRutaImgs.add(c.getExternalFilesDir("/FingerDance/NoteSkins").toString())
-                        }else {
-                            listRutaImgs.add(it.toString() + ".png")
-                        }
-                    }
-                }
-                listRutaImgs.sortBy { it }
-            }
-            listDescripciones.addAll(arr)
-
-            var value = ""
-            var rutaCommandValue = ""
-
-            for(index in 0 until listRutaImgs.size){
-                val dirValues = File(listRutaImgs[index].replace(".png", "", true))
-                val listCommandsValues = ArrayList<CommandValues>()
-                var arrValues = emptyArray<String>()
-                if (dirValues != null && !dirValues.toString().contains("noteskin", ignoreCase = true)){
-                    var position = 0
-                    dirValues.walkTopDown().forEach {
-                        if(it.toString().endsWith(".png", true)){
-                            if(isFileExists(File(dirValues.toString() + "/info.txt"))){
-                                val infoValues = readFile(dirValues.toString() + "/info.txt")
-                                arrValues = infoValues.split("\r\n").toTypedArray()
-                            }
-                            value = it.name.replace(".png", "", ignoreCase = true)
-                            rutaCommandValue = it.toString()
-                            var descripcion = ""
-                            if(value.matches(Regex(".*[0-9].*"))){
-                                if(value.contains("-")){
-                                    descripcion = "Disminuir velocidad "
-                                }
-                                if(!value.contains("-") && value != "0"){
-                                    descripcion = "Aumentar velocidad "
-                                }
-                                if(value == "0"){
-                                    descripcion = "Reiniciar velocidad "
-                                }
-                            }else{
-                                if(isFileExists(File(dirValues.toString() + "/info.txt"))){
-                                    descripcion = arrValues[position]
-                                    position++
-                                }
-                            }
-                            listCommandsValues.add(CommandValues(value,descripcion, rutaCommandValue))
-                        }
-                    }
-                    if(value.matches(Regex(".*[0-9].*"))){
-
-                        for (i in 1 until listCommandsValues.size) {
-                            for (j in 0 until listCommandsValues.size - i) {
-                                val lineaActual = listCommandsValues[j].value
-                                val lineaPosterior = listCommandsValues[j + 1].value
-                                if (lineaActual.toDouble() > lineaPosterior.toDouble()) {
-                                    val aux = listCommandsValues[j]
-                                    listCommandsValues.set(j, listCommandsValues[j + 1])
-                                    listCommandsValues.set(j + 1, aux)
-                                }
-                            }
-                        }
-                    }
-
-                    listCommands.add(Command(
-                        listRutaImgs[index].removeRange(0, 117).replace(".png", ""),
-                        listDescripciones[index],
-                        listRutaImgs[index].replace(".png", ""), listCommandsValues)
-                    )
-                }else{
-                    if (dirValues.toString().contains("noteskin", ignoreCase = true)){
-                        dirValues.walkTopDown().forEach {
-                            if(it.isDirectory){
-                                if(it.toString()!= dirValues.toString()){
-                                    value = it.toString().removeRange(0, dirValues.toString().length + 1)
-                                }
-                            }
-                            if(it.toString().contains("_Icon", ignoreCase = true) && !it.toString().contains("default", ignoreCase = true)){
-                                val descripcion = "Usar " + value + " NoteSkin"
-                                rutaCommandValue = it.toString()
-                                listCommandsValues.add(CommandValues(value,descripcion, rutaCommandValue))
-                            }
-                        }
-                        listCommands.add(Command(
-                            dirValues.toString(),
-                            listDescripciones[index],
-                            rutaImagenNS,
-                            listCommandsValues))
-                    }
-                }
-            }
-        }
-        return listCommands
-    }
-
     private fun readFile(path: String): String {
         val encoded = Files.readAllBytes(Paths.get(path))
         return String(encoded, StandardCharsets.UTF_8)
-    }
-
-    private fun isFileExists(file: File): Boolean {
-        return file.exists() && !file.isDirectory
     }
 
     fun deleteTrash(directorio: File): Boolean {
@@ -475,43 +309,9 @@ class LoadingSongs() : AppCompatActivity() {
         }
         return directorio.delete()
     }
-
-    fun getNumericValues(cadena: String): String {
-        val sb = StringBuilder()
-        for (i in cadena.indices) {
-            var numeric = true
-            try {
-                val num = parseDouble(cadena[i].toString())
-            } catch (e: NumberFormatException) {
-                numeric = false
-            }
-
-            if (numeric) {
-                sb.append(cadena[i].toString())
-            } else {
-                //no es valor numerico.
-            }
-
-        }
-
-        return sb.toString();
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            hideSystemUI()
-        }
-    }
-    private fun hideSystemUI() {
-        val decorView: View = window.decorView
-        decorView.setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN)
-    }
-
 }
+
+
+
+
+

@@ -4,16 +4,12 @@ import java.io.Serializable
 
 class Song(var name:String,
            var artist:String,
-           var bpm: String,
-           var tickCount: String,
-           var prevVideo: String,
-           var rutaPrevVideo: String,
-           var video: String,
-           var song: String,
-           var rutaBanner : String,
            var rutaCancion : String,
-           var rutaSteps : String,
-           var rutaVideo : String,
+           var rutaPrevVideo: String,
+           var rutaBga : String,
+           var displayBpm: String,
+           var rutaDisc: String,
+           var rutaBanner : String,
            var listLvs: MutableList<Lvs>
 ) : Serializable
 {

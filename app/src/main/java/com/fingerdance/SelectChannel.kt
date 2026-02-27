@@ -52,7 +52,6 @@ private var press_start : Int = 0
 
 private lateinit var channel : String
 
-var listSongsChannel: ArrayList<Song> = ArrayList()
 var listSongsChannelKsf: ArrayList<SongKsf> = ArrayList()
 
 private lateinit var recyclerChannels: ViewPager2
@@ -280,6 +279,8 @@ class SelectChannel : AppCompatActivity() {
         imgAceptar.startAnimation(animateSetTraslation)
         imgAceptar.bringToFront()
 
+
+
         nav_back_Izq.setOnClickListener {
             goMain(nav_back_Izq)
         }
@@ -358,24 +359,20 @@ class SelectChannel : AppCompatActivity() {
                 val json = gson.toJson(listCanales)
 
                 */
-                if(!isOffline){
-                    listenScoreChannel(listChannels[position].nombre) { listSongs ->
-                        listGlobalRanking = listSongs
-                    }
-                }
-
                 //listSongsChannel = listChannels[position].listCanciones
                 listSongsChannelKsf = listChannels[position].listCancionesKsf
                 currentChannel = listChannels[position].nombre
 
                 Toast.makeText(this@SelectChannel, "Espere por favor...", Toast.LENGTH_SHORT).show()
-                handlerSelectChannel.postDelayed({
-                    val intent = Intent(this, SelectSong()::class.java)
-                    startActivity(intent)
-                    overridePendingTransition(R.anim.anim_command_window_on, 0)
-                    imgAceptar.isEnabled=true
-                    soundSelecctChannel.pause()
-                }, 1500)
+
+                if(!isOffline){
+                    listenScoreChannel(listChannels[position].nombre) { listSongs ->
+                        listGlobalRanking = listSongs
+                        navigateToSelectSong()
+                    }
+                } else {
+                    navigateToSelectSong()
+                }
 
 
             }else{
@@ -478,6 +475,14 @@ class SelectChannel : AppCompatActivity() {
         this.finish()
     }
 
+    private fun navigateToSelectSong() {
+        val intent = Intent(this, SelectSong()::class.java)
+        startActivity(intent)
+        overridePendingTransition(R.anim.anim_command_window_on, 0)
+        imgAceptar.isEnabled = true
+        soundSelecctChannel.pause()
+    }
+
     override fun onBackPressed() {
         goMain(nav_back_Izq)
     }
@@ -561,3 +566,4 @@ data class Canal(
     val canal: String,
     val canciones: ArrayList<Cancion>
 )
+

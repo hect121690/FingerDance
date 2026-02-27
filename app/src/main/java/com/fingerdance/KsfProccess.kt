@@ -4,6 +4,7 @@ import java.io.File
 import kotlin.Array
 import kotlin.experimental.and
 import kotlin.experimental.or
+import kotlin.math.abs
 import kotlin.math.round
 
 class KsfProccess {
@@ -538,12 +539,12 @@ class KsfProccess {
 
     private fun getPtnTimePos(bpm: Float, start: Long, bunki: Long, tick: Int): Long {
         val lastTick = start.toFloat()
-        val ticks = 60000 / bpm
+        val ticks = 60000 / abs(bpm)
         val dest = bunki.toFloat()
 
         var num = 0
         while (true) {
-            val now = lastTick + (ticks * num / tick)
+            val now = lastTick + (ticks * num / abs(tick))
             if (now >= dest) {
                 return now.toLong()
             }
@@ -553,11 +554,11 @@ class KsfProccess {
 
     private fun getCuttingPos(bpm: Float, start: Long, bunki: Long, max: Long, tick: Int): Int {
         val lastTick = start.toFloat()
-        val ticks = 60000 / bpm
+        val ticks = 60000 / abs(bpm)
         val dest = bunki.toFloat()
 
         for (num in 0 until max.toInt()) {
-            val now = lastTick + (ticks * num / tick)
+            val now = lastTick + (ticks * num / abs(tick))
             if (now >= dest) {
                 return num
             }

@@ -7,10 +7,13 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.PorterDuff
 import android.graphics.SurfaceTexture
+import android.graphics.Typeface
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
@@ -19,6 +22,7 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.Surface
@@ -67,6 +71,17 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.createBitmap
+import androidx.core.view.children
+import androidx.lifecycle.lifecycleScope
+import com.fingerdance.MainActivity.VideosDrive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -205,8 +220,6 @@ class SelectSong : AppCompatActivity() {
 
     private lateinit var bgaSelectSong: VideoView
     private lateinit var overlayBG: View
-    private lateinit var btnAddPreview: Button
-    private lateinit var btnAddBga: Button
     private lateinit var imgContador: ImageView
     private lateinit var smoothScroller : RecyclerView. SmoothScroller
     private lateinit var imgFavorite : ImageView
@@ -228,1063 +241,1070 @@ class SelectSong : AppCompatActivity() {
             saveFileToDestination(it, nameBGA + ".mp4", true)
         }
     }
-        @RequiresApi(Build.VERSION_CODES.S)
-        override fun onCreate(savedInstanceState: Bundle?) {
-            getSupportActionBar()?.hide()
-            super.onCreate(savedInstanceState)
-            setContentView(R.layout.activity_select_song)
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
-            onWindowFocusChanged(true)
+    @RequiresApi(Build.VERSION_CODES.S)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        getSupportActionBar()?.hide()
+        super.onCreate(savedInstanceState)
+        Log.d("ACTIVITY_DEBUG", "onSaveInstanceState")
+        setContentView(R.layout.activity_select_song)
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        onWindowFocusChanged(true)
 
-            isOnline = false
-            niveles = arrayListOf<Nivel>()
-            recyclerView = findViewById(R.id.recyclerView)
+        isOnline = false
+        niveles = arrayListOf<Nivel>()
+        recyclerView = findViewById(R.id.recyclerView)
 
-            recyclerLvs = findViewById(R.id.recyclerLvs)
-            recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
+        recyclerLvs = findViewById(R.id.recyclerLvs)
+        recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
 
-            recyclerCommands = findViewById(R.id.recyclerCommands)
-            recyclerCommands.isUserInputEnabled = false
-            recyclerCommandsValues = findViewById(R.id.recyclerValues)
-            recyclerCommandsValues.isUserInputEnabled = false
+        recyclerCommands = findViewById(R.id.recyclerCommands)
+        recyclerCommands.isUserInputEnabled = false
+        recyclerCommandsValues = findViewById(R.id.recyclerValues)
+        recyclerCommandsValues.isUserInputEnabled = false
 
-            val levels = Levels()
+        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
+                                 false,"", "", "")
 
-            playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
-                                     false,"", "", levels, "")
-
-            constraintMain = findViewById(R.id.constraintMain)
-            progressLoading = findViewById(R.id.progressLoading)
-            linearBG = findViewById(R.id.linearBG)
-            bgaSelectSong = findViewById(R.id.bgaSelectSong)
-            bgaSelectSong.visibility = View.GONE
-            if (isFileExists(File(bgaPathSelectSong))) {
-                bgaSelectSong.visibility = View.VISIBLE
-                bgaSelectSong.setVideoPath(bgaPathSelectSong)
-                bgaSelectSong.setOnPreparedListener { md ->
-                    md.setVolume(0f, 0f)
-                }
+        constraintMain = findViewById(R.id.constraintMain)
+        progressLoading = findViewById(R.id.progressLoading)
+        linearBG = findViewById(R.id.linearBG)
+        bgaSelectSong = findViewById(R.id.bgaSelectSong)
+        bgaSelectSong.visibility = View.GONE
+        if (isFileExists(File(bgaPathSelectSong))) {
+            bgaSelectSong.visibility = View.VISIBLE
+            bgaSelectSong.setVideoPath(bgaPathSelectSong)
+            bgaSelectSong.setOnPreparedListener { md ->
+                md.setVolume(0f, 0f)
+            }
+            bgaSelectSong.start()
+            bgaSelectSong.setOnCompletionListener {
                 bgaSelectSong.start()
-                bgaSelectSong.setOnCompletionListener {
-                    bgaSelectSong.start()
-                }
-
-
-            }else{
-                linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
-            }
-
-            imgPrev = findViewById(R.id.imgPrev)
-            val params = imgPrev.layoutParams as ConstraintLayout.LayoutParams
-            params.width = width
-            params.height = (height * 0.3).toInt()
-            imgPrev.layoutParams = params
-
-            animPressNav = AnimationUtils.loadAnimation(this, R.anim.press_nav)
-            animNameSong = AnimationUtils.loadAnimation(this, R.anim.anim_name_song)
-            animOn = AnimationUtils.loadAnimation(this, R.anim.anim_command_window_on)
-            animOff = AnimationUtils.loadAnimation(this, R.anim.anim_command_window_off)
-
-            commandWindow = findViewById(R.id.command_window)
-            commandWindowBG = findViewById(R.id.command_window_bg)
-            commandWindowBG.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")!!.absolutePath)
-            mediPlayer = MediaPlayer()
-
-            mediaPlayerVideo = MediaPlayer()
-            mediaPlayerVideo.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-
-            commandWindow.layoutParams.height = height / 2
-            commandWindow.layoutParams.width = (width / 1.5).roundToInt()
-
-            commandWindowBG.layoutParams.height = commandWindow.layoutParams.height
-            commandWindowBG.layoutParams.width = commandWindow.layoutParams.width
-
-            val fondos = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Back.png")!!.absolutePath)
-            linearTop = findViewById(R.id.linearTop)
-            linearMenus = findViewById(R.id.linearMenus)
-
-            linearCurrent = findViewById(R.id.linearCurrent)
-            linearCurrent.background = fondos
-            linearValues = findViewById(R.id.linearValues)
-            linearValues.background = fondos
-            linearCommands = findViewById(R.id.linearCommands)
-            linearCommands.background = fondos
-            linearInfo = findViewById(R.id.linearInfo)
-            linearInfo.background = fondos
-            linearBottom = findViewById(R.id.linearBottom)
-
-            linearLvs = findViewById(R.id.linearLvs)
-
-            linearLoading = findViewById(R.id.linearLoading)
-            imgLoading = findViewById(R.id.imgLoading)
-            imgLoading.layoutParams.width = width
-            imgLoading.layoutParams.height = (width * 0.7).toInt()
-
-            linearLoading.isVisible = false
-            imgLoading.isVisible = false
-
-            lbCurrentBpm = findViewById(R.id.lbCurrentBpm)
-            txCurrentBpm = findViewById(R.id.txCurrentBpm)
-            //txAV = findViewById(R.id.txAV)
-            //txAV.isVisible = false
-
-            imgVelocidadActual = findViewById(R.id.imgVelocidadActual)
-            val bmVA= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
-            imgVelocidadActual.setImageBitmap(bmVA)
-            txVelocidadActual = findViewById(R.id.txVelocidadActual)
-
-            imgOffset = findViewById(R.id.imgOffsetActual)
-            imgOffset.setImageBitmap(bmVA)
-            txOffset = findViewById(R.id.txOffsetActual)
-            txOffset.text = "0"
-
-            imgDisplay = findViewById(R.id.imgDisplay)
-            imgDisplay.isVisible=false
-            imgJudge = findViewById(R.id.imgJudge)
-            imgJudge.isVisible=false
-            imgNoteSkin = findViewById(R.id.imgNoteSkin)
-            imgNoteSkin.isVisible=false
-            imgNoteSkinFondo = findViewById(R.id.imgNoteSkinFondo)
-            imgNoteSkinFondo.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
-            imgNoteSkinFondo.isVisible=false
-
-            linearTop.layoutParams.height = (commandWindow.layoutParams.height / 4.2).roundToInt()
-            linearCurrent.layoutParams.height = (commandWindow.layoutParams.height / 8)
-            linearValues.layoutParams.height = (commandWindow.layoutParams.height / 8)
-            linearCommands.layoutParams.height = (commandWindow.layoutParams.height / 8)
-            linearInfo.layoutParams.height = (commandWindow.layoutParams.height / 8)
-            linearBottom.layoutParams.height = (commandWindow.layoutParams.height / 4)
-
-            val ancho = commandWindow.layoutParams.width - commandWindow.layoutParams.width / 8
-            linearTop.layoutParams.width = ancho
-            linearMenus.layoutParams.width = ancho
-            linearBottom.layoutParams.width = ancho
-
-            linearLvs.layoutParams.width = (commandWindow.layoutParams.width / 10) * 11
-            sizeLvs = linearLvs.layoutParams.width / 9
-
-            imgContador = findViewById(R.id.imgContador)
-            imgContador.layoutParams.height = (sizeLvs * .45).toInt()
-
-            iniciarContador()
-
-            indicatorLayout = findViewById(R.id.indicatorImageView)
-            val bmIndicator= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator_lv.png")!!.absolutePath)
-            indicatorLayout.setImageBitmap(bmIndicator)
-            indicatorLayout.layoutParams.width = sizeLvs
-
-            bitFavorite = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")!!.absolutePath)
-            bitFavoriteListed = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")!!.absolutePath)
-            imgFavorite = findViewById(R.id.imgFavorite)
-            imgFavorite.layoutParams.width = (medidaFlechas).toInt()
-
-            val anchoRecyclerCommands = linearMenus.layoutParams.width / 3
-            recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)
-            recyclerCommandsValues.layoutParams.width = anchoRecyclerCommands
-
-            val anchoTxInfo = linearMenus.layoutParams.width - linearMenus.layoutParams.width / 7
-            showCommandWindow(false)
-
-            lbArtist = findViewById(R.id.lbArtist)
-            lbBpm = findViewById(R.id.lbBpm)
-            lbNameSong = findViewById(R.id.lbNameSong)
-            txInfoCW = findViewById(R.id.txInfo)
-            txInfoCW.layoutParams.width = anchoTxInfo
-
-            imgSelected = findViewById(R.id.imgSelected)
-            val bmSelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/imgSelect.png")!!.absolutePath)
-            imgSelected.setImageBitmap(bmSelected)
-            imageCircle = findViewById(R.id.imageCircleSS)
-            val bmCircle = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/preview_circle.png")!!.absolutePath)
-            imageCircle.setImageBitmap(bmCircle)
-
-            imgFloor = findViewById(R.id.floor_song)
-            bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
-            imgFloor.setImageBitmap(bmFloor)
-
-            bmFloor2 = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor2.png")!!.absolutePath)
-
-            imgAceptar = findViewById(R.id.floor_start)
-            val bmAceptar = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
-            imgAceptar.setImageBitmap(bmAceptar)
-
-            imgLvSelected = findViewById(R.id.imgLvSelected)
-            difficultySelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
-            difficultySelectedHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
-            imgLvSelected.isVisible = false
-            lbLvActive = findViewById(R.id.lbLvActive)
-            lbLvActive.isVisible = false
-            var textSize = width / 10
-            lbLvActive.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
-            val frameBestScoreWidth = (width * 0.6).toInt()
-
-            imgBestScore = findViewById(R.id.imgBestScore)
-            val bestScore = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body_select_song.png")!!.absolutePath)
-            imgBestScore.setImageBitmap(bestScore)
-            imgBestScore.isVisible = false
-            imgBestScore.layoutParams.width = frameBestScoreWidth
-
-            lbBestScore = findViewById(R.id.lbBestScore)
-            lbBestScore.isVisible = false
-            lbBestScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
-
-            imgBestGrade = findViewById(R.id.imgBestGrade)
-            imgBestGrade.layoutParams.height = (decimoHeigtn * 0.25).toInt()
-            imgBestGrade.layoutParams.width = (medidaFlechas * 1.4).toInt()
-            imgBestGrade.isVisible = false
-
-            lbWorldName = findViewById(R.id.lbWorldName)
-            lbWorldName.isVisible = false
-            lbWorldName.layoutParams.width = (frameBestScoreWidth * 0.6).toInt()
-
-            lbWorldScore = findViewById(R.id.lbWorldScore)
-            lbWorldScore.isVisible = false
-            lbWorldScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
-
-            imgWorldGrade = findViewById(R.id.imgWorldGrade)
-            imgWorldGrade.layoutParams.height = (decimoHeigtn * 0.4).toInt()
-            imgWorldGrade.layoutParams.width = (medidaFlechas * 1.5).toInt()
-            imgWorldGrade.isVisible = false
-
-            val yDelta = width / 40
-            val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 2).toFloat())
-            animateSetTraslation.duration = 500
-            animateSetTraslation.repeatCount = Animation.INFINITE
-            animateSetTraslation.repeatMode = Animation.REVERSE
-            imgAceptar.startAnimation(animateSetTraslation)
-            imgAceptar.bringToFront()
-
-            val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
-            imageCircle.startAnimation(animatorSetRotation)
-
-            bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
-            bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
-
-            numberBitmaps = ArrayList<Bitmap>().apply {
-                val frameWidth = bitmapNumber.width / 10
-                for (a in 0 until 10) {
-                    add(Bitmap.createBitmap(bitmapNumber, a * frameWidth, 0, frameWidth, bitmapNumber.height))
-                }
-            }
-
-            numberBitmapsMiss = ArrayList<Bitmap>().apply {
-                val frameWidth = bitmapNumberMiss.width / 10
-                for (a in 0 until 10) {
-                    add(Bitmap.createBitmap(bitmapNumberMiss, a * frameWidth, 0, frameWidth, bitmapNumberMiss.height))
-                }
             }
 
 
-            imgSelected.layoutParams.height = width / 3
-            imgSelected.layoutParams.width = width / 3
-            val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select)
-            imgSelected.startAnimation(anim)
+        }else{
+            linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
+        }
+        prepareGradeBitmaps()
+        imgPrev = findViewById(R.id.imgPrev)
+        val params = imgPrev.layoutParams as ConstraintLayout.LayoutParams
+        params.width = width
+        params.height = (height * 0.3).toInt()
+        imgPrev.layoutParams = params
 
-            nav_izq = findViewById(R.id.nav_izq_song)
-            nav_der = findViewById(R.id.nav_der_song)
-            nav_back_Izq = findViewById(R.id.back_izq)
-            nav_back_der = findViewById(R.id.back_der)
+        animPressNav = AnimationUtils.loadAnimation(this, R.anim.press_nav)
+        animNameSong = AnimationUtils.loadAnimation(this, R.anim.anim_name_song)
+        animOn = AnimationUtils.loadAnimation(this, R.anim.anim_command_window_on)
+        animOff = AnimationUtils.loadAnimation(this, R.anim.anim_command_window_off)
 
-            video_fondo = findViewById(R.id.videoPreview)
-            video_fondo.layoutParams.height = (height * 0.3).toInt()
-            video_preview = MediaPlayer()
-            video_fondo.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                    video_preview.setSurface(Surface(surface))
-                }
-                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        commandWindow = findViewById(R.id.command_window)
+        commandWindowBG = findViewById(R.id.command_window_bg)
+        commandWindowBG.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")!!.absolutePath)
+        mediPlayer = MediaPlayer()
+
+        mediaPlayerVideo = MediaPlayer()
+        mediaPlayerVideo.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+        )
+
+        commandWindow.layoutParams.height = height / 2
+        commandWindow.layoutParams.width = (width / 1.5).roundToInt()
+
+        commandWindowBG.layoutParams.height = commandWindow.layoutParams.height
+        commandWindowBG.layoutParams.width = commandWindow.layoutParams.width
+
+        val fondos = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Back.png")!!.absolutePath)
+        linearTop = findViewById(R.id.linearTop)
+        linearMenus = findViewById(R.id.linearMenus)
+
+        linearCurrent = findViewById(R.id.linearCurrent)
+        linearCurrent.background = fondos
+        linearValues = findViewById(R.id.linearValues)
+        linearValues.background = fondos
+        linearCommands = findViewById(R.id.linearCommands)
+        linearCommands.background = fondos
+        linearInfo = findViewById(R.id.linearInfo)
+        linearInfo.background = fondos
+        linearBottom = findViewById(R.id.linearBottom)
+
+        linearLvs = findViewById(R.id.linearLvs)
+
+        linearLoading = findViewById(R.id.linearLoading)
+        imgLoading = findViewById(R.id.imgLoading)
+        imgLoading.layoutParams.width = width
+        imgLoading.layoutParams.height = (width * 0.7).toInt()
+
+        linearLoading.isVisible = false
+        imgLoading.isVisible = false
+
+        lbCurrentBpm = findViewById(R.id.lbCurrentBpm)
+        txCurrentBpm = findViewById(R.id.txCurrentBpm)
+        //txAV = findViewById(R.id.txAV)
+        //txAV.isVisible = false
+
+        imgVelocidadActual = findViewById(R.id.imgVelocidadActual)
+        val bmVA= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
+        imgVelocidadActual.setImageBitmap(bmVA)
+        txVelocidadActual = findViewById(R.id.txVelocidadActual)
+
+        imgOffset = findViewById(R.id.imgOffsetActual)
+        imgOffset.setImageBitmap(bmVA)
+        txOffset = findViewById(R.id.txOffsetActual)
+        txOffset.text = "0"
+
+        imgDisplay = findViewById(R.id.imgDisplay)
+        imgDisplay.isVisible=false
+        imgJudge = findViewById(R.id.imgJudge)
+        imgJudge.isVisible=false
+        imgNoteSkin = findViewById(R.id.imgNoteSkin)
+        imgNoteSkin.isVisible=false
+        imgNoteSkinFondo = findViewById(R.id.imgNoteSkinFondo)
+        imgNoteSkinFondo.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
+        imgNoteSkinFondo.isVisible=false
+
+        linearTop.layoutParams.height = (commandWindow.layoutParams.height / 4.2).roundToInt()
+        linearCurrent.layoutParams.height = (commandWindow.layoutParams.height / 8)
+        linearValues.layoutParams.height = (commandWindow.layoutParams.height / 8)
+        linearCommands.layoutParams.height = (commandWindow.layoutParams.height / 8)
+        linearInfo.layoutParams.height = (commandWindow.layoutParams.height / 8)
+        linearBottom.layoutParams.height = (commandWindow.layoutParams.height / 4)
+
+        val ancho = commandWindow.layoutParams.width - commandWindow.layoutParams.width / 8
+        linearTop.layoutParams.width = ancho
+        linearMenus.layoutParams.width = ancho
+        linearBottom.layoutParams.width = ancho
+
+        linearLvs.layoutParams.width = (commandWindow.layoutParams.width / 10) * 11
+        sizeLvs = linearLvs.layoutParams.width / 9
+
+        imgContador = findViewById(R.id.imgContador)
+        imgContador.layoutParams.height = (sizeLvs * .45).toInt()
+
+        iniciarContador()
+
+        indicatorLayout = findViewById(R.id.indicatorImageView)
+        val bmIndicator= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator_lv.png")!!.absolutePath)
+        indicatorLayout.setImageBitmap(bmIndicator)
+        indicatorLayout.layoutParams.width = sizeLvs
+
+        bitFavorite = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")!!.absolutePath)
+        bitFavoriteListed = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")!!.absolutePath)
+        imgFavorite = findViewById(R.id.imgFavorite)
+        imgFavorite.layoutParams.width = (medidaFlechas).toInt()
+
+        val anchoRecyclerCommands = linearMenus.layoutParams.width / 3
+        recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)
+        recyclerCommandsValues.layoutParams.width = anchoRecyclerCommands
+
+        val anchoTxInfo = linearMenus.layoutParams.width - linearMenus.layoutParams.width / 7
+        showCommandWindow(false)
+
+        lbArtist = findViewById(R.id.lbArtist)
+        lbBpm = findViewById(R.id.lbBpm)
+        lbNameSong = findViewById(R.id.lbNameSong)
+        txInfoCW = findViewById(R.id.txInfo)
+        txInfoCW.layoutParams.width = anchoTxInfo
+
+        imgSelected = findViewById(R.id.imgSelected)
+        val bmSelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/imgSelect.png")!!.absolutePath)
+        imgSelected.setImageBitmap(bmSelected)
+        imageCircle = findViewById(R.id.imageCircleSS)
+        val bmCircle = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/preview_circle.png")!!.absolutePath)
+        imageCircle.setImageBitmap(bmCircle)
+
+        imgFloor = findViewById(R.id.floor_song)
+        bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
+        imgFloor.setImageBitmap(bmFloor)
+
+        bmFloor2 = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor2.png")!!.absolutePath)
+
+        imgAceptar = findViewById(R.id.floor_start)
+        val bmAceptar = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
+        imgAceptar.setImageBitmap(bmAceptar)
+
+        imgLvSelected = findViewById(R.id.imgLvSelected)
+        difficultySelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
+        difficultySelectedHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
+        imgLvSelected.isVisible = false
+        lbLvActive = findViewById(R.id.lbLvActive)
+        lbLvActive.isVisible = false
+        var textSize = width / 10
+        lbLvActive.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+
+        val frameBestScoreWidth = (width * 0.6).toInt()
+
+        imgBestScore = findViewById(R.id.imgBestScore)
+        val bestScore = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body_select_song.png")!!.absolutePath)
+        imgBestScore.setImageBitmap(bestScore)
+        imgBestScore.isVisible = false
+        imgBestScore.layoutParams.width = frameBestScoreWidth
+
+        lbBestScore = findViewById(R.id.lbBestScore)
+        lbBestScore.isVisible = false
+        lbBestScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
+
+        imgBestGrade = findViewById(R.id.imgBestGrade)
+        imgBestGrade.layoutParams.height = (decimoHeigtn * 0.25).toInt()
+        imgBestGrade.layoutParams.width = (medidaFlechas * 1.4).toInt()
+        imgBestGrade.isVisible = false
+
+        lbWorldName = findViewById(R.id.lbWorldName)
+        lbWorldName.isVisible = false
+        lbWorldName.layoutParams.width = (frameBestScoreWidth * 0.6).toInt()
+
+        lbWorldScore = findViewById(R.id.lbWorldScore)
+        lbWorldScore.isVisible = false
+        lbWorldScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
+
+        imgWorldGrade = findViewById(R.id.imgWorldGrade)
+        imgWorldGrade.layoutParams.height = (decimoHeigtn * 0.4).toInt()
+        imgWorldGrade.layoutParams.width = (medidaFlechas * 1.5).toInt()
+        imgWorldGrade.isVisible = false
+
+        val yDelta = width / 40
+        val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 2).toFloat())
+        animateSetTraslation.duration = 500
+        animateSetTraslation.repeatCount = Animation.INFINITE
+        animateSetTraslation.repeatMode = Animation.REVERSE
+        imgAceptar.startAnimation(animateSetTraslation)
+        imgAceptar.bringToFront()
+
+        val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
+        imageCircle.startAnimation(animatorSetRotation)
+
+        bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
+        bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
+
+        numberBitmaps = ArrayList<Bitmap>().apply {
+            val frameWidth = bitmapNumber.width / 10
+            for (a in 0 until 10) {
+                add(Bitmap.createBitmap(bitmapNumber, a * frameWidth, 0, frameWidth, bitmapNumber.height))
             }
-
-            next = findViewById(R.id.next)
-            prev = findViewById(R.id.preview)
-
-            next.layoutParams.height = (height * 0.3).toInt()
-            prev.layoutParams.height = (height * 0.3).toInt()
-
-            next.visibility = View.GONE
-            prev.visibility = View.GONE
-
-            nextPlayer = MediaPlayer().apply {
-                setDataSource(
-                    getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/next.mp4")!!.absolutePath
-                )
-                isLooping = false
-                setVolume(0f, 0f)
-                prepare()
-            }
-
-            next.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                    nextPlayer.setSurface(Surface(surface))
-                }
-                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-            }
-            prevPlayer = MediaPlayer().apply {
-                setDataSource(
-                    getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/prev.mp4")!!.absolutePath
-                )
-                isLooping = false
-                setVolume(0f, 0f)
-                prepare()
-            }
-            prev.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                    prevPlayer.setSurface(Surface(surface))
-                }
-                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-
-            }
-
-            val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
-            val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
-            val arrowBackIzqColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzqColor.png")!!.absolutePath)
-            val arrowBackDerColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDerColor.png")!!.absolutePath)
-
-            val spriteWidth = arrowNavIzq.width / 2
-            val spriteHeight = arrowNavIzq.height / 2
-
-            val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight)
-            navIzq.start()
-            val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight)
-            navDer.start()
-            val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight)
-            navBackIzq.start()
-            val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight)
-            navBackDer.start()
-
-            nav_izq.setImageDrawable(navIzq)
-            nav_der.setImageDrawable(navDer)
-            nav_back_Izq.setImageDrawable(navBackIzq)
-            nav_back_der.setImageDrawable(navBackDer)
-
-            llenaCommands(listCommands)
-
-            //Por ahora solo se enviaran KSF
-            //val listVacios = ArrayList<Lvs>()
-            val listVacios = ArrayList<Ksf>()
-            val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
-
-            repeat(20) {
-                listVacios.add(Ksf("", "", rutaLvSelected))
-            }
-            llenaLvsVacios(listVacios)
-
-            if(listSongsChannel.isNotEmpty()){
-                //listItems = createSongList()
-            }else if (listSongsChannelKsf.isNotEmpty()){
-                listItemsKsf = createSongListKsf()
-            }
-
-            setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
-            //var num = listItems.size / 2
-            var num = listItemsKsf.size / 2
-            if (num.toString().contains(".")) {
-                num = Math.round(num.toDouble()).toInt()
-                middle = num
-            } else {
-                middle = num
-            }
-            oldValue = middle
-            recyclerView.scrollToPosition(middle)
-            numberChannel = File(listItemsKsf[oldValue].rutaSong).parentFile?.name!!.substringBefore("-").trim()
-            isFocus(middle)
-
-            smoothScroller = CenterSmoothScroller(recyclerView.context)
-            smoothScroller.targetPosition = middle
-            recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
-            recyclerView.setOnTouchListener { _, _ -> true }
-            layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
-            imageCircle.layoutParams.width = (width * 0.95).toInt()
-            imageCircle.layoutParams.height = imageCircle.layoutParams.width
-
-            val medidaNavs = height / 8
-
-            nav_back_Izq.layoutParams.width = medidaNavs
-            nav_back_Izq.layoutParams.height = medidaNavs
-
-            nav_back_der.layoutParams.width = medidaNavs
-            nav_back_der.layoutParams.height = medidaNavs
-
-            nav_izq.layoutParams.width = medidaNavs
-            nav_izq.layoutParams.height = medidaNavs
-
-            nav_der.layoutParams.width = medidaNavs
-            nav_der.layoutParams.height = medidaNavs
-
-            textSize = width / 15
-            txCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
-            textSize = width / 25
-            lbNameSong.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbNameSong.layoutParams.width = (width /2)
-
-            textSize = width / 32
-            lbBestScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbWorldScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbWorldName.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
-            textSize = width / 28
-
-            lbArtist.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            lbArtist.layoutParams.width = (width * 0.5).toInt()
-            txInfoCW.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
-            lbBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-            //lbBpm.layoutParams.width = (width * 0.2).toInt()
-
-            textSize = width / 40
-            lbCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-
-            imgLvSelected.layoutParams.width = (width / 4.1).toInt()
-
-            imgFloor.layoutParams.width = (width * 0.6).toInt()
-            imgAceptar.layoutParams.width = (width * 0.3).toInt()
-
-            val rankingView = findViewById<TopRankingView>(R.id.topRankingView)
-            rankingView.layoutParams.width = width.toInt()
-            rankingView.visibility = View.INVISIBLE
-
-            val linearRanking = LinearLayout(this).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                setBackgroundColor(0xAA000000.toInt())
-                setOnClickListener(object : View.OnClickListener {
-                    override fun onClick(v: View?) {
-                        // No hace nada
-                    }
-                })
-            }
-
-            imgFavorite.setOnClickListener {
-                saveFavorites = true
-                val song = listItemsKsf[oldValue]
-                val favChannel = listChannels.find { it.nombre == "06-FAVORITES" }
-
-                if (song.isFavorite) {
-                    // Quitar de favoritos
-                    song.isFavorite = false
-                    imgFavorite.setImageBitmap(bitFavorite)
-
-                    val fav = listFavorites.find { it.title == song.title }
-                    if (fav != null) listFavorites.remove(fav)
-
-                    favChannel?.listCancionesKsf = listFavorites
-
-                } else {
-                    // Agregar a favoritos
-                    song.isFavorite = true
-                    imgFavorite.setImageBitmap(bitFavoriteListed)
-                    imgFavorite.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-
-                    listFavorites.add(song)  // se agrega la MISMA referencia del objeto
-                    listFavorites.sortBy { it.channel }
-
-                    favChannel?.listCancionesKsf = listFavorites
-                }
-            }
-
-
-            imgBestScore.setOnClickListener{
-                if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
-                    if(!commandWindow.isVisible){
-                        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                        rankingView.visibility = View.VISIBLE
-                        rankingView.startAnimation(animOn)
-                        rankingView.setIconDrawable(imgLvSelected.drawable)
-                        rankingView.setNiveles(niveles[positionActualLvs])
-                        constraintMain.addView(linearRanking)
-                        nav_back_der.bringToFront()
-                        nav_back_Izq.bringToFront()
-                        rankingView.bringToFront()
-                    }
-                }
-            }
-
-            if(skinSelected != ""){
-                if(!imgNoteSkin.isVisible){
-                    imgNoteSkin.isVisible=true
-                    imgNoteSkinFondo.isVisible=true
-                    val bm= BitmapFactory.decodeFile(skinSelected)
-                    if(bm!=null){
-                        imgNoteSkin.setImageBitmap(bm)
-                        playerSong.rutaNoteSkin = getRutaNoteSkin(skinSelected)
-                    }
-                }
-            }
-            if(speedSelected != ""){
-                txVelocidadActual.text = speedSelected
-            }else{
-                txVelocidadActual.text = "2.0X"
-            }
-            if(listEfectsDisplay.isNotEmpty()) {
-                imgDisplay.isVisible = true
-                listEfectsDisplay.forEach { effect ->
-                    when(effect.value){
-                        "BGAOFF" -> playerSong.isBGAOff = true
-                        "BGADARK" -> playerSong.isBAGDark = true
-                        "FD" -> playerSong.fd = true
-                        "V" -> playerSong.vanish = true
-                        "AP" -> playerSong.ap = true
-                        "RS" -> playerSong.rs = true
-                        "M" -> playerSong.mirror = true
-                        "SN" -> playerSong.snake = true
-                    }
-                }
-            }
-
-            txOffset.text = valueOffset.toString()
-
-            nav_back_Izq.setOnLongClickListener {
-                ready = 0
-                goSelectChannel()
-
-                true
-            }
-            nav_back_der.setOnLongClickListener(){
-                ready = 0
-                goSelectChannel()
-
-                true
-            }
-
-            nav_back_Izq.setOnClickListener() {
-                ready = 0
-                imgFloor.setImageBitmap(bmFloor)
-                if (recyclerView.isVisible && !commandWindow.isVisible) {
-                    Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                    soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                }
-                if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
-                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    hideSelectLv(anim)
-                }
-                if(rankingView.isVisible){
-                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    rankingView.visibility = View.INVISIBLE
-                    rankingView.startAnimation(animOff)
-                    constraintMain.removeView(linearRanking)
-                }
-                if (commandWindow.isVisible && !linearValues.isVisible ) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    showCommandWindow(false)
-                }
-                if (linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    linearCurrent.isVisible = false
-                    linearValues.isVisible = false
-                    isFocusCommandWindow(oldValueCommand)
-                }
-            }
-            nav_back_der.setOnClickListener() {
-                ready = 0
-                imgFloor.setImageBitmap(bmFloor)
-                if (recyclerView.isVisible && !commandWindow.isVisible) {
-                    //goSelectChannel()
-                    Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
-                    soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                }
-                if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
-                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    hideSelectLv(anim)
-                }
-                if(rankingView.isVisible){
-                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    rankingView.visibility = View.INVISIBLE
-                    rankingView.startAnimation(animOff)
-                    constraintMain.removeView(linearRanking)
-                }
-                if (commandWindow.isVisible && !linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    showCommandWindow(false)
-                }
-                if (linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    linearValues.isVisible = false
-                    linearCurrent.isVisible = false
-                    isFocusCommandWindow(oldValueCommand)
-                }
-            }
-
-            nav_izq.setOnClickListener() {
-                ready = 0
-                imgFloor.setImageBitmap(bmFloor)
-                //handleButtonPress(false)
-                if (recyclerView.isVisible && !commandWindow.isVisible) {
-                    if (oldValue == 2) {
-                        //oldValue = listItems.size - 3
-                        oldValue = listItemsKsf.size - 3
-                    } else {
-                        oldValue -= 1
-                    }
-                    moverCanciones(nav_izq,animPressNav, oldValue)
-                    moveIndicatorToPosition(0)
-                }
-                if (imgLvSelected.isVisible && !commandWindow.isVisible) {
-                    if (handleButtonPress(false)) return@setOnClickListener
-                    soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    if (positionActualLvs != 0) {
-                        positionActualLvs -= 1
-                        moverLvs(positionActualLvs)
-                    }
-                }
-                if (commandWindow.isVisible && !linearValues.isVisible) {
-                    if (oldValueCommand == 0) {
-                        isFocusCommandWindow(oldValueCommand)
-                    } else {
-                        oldValueCommand--
-                        isFocusCommandWindow(oldValueCommand)
-                    }
-                }
-                if (linearValues.isVisible) {
-                    if (oldValueCommandValues == 0) {
-                        isFocusCommandWindowValues(oldValueCommandValues)
-                    } else {
-                        oldValueCommandValues--
-                        isFocusCommandWindowValues(oldValueCommandValues)
-                    }
-                }
-            }
-            nav_der.setOnClickListener() {
-                ready = 0
-                imgFloor.setImageBitmap(bmFloor)
-                //handleButtonPress(true)
-                if (recyclerView.isVisible && !commandWindow.isVisible) {
-                    //if (oldValue == listItems.size - 3) {
-                    if (oldValue == listItemsKsf.size - 3) {
-                        oldValue = 2
-                    } else {
-                        oldValue += 1
-                    }
-                    moverCanciones(nav_der, animPressNav, oldValue, true)
-                    moveIndicatorToPosition(0)
-                }
-                if (imgLvSelected.isVisible && !commandWindow.isVisible) {
-                    if (handleButtonPress(true)) return@setOnClickListener
-                    soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    ultimoLv = (recyclerLvs.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
-                    if (positionActualLvs < ultimoLv) {
-                        positionActualLvs += 1
-                        moverLvs(positionActualLvs)
-                    }
-                }
-                if (commandWindow.isVisible && !linearValues.isVisible) {
-                    if (oldValueCommand == listCommands.size - 1) {
-                        isFocusCommandWindow(oldValueCommand)
-                    } else {
-                        oldValueCommand++
-                        isFocusCommandWindow(oldValueCommand)
-                    }
-                }
-                if (linearValues.isVisible) {
-                    if (oldValueCommandValues == listCommands[oldValueCommand].listCommandValues.size - 1) {
-                        isFocusCommandWindowValues(oldValueCommandValues)
-                    } else {
-                        oldValueCommandValues++
-                        isFocusCommandWindowValues(oldValueCommandValues)
-
-                    }
-                }
-            }
-
-            val tipsArray = resources.getStringArray(R.array.tips_array)
-            val txTip = findViewById<TextView>(R.id.txTip)
-
-            imgAceptar.setOnClickListener() {
-                if (recyclerView.isVisible && !commandWindow.isVisible) {
-                    goSelectLevel()
-                }
-                if(imgLvSelected.isVisible && !commandWindow.isVisible){
-                    if(ready == 1){
-                        soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                        imgAceptar.isEnabled = false
-
-                        val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaTitle)
-                        imgLoading.setImageBitmap(bit)
-                        linearLoading.isVisible = true
-                        linearLoading.setOnClickListener(object : View.OnClickListener {
-                            override fun onClick(v: View?) {
-                                // No hace nada
-                            }
-                        })
-                        imgLoading.isVisible = true
-                        showProgressBar(3000L)
-                        mediPlayer.pause()
-                        playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
-
-                        txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
-
-                        playerSong.speed = txVelocidadActual.text.toString()
-                        if(playerSong.rutaNoteSkin != ""){
-                            ruta = playerSong.rutaNoteSkin!!
-                        }else{
-                            val directorioBase = getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
-                            val directorios = File(directorioBase).listFiles { file ->
-                                file.isDirectory && file.name.contains("default", ignoreCase = true)
-                            }
-                            if (directorios != null) {
-                                ruta = directorios.firstOrNull().toString()
-                                playerSong.rutaNoteSkin = ruta
-                            }
-                        }
-                        hideSelectLv(anim)
-                        playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
-                        playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
-
-                        if(listItemsKsf[oldValue].listKsf[positionActualLvs].songFile != ""){
-                            playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + listItemsKsf[oldValue].listKsf[positionActualLvs].songFile
-                        }
-
-                        playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
-
-                        mediaPlayer = MediaPlayer().apply {
-                            setAudioAttributes(
-                                AudioAttributes.Builder()
-                                    .setUsage(AudioAttributes.USAGE_GAME)
-                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                    .build()
-                            )
-                            setDataSource(File(playerSong.rutaCancion!!).absolutePath)
-                            prepare()
-                            //seekTo(startTimeMs)
-                            //start()
-                        }
-                        val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
-                        load(playerSong.rutaKsf, isHalfDouble)
-
-                        if(playerSong.mirror){
-                            if(!isHalfDouble){
-                                ksf.makeMirror()
-                            }else{
-                                ksfHD.makeMirror()
-                            }
-
-                        }
-                        if(playerSong.rs){
-                            if(!isHalfDouble){
-                                ksf.makeRandom()
-                            }else{
-                                ksfHD.makeRandom()
-                            }
-                        }
-                        if(!isOnline){
-                            if(!isOffline){
-                                if(currentChannel == "06-FAVORITES"){
-                                    val nameChannels = listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
-                                    channelIndex = validFolders.indexOf(nameChannels)
-                                    val canciones = mockListChannels.find { it.canal == nameChannels }?.canciones
-                                    songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
-                                }else {
-                                    channelIndex = validFolders.indexOf(currentChannel)
-                                    songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
-                                }
-                                levelIndex = positionActualLvs
-                            }
-                        }
-
-                        handler.postDelayed({
-                            val intent = Intent(this, GameScreenActivity()::class.java)
-                            intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
-                            startActivity(intent)
-                            handler.postDelayed({
-                                linearLoading.isVisible = false
-                                imgLoading.isVisible = false
-                            }, 1000L)
-                            ready = 0
-                            imgFloor.setImageBitmap(bmFloor)
-                        }, 3000L)
-                    }
-                    imgAceptar.isEnabled = true
-                    if(ready == 0){
-                        ready = 1
-                        imgFloor.setImageBitmap(bmFloor2)
-                        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                }
-                val itemCommand = listCommands[oldValueCommand]
-                if(linearValues.isVisible){
-                    soundPoolSelectSongKsf.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    val itemValues = listCommands[oldValueCommand].listCommandValues[oldValueCommandValues]
-                    if(itemCommand.value.contains("Speed", ignoreCase = true)){
-                        if(itemValues.value == "0"){
-                            txCurrentBpm.text = "2.0X"
-                            txVelocidadActual.text = txCurrentBpm.text
-                        }else{
-                            val valorActual = if(txVelocidadActual.text != "2.0X") {
-                                txVelocidadActual.text.toString().replace("X", "").toBigDecimal()
-                            }else {
-                                txCurrentBpm.text.toString().replace("X", "").toBigDecimal()
-                            }
-                            val result = valorActual + itemValues.value.toBigDecimal()
-                            val formattedResult = result.stripTrailingZeros().toPlainString() + "X"
-
-                            if(itemValues.value.toDouble()<0){
-                                if(result <= BigDecimal(0.5)) {
-                                    txCurrentBpm.text = "0.5X"
-                                    //txVelocidadActual.text = txCurrentBpm.text
-                                }else{
-                                    txCurrentBpm.text = formattedResult //result.toString() + "X"
-                                    //txVelocidadActual.text = txCurrentBpm.text
-                                }
-                            }else{
-                                if(result >= BigDecimal(8.0)) {
-                                    txCurrentBpm.text = "8.0X"
-                                    //txVelocidadActual.text = txCurrentBpm.text
-                                }else{
-                                    txCurrentBpm.text = formattedResult //result.toString() + "X"
-                                    //txVelocidadActual.text = txCurrentBpm.text
-                                }
-                            }
-                            txVelocidadActual.text = txCurrentBpm.text
-                            speedSelected = txVelocidadActual.text.toString()
-                            themes.edit().putString("speed", txVelocidadActual.text.toString()).apply()
-                            themes.edit().putString("typeSpeed", "").apply()
-                        }
-                    }
-                    if(itemCommand.value.contains("Offset", ignoreCase = true)){
-                        val valorActual = if(txOffset.text == "0") 0 else txOffset.text.toString().toLong()
-                        txCurrentBpm.text = valorActual.toString()
-                        if(itemValues.value == "0"){
-                            txCurrentBpm.text = "0"
-                            txOffset.text = txCurrentBpm.text
-                        }else {
-                            val result = valorActual.toInt() + itemValues.value.toLong()
-                            txCurrentBpm.text = result.toString()
-                            txOffset.text = txCurrentBpm.text
-                        }
-                        valueOffset = txOffset.text.toString().toLong()
-                        themes.edit().putLong("valueOffset", valueOffset).apply()
-                    }
-                    if(itemCommand.value.contains("Display", ignoreCase = true)){
-                        linearCurrent.isVisible = false
-                        imgDisplay.isVisible=true
-                        val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
-                        if (existEffect != null) {
-                            listEfectsDisplay.remove(existEffect)
-                            when (existEffect.value) {
-                                "BGAOFF" -> playerSong.isBGAOff = false
-                                "BGADARK" -> playerSong.isBAGDark = false
-                                "FD" -> playerSong.fd = false
-                                "V" -> playerSong.vanish = false
-                                "AP" -> playerSong.ap = false
-                                "SN" -> playerSong.snake =  false
-                            }
-                        } else {
-                            when (itemValues.value) {
-                                "BGAOFF" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.isBGAOff = true
-                                    val isBGADark = listEfectsDisplay.find { it.value == "BGADARK" }
-                                    if (isBGADark != null) {
-                                        listEfectsDisplay.remove(isBGADark)
-                                        playerSong.isBAGDark = false
-                                    }
-                                }
-                                "BGADARK" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.isBAGDark = true
-                                    val isBGAOFF = listEfectsDisplay.find { it.value == "BGAOFF" }
-                                    if (isBGAOFF != null) {
-                                        listEfectsDisplay.remove(isBGAOFF)
-                                        playerSong.isBGAOff = false
-                                    }
-                                }
-                                "FD" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.fd = true
-                                }
-                                "V" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.vanish = true
-                                    val isAp = listEfectsDisplay.find { it.value == "AP" }
-                                    if (isAp != null) {
-                                        listEfectsDisplay.remove(isAp)
-                                        playerSong.ap = false
-                                    }
-                                    val isSnake = listEfectsDisplay.find { it.value == "SN" }
-                                    if (isSnake != null) {
-                                        listEfectsDisplay.remove(isSnake)
-                                        playerSong.snake = false
-                                    }
-                                }
-                                "AP" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.ap = true
-                                    val isVanish = listEfectsDisplay.find { it.value == "V" }
-                                    if (isVanish != null) {
-                                        listEfectsDisplay.remove(isVanish)
-                                        playerSong.vanish = false
-                                    }
-                                    val isSnake = listEfectsDisplay.find { it.value == "SN" }
-                                    if (isSnake != null) {
-                                        listEfectsDisplay.remove(isSnake)
-                                        playerSong.snake = false
-                                    }
-                                }
-                            }
-                            imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
-                        }
-                        resetRunnable()
-                        imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
-
-                    }
-                    if(itemCommand.value.contains("Alternate", ignoreCase = true)){
-                        linearCurrent.isVisible = false
-                        imgDisplay.isVisible=true
-                        val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
-                        if (existEffect != null) {
-                            listEfectsDisplay.remove(existEffect)
-                            when (existEffect.value) {
-                                "RS" -> playerSong.rs = false
-                                "M" -> playerSong.mirror = false
-                            }
-                        } else {
-                            when (itemValues.value) {
-                                "RS" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.rs = true
-                                    val isMirror = listEfectsDisplay.find { it.value == "M" }
-                                    if (isMirror != null) {
-                                        listEfectsDisplay.remove(isMirror)
-                                        playerSong.mirror = false
-                                    }
-                                }
-                                "M" -> {
-                                    listEfectsDisplay.add(itemValues)
-                                    playerSong.mirror = true
-                                    val isRS = listEfectsDisplay.find { it.value == "RS" }
-                                    if (isRS != null) {
-                                        listEfectsDisplay.remove(isRS)
-                                        playerSong.rs = false
-                                    }
-                                }
-                            }
-                            imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
-                        }
-                        resetRunnable()
-                        imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
-
-                    }
-                    if(itemCommand.value.contains("Path", ignoreCase = true)){
-                        linearCurrent.isVisible = false
-                        imgDisplay.isVisible=true
-                        val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
-                        if (existEffect != null) {
-                            listEfectsDisplay.remove(existEffect)
-                            when (existEffect.value) {
-                                "SN" -> playerSong.snake = false
-                            }
-                        } else {
-                            listEfectsDisplay.add(itemValues)
-                            playerSong.snake = true
-                            val isAP = listEfectsDisplay.find { it.value == "AP" }
-                            if (isAP != null) {
-                                listEfectsDisplay.remove(isAP)
-                                playerSong.ap = false
-                            }
-                            val isVanish = listEfectsDisplay.find { it.value == "V" }
-                            if (isVanish != null) {
-                                listEfectsDisplay.remove(isVanish)
-                                playerSong.vanish = false
-                            }
-                            imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
-                        }
-                        resetRunnable()
-                        imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
-
-                    }
-
-                    val bm= BitmapFactory.decodeFile(itemValues.rutaCommandImg)
-                    if(itemCommand.value.contains("NoteSkin", ignoreCase = true)){
-                        linearCurrent.isVisible = false
-                        if(!imgNoteSkin.isVisible){
-                            imgNoteSkin.isVisible=true
-                            imgNoteSkinFondo.isVisible=true
-                            if(bm!=null){
-                                imgNoteSkin.setImageBitmap(bm)
-                                playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
-                                //themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
-                            }
-                        }else{
-                            imgNoteSkin.setImageBitmap(bm)
-                            playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
-
-                        }
-                        themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
-                        skinSelected = itemValues.rutaCommandImg
-                    }
-                    if(itemCommand.value.contains("Judge", ignoreCase = true)){
-                        linearCurrent.isVisible = false
-                        if(!imgJudge.isVisible){
-                            imgJudge.isVisible=true
-                            imgJudge.setImageBitmap(bm)
-                            playerSong.hj = true
-                            playerSong.pathImgHJ = itemValues.rutaCommandImg
-                        }else{
-                            imgJudge.isVisible=false
-                            playerSong.hj = false
-                            playerSong.pathImgHJ = ""
-                        }
-                    }
-                }
-                if (commandWindow.isVisible && !linearValues.isVisible) {
-                    linearValues.isVisible = true
-                    linearCurrent.isVisible = true
-                    var size = 0
-                    if(itemCommand.value.contains("Offset", ignoreCase = true)
-                        || itemCommand.value.contains("Speed", ignoreCase = true)){
-                        size = (listCommands[oldValueCommand].listCommandValues.size - 1) / 2
-                    }
-                    if(size.toString().length == 2){
-                        size.toDouble().roundToInt()
-                        oldValueCommandValues = size
-                    }else{
-                        oldValueCommandValues = size
-                    }
-                    isFocusCommandWindow(oldValueCommand)
-                    isFocusCommandWindowValues(size)
-                }
-            }
-
-            imgPrev.setOnLongClickListener {
-                showOverlay(false)
-                true
-            }
-            video_fondo.setOnLongClickListener {
-                showOverlay(true)
-                true
-            }
-
-            if(isVideo){
-                video_preview.start()
-            }
-            mediPlayer.start()
         }
 
+        numberBitmapsMiss = ArrayList<Bitmap>().apply {
+            val frameWidth = bitmapNumberMiss.width / 10
+            for (a in 0 until 10) {
+                add(Bitmap.createBitmap(bitmapNumberMiss, a * frameWidth, 0, frameWidth, bitmapNumberMiss.height))
+            }
+        }
+
+
+        imgSelected.layoutParams.height = width / 3
+        imgSelected.layoutParams.width = width / 3
+        val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select)
+        imgSelected.startAnimation(anim)
+
+        nav_izq = findViewById(R.id.nav_izq_song)
+        nav_der = findViewById(R.id.nav_der_song)
+        nav_back_Izq = findViewById(R.id.back_izq)
+        nav_back_der = findViewById(R.id.back_der)
+
+        video_fondo = findViewById(R.id.videoPreview)
+        video_fondo.layoutParams.height = (height * 0.3).toInt()
+        video_preview = MediaPlayer()
+        video_fondo.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                video_preview.setSurface(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        }
+
+        next = findViewById(R.id.next)
+        prev = findViewById(R.id.preview)
+
+        next.layoutParams.height = (height * 0.3).toInt()
+        prev.layoutParams.height = (height * 0.3).toInt()
+
+        next.visibility = View.GONE
+        prev.visibility = View.GONE
+
+        nextPlayer = MediaPlayer().apply {
+            setDataSource(
+                getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/next.mp4")!!.absolutePath
+            )
+            isLooping = false
+            setVolume(0f, 0f)
+            prepare()
+        }
+
+        next.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                nextPlayer.setSurface(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        }
+        prevPlayer = MediaPlayer().apply {
+            setDataSource(
+                getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/prev.mp4")!!.absolutePath
+            )
+            isLooping = false
+            setVolume(0f, 0f)
+            prepare()
+        }
+        prev.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                prevPlayer.setSurface(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+
+        }
+
+        val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
+        val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
+        val arrowBackIzqColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzqColor.png")!!.absolutePath)
+        val arrowBackDerColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDerColor.png")!!.absolutePath)
+
+        val spriteWidth = arrowNavIzq.width / 2
+        val spriteHeight = arrowNavIzq.height / 2
+
+        val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight)
+        navIzq.start()
+        val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight)
+        navDer.start()
+        val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight)
+        navBackIzq.start()
+        val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight)
+        navBackDer.start()
+
+        nav_izq.setImageDrawable(navIzq)
+        nav_der.setImageDrawable(navDer)
+        nav_back_Izq.setImageDrawable(navBackIzq)
+        nav_back_der.setImageDrawable(navBackDer)
+
+        llenaCommands(listCommands)
+
+        //Por ahora solo se enviaran KSF
+        //val listVacios = ArrayList<Lvs>()
+        val listVacios = ArrayList<Ksf>()
+        val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
+
+        repeat(20) {
+            listVacios.add(Ksf("", "", rutaLvSelected))
+        }
+        llenaLvsVacios(listVacios)
+
+        if (listSongsChannelKsf.isNotEmpty()){
+            listItemsKsf = createSongListKsf()
+        }
+
+        setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
+        //var num = listItems.size / 2
+        var num = listItemsKsf.size / 2
+        if (num.toString().contains(".")) {
+            num = Math.round(num.toDouble()).toInt()
+            middle = num
+        } else {
+            middle = num
+        }
+        oldValue = middle
+        recyclerView.scrollToPosition(middle)
+        numberChannel = File(listItemsKsf[oldValue].rutaSong).parentFile?.name!!.substringBefore("-").trim()
+        isFocus(middle)
+
+        smoothScroller = CenterSmoothScroller(recyclerView.context)
+        smoothScroller.targetPosition = middle
+        recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
+        recyclerView.setOnTouchListener { _, _ -> true }
+        layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
+        imageCircle.layoutParams.width = (width * 0.95).toInt()
+        imageCircle.layoutParams.height = imageCircle.layoutParams.width
+
+        val medidaNavs = height / 8
+
+        nav_back_Izq.layoutParams.width = medidaNavs
+        nav_back_Izq.layoutParams.height = medidaNavs
+
+        nav_back_der.layoutParams.width = medidaNavs
+        nav_back_der.layoutParams.height = medidaNavs
+
+        nav_izq.layoutParams.width = medidaNavs
+        nav_izq.layoutParams.height = medidaNavs
+
+        nav_der.layoutParams.width = medidaNavs
+        nav_der.layoutParams.height = medidaNavs
+
+        textSize = width / 15
+        txCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+
+        textSize = width / 25
+        lbNameSong.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+        lbNameSong.layoutParams.width = (width /2)
+
+        textSize = width / 32
+        lbBestScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+        lbWorldScore.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+        lbWorldName.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+
+        textSize = width / 28
+
+        lbArtist.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+        lbArtist.layoutParams.width = (width * 0.5).toInt()
+        txInfoCW.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+
+        lbBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+        //lbBpm.layoutParams.width = (width * 0.2).toInt()
+
+        textSize = width / 40
+        lbCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+
+        imgLvSelected.layoutParams.width = (width / 4.1).toInt()
+
+        imgFloor.layoutParams.width = (width * 0.6).toInt()
+        imgAceptar.layoutParams.width = (width * 0.3).toInt()
+
+        val rankingView = findViewById<TopRankingView>(R.id.topRankingView)
+        rankingView.layoutParams.width = width.toInt()
+        rankingView.visibility = View.INVISIBLE
+
+        val linearRanking = LinearLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(0xAA000000.toInt())
+            setOnClickListener(object : View.OnClickListener {
+                override fun onClick(v: View?) {
+                    // No hace nada
+                }
+            })
+        }
+
+        imgFavorite.setOnClickListener {
+            saveFavorites = true
+            val song = listItemsKsf[oldValue]
+            val favChannel = listChannels.find { it.nombre == "06-FAVORITES" }
+
+            if (song.isFavorite) {
+                // Quitar de favoritos
+                song.isFavorite = false
+                imgFavorite.setImageBitmap(bitFavorite)
+
+                val fav = listFavorites.find { it.title == song.title }
+                if (fav != null) listFavorites.remove(fav)
+
+                favChannel?.listCancionesKsf = listFavorites
+
+            } else {
+                // Agregar a favoritos
+                song.isFavorite = true
+                imgFavorite.setImageBitmap(bitFavoriteListed)
+                imgFavorite.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
+
+                listFavorites.add(song)  // se agrega la MISMA referencia del objeto
+                listFavorites.sortBy { it.channel }
+
+                favChannel?.listCancionesKsf = listFavorites
+            }
+        }
+
+
+        imgBestScore.setOnClickListener{
+            if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
+                if(!commandWindow.isVisible){
+                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    rankingView.visibility = View.VISIBLE
+                    rankingView.startAnimation(animOn)
+                    rankingView.setIconDrawable(imgLvSelected.drawable)
+                    rankingView.setNiveles(niveles[positionActualLvs])
+                    constraintMain.addView(linearRanking)
+                    nav_back_der.bringToFront()
+                    nav_back_Izq.bringToFront()
+                    rankingView.bringToFront()
+                }
+            }
+        }
+
+        if(skinSelected != ""){
+            if(!imgNoteSkin.isVisible){
+                imgNoteSkin.isVisible=true
+                imgNoteSkinFondo.isVisible=true
+                val bm= BitmapFactory.decodeFile(skinSelected)
+                if(bm!=null){
+                    imgNoteSkin.setImageBitmap(bm)
+                    playerSong.rutaNoteSkin = getRutaNoteSkin(skinSelected)
+                }
+            }
+        }
+        if(speedSelected != ""){
+            txVelocidadActual.text = speedSelected
+        }else{
+            txVelocidadActual.text = "2.0X"
+        }
+        if(listEfectsDisplay.isNotEmpty()) {
+            imgDisplay.isVisible = true
+            listEfectsDisplay.forEach { effect ->
+                when(effect.value){
+                    "BGAOFF" -> playerSong.isBGAOff = true
+                    "BGADARK" -> playerSong.isBAGDark = true
+                    "FD" -> playerSong.fd = true
+                    "V" -> playerSong.vanish = true
+                    "AP" -> playerSong.ap = true
+                    "RS" -> playerSong.rs = true
+                    "M" -> playerSong.mirror = true
+                    "SN" -> playerSong.snake = true
+                }
+            }
+        }
+
+        txOffset.text = valueOffset.toString()
+
+        nav_back_Izq.setOnLongClickListener {
+            ready = 0
+            goSelectChannel()
+
+            true
+        }
+        nav_back_der.setOnLongClickListener(){
+            ready = 0
+            goSelectChannel()
+
+            true
+        }
+
+        nav_back_Izq.setOnClickListener() {
+            ready = 0
+            imgFloor.setImageBitmap(bmFloor)
+            if (recyclerView.isVisible && !commandWindow.isVisible) {
+                Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
+                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            }
+            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
+                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                hideSelectLv(anim)
+            }
+            if(rankingView.isVisible){
+                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                rankingView.visibility = View.INVISIBLE
+                rankingView.startAnimation(animOff)
+                constraintMain.removeView(linearRanking)
+            }
+            if (commandWindow.isVisible && !linearValues.isVisible ) {
+                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                showCommandWindow(false)
+            }
+            if (linearValues.isVisible) {
+                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                linearCurrent.isVisible = false
+                linearValues.isVisible = false
+                isFocusCommandWindow(oldValueCommand)
+            }
+        }
+        nav_back_der.setOnClickListener() {
+            ready = 0
+            imgFloor.setImageBitmap(bmFloor)
+            if (recyclerView.isVisible && !commandWindow.isVisible) {
+                //goSelectChannel()
+                Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
+                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            }
+            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
+                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                hideSelectLv(anim)
+            }
+            if(rankingView.isVisible){
+                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                rankingView.visibility = View.INVISIBLE
+                rankingView.startAnimation(animOff)
+                constraintMain.removeView(linearRanking)
+            }
+            if (commandWindow.isVisible && !linearValues.isVisible) {
+                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                showCommandWindow(false)
+            }
+            if (linearValues.isVisible) {
+                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                linearValues.isVisible = false
+                linearCurrent.isVisible = false
+                isFocusCommandWindow(oldValueCommand)
+            }
+        }
+
+        nav_izq.setOnClickListener() {
+            ready = 0
+            imgFloor.setImageBitmap(bmFloor)
+            //handleButtonPress(false)
+            if (recyclerView.isVisible && !commandWindow.isVisible) {
+                if (oldValue == 2) {
+                    //oldValue = listItems.size - 3
+                    oldValue = listItemsKsf.size - 3
+                } else {
+                    oldValue -= 1
+                }
+                moverCanciones(nav_izq,animPressNav, oldValue)
+                moveIndicatorToPosition(0)
+            }
+            if (imgLvSelected.isVisible && !commandWindow.isVisible) {
+                if (handleButtonPress(false)) return@setOnClickListener
+                soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                if (positionActualLvs != 0) {
+                    positionActualLvs -= 1
+                    moverLvs(positionActualLvs)
+                }
+            }
+            if (commandWindow.isVisible && !linearValues.isVisible) {
+                if (oldValueCommand == 0) {
+                    isFocusCommandWindow(oldValueCommand)
+                } else {
+                    oldValueCommand--
+                    isFocusCommandWindow(oldValueCommand)
+                }
+            }
+            if (linearValues.isVisible) {
+                if (oldValueCommandValues == 0) {
+                    isFocusCommandWindowValues(oldValueCommandValues)
+                } else {
+                    oldValueCommandValues--
+                    isFocusCommandWindowValues(oldValueCommandValues)
+                }
+            }
+        }
+        nav_der.setOnClickListener() {
+            ready = 0
+            imgFloor.setImageBitmap(bmFloor)
+            //handleButtonPress(true)
+            if (recyclerView.isVisible && !commandWindow.isVisible) {
+                //if (oldValue == listItems.size - 3) {
+                if (oldValue == listItemsKsf.size - 3) {
+                    oldValue = 2
+                } else {
+                    oldValue += 1
+                }
+                moverCanciones(nav_der, animPressNav, oldValue, true)
+                moveIndicatorToPosition(0)
+            }
+            if (imgLvSelected.isVisible && !commandWindow.isVisible) {
+                if (handleButtonPress(true)) return@setOnClickListener
+                soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                ultimoLv = (recyclerLvs.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
+                if (positionActualLvs < ultimoLv) {
+                    positionActualLvs += 1
+                    moverLvs(positionActualLvs)
+                }
+            }
+            if (commandWindow.isVisible && !linearValues.isVisible) {
+                if (oldValueCommand == listCommands.size - 1) {
+                    isFocusCommandWindow(oldValueCommand)
+                } else {
+                    oldValueCommand++
+                    isFocusCommandWindow(oldValueCommand)
+                }
+            }
+            if (linearValues.isVisible) {
+                if (oldValueCommandValues == listCommands[oldValueCommand].listCommandValues.size - 1) {
+                    isFocusCommandWindowValues(oldValueCommandValues)
+                } else {
+                    oldValueCommandValues++
+                    isFocusCommandWindowValues(oldValueCommandValues)
+
+                }
+            }
+        }
+
+        val tipsArray = resources.getStringArray(R.array.tips_array)
+        val txTip = findViewById<TextView>(R.id.txTip)
+
+        imgAceptar.setOnClickListener() {
+            if (recyclerView.isVisible && !commandWindow.isVisible) {
+                goSelectLevel()
+            }
+            if(imgLvSelected.isVisible && !commandWindow.isVisible){
+                if(ready == 1){
+                    soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    imgAceptar.isEnabled = false
+
+                    val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaTitle)
+                    imgLoading.setImageBitmap(bit)
+                    linearLoading.isVisible = true
+                    linearLoading.setOnClickListener(object : View.OnClickListener {
+                        override fun onClick(v: View?) {
+                            // No hace nada
+                        }
+                    })
+                    imgLoading.isVisible = true
+                    showProgressBar(3000L)
+                    mediPlayer.pause()
+                    playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
+
+                    txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
+
+                    playerSong.speed = txVelocidadActual.text.toString()
+                    if(playerSong.rutaNoteSkin != ""){
+                        ruta = playerSong.rutaNoteSkin!!
+                    }else{
+                        val directorioBase = getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
+                        val directorios = File(directorioBase).listFiles { file ->
+                            file.isDirectory && file.name.contains("default", ignoreCase = true)
+                        }
+                        if (directorios != null) {
+                            ruta = directorios.firstOrNull().toString()
+                            playerSong.rutaNoteSkin = ruta
+                        }
+                    }
+                    hideSelectLv(anim)
+                    playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
+                    playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
+
+                    if(listItemsKsf[oldValue].listKsf[positionActualLvs].songFile != ""){
+                        playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + listItemsKsf[oldValue].listKsf[positionActualLvs].songFile
+                    }
+
+                    if(!isFileExists(File(playerSong.rutaCancion!!))) {
+                        val rs = File(listItemsKsf[oldValue].rutaSong).name
+                        val sf = File(playerSong.rutaCancion!!).name
+                        playerSong.rutaCancion = playerSong.rutaCancion!!.replace(sf, rs, ignoreCase = true)
+                    }
+
+                    playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
+
+                    mediaPlayer = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_GAME)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                        setDataSource(File(playerSong.rutaCancion!!).absolutePath)
+                        prepare()
+                        //seekTo(startTimeMs)
+                        //start()
+                    }
+                    val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
+                    load(playerSong.rutaKsf, isHalfDouble)
+
+                    if(playerSong.mirror){
+                        if(!isHalfDouble){
+                            ksf.makeMirror()
+                        }else{
+                            ksfHD.makeMirror()
+                        }
+
+                    }
+                    if(playerSong.rs){
+                        if(!isHalfDouble){
+                            ksf.makeRandom()
+                        }else{
+                            ksfHD.makeRandom()
+                        }
+                    }
+                    if(!isOnline){
+                        if(!isOffline){
+                            if(currentChannel == "06-FAVORITES"){
+                                val nameChannels = listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
+                                channelIndex = validFolders.indexOf(nameChannels)
+                                val canciones = mockListChannels.find { it.canal == nameChannels }?.canciones
+                                songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
+                            }else {
+                                channelIndex = validFolders.indexOf(currentChannel)
+                                songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
+                            }
+                            levelIndex = positionActualLvs
+                        }
+                    }
+
+                    handler.postDelayed({
+                        val intent = Intent(this, GameScreenActivity()::class.java)
+                        intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
+                        startActivity(intent)
+                        handler.postDelayed({
+                            linearLoading.isVisible = false
+                            imgLoading.isVisible = false
+                        }, 1000L)
+                        ready = 0
+                        imgFloor.setImageBitmap(bmFloor)
+                    }, 3000L)
+                }
+                imgAceptar.isEnabled = true
+                if(ready == 0){
+                    ready = 1
+                    imgFloor.setImageBitmap(bmFloor2)
+                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                }
+            }
+            val itemCommand = listCommands[oldValueCommand]
+            if(linearValues.isVisible){
+                soundPoolSelectSongKsf.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                val itemValues = listCommands[oldValueCommand].listCommandValues[oldValueCommandValues]
+                if(itemCommand.value.contains("Speed", ignoreCase = true)){
+                    if(itemValues.value == "0"){
+                        txCurrentBpm.text = "2.0X"
+                        txVelocidadActual.text = txCurrentBpm.text
+                    }else{
+                        val valorActual = if(txVelocidadActual.text != "2.0X") {
+                            txVelocidadActual.text.toString().replace("X", "").toBigDecimal()
+                        }else {
+                            txCurrentBpm.text.toString().replace("X", "").toBigDecimal()
+                        }
+                        val result = valorActual + itemValues.value.toBigDecimal()
+                        val formattedResult = result.stripTrailingZeros().toPlainString() + "X"
+
+                        if(itemValues.value.toDouble()<0){
+                            if(result <= BigDecimal(0.5)) {
+                                txCurrentBpm.text = "0.5X"
+                                //txVelocidadActual.text = txCurrentBpm.text
+                            }else{
+                                txCurrentBpm.text = formattedResult //result.toString() + "X"
+                                //txVelocidadActual.text = txCurrentBpm.text
+                            }
+                        }else{
+                            if(result >= BigDecimal(8.0)) {
+                                txCurrentBpm.text = "8.0X"
+                                //txVelocidadActual.text = txCurrentBpm.text
+                            }else{
+                                txCurrentBpm.text = formattedResult //result.toString() + "X"
+                                //txVelocidadActual.text = txCurrentBpm.text
+                            }
+                        }
+                        txVelocidadActual.text = txCurrentBpm.text
+                        speedSelected = txVelocidadActual.text.toString()
+                        themes.edit().putString("speed", txVelocidadActual.text.toString()).apply()
+                        themes.edit().putString("typeSpeed", "").apply()
+                    }
+                }
+                if(itemCommand.value.contains("Offset", ignoreCase = true)){
+                    val valorActual = if(txOffset.text == "0") 0 else txOffset.text.toString().toLong()
+                    txCurrentBpm.text = valorActual.toString()
+                    if(itemValues.value == "0"){
+                        txCurrentBpm.text = "0"
+                        txOffset.text = txCurrentBpm.text
+                    }else {
+                        val result = valorActual.toInt() + itemValues.value.toLong()
+                        txCurrentBpm.text = result.toString()
+                        txOffset.text = txCurrentBpm.text
+                    }
+                    valueOffset = txOffset.text.toString().toLong()
+                    themes.edit().putLong("valueOffset", valueOffset).apply()
+                }
+                if(itemCommand.value.contains("Display", ignoreCase = true)){
+                    linearCurrent.isVisible = false
+                    imgDisplay.isVisible=true
+                    val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
+                    if (existEffect != null) {
+                        listEfectsDisplay.remove(existEffect)
+                        when (existEffect.value) {
+                            "BGAOFF" -> playerSong.isBGAOff = false
+                            "BGADARK" -> playerSong.isBAGDark = false
+                            "FD" -> playerSong.fd = false
+                            "V" -> playerSong.vanish = false
+                            "AP" -> playerSong.ap = false
+                            "SN" -> playerSong.snake =  false
+                        }
+                    } else {
+                        when (itemValues.value) {
+                            "BGAOFF" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.isBGAOff = true
+                                val isBGADark = listEfectsDisplay.find { it.value == "BGADARK" }
+                                if (isBGADark != null) {
+                                    listEfectsDisplay.remove(isBGADark)
+                                    playerSong.isBAGDark = false
+                                }
+                            }
+                            "BGADARK" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.isBAGDark = true
+                                val isBGAOFF = listEfectsDisplay.find { it.value == "BGAOFF" }
+                                if (isBGAOFF != null) {
+                                    listEfectsDisplay.remove(isBGAOFF)
+                                    playerSong.isBGAOff = false
+                                }
+                            }
+                            "FD" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.fd = true
+                            }
+                            "V" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.vanish = true
+                                val isAp = listEfectsDisplay.find { it.value == "AP" }
+                                if (isAp != null) {
+                                    listEfectsDisplay.remove(isAp)
+                                    playerSong.ap = false
+                                }
+                                val isSnake = listEfectsDisplay.find { it.value == "SN" }
+                                if (isSnake != null) {
+                                    listEfectsDisplay.remove(isSnake)
+                                    playerSong.snake = false
+                                }
+                            }
+                            "AP" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.ap = true
+                                val isVanish = listEfectsDisplay.find { it.value == "V" }
+                                if (isVanish != null) {
+                                    listEfectsDisplay.remove(isVanish)
+                                    playerSong.vanish = false
+                                }
+                                val isSnake = listEfectsDisplay.find { it.value == "SN" }
+                                if (isSnake != null) {
+                                    listEfectsDisplay.remove(isSnake)
+                                    playerSong.snake = false
+                                }
+                            }
+                        }
+                        imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
+                    }
+                    resetRunnable()
+                    imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
+
+                }
+                if(itemCommand.value.contains("Alternate", ignoreCase = true)){
+                    linearCurrent.isVisible = false
+                    imgDisplay.isVisible=true
+                    val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
+                    if (existEffect != null) {
+                        listEfectsDisplay.remove(existEffect)
+                        when (existEffect.value) {
+                            "RS" -> playerSong.rs = false
+                            "M" -> playerSong.mirror = false
+                        }
+                    } else {
+                        when (itemValues.value) {
+                            "RS" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.rs = true
+                                val isMirror = listEfectsDisplay.find { it.value == "M" }
+                                if (isMirror != null) {
+                                    listEfectsDisplay.remove(isMirror)
+                                    playerSong.mirror = false
+                                }
+                            }
+                            "M" -> {
+                                listEfectsDisplay.add(itemValues)
+                                playerSong.mirror = true
+                                val isRS = listEfectsDisplay.find { it.value == "RS" }
+                                if (isRS != null) {
+                                    listEfectsDisplay.remove(isRS)
+                                    playerSong.rs = false
+                                }
+                            }
+                        }
+                        imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
+                    }
+                    resetRunnable()
+                    imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
+
+                }
+                if(itemCommand.value.contains("Path", ignoreCase = true)){
+                    linearCurrent.isVisible = false
+                    imgDisplay.isVisible=true
+                    val existEffect = listEfectsDisplay.find { e -> e.value == itemValues.value }
+                    if (existEffect != null) {
+                        listEfectsDisplay.remove(existEffect)
+                        when (existEffect.value) {
+                            "SN" -> playerSong.snake = false
+                        }
+                    } else {
+                        listEfectsDisplay.add(itemValues)
+                        playerSong.snake = true
+                        val isAP = listEfectsDisplay.find { it.value == "AP" }
+                        if (isAP != null) {
+                            listEfectsDisplay.remove(isAP)
+                            playerSong.ap = false
+                        }
+                        val isVanish = listEfectsDisplay.find { it.value == "V" }
+                        if (isVanish != null) {
+                            listEfectsDisplay.remove(isVanish)
+                            playerSong.vanish = false
+                        }
+                        imgDisplay.setImageBitmap(BitmapFactory.decodeFile(itemValues.rutaCommandImg))
+                    }
+                    resetRunnable()
+                    imgDisplay.isVisible = listEfectsDisplay.isNotEmpty()
+
+                }
+
+                val bm= BitmapFactory.decodeFile(itemValues.rutaCommandImg)
+                if(itemCommand.value.contains("NoteSkin", ignoreCase = true)){
+                    linearCurrent.isVisible = false
+                    if(!imgNoteSkin.isVisible){
+                        imgNoteSkin.isVisible=true
+                        imgNoteSkinFondo.isVisible=true
+                        if(bm!=null){
+                            imgNoteSkin.setImageBitmap(bm)
+                            playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
+                            //themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
+                        }
+                    }else{
+                        imgNoteSkin.setImageBitmap(bm)
+                        playerSong.rutaNoteSkin = getRutaNoteSkin(itemValues.rutaCommandImg)
+
+                    }
+                    themes.edit().putString("skin", itemValues.rutaCommandImg).apply()
+                    skinSelected = itemValues.rutaCommandImg
+                }
+                if(itemCommand.value.contains("Judge", ignoreCase = true)){
+                    linearCurrent.isVisible = false
+                    if(!imgJudge.isVisible){
+                        imgJudge.isVisible=true
+                        imgJudge.setImageBitmap(bm)
+                        playerSong.hj = true
+                        playerSong.pathImgHJ = itemValues.rutaCommandImg
+                    }else{
+                        imgJudge.isVisible=false
+                        playerSong.hj = false
+                        playerSong.pathImgHJ = ""
+                    }
+                }
+            }
+            if (commandWindow.isVisible && !linearValues.isVisible) {
+                linearValues.isVisible = true
+                linearCurrent.isVisible = true
+                var size = 0
+                if(itemCommand.value.contains("Offset", ignoreCase = true)
+                    || itemCommand.value.contains("Speed", ignoreCase = true)){
+                    size = (listCommands[oldValueCommand].listCommandValues.size - 1) / 2
+                }
+                if(size.toString().length == 2){
+                    size.toDouble().roundToInt()
+                    oldValueCommandValues = size
+                }else{
+                    oldValueCommandValues = size
+                }
+                isFocusCommandWindow(oldValueCommand)
+                isFocusCommandWindowValues(size)
+            }
+        }
+
+        imgPrev.setOnLongClickListener {
+            showOverlay(false)
+            true
+        }
+        video_fondo.setOnLongClickListener {
+            showOverlay(true)
+            true
+        }
+
+        if(isVideo){
+            video_preview.start()
+        }
+        mediPlayer.start()
+    }
+
+    private var downloadJob: Job? = null
     private fun showOverlay(isBGA: Boolean) {
         overlayBG = View(this).apply {
-            setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
+            setBackgroundColor(0xDD000000.toInt())
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
             setOnClickListener(object : View.OnClickListener {
-                override fun onClick(v: View?) {}
+                override fun onClick(v: View?) {
+                    // No hace nada
+                }
             })
         }
+
         buttonLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -1294,51 +1314,442 @@ class SelectSong : AppCompatActivity() {
             )
         }
 
-        btnAddPreview = Button(this).apply {
-            text = if(isBGA) "Replace Preview" else "Add Preview"
-            setBackgroundResource(android.R.color.transparent)
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(20, 10, 20, 10)
-            setOnClickListener {
-                pickPreviewFile.launch(arrayOf("video/mp4"))
-            }
-        }
-        buttonLayout.addView(btnAddPreview)
-
-        btnAddBga = Button(this).apply {
-            text = "Add BGA"
-            setBackgroundResource(android.R.color.transparent)
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(20, 10, 20, 10)
-            setOnClickListener {
-                pickBgaFile.launch(arrayOf("video/mp4"))
-            }
+        val dpToPx = { dp: Int ->
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp.toFloat(),
+                resources.displayMetrics
+            ).toInt()
         }
 
+        val cardLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(24), dpToPx(32), dpToPx(24), dpToPx(32))
+            layoutParams = LinearLayout.LayoutParams(
+                dpToPx(340),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(20).toFloat()
+                setColor(0xFF1A1A2E.toInt())
+                setStroke(dpToPx(2), 0xFF00D9FF.toInt())
+            }
+
+            elevation = dpToPx(16).toFloat()
+        }
+
+        // ---------- TÍTULO ----------
+        val titleText = TextView(this).apply {
+            text = "CONTENIDO MULTIMEDIA"
+            textSize = 18f
+            setTextColor(0xFF00D9FF.toInt())
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dpToPx(24)
+            }
+        }
+
+        // ---------- PROGRESS UI ----------
+        val progressText = TextView(this).apply {
+            text = "Descargando 0%"
+            textSize = 16f
+            setTextColor(0xFF00FFAA.toInt())
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dpToPx(12)
+            }
+        }
+
+        val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 0
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(10)).apply {
+                bottomMargin = dpToPx(20)
+            }
+            progressDrawable.setColorFilter(0xFF00D9FF.toInt(), PorterDuff.Mode.SRC_IN)
+        }
+
+        // ---------- CANCEL ----------
         val btnCancel = Button(this).apply {
-            text = "Cancel"
-            setBackgroundResource(android.R.color.transparent)
-            setTextColor(0xFFFF0000.toInt())
-            setPadding(20, 10, 20, 10)
-            setOnClickListener {
+            text = "✖ CANCELAR"
+            setTextColor(0xFFFF4444.toInt())
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            isAllCaps = false
 
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(0x33FF4444.toInt())
+                setStroke(dpToPx(2), 0xFFFF4444.toInt())
+            }
+
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(48)
+            )
+
+            setOnClickListener {
+                downloadJob?.cancel()
+                setOverlayEnabled(true, cardLayout)
                 constraintMain.removeView(overlayBG)
                 constraintMain.removeView(buttonLayout)
             }
         }
 
-        buttonLayout.addView(btnAddBga)
-        val space = View(this).apply {
+        // ---------- DRIVE DATA ----------
+        val videosDrive = getVideosPreview()
+        var idPreview = ""
+        var sizePreview = ""
+        var idBga = ""
+        var sizeBga = ""
+        var existPreviewDrive = false
+        var existBgaDrive = false
+
+        if (videosDrive.isNotEmpty()) {
+
+            existPreviewDrive = videosDrive.any { it.name == "song_p.mp4" } &&
+                    !File(listItemsKsf[oldValue].rutaPreview).exists()
+
+            if (existPreviewDrive) {
+                val p = videosDrive.first { it.name == "song_p.mp4" }
+                idPreview = p.id
+                sizePreview = p.size
+            }
+
+            existBgaDrive = videosDrive.any { it.name == "song.mp4" } &&
+                    !File(listItemsKsf[oldValue].rutaBGA).exists()
+
+            if (existBgaDrive) {
+                val b = videosDrive.first { it.name == "song.mp4" }
+                idBga = b.id
+                sizeBga = b.size
+            }
+        }
+
+        // ---------- FILA PREVIEW ----------
+        val previewRowData = createMediaRow(
+            imageAsset = "preview.png",
+            mainButtonText = if(isBGA) "Reemplazar Preview" else "Agregar Preview",
+            downloadButtonText = "Descargar Preview " + if(sizePreview.isNotEmpty()) "(${ "%.2f".format(sizePreview.toLong() / (1024.0 * 1024.0))} MB)" else "",
+            onMainClick = { pickPreviewFile.launch(arrayOf("video/mp4")) },
+            isVisible = existPreviewDrive,
+            onDownloadClick = {
+                downloadJob = lifecycleScope.launch {
+                    setOverlayEnabled(false, cardLayout)
+                    progressText.visibility = View.VISIBLE
+                    progressBar.visibility = View.VISIBLE
+                    val result = downloadVideoFromDrive(
+                        fileId = idPreview,
+                        isBGA = false
+                    ) { progress ->
+                        progressBar.progress = progress
+                        progressText.text = "Descargando $progress%"
+                    }
+
+                    if (result != null) {
+                        progressText.text = "¡Descarga completa!"
+                        delay(600)
+                        isFocus(oldValue)
+                        btnCancel.performClick()
+                        video_preview.start()
+                        mediPlayer.start()
+                    } else {
+                        setOverlayEnabled(true, cardLayout)
+                        progressText.text = "Error al descargar"
+                    }
+                }
+            }
+        )
+
+        // ---------- FILA BGA ----------
+        val bgaRowData = createMediaRow(
+            imageAsset = "bga.png",
+            mainButtonText = "Agregar BGA",
+            downloadButtonText = "Descargar BGA " + if(sizeBga.isNotEmpty()) "(${ "%.2f".format(sizeBga.toLong() / (1024.0 * 1024.0))} MB)" else "",
+            onMainClick = { pickBgaFile.launch(arrayOf("video/mp4")) },
+            isVisible = existBgaDrive,
+            onDownloadClick = {
+                downloadJob = lifecycleScope.launch {
+                    setOverlayEnabled(false, cardLayout)
+                    progressText.visibility = View.VISIBLE
+                    progressBar.visibility = View.VISIBLE
+
+                    val result = downloadVideoFromDrive(
+                        fileId = idBga,
+                        isBGA = true
+                    ) { progress ->
+                        progressBar.progress = progress
+                        progressText.text = "Descargando $progress%"
+                    }
+
+                    if (result != null) {
+                        progressText.text = "¡Descarga completa!"
+                        delay(600)
+                        btnCancel.performClick()
+                    } else {
+                        setOverlayEnabled(true, cardLayout)
+                        progressText.text = "Error al descargar"
+                        //bgaRowData.second.isEnabled = true
+                    }
+                }
+            }
+        )
+
+        // Separador
+        val divider1 = View(this).apply {
+            setBackgroundColor(0x33FFFFFF.toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                40
-            )
+                dpToPx(1)
+            ).apply {
+                topMargin = dpToPx(16)
+                bottomMargin = dpToPx(16)
+            }
         }
-        buttonLayout.addView(space)
-        buttonLayout.addView(btnCancel)
 
+        // Separador
+        val divider2 = View(this).apply {
+            setBackgroundColor(0x33FFFFFF.toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(1)
+            ).apply {
+                topMargin = dpToPx(16)
+                bottomMargin = dpToPx(16)
+            }
+        }
+
+        // Separador
+        val divider3 = View(this).apply {
+            setBackgroundColor(0x33FFFFFF.toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(1)
+            ).apply {
+                topMargin = dpToPx(16)
+                bottomMargin = dpToPx(16)
+            }
+        }
+
+        // ---------- ORDEN CORRECTO ----------
+        cardLayout.addView(titleText)
+        cardLayout.addView(previewRowData.first)
+        cardLayout.addView(divider1)
+        cardLayout.addView(bgaRowData.first)
+        cardLayout.addView(divider2)
+        cardLayout.addView(progressText)
+        cardLayout.addView(progressBar)
+        cardLayout.addView(divider3)
+        cardLayout.addView(btnCancel)
+
+        buttonLayout.addView(cardLayout)
         constraintMain.addView(overlayBG)
         constraintMain.addView(buttonLayout)
+    }
+
+    fun setOverlayEnabled(enabled: Boolean, cardLayout: LinearLayout) {
+        cardLayout.isEnabled = enabled
+        cardLayout.alpha = if (enabled) 1f else 0.6f
+        // Fila de Preview (índice 1)
+        val rowPreview = cardLayout.getChildAt(1) as LinearLayout
+        val buttonsContainerPreview = rowPreview.getChildAt(1) as LinearLayout // ImageView está en índice 0, buttons en 1
+        buttonsContainerPreview.getChildAt(0).isEnabled = enabled // Main button
+        buttonsContainerPreview.getChildAt(1).isEnabled = enabled // Download button
+
+        // Fila de BGA (índice 3)
+        val rowBGA = cardLayout.getChildAt(3) as LinearLayout
+        val buttonsContainerBGA = rowBGA.getChildAt(1) as LinearLayout // ImageView está en índice 0, buttons en 1
+        buttonsContainerBGA.getChildAt(0).isEnabled = enabled // Main button
+        buttonsContainerBGA.getChildAt(1).isEnabled = enabled // Download button
+    }
+
+    private fun getVideosPreview(): ArrayList<VideosDrive> {
+        val channelDrive = listChannelsDrive.find { it.name == currentChannel }!!.songs
+        val rp = File(listItemsKsf[oldValue].rutaPreview).parentFile!!.name
+        val songDrive = channelDrive.find { it.name == rp }
+
+        if(songDrive != null){
+            return songDrive.videos
+        }else{
+            return ArrayList()
+        }
+    }
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    private suspend fun downloadVideoFromDrive(fileId: String, isBGA: Boolean, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {
+        try {
+            val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
+            val request = Request.Builder()
+                .url(url)
+                .build()
+
+            val response = client.newCall(request).execute()
+
+            if (!response.isSuccessful) return@withContext null
+
+            val body = response.body ?: return@withContext null
+            val fileLength = body.contentLength()
+
+            val outputFile = if (isBGA) {
+                File(listItemsKsf[oldValue].rutaBGA)
+            } else {
+                File(listItemsKsf[oldValue].rutaPreview)
+            }
+
+            body.byteStream().use { input ->
+                FileOutputStream(outputFile).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
+                    var read: Int
+
+                    while (input.read(buffer).also { read = it } != -1) {
+
+                        total += read
+
+                        if (fileLength > 0) {
+                            val progress = ((total * 100) / fileLength).toInt()
+                            withContext(Dispatchers.Main) {
+                                progressCallback(progress)
+                            }
+                        }
+
+                        output.write(buffer, 0, read)
+                    }
+                }
+            }
+
+            outputFile
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun createMediaRow(
+        imageAsset: String,
+        mainButtonText: String,
+        downloadButtonText: String,
+        onMainClick: () -> Unit,
+        onDownloadClick: () -> Unit,
+        isVisible: Boolean = false,
+    ): Pair<LinearLayout, Button> {
+        val dpToPx = { dp: Int -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics).toInt() }
+
+        var mainButton: Button? = null
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+
+            // ImageView con la imagen del asset
+            val imageView = ImageView(this@SelectSong).apply {
+                try {
+                    val bitmap = BitmapFactory.decodeStream(assets.open(imageAsset))
+                    setImageBitmap(bitmap)
+                } catch (_: Exception) {
+                    // Si no se encuentra la imagen, usar un placeholder
+                    setBackgroundColor(0xFF444444.toInt())
+                }
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                layoutParams = LinearLayout.LayoutParams(dpToPx(64), dpToPx(64)).apply {
+                    rightMargin = dpToPx(12)
+                }
+
+                // Borde redondeado para la imagen
+                background = object : android.graphics.drawable.GradientDrawable() {
+                    init {
+                        shape = RECTANGLE
+                        cornerRadius = dpToPx(8).toFloat()
+                        setStroke(dpToPx(2), 0xFF00D9FF.toInt())
+                    }
+                }
+                setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+            }
+            addView(imageView)
+
+            // Container vertical para los botones
+            val buttonsContainer = LinearLayout(this@SelectSong).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+
+            // Botón principal (Agregar/Reemplazar)
+            mainButton = Button(this@SelectSong).apply {
+                text = mainButtonText
+                setTextColor(0xFFFFFFFF.toInt())
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                isAllCaps = false
+                background = object : GradientDrawable() {
+                    init {
+                        shape = RECTANGLE
+                        cornerRadius = dpToPx(8).toFloat()
+                        colors = intArrayOf(0xFF00D9FF.toInt(), 0xFF0099FF.toInt())
+                        orientation = Orientation.LEFT_RIGHT
+                    }
+                }
+
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dpToPx(40)
+                ).apply {
+                    bottomMargin = dpToPx(8)
+                }
+
+                setOnClickListener { onMainClick() }
+            }
+            buttonsContainer.addView(mainButton)
+
+            // Botón de descarga
+            val btnDownload = Button(this@SelectSong).apply {
+                text = downloadButtonText
+                setTextColor(0xFF00FF88.toInt())
+                textSize = 11f
+                setTypeface(null, Typeface.BOLD)
+                isAllCaps = false
+                visibility = if(isVisible) View.VISIBLE else View.INVISIBLE
+                background = object : GradientDrawable() {
+                    init {
+                        shape = RECTANGLE
+                        cornerRadius = dpToPx(8).toFloat()
+                        setColor(0x3300FF88.toInt())
+                        setStroke(dpToPx(1), 0xFF00FF88.toInt())
+                    }
+                }
+
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dpToPx(36)
+                )
+
+                setOnClickListener { onDownloadClick() }
+            }
+            buttonsContainer.addView(btnDownload)
+
+            addView(buttonsContainer)
+        }
+
+        return Pair(row, mainButton!!)
     }
 
     private fun saveFileToDestination(uri: Uri, fileName: String, isBGA: Boolean) {
@@ -1391,7 +1802,6 @@ class SelectSong : AppCompatActivity() {
         }
 
         val transformer = Transformer.Builder(context)
-            //.setVideoMimeType(MimeTypes.VIDEO_H265)
             .addListener(transformerListener)
             .build()
 
@@ -1619,7 +2029,6 @@ class SelectSong : AppCompatActivity() {
         return false
     }
 
-
     private fun showProgressBar(duration: Long) {
         var currentTime: Long
 
@@ -1670,134 +2079,131 @@ class SelectSong : AppCompatActivity() {
         moverLvs(positionActualLvs)
     }
 
+    private val scaledMainGrades = mutableMapOf<String, Bitmap>()
+    private val scaledExtraGrades = mutableMapOf<String, Bitmap>()
+    private val gradeCombinationCache = mutableMapOf<String, Bitmap>()
+
     private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
+
         val gradeFull = listSongScores[positionActualLvs].grade
-        if (gradeFull.isEmpty()) return createBitmap(100, 100)
+        if (gradeFull.isEmpty()) return emptyBitmap
+
+        if (gradeCombinationCache.containsKey(gradeFull)) {
+            return gradeCombinationCache[gradeFull]!!
+        }
 
         val gradeMain = gradeFull.substringBefore("|")
         val gradeExtra = gradeFull.substringAfter("|", "")
 
-        var mainGrade = when (gradeMain) {
-            "SSS+" -> arrayGrades[0]
-            "SSS" -> arrayGrades[1]
-            "SS+" -> arrayGrades[2]
-            "SS" -> arrayGrades[3]
-            "S+" -> arrayGrades[4]
-            "S" -> arrayGrades[5]
-            "AAA+" -> arrayGrades[6]
-            "AAA" -> arrayGrades[7]
-            "AA+" -> arrayGrades[8]
-            "AA" -> arrayGrades[9]
-            "A+" -> arrayGrades[10]
-            "A" -> arrayGrades[11]
-            "B" -> arrayGrades[12]
-            "C" -> arrayGrades[13]
-            "D" -> arrayGrades[14]
-            "F" -> arrayGrades[15]
-            else -> createBitmap(100, 100)
+        val mainBitmap = scaledMainGrades[gradeMain] ?: return emptyBitmap
+
+        if (gradeExtra.isEmpty()) {
+            gradeCombinationCache[gradeFull] = mainBitmap
+            return mainBitmap
         }
 
-        val targetHeight = (medidaFlechas / 2).toInt()
-        val scaledMain = scaleToHeight(mainGrade, targetHeight)
+        val extraBitmap = scaledExtraGrades[gradeExtra] ?: return mainBitmap
 
-        if (gradeExtra.isEmpty()) return scaledMain
-
-        val extraBitmap = when (gradeExtra) {
-            "PG" -> arrGradesDescAbrev[0]
-            "UG" -> arrGradesDescAbrev[1]
-            "EG" -> arrGradesDescAbrev[2]
-            "SG" -> arrGradesDescAbrev[3]
-            "MG" -> arrGradesDescAbrev[4]
-            "TG" -> arrGradesDescAbrev[5]
-            "FG" -> arrGradesDescAbrev[6]
-            "RG" -> arrGradesDescAbrev[7]
-            else -> null
-        } ?: return scaledMain
-
-        val scaledExtra = scaleToHeight(extraBitmap, targetHeight)
         val spacing = 10
+        val totalWidth = mainBitmap.width + spacing + extraBitmap.width
+        val targetHeight = mainBitmap.height
 
-        val totalWidth = scaledMain.width + spacing + scaledExtra.width
-        val result = Bitmap.createBitmap(totalWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val result = createBitmap(totalWidth, targetHeight)
+
         val canvas = Canvas(result)
 
-        val yMain = (targetHeight - scaledMain.height) / 2f
-        val yExtra = (targetHeight - scaledExtra.height) / 2f
+        canvas.drawBitmap(mainBitmap, 0f, 0f, null)
+        canvas.drawBitmap(
+            extraBitmap,
+            mainBitmap.width + spacing.toFloat(),
+            0f,
+            null
+        )
 
-        canvas.drawBitmap(scaledMain, 0f, yMain, null)
-        canvas.drawBitmap(scaledExtra, scaledMain.width + spacing.toFloat(), yExtra, null)
+        gradeCombinationCache[gradeFull] = result
 
         return result
+    }
+
+    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
+
+        val firstRankList = niveles[positionActualLvs].fisrtRank
+        if (firstRankList.isEmpty()) return emptyBitmap
+
+        val gradeFull = firstRankList[0].grade
+        if (gradeFull.isEmpty()) return emptyBitmap
+
+        // 🔥 Cache global reutilizable
+        if (gradeCombinationCache.containsKey(gradeFull)) {
+            return gradeCombinationCache[gradeFull]!!
+        }
+
+        val gradeMain = gradeFull.substringBefore("|")
+        val gradeExtra = gradeFull.substringAfter("|", "")
+
+        val mainBitmap = scaledMainGrades[gradeMain]
+            ?: return emptyBitmap
+
+        if (gradeExtra.isEmpty()) {
+            gradeCombinationCache[gradeFull] = mainBitmap
+            return mainBitmap
+        }
+
+        val extraBitmap = scaledExtraGrades[gradeExtra]
+            ?: return mainBitmap
+
+        val spacing = 10
+        val totalWidth = mainBitmap.width + spacing + extraBitmap.width
+        val targetHeight = mainBitmap.height
+
+        val result = createBitmap(totalWidth, targetHeight)
+
+        val canvas = Canvas(result)
+
+        canvas.drawBitmap(mainBitmap, 0f, 0f, null)
+        canvas.drawBitmap(
+            extraBitmap,
+            mainBitmap.width + spacing.toFloat(),
+            0f,
+            null
+        )
+
+        gradeCombinationCache[gradeFull] = result
+
+        return result
+    }
+
+    private val emptyBitmap by lazy {
+        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+    }
+
+    private fun prepareGradeBitmaps() {
+
+        val targetHeight = (medidaFlechas / 2).toInt()
+
+        val gradeNames = listOf(
+            "SSS+","SSS","SS+","SS","S+","S",
+            "AAA+","AAA","AA+","AA","A+","A",
+            "B","C","D","F"
+        )
+
+        gradeNames.forEachIndexed { index, grade ->
+            scaledMainGrades[grade] =
+                scaleToHeight(arrayGrades[index], targetHeight)
+        }
+
+        val extraNames = listOf("PG","UG","EG","SG","MG","TG","FG","RG")
+
+        extraNames.forEachIndexed { index, grade ->
+            scaledExtraGrades[grade] =
+                scaleToHeight(arrGradesDescAbrev[index], targetHeight)
+        }
     }
 
     private fun scaleToHeight(bitmap: Bitmap, targetHeight: Int): Bitmap {
         val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
         val targetWidth = (targetHeight * aspectRatio).toInt()
         return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
-    }
-
-    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
-        var bestGrade = createBitmap(100, 100)
-
-        if (niveles[positionActualLvs].fisrtRank.isEmpty()) return bestGrade
-
-        val gradeFull = niveles[positionActualLvs].fisrtRank[0].grade
-        if (gradeFull.isEmpty()) return bestGrade
-
-        val gradeMain = gradeFull.substringBefore("|")
-        val gradeExtra = gradeFull.substringAfter("|", "")
-
-        val mainGrade = when (gradeMain) {
-            "SSS+" -> arrayGrades[0]
-            "SSS" -> arrayGrades[1]
-            "SS+" -> arrayGrades[2]
-            "SS" -> arrayGrades[3]
-            "S+" -> arrayGrades[4]
-            "S" -> arrayGrades[5]
-            "AAA+" -> arrayGrades[6]
-            "AAA" -> arrayGrades[7]
-            "AA+" -> arrayGrades[8]
-            "AA" -> arrayGrades[9]
-            "A+" -> arrayGrades[10]
-            "A" -> arrayGrades[11]
-            "B" -> arrayGrades[12]
-            "C" -> arrayGrades[13]
-            "D" -> arrayGrades[14]
-            "F" -> arrayGrades[15]
-            else -> bestGrade
-        }
-
-        val targetHeight = (medidaFlechas / 2).toInt()
-        val scaledMain = scaleToHeight(mainGrade, targetHeight)
-
-        if (gradeExtra.isEmpty()) return scaledMain
-
-        val extraBitmap = when (gradeExtra) {
-            "PG" -> arrGradesDescAbrev[0]
-            "UG" -> arrGradesDescAbrev[1]
-            "EG" -> arrGradesDescAbrev[2]
-            "SG" -> arrGradesDescAbrev[3]
-            "MG" -> arrGradesDescAbrev[4]
-            "TG" -> arrGradesDescAbrev[5]
-            "FG" -> arrGradesDescAbrev[6]
-            "RG" -> arrGradesDescAbrev[7]
-            else -> null
-        } ?: return scaledMain
-
-        val scaledExtra = scaleToHeight(extraBitmap, targetHeight)
-        val spacing = 10
-
-        val totalWidth = scaledMain.width + spacing + scaledExtra.width
-        val result = Bitmap.createBitmap(totalWidth, targetHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(result)
-
-        val yMain = (targetHeight - scaledMain.height) / 2f
-        val yExtra = (targetHeight - scaledExtra.height) / 2f
-
-        canvas.drawBitmap(scaledMain, 0f, yMain, null)
-        canvas.drawBitmap(scaledExtra, scaledMain.width + spacing.toFloat(), yExtra, null)
-
-        return result
     }
 
     private fun openCommandWindow() {
@@ -2076,6 +2482,7 @@ class SelectSong : AppCompatActivity() {
                 video_preview.apply {
                     setDataSource(item.rutaPreview)
                     isLooping = true
+                    setVolume(0f, 0f)
                     prepare()
                 }
                 video_fondo.visibility = View.VISIBLE
@@ -2450,6 +2857,7 @@ class SelectSong : AppCompatActivity() {
         }
         */
         super.onDestroy()
+        Log.d("ACTIVITY_DEBUG", "onDestroy")
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

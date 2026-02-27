@@ -52,6 +52,7 @@ open class GameScreenActivity : AndroidApplication() {
     private lateinit var bitNoMiss  : Bitmap
 
     private var isPlayingEndSong = 0
+    private var isFirstPlay = true  // Bandera para la primera reproducción
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -212,12 +213,20 @@ open class GameScreenActivity : AndroidApplication() {
                 videoViewBgaoff.isVisible = false
                 videoBgaOn.isVisible = true
                 videoBgaOnPLayer.reset()
-                videoBgaOnPLayer.apply {
-                    setDataSource(playerSong.rutaVideo)
-                    prepare()
-                    seekTo(1000)
-                }
-                isVideo = true
+
+                // Preparar MediaPlayer en hilo separado para evitar ANR
+                Thread {
+                    try {
+                        videoBgaOnPLayer.apply {
+                            setDataSource(playerSong.rutaVideo)
+                            prepare()
+                        }
+                        isVideo = true
+                    } catch (e: Exception) {
+                        Log.e("GameScreenActivity", "Error preparando video: ${e.message}")
+                        isVideo = false
+                    }
+                }.start()
             }else{
                 videoViewBgaoff.isVisible = true
                 videoBgaOn.isVisible = false
@@ -365,19 +374,91 @@ open class GameScreenActivity : AndroidApplication() {
 
     override fun onDestroy() {
         super.onDestroy()
-        gdxContainer.removeAllViews()
+        try {
+            gdxContainer.removeAllViews()
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al remover vistas: ${e.message}")
+        }
+
         currentVideoPositionScreen = 0
-        currentVideoPositionScreen = 0
+        isFirstPlay = true
+
+        // Liberar MediaPlayer del audio
+        try {
+            mediaPlayer.setOnCompletionListener(null)
+            if(mediaPlayer.isPlaying){
+                mediaPlayer.stop()
+            }
+            mediaPlayer.release()
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al liberar mediaPlayer: ${e.message}")
+        }
+
+        // Liberar MediaPlayer del video BGA
         if (isVideo) {
-            videoBgaOnPLayer.seekTo(0)
+            try {
+                if (::videoBgaOnPLayer.isInitialized) {
+                    if (videoBgaOnPLayer.isPlaying) {
+                        videoBgaOnPLayer.stop()
+                    }
+                    videoBgaOnPLayer.seekTo(0)
+                    videoBgaOnPLayer.release()
+                }
+            } catch (e: Exception) {
+                Log.e("GameScreenActivity", "Error al liberar videoBgaOnPLayer: ${e.message}")
+            }
         } else {
-            videoViewBgaoff.seekTo(0)
+            try {
+                if (::videoViewBgaoff.isInitialized) {
+                    videoViewBgaoff.seekTo(0)
+                    videoViewBgaoff.suspend()
+                }
+            } catch (e: Exception) {
+                Log.e("GameScreenActivity", "Error al suspender videoViewBgaoff: ${e.message}")
+            }
         }
-        mediaPlayer.setOnCompletionListener(null)
-        if(mediaPlayer.isPlaying){
-            mediaPlayer.stop()
+
+        // Reciclar Bitmaps
+        try {
+            if (::bitPerfectGame.isInitialized && !bitPerfectGame.isRecycled) {
+                bitPerfectGame.recycle()
+            }
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al reciclar bitPerfectGame: ${e.message}")
         }
-        thisHandler.removeCallbacksAndMessages(null)
+
+        try {
+            if (::bitFullcombo.isInitialized && !bitFullcombo.isRecycled) {
+                bitFullcombo.recycle()
+            }
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al reciclar bitFullcombo: ${e.message}")
+        }
+
+        try {
+            if (::bitNoMiss.isInitialized && !bitNoMiss.isRecycled) {
+                bitNoMiss.recycle()
+            }
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al reciclar bitNoMiss: ${e.message}")
+        }
+
+        // Limpiar ImageView
+        try {
+            if (::imgEndSong.isInitialized) {
+                imgEndSong.setImageBitmap(null)
+            }
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al limpiar imgEndSong: ${e.message}")
+        }
+
+        // Cancelar handlers
+        try {
+            thisHandler.removeCallbacksAndMessages(null)
+        } catch (e: Exception) {
+            Log.e("GameScreenActivity", "Error al cancelar handlers: ${e.message}")
+        }
+    }
     }
 
     fun breakDance(){
@@ -426,6 +507,14 @@ open class GameScreenActivity : AndroidApplication() {
     override fun onResume() {
         super.onResume()
 
+        // Si es la primera reproducción, no hacer nada
+        // El video ya se inició en onCreate
+        if (isFirstPlay) {
+            isFirstPlay = false
+            return
+        }
+
+        // Para las demás veces que se reanuda (después de pause), restaurar la posición
         if (!hasWaitedForDelay) {
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!mediaPlayer.isPlaying) {

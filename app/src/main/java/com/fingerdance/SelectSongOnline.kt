@@ -185,10 +185,8 @@ class SelectSongOnline : AppCompatActivity() {
 
             mediaPlayer = MediaPlayer()
 
-            val levels = Levels()
-
             playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
-                                     false,"", "", levels, "")
+                                     false,"", "", "")
 
             constraintMain = findViewById(R.id.constraintMain)
             linearBG = findViewById(R.id.linearBG)

@@ -17,7 +17,7 @@
             minSdk 28
             targetSdk 36
             versionCode 10
-            versionName "1.9.5"
+            versionName "1.9.9"
 
             ndk {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -86,7 +86,7 @@
         implementation "com.badlogicgames.gdx:gdx-backend-android:1.13.0"
         implementation "com.badlogicgames.gdx:gdx-box2d:1.13.0"
 
-        implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+        implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
         implementation 'com.google.firebase:firebase-database'
         implementation 'com.google.firebase:firebase-storage'
         implementation 'com.google.firebase:firebase-analytics'
@@ -100,8 +100,7 @@
         implementation "com.mercadopago.android.px:checkout:4.53.2"
         implementation "org.luaj:luaj-jse:3.0.1"
 
-
-
+        implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     }
 

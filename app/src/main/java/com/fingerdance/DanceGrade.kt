@@ -92,6 +92,7 @@ class DanceGrade : AppCompatActivity() {
 
     private lateinit var imgGradeDescription: ImageView
     private var resultListener: ValueEventListener? = null
+    private var nivelChkValues = Nivel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -132,9 +133,19 @@ class DanceGrade : AppCompatActivity() {
             isPoolLoaded = true
         }
 
-        //checkedValues = intent.getStringExtra("checkedValues") ?: ""
+        if(currentChannel == "06-FAVORITES"){
+            nivelChkValues = mockListChannels[channelIndex].canciones[songIndex].niveles
+                .find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player }!!
 
-        //firebaseDatabase = FirebaseDatabase.getInstance()
+        }else {
+            val channelMock = mockListChannels.find { it.canal.equals(currentChannel, ignoreCase = true) }
+            if (channelMock != null) {
+                val songChannel = channelMock.canciones.find { it.cancion.equals(currentSong, ignoreCase = true) }
+                if (songChannel != null) {
+                    nivelChkValues = songChannel.niveles.find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player } ?: Nivel()
+                }
+            }
+        }
 
         resolveInitialFlow()
 
@@ -203,8 +214,7 @@ class DanceGrade : AppCompatActivity() {
         val lbBestScoreDG = findViewById<TextView>(R.id.lbBestScoreDG)
 
         imgMyBestScore.post {
-            val newHeight = (imgMyBestScore.height * 0.8).toInt()
-
+            val newHeight = (imgMyBestScore.height * 0.6).toInt()
             val params = imgMyBestGrade.layoutParams
             params.height = newHeight
             imgMyBestGrade.layoutParams = params
@@ -417,23 +427,27 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun resolveInitialFlow() {
-        // ❌ OFFLINE u ONLINE → NO TOCAR NADA
         if (isOffline || isOnline) {
             enabledSaveScore = false
             return
         }
 
-        // 🎵 Canción NO oficial
         if (!isOficialSong) {
             enabledSaveScore = true
             return
         }
 
-        // 🎵 Canción OFICIAL → Validar Firebase
         getFirstRankFromFirebase()
     }
 
     private fun getFirstRankFromFirebase() {
+
+        if(nivelChkValues.checkedValues.trim() != checkedValues.trim()){
+            enabledSaveScore = false
+            return
+        }
+        //validateCheckedValues()
+
         val nivelRef = firebaseDatabase!!
             .getReference("channels")
             .child(channelIndex.toString())
@@ -467,8 +481,7 @@ class DanceGrade : AppCompatActivity() {
 
                 checkedValuesFirebase = nivelEncontrado.getValue(Nivel::class.java)!!
                 rankRef = nivelEncontrado.ref
-
-                validateCheckedValues()
+                getRankList()
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -477,15 +490,9 @@ class DanceGrade : AppCompatActivity() {
         })
     }
 
-    private fun validateCheckedValues() {
-        if (checkedValuesFirebase.checkedValues != checkedValues) {
-            enabledSaveScore = false
-            return
-        }
-
+    private fun getRankList() {
         enabledSaveScore = true
 
-        // Copiar ranking actual
         rankList.clear()
         for (rank in checkedValuesFirebase.fisrtRank) {
             rankList.add(
@@ -630,6 +637,59 @@ class DanceGrade : AppCompatActivity() {
             }
             .setCancelable(false)
             .show()
+
+        saveBannedDeviceInfo()
+    }
+
+    private fun saveBannedDeviceInfo() {
+        try {
+            // Limpiar userName y deviceIdFind: solo caracteres alfanuméricos
+            val cleanUserName = userName.replace(Regex("[^a-zA-Z0-9]"), "")
+            val key = "$cleanUserName-$deviceIdFind"
+            val calendar = java.util.Calendar.getInstance()
+            val sdf = java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm", java.util.Locale("es", "ES"))
+            val fechaHora = sdf.format(calendar.time)
+
+            val banAttempt = mapOf(
+                "canal" to currentChannel,
+                "cancion" to currentSong,
+                "nivel" to currentLevel,
+                "checkedValuesLocal" to checkedValues,
+                "checkedValuesFirebase" to nivelChkValues.checkedValues,
+                "fecha" to fechaHora
+            )
+
+            firebaseDatabase!!
+                .getReference("banDevices")
+                .child(key)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val existingList = if (snapshot.exists()) {
+                        val currentData = snapshot.value as? List<Map<String, Any>> ?: emptyList()
+                        currentData.toMutableList()
+                    } else {
+                        mutableListOf()
+                    }
+
+                    existingList.add(banAttempt)
+
+                    firebaseDatabase!!
+                        .getReference("banDevices")
+                        .child(key)
+                        .setValue(existingList)
+                        .addOnSuccessListener {
+                            Log.d("Firebase", "Intento de hack guardado: $key (Total: ${existingList.size})")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("Firebase", "Error al guardar intento de hack: ", e)
+                        }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Firebase", "Error al leer datos previos: ", e)
+                }
+        } catch (e: Exception) {
+            Log.e("Firebase", "Error en saveBannedDeviceInfo: ", e)
+        }
     }
 
     private fun showGradeAnimation(imgGrade: ImageView) {
@@ -1409,8 +1469,8 @@ class DanceGrade : AppCompatActivity() {
 }
 
 enum class SaveResult {
-    NONE,                    // No guardar nada
-    LOCAL,                   // Guardar solo en local
-    LOCAL_AND_FIREBASE,      // Guardar en local y Firebase
-    INVALID_LEVEL            // Nivel modificado, no guardar
+    NONE,
+    LOCAL,
+    LOCAL_AND_FIREBASE,
+    INVALID_LEVEL
 }

@@ -573,8 +573,7 @@ class PlayerHD(private val batch: SpriteBatch, activity: GameScreenActivity) : G
                                 ptn_now.vLine[c].note[x].step = NOTE_NONE
                                 ksfHD.patterns[i].vLine[c].note[x].step = NOTE_NONE
                                 getJudge(JUDGE_MISS)
-                                m_fGauge -= MINE_PENALTY // Extra penalty for mines
-                                //m_fGauge += GaugeInc[JUDGE_MISS]
+                                m_fGauge -= MINE_PENALTY
                                 newJudge(JUDGE_MISS, timeGetTime())
                                 newFlare(x, timeGetTime())
                                 onMineHit(timeGetTime())
