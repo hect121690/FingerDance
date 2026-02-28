@@ -459,9 +459,9 @@ open class GameScreenActivity : AndroidApplication() {
             Log.e("GameScreenActivity", "Error al cancelar handlers: ${e.message}")
         }
     }
-    }
 
     fun breakDance(){
+
         this.finish()
         countMiss = 0
         val intent = Intent(this, BreakDance::class.java)

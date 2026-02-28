@@ -2155,14 +2155,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
 
-        if (::soundPlayer.isInitialized && soundPlayer != null) {
-            try {
-                soundPlayer!!.release()
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error al liberar soundPlayer: ${e.message}")
-            }
-        }
-
         // Liberar VideoViews
         if (::video_fondo.isInitialized) {
             try {
