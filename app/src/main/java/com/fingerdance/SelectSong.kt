@@ -49,7 +49,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
-import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -73,6 +72,7 @@ import kotlin.random.Random
 import androidx.core.graphics.createBitmap
 import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaItem
 import com.fingerdance.MainActivity.VideosDrive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,6 +82,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+import androidx.core.graphics.scale
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -1571,12 +1572,12 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun getVideosPreview(): ArrayList<VideosDrive> {
-        val channelDrive = listChannelsDrive.find { it.name == currentChannel }!!.songs
-        val rp = File(listItemsKsf[oldValue].rutaPreview).parentFile!!.name
-        val songDrive = channelDrive.find { it.name == rp }
+        val listSongsDrive = listChannelsDrive.find { it.name == currentChannel }?.songs ?: emptyList()
+        if(listSongsDrive.isNotEmpty()) {
+            val rp = File(listItemsKsf[oldValue].rutaPreview).parentFile!!.name
+            val songDrive = listSongsDrive.find { it.name == rp }
 
-        if(songDrive != null){
-            return songDrive.videos
+            return songDrive?.videos ?: ArrayList()
         }else{
             return ArrayList()
         }
@@ -2174,7 +2175,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private val emptyBitmap by lazy {
-        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        createBitmap(1, 1)
     }
 
     private fun prepareGradeBitmaps() {
@@ -2188,22 +2189,20 @@ class SelectSong : AppCompatActivity() {
         )
 
         gradeNames.forEachIndexed { index, grade ->
-            scaledMainGrades[grade] =
-                scaleToHeight(arrayGrades[index], targetHeight)
+            scaledMainGrades[grade] = scaleToHeight(arrayGrades[index], targetHeight)
         }
 
         val extraNames = listOf("PG","UG","EG","SG","MG","TG","FG","RG")
 
         extraNames.forEachIndexed { index, grade ->
-            scaledExtraGrades[grade] =
-                scaleToHeight(arrGradesDescAbrev[index], targetHeight)
+            scaledExtraGrades[grade] = scaleToHeight(arrGradesDescAbrev[index], targetHeight)
         }
     }
 
     private fun scaleToHeight(bitmap: Bitmap, targetHeight: Int): Bitmap {
         val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
         val targetWidth = (targetHeight * aspectRatio).toInt()
-        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+        return bitmap.scale(targetWidth, targetHeight)
     }
 
     private fun openCommandWindow() {

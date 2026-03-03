@@ -147,7 +147,8 @@ class LoadSongsKsf {
             "UCS" to 1,
             "ANOTHER" to 2,
             "QUEST" to 3,
-            "NEW" to 4
+            "NEW" to 4,
+            "RISE" to 5
         )
         val listRutas = getRutasSongs(rutaChannel)
         val listOthers = arrayListOf("03-SHORT CUT - V2", "04-REMIX - V2", "05-FULLSONGS - V2")

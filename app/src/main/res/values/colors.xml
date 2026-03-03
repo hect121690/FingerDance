@@ -39,5 +39,7 @@
 
     <color name="bgButtonPaypal">#ffc33a</color>
 
+    <color name="pink_custom">#FF3D8D</color>
+
 
 </resources>

@@ -39,6 +39,7 @@ var flagActiveAllows = false
 
 // ========== VARIABLES GLOBALES - SETTINGS ==========
 var showPadB : Int = 0
+var typePadD : Int = 0
 var hideImagesPadA : Boolean = false
 var skinPad = ""
 var alphaPadB = 1f

@@ -84,6 +84,7 @@ import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.nio.IntBuffer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -91,7 +92,7 @@ import kotlin.math.abs
 import kotlin.system.exitProcess
 
 lateinit var themes : SharedPreferences
-var tema : String = ""
+
 private var descargando = true
 var height: Int = 0
 var width: Int = 0
@@ -189,13 +190,7 @@ lateinit var channelFavorites : Channels
 lateinit var listFavorites : ArrayList<SongKsf>
 lateinit var mockListChannels : ArrayList<Canal>
 
-private var bmLogo : Bitmap? = null  // Guardar para reciclar en onDestroy
-
-var isSsc = false
-lateinit var sscCharData: Parser.ChartData
-lateinit var sscSong : Song
-
-//private const val KEY_CHANNELS_CACHE = "channels_cache"
+private var bmLogo : Bitmap? = null
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -213,7 +208,6 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var linearDownload : ConstraintLayout
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
-    private var versionApp = ""
     private var idWithRegister = ""
     private val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -302,7 +296,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         gestureDetector = GestureDetector(this, gestureListener)
         db = DataBasePlayer(this)
         themes = getPreferences(MODE_PRIVATE)
-        tema = themes.getString("theme", "default").toString()
         skinSelected = themes.getString("skin", "").toString()
         speedSelected = themes.getString("speed", "").toString()
         showPadB = themes.getInt("showPadB", 0)
@@ -317,6 +310,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         isCounter = themes.getBoolean("isCounter",false)
         breakSong = themes.getBoolean("breakSong",true)
         idWithRegister = themes.getString("idWithRegister", "").toString()
+        typePadD = themes.getInt("typePadD", 0)
         //themes.edit().putString("favorites", "").apply()
 
 
@@ -980,7 +974,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         showLoadingOverlay("Espere por favor...")
 
-        cleanChannels()
+        cleanFiles()
 
         loadingLayout.visibility = View.INVISIBLE
 
@@ -1010,7 +1004,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun cleanChannels() {
+    private fun cleanFiles() {
 
         val pathChannels = "/FingerDance/Songs/Channels"
         val channels = listOf(
@@ -1024,6 +1018,20 @@ class MainActivity : AppCompatActivity(), Serializable {
             val dir = File(getExternalFilesDir(path)!!.absolutePath)
             if (dir.exists() && dir.isDirectory) {
                 deleteRecursive(dir)
+            }
+        }
+
+        val imgsPads = listOf(
+            "/FingerDance/Themes/default/left_down.png",
+            "/FingerDance/Themes/default/left_up.png",
+            "/FingerDance/Themes/default/center.png",
+            "/FingerDance/Themes/default/right_up.png",
+            "/FingerDance/Themes/default/right_down.png"
+        )
+        imgsPads.forEach { path ->
+            val img = File(getExternalFilesDir(path)!!.absolutePath)
+            if (img.exists() && img.isFile) {
+                img.delete()
             }
         }
     }
@@ -1047,14 +1055,9 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
         btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
 
-        val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
-        arrayGrades = getGrades(rutaGrades)
-
-        val gradeDescription = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description.png"
-        val gradeDescriptionAbrev = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description_abrev.png"
-
-        arrGradesDesc = getGradesDescription(gradeDescription)
-        arrGradesDescAbrev = getGradesDescription(gradeDescriptionAbrev)
+        arrayGrades = AppResources.arrayGrades ?: arrayListOf()
+        arrGradesDesc = AppResources.arrGradesDesc ?: arrayListOf()
+        arrGradesDescAbrev = AppResources.arrGradesDescAbrev ?: arrayListOf()
 
         if(!startOnline){
             btnPlayOnline.visibility = View.GONE
@@ -1298,7 +1301,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     }
 
-    private suspend fun goPlay(goSound: MediaPlayer, animation: Animation){
+    private fun goPlay(goSound: MediaPlayer, animation: Animation){
         isOnline = false
         goSound.start()
         btnPlay.startAnimation(animation)
@@ -1307,7 +1310,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
-            getFilesDrive()
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1352,13 +1354,12 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnPlay.isEnabled = true
     }
 
-    private suspend fun goOption(goOption: MediaPlayer, animation: Animation){
+    private fun goOption(goOption: MediaPlayer, animation: Animation){
         if(themes.getString("allTunes", "").toString() != ""){
             val jsonListChannels = themes.getString("allTunes", "")
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
-            getFilesDrive()
             listCommands = ls.getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
@@ -1555,7 +1556,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         startActivity(intent)
         exitProcess(0)
     }
-
 
     private fun deleteRecursive(fileOrDirectory: File) {
         if (fileOrDirectory.isDirectory) {
@@ -1942,38 +1942,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         return regex.matches(nombre)
     }
 
-    suspend fun getFilesDrive() {
-        return withContext(Dispatchers.IO) {
-            try {
-                val encodedQuery = URLEncoder.encode("'$FOLDER_ID' in parents", "UTF-8")
-                val url = "https://www.googleapis.com/drive/v3/files?q=$encodedQuery&key=$API_KEY"
-
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-
-                val responseCode = connection.responseCode
-                if (responseCode == 200) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    connection.disconnect()
-
-                    val jsonResponse = JSONObject(response)
-                    val files = jsonResponse.getJSONArray("files")
-                    listFilesDrive.clear()
-                    for (i in 0 until files.length()) {
-                        val file = files.getJSONObject(i)
-                        val fileName = file.getString("name")
-                        val fileId = file.getString("id")
-                        listFilesDrive.add(Pair(fileName, fileId))
-                    }
-                } else {
-                    Log.d("Drive Files","Error en la petición: Código $responseCode")
-                }
-            } catch (e: Exception) {
-                Log.d("Drive Files","Error: ${e.message}")
-            }
-        }
-    }
-
     private fun isUsingWifi(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
@@ -1998,93 +1966,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             val activeNetworkInfo = connectivityManager.activeNetworkInfo
             return activeNetworkInfo != null && activeNetworkInfo.type == ConnectivityManager.TYPE_MOBILE
         }
-    }
-
-    private fun getGrades(rutaGrades: String): ArrayList<Bitmap> {
-        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
-        val cellWidth = bit.width / 2
-        val cellHeight = bit.height / 8
-
-        val gradesList = ArrayList<Bitmap>()
-
-        for (r in 0 until 8) {
-            for (c in 0 until 2) {
-                val x = c * cellWidth
-                val y = r * cellHeight
-                val original = Bitmap.createBitmap(bit, x, y, cellWidth, cellHeight)
-                val trimmed = trimTransparentEdges(original)
-                gradesList.add(trimmed)
-            }
-        }
-
-        return gradesList
-    }
-
-    private fun getGradesDescription(rutaGrades: String): ArrayList<Bitmap> {
-        val bit = BitmapFactory.decodeFile(rutaGrades)
-        val cellWidth = bit.width
-        val cellHeight = bit.height / 8
-
-        val gradesList = ArrayList<Bitmap>()
-
-        for (r in 0 until 8) {
-            val y = r * cellHeight
-            val original = Bitmap.createBitmap(bit, 0, y, cellWidth, cellHeight)
-            val trimmed = trimTransparentEdges(original)
-            gradesList.add(trimmed)
-        }
-
-        return gradesList
-    }
-
-    private fun trimTransparentEdges(source: Bitmap): Bitmap {
-        val width = source.width
-        val height = source.height
-        var top = 0
-        var left = 0
-        var right = width - 1
-        var bottom = height - 1
-
-        loop@ for (y in 0 until height) {
-            for (x in 0 until width) {
-                if ((source.getPixel(x, y) shr 24) != 0) {
-                    top = y
-                    break@loop
-                }
-            }
-        }
-
-        loop@ for (y in height - 1 downTo 0) {
-            for (x in 0 until width) {
-                if ((source.getPixel(x, y) shr 24) != 0) {
-                    bottom = y
-                    break@loop
-                }
-            }
-        }
-
-        loop@ for (x in 0 until width) {
-            for (y in 0 until height) {
-                if ((source.getPixel(x, y) shr 24) != 0) {
-                    left = x
-                    break@loop
-                }
-            }
-        }
-
-        loop@ for (x in width - 1 downTo 0) {
-            for (y in 0 until height) {
-                if ((source.getPixel(x, y) shr 24) != 0) {
-                    right = x
-                    break@loop
-                }
-            }
-        }
-
-        // Asegurar que los valores son válidos
-        if (right < left || bottom < top) return source
-
-        return Bitmap.createBitmap(source, left, top, right - left + 1, bottom - top + 1)
     }
 
     override fun onPause() {
@@ -2171,44 +2052,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                 Log.e("MainActivity", "Error al suspender bg_download: ${e.message}")
             }
         }
-
-        // Reciclar Bitmaps
-        if (::arrayGrades.isInitialized) {
-            try {
-                arrayGrades.forEach { bitmap ->
-                    if (!bitmap.isRecycled) {
-                        bitmap.recycle()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error al reciclar arrayGrades: ${e.message}")
-            }
-        }
-
-        if (::arrGradesDesc.isInitialized) {
-            try {
-                arrGradesDesc.forEach { bitmap ->
-                    if (!bitmap.isRecycled) {
-                        bitmap.recycle()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error al reciclar arrGradesDesc: ${e.message}")
-            }
-        }
-
-        if (::arrGradesDescAbrev.isInitialized) {
-            try {
-                arrGradesDescAbrev.forEach { bitmap ->
-                    if (!bitmap.isRecycled) {
-                        bitmap.recycle()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error al reciclar arrGradesDescAbrev: ${e.message}")
-            }
-        }
-
         // Reciclar Bitmap del logo
         if (bmLogo != null && !bmLogo!!.isRecycled) {
             try {

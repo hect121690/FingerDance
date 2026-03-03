@@ -1,6 +1,8 @@
 package com.fingerdance
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,13 +20,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.nio.IntBuffer
+
+var tema : String = ""
 
 class SplashActivity : AppCompatActivity() {
 
@@ -43,86 +50,145 @@ class SplashActivity : AppCompatActivity() {
         var rebootChannelsDrive: Boolean
     )
 
-    // Variables de control para espera dinámica
-    private var isLoadingComplete = false
-    private var hasMinimumDisplayTime = false
     private val MINIMUM_DISPLAY_TIME = 2000L
-    private val MAXIMUM_LOAD_TIME = 30000L
-    private var startTime = System.currentTimeMillis()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
+        val preferences = getPreferences(MODE_PRIVATE)
+        tema = preferences.getString("theme", "default").toString()
 
         val webView = findViewById<WebView>(R.id.webViewSplash)
-        webView.settings.apply {
-            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            domStorageEnabled = true
-            databaseEnabled = true
-        }
         webView.loadUrl("file:///android_asset/splash.html")
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                loadAllDataForApp()
-            } catch (e: Exception) {
-                Log.e("SplashActivity", "Error: ${e.message}")
-            }
-        }
+        lifecycleScope.launch {
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            hasMinimumDisplayTime = true
-            checkAndNavigate()
-        }, MINIMUM_DISPLAY_TIME)
+            // Ejecuta carga y tiempo mínimo en paralelo
+            val loadJob = async { loadAllDataForApp() }
+            val minTimeJob = async { delay(MINIMUM_DISPLAY_TIME) }
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            isLoadingComplete = true
-            checkAndNavigate()
-        }, MAXIMUM_LOAD_TIME)
-    }
+            loadJob.await()
+            minTimeJob.await()
 
-    private suspend fun loadAllDataForApp() = coroutineScope {
-        try {
-            val configDeferred = async(Dispatchers.IO) { fetchRemoteConfigSuspend() }
-            val config = try { configDeferred.await() } catch (e: Exception) { null }
-            //config!!.rebootChannelsDrive = true
-            val driveDeferred = async(Dispatchers.IO) { loadDriveDataSuspend(config) }
-            try { driveDeferred.await() } catch (e: Exception) { }
-
-            if (config != null) {
-                saveConfigToPreferences(config)
-            }
-
-            isLoadingComplete = true
-            Handler(Looper.getMainLooper()).post { checkAndNavigate() }
-        } catch (e: Exception) {
-            Log.e("SplashActivity", "Error: ${e.message}")
-            isLoadingComplete = true
-            Handler(Looper.getMainLooper()).post { checkAndNavigate() }
-        }
-    }
-
-    private fun checkAndNavigate() {
-        if ((isLoadingComplete && hasMinimumDisplayTime) ||
-            (System.currentTimeMillis() - startTime > MAXIMUM_LOAD_TIME)) {
-            val intent = Intent(this@SplashActivity, MainActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this@SplashActivity, MainActivity::class.java))
             finish()
             overridePendingTransition(0, 0)
         }
     }
 
-    private suspend fun fetchRemoteConfigSuspend(): RemoteConfig? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val db = FirebaseDatabase.getInstance()
-                val databaseReference = db.getReference("version")
-                var config: RemoteConfig? = null
-                var finished = false
+    private suspend fun loadAllDataForApp() {
+        try {
+            val config = fetchRemoteConfigSuspend()
+            loadDriveDataSuspend(config)
 
-                databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        config = RemoteConfig(
+            if (config != null) {
+                saveConfigToPreferences(config)
+            }
+
+            val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
+            val gradeDescription = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description.png"
+            val gradeDescriptionAbrev = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description_abrev.png"
+
+            coroutineScope {
+                val gradesDeferred = async(Dispatchers.IO) { getGrades(rutaGrades) }
+                val descDeferred = async(Dispatchers.IO) { getGradesDescription(gradeDescription) }
+                val descAbrevDeferred = async(Dispatchers.IO) { getGradesDescription(gradeDescriptionAbrev) }
+
+                AppResources.arrayGrades = gradesDeferred.await()
+                AppResources.arrGradesDesc = descDeferred.await()
+                AppResources.arrGradesDescAbrev = descAbrevDeferred.await()
+            }
+
+
+        } catch (e: Exception) {
+            Log.e("SplashActivity", "Error: ${e.message}")
+        }
+    }
+
+    private fun getGrades(rutaGrades: String): ArrayList<Bitmap> {
+        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
+        val cellWidth = bit.width / 2
+        val cellHeight = bit.height / 8
+
+        val gradesList = ArrayList<Bitmap>()
+
+        for (r in 0 until 8) {
+            for (c in 0 until 2) {
+                val x = c * cellWidth
+                val y = r * cellHeight
+                val original = Bitmap.createBitmap(bit, x, y, cellWidth, cellHeight)
+                val trimmed = trimTransparentEdges(original)
+                gradesList.add(trimmed)
+            }
+        }
+
+        return gradesList
+    }
+
+    private fun getGradesDescription(rutaGrades: String): ArrayList<Bitmap> {
+        val bit = BitmapFactory.decodeFile(rutaGrades)
+        val cellWidth = bit.width
+        val cellHeight = bit.height / 8
+
+        val gradesList = ArrayList<Bitmap>()
+
+        for (r in 0 until 8) {
+            val y = r * cellHeight
+            val original = Bitmap.createBitmap(bit, 0, y, cellWidth, cellHeight)
+            val trimmed = trimTransparentEdges(original)
+            gradesList.add(trimmed)
+        }
+
+        return gradesList
+    }
+
+    private fun trimTransparentEdges(source: Bitmap): Bitmap {
+
+        val width = source.width
+        val height = source.height
+
+        val pixels = IntArray(width * height)
+        source.copyPixelsToBuffer(IntBuffer.wrap(pixels))
+
+        var top = height
+        var left = width
+        var right = 0
+        var bottom = 0
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val alpha = pixels[y * width + x] ushr 24
+                if (alpha != 0) {
+                    if (x < left) left = x
+                    if (x > right) right = x
+                    if (y < top) top = y
+                    if (y > bottom) bottom = y
+                }
+            }
+        }
+
+        if (right <= left || bottom <= top) return source
+
+        return Bitmap.createBitmap(
+            source,
+            left,
+            top,
+            right - left + 1,
+            bottom - top + 1
+        )
+    }
+
+    private suspend fun fetchRemoteConfigSuspend(): RemoteConfig? =
+        suspendCancellableCoroutine { continuation ->
+
+            val db = FirebaseDatabase.getInstance()
+            val ref = db.getReference("version")
+
+            ref.addListenerForSingleValueEvent(object : ValueEventListener {
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    try {
+                        val config = RemoteConfig(
                             version = snapshot.child("value").getValue(String::class.java) ?: "",
                             flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false,
                             numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java) ?: "",
@@ -135,26 +201,19 @@ class SplashActivity : AppCompatActivity() {
                             timeToPresiscion = snapshot.child("timeToPresiscion").getValue(Int::class.java) ?: 0,
                             rebootChannelsDrive = snapshot.child("rebootChannelsDrive").getValue(Boolean::class.java) ?: false
                         )
-                        finished = true
-                    }
-                    override fun onCancelled(error: DatabaseError) {
-                        Log.e("Firebase", "Error: ${error.message}")
-                        finished = true
-                    }
-                })
 
-                var count = 0
-                while (!finished && count < 100) {
-                    Thread.sleep(100)
-                    count++
+                        continuation.resume(config, null)
+
+                    } catch (e: Exception) {
+                        continuation.resume(null, null)
+                    }
                 }
-                config
-            } catch (e: Exception) {
-                Log.e("SplashActivity", "Error: ${e.message}")
-                null
-            }
+
+                override fun onCancelled(error: DatabaseError) {
+                    continuation.resume(null, null)
+                }
+            })
         }
-    }
 
     private suspend fun loadDriveDataSuspend(config: RemoteConfig?) {
         return withContext(Dispatchers.IO) {

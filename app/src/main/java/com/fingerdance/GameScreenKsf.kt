@@ -129,8 +129,20 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
             arrPadsC = arrayOf(padLefDownC, padLeftUpC, padCenterC, padRightUpC, padRightDownC)
         }else if(showPadB == 3){
-            arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")))
-            arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")))
+            when(typePadD){
+                0 -> {
+                    arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")))
+                    arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")))
+                }
+                1 -> {
+                    arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg_m.png")))
+                    arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_m.png")))
+                }
+                2 -> {
+                    arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg_n.png")))
+                    arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_n.png")))
+                }
+            }
         }
         imgsJudge.forEach { it.flip(false, true) }
         imgsTypeCombo.forEach { it.flip(false, true) }
@@ -163,6 +175,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             val currentTime = (elapsedTime * 1000).toLong() - 1000
 
             batch.begin()
+            showBgPads()
             player.updateStepData(currentTime)
             //batch.color = Color(0f, 0f, 0f, 0f)
 
@@ -178,7 +191,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
                 //ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
                 drawRecepts(player.luaReceptOffsetX)
             }
-            showBgPads()
 
             player.render(currentTime)
 

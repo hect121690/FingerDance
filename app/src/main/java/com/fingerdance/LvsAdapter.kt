@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -45,6 +46,7 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(),
             val yellow = ContextCompat.getColor(itemView.context, com.mercadopago.android.px.R.color.yellow_light)
             val cyan = ContextCompat.getColor(itemView.context, com.google.android.libraries.places.R.color.quantum_cyan)
             val blue = ContextCompat.getColor(itemView.context, com.mercadopago.android.px.R.color.blue)
+            val pink = ContextCompat.getColor(itemView.context, R.color.pink_custom)
 
             when (lvKsf.typeSteps) {
                 "UCS" -> {
@@ -65,6 +67,11 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(),
                 "QUEST" -> {
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(blue)
+                    itemLvsBinding.textExtra.text = lvKsf.typeSteps
+                }
+                "RISE" -> {
+                    itemLvsBinding.textExtra.visibility = View.VISIBLE
+                    itemLvsBinding.textExtra.setTextColor(pink)
                     itemLvsBinding.textExtra.text = lvKsf.typeSteps
                 }
                 //else -> itemLvsBinding.textLv.text = lvKsf.level
