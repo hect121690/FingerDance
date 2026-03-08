@@ -21,7 +21,6 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -44,7 +43,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
@@ -67,6 +65,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -92,7 +94,7 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
         titleNewOptions = findViewById(R.id.titleNewOptions)
         bgNewOptions = findViewById(R.id.bgNewOptions)
 
-        val bit = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg.jpg").toString())
+        val bit = BitmapFactory.decodeFile(File(getExternalFilesDir(null), "FingerDance/Themes/$tema/GraphicsStatics/bg.jpg").absolutePath)
         bgNewOptions.background = bit.toDrawable(resources)
 
         titleNewOptions.paintFlags = titleNewOptions.paintFlags or Paint.UNDERLINE_TEXT_FLAG
@@ -341,81 +343,106 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         CoroutineScope(Dispatchers.Main).launch {
             linearTextProgressChannel.visibility = View.VISIBLE
             txProgressDownloadChannel.isVisible = true
-
             val downloadedFile = downloadChannelFromDrive(selectedValueChannel!!, requireContext()) { progress ->
-                requireActivity().runOnUiThread {
-                    txProgressDownloadChannel.text = "Descargando $progress%"
-                    progressLayer.level = progress * 100
-                    if (progress > 98) {
-                        txProgressDownloadChannel.text = "Iniciando descompresión..."
-                        txProgressDownloadChannel.setTextColor(ContextCompat.getColor(requireContext(), R.color.fondo_textview_vibrante))
-                    }
-                    if (progress == 100) {
-                        txProgressDownloadChannel.text = "Recargando canales. Este proceso puede tomar varios minutos, no cierre esta pantalla."
-                    }
+                txProgressDownloadChannel.text = "Descargando $progress%"
+                progressLayer.level = progress * 100
+                if (progress > 98) {
+                    txProgressDownloadChannel.text = "Iniciando descompresión..."
+                    txProgressDownloadChannel.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.fondo_textview_vibrante)
+                    )
+                }
+                if (progress == 100) {
+                    txProgressDownloadChannel.text =
+                        "Recargando canales. Este proceso puede tomar varios segundos, no cierre esta pantalla."
                 }
             }
-
             if (downloadedFile != null) {
-                lifecycleScope.launch {
-                    val unzipSongs = UnzipSongs(requireActivity(), fileNameChannel, txProgressDownloadChannel)
-                    unzipSongs.performUnzip(localFile.absolutePath)
-                    unzipSongs.finishActivity.observe(requireActivity()) { shouldFinish ->
-                        if (shouldFinish) requireActivity().finish()
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val unzipSongs = UnzipSongs(
+                        requireActivity(),
+                        fileNameChannel,
+                        txProgressDownloadChannel
+                    )
+                    unzipSongs.performUnzip(downloadedFile.absolutePath)
+                    withContext(Dispatchers.Main) {
+                        unzipSongs.finishActivity.observe(requireActivity()) { shouldFinish ->
+                            if (shouldFinish) requireActivity().finish()
+                        }
                     }
                 }
-            } else {
-                Toast.makeText(requireContext(), "Error en la descarga", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    private suspend fun downloadChannelFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-
-                if (connection.responseCode == 200) {
-                    val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Songs/Channels/")
-                    localDirectory.mkdirs()
-                    val localFile = File(localDirectory, fileNameChannel)
-
-                    val inputStream = connection.inputStream
-                    val outputStream = FileOutputStream(localFile)
-                    val buffer = ByteArray(1024)
-                    var bytesRead: Int
-                    var totalBytes = 0
-                    val totalSize = connection.contentLength
-
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        totalBytes += bytesRead
-                        val progress = (100.0 * totalBytes / totalSize).toInt()
-                        progressCallback(progress)
-                    }
-
-                    outputStream.flush()
-                    outputStream.close()
-                    inputStream.close()
-                    connection.disconnect()
-
-                    return@withContext localFile
-                } else {
-                    withContext(Dispatchers.Main) {
-                        isChannel = true
-                        showAlertFail(fileId)
-                    }
-                    return@withContext null
-                }
-            } catch (e: Exception) {
+    private suspend fun downloadChannelFromDrive(
+        fileId: String,
+        context: Context,
+        progressCallback: (Int) -> Unit
+    ): File? = withContext(Dispatchers.IO) {
+        try {
+            val client = OkHttpClient()
+            val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
+            val request = Request.Builder()
+                .url(url)
+                .build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
                 withContext(Dispatchers.Main) {
                     isChannel = true
                     showAlertFail(fileId)
                 }
                 return@withContext null
             }
+
+            val body = response.body ?: return@withContext null
+            val totalSize = body.contentLength()
+            val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Songs/Channels/")
+            localDirectory.mkdirs()
+            val localFile = File(localDirectory, fileNameChannel)
+            val input = BufferedInputStream(body.byteStream())
+            val output = BufferedOutputStream(FileOutputStream(localFile))
+
+            val buffer = ByteArray(65536)
+
+            var bytesRead: Int
+            var totalBytes = 0L
+            var lastProgress = -1
+
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+
+                output.write(buffer, 0, bytesRead)
+
+                totalBytes += bytesRead
+
+                if (totalSize > 0) {
+
+                    val progress = ((100 * totalBytes) / totalSize).toInt()
+
+                    if (progress != lastProgress) {
+                        lastProgress = progress
+
+                        withContext(Dispatchers.Main) {
+                            progressCallback(progress)
+                        }
+                    }
+                }
+            }
+
+            output.flush()
+            output.close()
+            input.close()
+
+            return@withContext localFile
+
+        } catch (e: Exception) {
+
+            withContext(Dispatchers.Main) {
+                isChannel = true
+                showAlertFail(fileId)
+            }
+
+            return@withContext null
         }
     }
 
@@ -765,6 +792,7 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
             themes.edit().putString("allTunes", "").apply()
             themes.edit().putString("efects", "").apply()
             listChannels.clear()
+            tema = theme.text
             val intent = Intent(requireContext(), MainActivity::class.java)
             startActivity(intent)
             requireActivity().finish()
@@ -845,72 +873,102 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
         val localDirectory = File(requireContext().getExternalFilesDir(null), "FingerDance/Themes/")
         localDirectory.mkdirs()
         val localFile = File(localDirectory, fileNameTheme)
-
-        CoroutineScope(Dispatchers.Main).launch {
+        lifecycleScope.launch {
             val downloadedFile = downloadThemeFromDrive(filePath, requireContext()) { progress ->
-                requireActivity().runOnUiThread {
-                    txProgress.text = "Descargando $progress%"
-                    progressDownload.progress = progress
-                    if (progress > 98) {
-                        txProgress.text = "Iniciando descompresión..."
-                        txProgress.setTextColor(ContextCompat.getColor(requireContext(), R.color.fondo_textview_vibrante))
-                    }
-                    if (progress == 100) {
-                        txProgress.text = "Descarga completada"
-                    }
+                txProgress.text = "Descargando $progress%"
+                progressDownload.progress = progress
+
+                if (progress > 98) {
+                    txProgress.text = "Iniciando descompresión..."
+                    txProgress.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.fondo_textview_vibrante)
+                    )
+                }
+
+                if (progress == 100) {
+                    txProgress.text = "Descarga completada"
                 }
             }
 
             if (downloadedFile != null) {
                 themes.edit().putString("theme", fileNameTheme.replace(".zip", "", ignoreCase = true)).apply()
                 themes.edit().putString("efects", "").apply()
-                val unzipTheme = UnzipTheme(requireActivity(), fileNameTheme)
-                unzipTheme.performUnzip(localFile.absolutePath)
+                tema = fileNameTheme.replace(".zip", "", ignoreCase = true)
+                withContext(Dispatchers.IO) {
+                    val unzipTheme = UnzipTheme(requireActivity(), fileNameTheme)
+                    unzipTheme.performUnzip(downloadedFile.absolutePath)
+                }
+
             } else {
+
                 Toast.makeText(requireContext(), "Error en la descarga", Toast.LENGTH_LONG).show()
+
             }
         }
     }
 
+    private suspend fun downloadThemeFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {
+        try {
+            val client = OkHttpClient()
 
-    private suspend fun downloadThemeFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
+            val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
 
-                if (connection.responseCode == 200) {
-                    val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Themes/")
-                    localDirectory.mkdirs()
-                    val localFile = File(localDirectory, fileNameTheme)
+            val request = Request.Builder()
+                .url(url)
+                .build()
 
-                    val inputStream = connection.inputStream
-                    val outputStream = FileOutputStream(localFile)
-                    val buffer = ByteArray(1024)
-                    var bytesRead: Int
-                    var totalBytes = 0
-                    val totalSize = connection.contentLength
+            val response = client.newCall(request).execute()
 
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        totalBytes += bytesRead
-                        val progress = (100.0 * totalBytes / totalSize).toInt()
-                        progressCallback(progress)
+            if (!response.isSuccessful) return@withContext null
+
+            val body = response.body ?: return@withContext null
+
+            val totalSize = body.contentLength()
+
+            val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Themes/")
+            localDirectory.mkdirs()
+
+            val localFile = File(localDirectory, fileNameTheme)
+
+            val input = BufferedInputStream(body.byteStream())
+            val output = BufferedOutputStream(FileOutputStream(localFile))
+
+            val buffer = ByteArray(65536)
+
+            var bytesRead: Int
+            var totalBytes = 0L
+            var lastProgress = -1
+
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+
+                output.write(buffer, 0, bytesRead)
+
+                totalBytes += bytesRead
+
+                if (totalSize > 0) {
+
+                    val progress = ((100 * totalBytes) / totalSize).toInt()
+
+                    if (progress != lastProgress) {
+                        lastProgress = progress
+
+                        withContext(Dispatchers.Main) {
+                            progressCallback(progress)
+                        }
                     }
-
-                    outputStream.flush()
-                    outputStream.close()
-                    inputStream.close()
-                    connection.disconnect()
-
-                    return@withContext localFile
-                } else {
-                    return@withContext null
                 }
-            } catch (e: Exception) {
-                return@withContext null
             }
+
+            output.flush()
+            output.close()
+            input.close()
+
+            localFile
+
+        } catch (e: Exception) {
+
+            null
+
         }
     }
 
@@ -1523,7 +1581,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
     private fun setupUpdateNoteSkins(view: View) {
         val txVersionNoteSkins = view.findViewById<TextView>(R.id.txVersionNoteSkin).apply {
             id = View.generateViewId()
-            text = "Ultima versión de NoteSkins: $numberUpdate"
+            text = "Ultima versión de NoteSkins: $numberUpdateLocal"
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
             setTypeface(typeface, Typeface.BOLD)
@@ -1555,7 +1613,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
         }
 
         val btnUpdateNoteskins = view.findViewById<Button>(R.id.btnUptadeNoteSkin).apply {
-            visibility = if (numberUpdate != versionUpdate) View.VISIBLE else View.INVISIBLE
+            visibility = if (numberUpdateLocal != numberUpdateFirebase) View.VISIBLE else View.INVISIBLE
         }
 
         btnUpdateNoteskins.setOnClickListener {
@@ -1572,9 +1630,9 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
 
                         if (progress == 100) {
                             lbDescargando.text = "Descarga finalizada, espere por favor..."
-                            themes.edit().putString("versionUpdate", numberUpdate).apply()
+                            themes.edit().putString("numberUpdateLocal", numberUpdateFirebase).apply()
                             themes.edit().putString("efects", "").apply()
-                            versionUpdate = numberUpdate
+                            numberUpdateLocal = numberUpdateFirebase
                         }
                     }
                 }

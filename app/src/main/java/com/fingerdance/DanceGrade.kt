@@ -53,8 +53,8 @@ import androidx.core.graphics.drawable.toDrawable
 
 private lateinit var bgConstraint: ConstraintLayout
 private lateinit var mediaPlayerEvaluation: MediaPlayer
-private lateinit var grade: Bitmap
-private lateinit var gradeDescription: Bitmap
+private lateinit var bitmapGrade: Bitmap
+private lateinit var bitmapGradeDescription: Bitmap
 
 private lateinit var gradeP1: Bitmap
 private lateinit var gradeP2: Bitmap
@@ -92,7 +92,7 @@ class DanceGrade : AppCompatActivity() {
 
     private lateinit var imgGradeDescription: ImageView
     private var resultListener: ValueEventListener? = null
-    private var nivelChkValues = Nivel()
+    private var checkedValuesMock = Nivel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,7 +134,7 @@ class DanceGrade : AppCompatActivity() {
         }
 
         if(currentChannel == "06-FAVORITES"){
-            nivelChkValues = mockListChannels[channelIndex].canciones[songIndex].niveles
+            checkedValuesMock = mockListChannels[channelIndex].canciones[songIndex].niveles
                 .find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player }!!
 
         }else {
@@ -142,7 +142,7 @@ class DanceGrade : AppCompatActivity() {
             if (channelMock != null) {
                 val songChannel = channelMock.canciones.find { it.cancion.equals(currentSong, ignoreCase = true) }
                 if (songChannel != null) {
-                    nivelChkValues = songChannel.niveles.find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player } ?: Nivel()
+                    checkedValuesMock = songChannel.niveles.find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player } ?: Nivel()
                 }
             }
         }
@@ -214,7 +214,7 @@ class DanceGrade : AppCompatActivity() {
         val lbBestScoreDG = findViewById<TextView>(R.id.lbBestScoreDG)
 
         imgMyBestScore.post {
-            val newHeight = (imgMyBestScore.height * 0.6).toInt()
+            val newHeight = (imgMyBestScore.height * 0.5).toInt()
             val params = imgMyBestGrade.layoutParams
             params.height = newHeight
             imgMyBestGrade.layoutParams = params
@@ -442,7 +442,7 @@ class DanceGrade : AppCompatActivity() {
 
     private fun getFirstRankFromFirebase() {
 
-        if(nivelChkValues.checkedValues.trim() != checkedValues.trim()){
+        if(checkedValuesMock.checkedValues.trim() != checkedValuesKsfLocal.trim()){
             enabledSaveScore = false
             return
         }
@@ -593,7 +593,7 @@ class DanceGrade : AppCompatActivity() {
             nuevoGrade = newGrade
         )
 
-        imgMyBestGrade.setImageBitmap(grade)
+        imgMyBestGrade.setImageBitmap(bitmapGrade)
         lbBestScoreDG.text = totalScore.toString()
     }
 
@@ -654,8 +654,8 @@ class DanceGrade : AppCompatActivity() {
                 "canal" to currentChannel,
                 "cancion" to currentSong,
                 "nivel" to currentLevel,
-                "checkedValuesLocal" to checkedValues,
-                "checkedValuesFirebase" to nivelChkValues.checkedValues,
+                "checkedValuesLocal" to checkedValuesKsfLocal,
+                "checkedValuesFirebase" to checkedValuesMock.checkedValues,
                 "fecha" to fechaHora
             )
 
@@ -673,7 +673,7 @@ class DanceGrade : AppCompatActivity() {
 
                     existingList.add(banAttempt)
 
-                    firebaseDatabase!!
+                    firebaseDatabase
                         .getReference("banDevices")
                         .child(key)
                         .setValue(existingList)
@@ -693,8 +693,8 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun showGradeAnimation(imgGrade: ImageView) {
-        imgGrade.setImageBitmap(grade)
-        imgGradeDescription.setImageBitmap(gradeDescription)
+        imgGrade.setImageBitmap(bitmapGrade)
+        imgGradeDescription.setImageBitmap(bitmapGradeDescription)
         animateImageView(imgGrade)
         soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
         rankA = getRankSound(soundGrade)
@@ -1007,126 +1007,126 @@ class DanceGrade : AppCompatActivity() {
     private fun showGrade() {
         when {
             totalScore >= 999999 -> {
-                grade = arrayGrades[0]
+                bitmapGrade = arrayGrades[0]
                 soundGrade = 1
                 newGrade = "SSS+"
             }
             totalScore in 990000..999998 -> {
-                grade = arrayGrades[1]
+                bitmapGrade = arrayGrades[1]
                 soundGrade = 1
                 newGrade = "SSS"
             }
             totalScore in 985000..989999 -> {
-                grade = arrayGrades[2]
+                bitmapGrade = arrayGrades[2]
                 soundGrade = 2
                 newGrade = "SS+"
             }
             totalScore in 980000..984999 -> {
-                grade = arrayGrades[3]
+                bitmapGrade = arrayGrades[3]
                 soundGrade = 2
                 newGrade = "SS"
             }
             totalScore in 975000..979999 -> {
-                grade = arrayGrades[4]
+                bitmapGrade = arrayGrades[4]
                 soundGrade = 3
                 newGrade = "S+"
             }
             totalScore in 970000..974999 -> {
-                grade = arrayGrades[5]
+                bitmapGrade = arrayGrades[5]
                 soundGrade = 3
                 newGrade = "S"
             }
             totalScore in 960000..969999 -> {
-                grade = arrayGrades[6]
+                bitmapGrade = arrayGrades[6]
                 soundGrade = 4
                 newGrade = "AAA+"
             }
             totalScore in 950000..959999 -> {
-                grade = arrayGrades[7]
+                bitmapGrade = arrayGrades[7]
                 soundGrade = 4
                 newGrade = "AAA"
             }
             totalScore in 925000..949999 -> {
-                grade = arrayGrades[8]
+                bitmapGrade = arrayGrades[8]
                 soundGrade = 4
                 newGrade = "AA+"
             }
             totalScore in 900000..924999 -> {
-                grade = arrayGrades[9]
+                bitmapGrade = arrayGrades[9]
                 soundGrade = 4
                 newGrade = "AA"
             }
             totalScore in 825000..899999 -> {
-                grade = arrayGrades[10]
+                bitmapGrade = arrayGrades[10]
                 soundGrade = 4
                 newGrade = "A+"
             }
             totalScore in 750000..824999 -> {
-                grade = arrayGrades[11]
+                bitmapGrade = arrayGrades[11]
                 soundGrade = 4
                 newGrade = "A"
             }
             totalScore in 650000..749999 -> {
-                grade = arrayGrades[12]
+                bitmapGrade = arrayGrades[12]
                 soundGrade = 5
                 newGrade = "B"
             }
             totalScore in 550000..649999 -> {
-                grade = arrayGrades[13]
+                bitmapGrade = arrayGrades[13]
                 soundGrade = 6
                 newGrade = "C"
             }
             totalScore in 450000..549999 -> {
-                grade = arrayGrades[14]
+                bitmapGrade = arrayGrades[14]
                 soundGrade = 7
                 newGrade = "D"
             }
             else -> {
-                grade = arrayGrades[15]
+                bitmapGrade = arrayGrades[15]
                 soundGrade = 8
                 newGrade = "F"
             }
         }
         if(totalScore == 0){
             newGrade = "$newGrade|RG"  // Rough Game
-            gradeDescription = arrGradesDesc[7]
+            bitmapGradeDescription = arrGradesDesc[7]
         } else {
             if (resultSong.miss == 0) {
                 // Casos sin misses
                 if (resultSong.bad == 0 && resultSong.good == 0 && resultSong.great == 0) {
                     newGrade = "$newGrade|PG"  // Perfect Game
-                    gradeDescription = arrGradesDesc[0]
+                    bitmapGradeDescription = arrGradesDesc[0]
                 } else if (resultSong.bad == 0 && resultSong.good == 0) {
                     newGrade = "$newGrade|UG"  // Ultimate Game
-                    gradeDescription = arrGradesDesc[1]
+                    bitmapGradeDescription = arrGradesDesc[1]
                 } else if (resultSong.bad == 0) {
                     newGrade = "$newGrade|EG"  // Extreme Game
-                    gradeDescription = arrGradesDesc[2]
+                    bitmapGradeDescription = arrGradesDesc[2]
                 } else {
                     newGrade = "$newGrade|SG"  // Superb Game
-                    gradeDescription = arrGradesDesc[3]
+                    bitmapGradeDescription = arrGradesDesc[3]
                 }
             } else {
                 // Casos con misses
                 when {
                     resultSong.miss <= 5 -> {
                         newGrade = "$newGrade|MG"  // Marvelous Game
-                        gradeDescription = arrGradesDesc[4]
+                        bitmapGradeDescription = arrGradesDesc[4]
                     }
 
                     resultSong.miss <= 10 -> {
                         newGrade = "$newGrade|TG"  // Talented Game
-                        gradeDescription = arrGradesDesc[5]
+                        bitmapGradeDescription = arrGradesDesc[5]
                     }
 
                     resultSong.miss <= 20 -> {
                         newGrade = "$newGrade|FG"  // Fair Game
-                        gradeDescription = arrGradesDesc[6]
+                        bitmapGradeDescription = arrGradesDesc[6]
                     }
 
                     resultSong.miss > 20 -> {
                         newGrade = "$newGrade|RG"  // Rough Game
-                        gradeDescription = arrGradesDesc[7]
+                        bitmapGradeDescription = arrGradesDesc[7]
                     }
                 }
             }

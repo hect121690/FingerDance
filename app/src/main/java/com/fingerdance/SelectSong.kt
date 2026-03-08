@@ -70,7 +70,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.createBitmap
-import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import com.fingerdance.MainActivity.VideosDrive
@@ -100,7 +99,6 @@ private var middle: Int = 0
 private var oldValue: Int = 0
 private var oldValueCommand: Int = 0
 private var oldValueCommandValues: Int = 0
-private var ultimoLv: Int = 0
 
 private var animPressNav: Animation? = null
 private var animNameSong: Animation? = null
@@ -145,12 +143,14 @@ val heightJudges = widthJudges / 6
 lateinit var resultSong: ResultSong
 private var numberChannel = ""
 
-private lateinit var layoutManager : LinearLayoutManager
+//private lateinit var layoutManager : LinearLayoutManager
 
 private lateinit var difficultySelected : Bitmap
 private lateinit var difficultySelectedHD : Bitmap
-var checkedValues = ""
+var checkedValuesKsfLocal = ""
 var isOficialSong = false
+
+var isPrime = false
 
 class SelectSong : AppCompatActivity() {
     private lateinit var linearBG: LinearLayout
@@ -188,6 +188,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var linearInfo: LinearLayout
     private lateinit var linearBottom: LinearLayout
     private lateinit var linearLoading: LinearLayout
+    private lateinit var linearListSongs: ConstraintLayout
     private lateinit var imgLoading: ImageView
     private lateinit var imgAceptar: ImageView
     private lateinit var imgFloor: ImageView
@@ -206,10 +207,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var video_fondo : TextureView
     private lateinit var video_preview: MediaPlayer
     private lateinit var imgPrev: ImageView
-    /*
-    private lateinit var next : VideoView
-    private lateinit var prev : VideoView
-    */
+
     private lateinit var prev: TextureView
     private lateinit var next: TextureView
 
@@ -229,6 +227,10 @@ class SelectSong : AppCompatActivity() {
     private var saveFavorites = false
     val imageCache = HashMap<String, Bitmap>()
 
+    var selectedIndex = 0
+    val visibleItems = 9
+    var firstVisible = 0
+
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
@@ -246,10 +248,11 @@ class SelectSong : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         getSupportActionBar()?.hide()
         super.onCreate(savedInstanceState)
-        Log.d("ACTIVITY_DEBUG", "onSaveInstanceState")
         setContentView(R.layout.activity_select_song)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
+
+        isPrime = tema != "Prime"
 
         isOnline = false
         niveles = arrayListOf<Nivel>()
@@ -257,6 +260,8 @@ class SelectSong : AppCompatActivity() {
 
         recyclerLvs = findViewById(R.id.recyclerLvs)
         recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
+        linearListSongs = findViewById(R.id.linearListSongs)
+        //linearListSongs.isVisible = isPrime
 
         recyclerCommands = findViewById(R.id.recyclerCommands)
         recyclerCommands.isUserInputEnabled = false
@@ -616,7 +621,7 @@ class SelectSong : AppCompatActivity() {
         smoothScroller.targetPosition = middle
         recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
         recyclerView.setOnTouchListener { _, _ -> true }
-        layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
+        //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
         imageCircle.layoutParams.width = (width * 0.95).toInt()
         imageCircle.layoutParams.height = imageCircle.layoutParams.width
 
@@ -830,26 +835,29 @@ class SelectSong : AppCompatActivity() {
             }
         }
 
-        nav_izq.setOnClickListener() {
+        nav_izq.setOnClickListener {
             ready = 0
             imgFloor.setImageBitmap(bmFloor)
-            //handleButtonPress(false)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 if (oldValue == 2) {
-                    //oldValue = listItems.size - 3
                     oldValue = listItemsKsf.size - 3
                 } else {
                     oldValue -= 1
                 }
                 moverCanciones(nav_izq,animPressNav, oldValue)
-                moveIndicatorToPosition(0)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(false)) return@setOnClickListener
                 soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                if (positionActualLvs != 0) {
-                    positionActualLvs -= 1
+                if (selectedIndex > 0) {
+                    selectedIndex--
+                    positionActualLvs = selectedIndex
                     moverLvs(positionActualLvs)
+                    if (selectedIndex < firstVisible) {
+                        firstVisible--
+                    }
+                    updateRecycler()
+
                 }
             }
             if (commandWindow.isVisible && !linearValues.isVisible) {
@@ -869,10 +877,9 @@ class SelectSong : AppCompatActivity() {
                 }
             }
         }
-        nav_der.setOnClickListener() {
+        nav_der.setOnClickListener {
             ready = 0
             imgFloor.setImageBitmap(bmFloor)
-            //handleButtonPress(true)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 //if (oldValue == listItems.size - 3) {
                 if (oldValue == listItemsKsf.size - 3) {
@@ -881,15 +888,21 @@ class SelectSong : AppCompatActivity() {
                     oldValue += 1
                 }
                 moverCanciones(nav_der, animPressNav, oldValue, true)
-                moveIndicatorToPosition(0)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(true)) return@setOnClickListener
                 soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                ultimoLv = (recyclerLvs.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
-                if (positionActualLvs < ultimoLv) {
-                    positionActualLvs += 1
+
+                val total = recyclerLvs.adapter!!.itemCount
+                if (selectedIndex < total - 1) {
+                    selectedIndex++
+                    positionActualLvs = selectedIndex
                     moverLvs(positionActualLvs)
+                    if (selectedIndex >= firstVisible + visibleItems) {
+                        firstVisible++
+                    }
+
+                    updateRecycler()
                 }
             }
             if (commandWindow.isVisible && !linearValues.isVisible) {
@@ -1291,6 +1304,24 @@ class SelectSong : AppCompatActivity() {
         mediPlayer.start()
     }
 
+    private fun updateRecycler() {
+        val lm = recyclerLvs.layoutManager as LinearLayoutManager
+        recyclerLvs.post {
+            lm.scrollToPositionWithOffset(firstVisible, 0)
+        }
+        val indicatorPosition = selectedIndex - firstVisible
+        indicatorLayout.x = (indicatorPosition * sizeLvs).toFloat()
+    }
+
+    private fun resetIndicatorPosition() {
+        selectedIndex = 0
+        firstVisible = 0
+        positionActualLvs = 0
+        val lm = recyclerLvs.layoutManager as LinearLayoutManager
+        lm.scrollToPositionWithOffset(0, 0)
+        indicatorLayout.x = 0f
+    }
+
     private var downloadJob: Job? = null
     private fun showOverlay(isBGA: Boolean) {
         overlayBG = View(this).apply {
@@ -1412,21 +1443,20 @@ class SelectSong : AppCompatActivity() {
         var sizeBga = ""
         var existPreviewDrive = false
         var existBgaDrive = false
+        var previewDowloaded = false
+        var bgaDowloaded = false
+        var textBtnDownloadPreview = ""
+        var textBtnDownloadBga = ""
 
         if (videosDrive.isNotEmpty()) {
-
-            existPreviewDrive = videosDrive.any { it.name == "song_p.mp4" } &&
-                    !File(listItemsKsf[oldValue].rutaPreview).exists()
-
+            existPreviewDrive = videosDrive.any { it.name == "song_p.mp4" }
             if (existPreviewDrive) {
                 val p = videosDrive.first { it.name == "song_p.mp4" }
                 idPreview = p.id
                 sizePreview = p.size
             }
 
-            existBgaDrive = videosDrive.any { it.name == "song.mp4" } &&
-                    !File(listItemsKsf[oldValue].rutaBGA).exists()
-
+            existBgaDrive = videosDrive.any { it.name == "song.mp4" }
             if (existBgaDrive) {
                 val b = videosDrive.first { it.name == "song.mp4" }
                 idBga = b.id
@@ -1434,36 +1464,63 @@ class SelectSong : AppCompatActivity() {
             }
         }
 
+        if(File(listItemsKsf[oldValue].rutaPreview).exists()){
+            previewDowloaded = true
+            textBtnDownloadPreview = "Eliminar Preview"
+        }else{
+            previewDowloaded = false
+            textBtnDownloadPreview = "Descargar Preview " + if(sizePreview.isNotEmpty()) "(${ "%.2f".format(sizePreview.toLong() / (1024.0 * 1024.0))} MB)" else ""
+        }
+
+        if(File(listItemsKsf[oldValue].rutaBGA).exists()){
+            bgaDowloaded = true
+            textBtnDownloadBga = "Eliminar BGA"
+        }else{
+            bgaDowloaded = false
+            textBtnDownloadBga = "Descargar BGA " + if(sizeBga.isNotEmpty()) "(${ "%.2f".format(sizeBga.toLong() / (1024.0 * 1024.0))} MB)" else ""
+        }
+
         // ---------- FILA PREVIEW ----------
         val previewRowData = createMediaRow(
             imageAsset = "preview.png",
             mainButtonText = if(isBGA) "Reemplazar Preview" else "Agregar Preview",
-            downloadButtonText = "Descargar Preview " + if(sizePreview.isNotEmpty()) "(${ "%.2f".format(sizePreview.toLong() / (1024.0 * 1024.0))} MB)" else "",
+            downloadButtonText = textBtnDownloadPreview,
             onMainClick = { pickPreviewFile.launch(arrayOf("video/mp4")) },
-            isVisible = existPreviewDrive,
-            onDownloadClick = {
-                downloadJob = lifecycleScope.launch {
-                    setOverlayEnabled(false, cardLayout)
-                    progressText.visibility = View.VISIBLE
-                    progressBar.visibility = View.VISIBLE
-                    val result = downloadVideoFromDrive(
-                        fileId = idPreview,
-                        isBGA = false
-                    ) { progress ->
-                        progressBar.progress = progress
-                        progressText.text = "Descargando $progress%"
-                    }
+            existDownloaded = previewDowloaded,
+            existInDrive = existPreviewDrive,
+            onDownloadClick = if(previewDowloaded){
+                {
+                    File(listItemsKsf[oldValue].rutaPreview).delete()
+                    isFocus(oldValue)
+                    btnCancel.performClick()
+                    mediPlayer.start()
+                    Toast.makeText(this, "Preview eliminado", Toast.LENGTH_SHORT).show()
+                }
+            }else{
+                {
+                    downloadJob = lifecycleScope.launch {
+                        setOverlayEnabled(false, cardLayout)
+                        progressText.visibility = View.VISIBLE
+                        progressBar.visibility = View.VISIBLE
+                        val result = downloadVideoFromDrive(
+                            fileId = idPreview,
+                            isBGA = false
+                        ) { progress ->
+                            progressBar.progress = progress
+                            progressText.text = "Descargando $progress%"
+                        }
 
-                    if (result != null) {
-                        progressText.text = "¡Descarga completa!"
-                        delay(600)
-                        isFocus(oldValue)
-                        btnCancel.performClick()
-                        video_preview.start()
-                        mediPlayer.start()
-                    } else {
-                        setOverlayEnabled(true, cardLayout)
-                        progressText.text = "Error al descargar"
+                        if (result != null) {
+                            progressText.text = "¡Descarga completa!"
+                            delay(600)
+                            isFocus(oldValue)
+                            btnCancel.performClick()
+                            video_preview.start()
+                            mediPlayer.start()
+                        } else {
+                            setOverlayEnabled(true, cardLayout)
+                            progressText.text = "Error al descargar"
+                        }
                     }
                 }
             }
@@ -1473,31 +1530,41 @@ class SelectSong : AppCompatActivity() {
         val bgaRowData = createMediaRow(
             imageAsset = "bga.png",
             mainButtonText = "Agregar BGA",
-            downloadButtonText = "Descargar BGA " + if(sizeBga.isNotEmpty()) "(${ "%.2f".format(sizeBga.toLong() / (1024.0 * 1024.0))} MB)" else "",
+            downloadButtonText = textBtnDownloadBga,
             onMainClick = { pickBgaFile.launch(arrayOf("video/mp4")) },
-            isVisible = existBgaDrive,
-            onDownloadClick = {
-                downloadJob = lifecycleScope.launch {
-                    setOverlayEnabled(false, cardLayout)
-                    progressText.visibility = View.VISIBLE
-                    progressBar.visibility = View.VISIBLE
+            existDownloaded = bgaDowloaded,
+            existInDrive = existBgaDrive,
+            onDownloadClick = if(bgaDowloaded){
+                {
+                    File(listItemsKsf[oldValue].rutaBGA).delete()
+                    isFocus(oldValue)
+                    btnCancel.performClick()
+                    mediPlayer.start()
+                    Toast.makeText(this, "BGA eliminado", Toast.LENGTH_SHORT).show()
+                }
+            }else{
+                {
+                    downloadJob = lifecycleScope.launch {
+                        setOverlayEnabled(false, cardLayout)
+                        progressText.visibility = View.VISIBLE
+                        progressBar.visibility = View.VISIBLE
 
-                    val result = downloadVideoFromDrive(
-                        fileId = idBga,
-                        isBGA = true
-                    ) { progress ->
-                        progressBar.progress = progress
-                        progressText.text = "Descargando $progress%"
-                    }
+                        val result = downloadVideoFromDrive(
+                            fileId = idBga,
+                            isBGA = true
+                        ) { progress ->
+                            progressBar.progress = progress
+                            progressText.text = "Descargando $progress%"
+                        }
 
-                    if (result != null) {
-                        progressText.text = "¡Descarga completa!"
-                        delay(600)
-                        btnCancel.performClick()
-                    } else {
-                        setOverlayEnabled(true, cardLayout)
-                        progressText.text = "Error al descargar"
-                        //bgaRowData.second.isEnabled = true
+                        if (result != null) {
+                            progressText.text = "¡Descarga completa!"
+                            delay(600)
+                            btnCancel.performClick()
+                        } else {
+                            setOverlayEnabled(true, cardLayout)
+                            progressText.text = "Error al descargar"
+                        }
                     }
                 }
             }
@@ -1583,10 +1650,7 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
 
     private suspend fun downloadVideoFromDrive(fileId: String, isBGA: Boolean, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {
         try {
@@ -1644,7 +1708,8 @@ class SelectSong : AppCompatActivity() {
         downloadButtonText: String,
         onMainClick: () -> Unit,
         onDownloadClick: () -> Unit,
-        isVisible: Boolean = false,
+        existDownloaded: Boolean = false,
+        existInDrive: Boolean = false
     ): Pair<LinearLayout, Button> {
         val dpToPx = { dp: Int -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics).toInt() }
 
@@ -1673,7 +1738,7 @@ class SelectSong : AppCompatActivity() {
                 }
 
                 // Borde redondeado para la imagen
-                background = object : android.graphics.drawable.GradientDrawable() {
+                background = object : GradientDrawable() {
                     init {
                         shape = RECTANGLE
                         cornerRadius = dpToPx(8).toFloat()
@@ -1728,7 +1793,7 @@ class SelectSong : AppCompatActivity() {
                 textSize = 11f
                 setTypeface(null, Typeface.BOLD)
                 isAllCaps = false
-                visibility = if(isVisible) View.VISIBLE else View.INVISIBLE
+                isVisible = existDownloaded || existInDrive
                 background = object : GradientDrawable() {
                     init {
                         shape = RECTANGLE
@@ -1998,13 +2063,6 @@ class SelectSong : AppCompatActivity() {
 
     private fun getRutaNoteSkin(rutaOriginal: String): String {
         return rutaOriginal.removeSuffix("_Icon.png")
-    }
-
-    private fun moveIndicatorToPosition(position: Int) {
-        val layoutManager = recyclerLvs.layoutManager as? LinearLayoutManager
-        val itemView = layoutManager?.findViewByPosition(position)
-        val indicatorX = itemView?.left ?: 0
-        indicatorLayout.x = indicatorX.toFloat()
     }
 
     private fun performAction() {
@@ -2355,17 +2413,15 @@ class SelectSong : AppCompatActivity() {
         playerSong.type = lv.typeSteps
         playerSong.stepMaker = lv.stepmaker
 
-        layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
+        //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
 
-        recyclerLvs.post {
-            layoutManager.scrollToPositionWithOffset(positionActualLvs, 0)
-            recyclerLvs.post {
-                moveIndicatorToPosition(positionActualLvs)
-            }
-        }
+        //val dx = positionActualLvs * sizeLvs - recyclerLvs.computeHorizontalScrollOffset()
+        //recyclerLvs.smoothScrollBy(dx, 0)
+        //moveIndicatorToPosition(positionActualLvs)
     }
 
     private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int, isNext: Boolean = false) {
+        resetIndicatorPosition()
         soundPoolSelectSongKsf.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
         flecha.startAnimation(animation)
         recyclerView.scrollToPosition(oldValue)
@@ -2374,7 +2430,6 @@ class SelectSong : AppCompatActivity() {
         val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
         smoothScroller.targetPosition = oldValue
         recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
-        positionActualLvs = 0
         lbArtist.isSelected = true
         lbNameSong.isSelected = true
 
@@ -2479,6 +2534,7 @@ class SelectSong : AppCompatActivity() {
             if (isVideo) {
                 video_preview.reset()
                 video_preview.apply {
+                    reset()
                     setDataSource(item.rutaPreview)
                     isLooping = true
                     setVolume(0f, 0f)
@@ -2519,7 +2575,7 @@ class SelectSong : AppCompatActivity() {
 
         lbBpm.text = "BPM:" + String.format("%.2f", item.displayBpm.toDouble())
         displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
-        recyclerLvs.removeAllViews()
+        recyclerLvs.adapter?.notifyDataSetChanged()
         //llenaLvs(item.listKsf)
         llenaLvsKsf(item.listKsf)
     }
@@ -2719,11 +2775,17 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private fun llenaLvsKsf(listLvs : MutableList<Ksf>){
-        recyclerLvs.apply {
-            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = LvsAdapter(listLvs, sizeLvs)
+    private fun llenaLvsKsf(listLvs: MutableList<Ksf>) {
+
+        if (recyclerLvs.layoutManager == null) {
+            recyclerLvs.layoutManager = LinearLayoutManager(
+                this,
+                LinearLayoutManager.HORIZONTAL,
+                false
+            )
         }
+
+        recyclerLvs.adapter = LvsAdapter(listLvs, sizeLvs)
         recyclerLvs.onFlingListener = null
     }
 

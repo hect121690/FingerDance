@@ -121,7 +121,7 @@ open class GameScreenActivity : AndroidApplication() {
         }, timeToPlay)
         if(!isOnline){
             if(!isOffline){
-                checkedValues = generateCheckedValues(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
+                checkedValuesKsfLocal = generateCheckedValues(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
             }
         }
     }

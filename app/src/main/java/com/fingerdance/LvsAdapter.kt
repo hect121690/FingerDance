@@ -1,7 +1,8 @@
 package com.fingerdance
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
+import android.util.LruCache
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -13,16 +14,31 @@ import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ItemLvsBinding
 
 
-class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(),
-                 private val widthLevel: Int) : RecyclerView.Adapter<LvsAdapter.ViewHolder>() {
+class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), private val widthLevel: Int) : RecyclerView.Adapter<LvsAdapter.ViewHolder>() {
+
+    private var purple = 0
+    private var yellow = 0
+    private var cyan = 0
+    private var blue = 0
+    private var pink = 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val v = ItemLvsBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(v)
+        val binding = ItemLvsBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        binding.root.layoutParams.width = widthLevel
+
+        if (purple == 0) {
+            purple = ContextCompat.getColor(parent.context, R.color.purple_200)
+            yellow = ContextCompat.getColor(parent.context, R.color.bgButtonPaypal)
+            cyan = ContextCompat.getColor(parent.context, R.color.button_background)
+            blue = ContextCompat.getColor(parent.context, R.color.borde_textview_elegante)
+            pink = ContextCompat.getColor(parent.context, R.color.pink_custom)
+        }
+
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bindItem(lvListKsf[position])
+        holder.bindItem(lvListKsf[position], purple, yellow, cyan, blue, pink)
         val imageView = holder.itemView.findViewById<ImageView>(R.id.image_lvl)
         imageView.layoutParams.width = widthLevel
 
@@ -39,14 +55,10 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(),
 
     class ViewHolder(var itemLvsBinding: ItemLvsBinding) :
         RecyclerView.ViewHolder(itemLvsBinding.root) {
-        fun bindItem(lvKsf: Ksf) {
-            itemLvsBinding.imageLvl.setImageBitmap(BitmapFactory.decodeFile(lvKsf.rutaBitActive))
+        fun bindItem(lvKsf: Ksf, purple: Int, yellow: Int, cyan: Int, blue: Int, pink: Int) {
+            val bitmap = BitmapCache.getBitmap(lvKsf.rutaBitActive)
+            itemLvsBinding.imageLvl.setImageBitmap(bitmap)
             itemLvsBinding.textLv.text = lvKsf.level
-            val purple = ContextCompat.getColor(itemView.context, R.color.purple_200)
-            val yellow = ContextCompat.getColor(itemView.context, com.mercadopago.android.px.R.color.yellow_light)
-            val cyan = ContextCompat.getColor(itemView.context, com.google.android.libraries.places.R.color.quantum_cyan)
-            val blue = ContextCompat.getColor(itemView.context, com.mercadopago.android.px.R.color.blue)
-            val pink = ContextCompat.getColor(itemView.context, R.color.pink_custom)
 
             when (lvKsf.typeSteps) {
                 "UCS" -> {
@@ -75,6 +87,29 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(),
                     itemLvsBinding.textExtra.text = lvKsf.typeSteps
                 }
                 //else -> itemLvsBinding.textLv.text = lvKsf.level
+            }
+        }
+
+        object BitmapCache {
+
+            private val cacheSize = (Runtime.getRuntime().maxMemory() / 1024 / 8).toInt()
+
+            private val cache = LruCache<String, Bitmap>(cacheSize)
+
+            fun getBitmap(path: String): Bitmap? {
+
+                var bitmap = cache.get(path)
+
+                if (bitmap == null) {
+
+                    bitmap = BitmapFactory.decodeFile(path)
+
+                    if (bitmap != null) {
+                        cache.put(path, bitmap)
+                    }
+                }
+
+                return bitmap
             }
         }
 

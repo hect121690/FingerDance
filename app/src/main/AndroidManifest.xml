@@ -24,8 +24,9 @@
             android:name=".OptionsActivity"
             android:exported="false" />
         <activity
-            android:name=".CalibrationActivity"
-            android:exported="false" />
+            android:name=".NoInternetActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
         <activity
             android:name=".DanceGrade"
             android:exported="false" />

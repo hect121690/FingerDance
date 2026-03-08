@@ -5,13 +5,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.PointF
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
@@ -49,7 +47,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
@@ -60,85 +57,40 @@ import androidx.lifecycle.lifecycleScope
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
+import com.google.common.primitives.Ints.min
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
-import java.nio.IntBuffer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.system.exitProcess
-
-lateinit var themes : SharedPreferences
 
 private var descargando = true
 var height: Int = 0
 var width: Int = 0
-
-var skinSelected : String = ""
-var speedSelected : String = ""
-//var typeSpeedSelected : String = ""
 var bgaOff : String = ""
-
-var latency = 0L
-var configLatency = false
-var valueOffset = 0L
-
 val gson = Gson()
-/*
-var numberUpdate = ""
-var versionUpdate = ""
-var flagActiveAllows = false
 
-var showPadB : Int = 0
-var hideImagesPadA : Boolean = false
-var skinPad = ""
-var alphaPadB = 1f
-*/
-// NOTA: API_KEY, FOLDER_ID, FOLDER_ID_THEMES, FOLDER_ID_CHANNELS_BGA
-// listFilesDrive, listThemesDrive, listChannelsDrive,
-// userName, firebaseDatabase, listGlobalRanking
-// están centralizados en GlobalConstants.kt
-/*
-var listAllowDevices = arrayListOf<String>()
-
-var deviceIdFind = ""
-
-var idSala = ""
-
-var medidaFlechas = 0f
-
-var heightLayoutBtns = 0f
-var heightBtns  = 0f
-var widthBtns = 0f
-var padPositions = listOf<Array<Float>>()
-var padPositionsHD = listOf<Array<Float>>()
-var touchAreas = listOf<Array<Float>>()
-
-var colWidth = 0f
-*/
 lateinit var bitmapNumber : Bitmap
 lateinit var bitmapNumberMiss : Bitmap
 
@@ -166,24 +118,16 @@ lateinit var db : DataBasePlayer
 
 var decimoHeigtn = 0
 var decimoWidth = 0
-//var isFree = false
 var isOffline = false
-var isMidLine = false
-var isCounter = false
-var breakSong = true
+
 var listEfectsDisplay: ArrayList<CommandValues> = ArrayList()
 
 var bgaPathSelectChannel = ""
 var bgaPathSelectSong = ""
 
 private val ls = LoadSongsKsf()
+
 lateinit var arrayGrades : ArrayList<Bitmap>
-var TIME_ADJUST = 0L
-var timeToPresiscionHD = 0
-var timeToPresiscion = 0
-
-lateinit var validFolders : List<String>
-
 lateinit var arrGradesDesc : ArrayList<Bitmap>
 lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
 lateinit var channelFavorites : Channels
@@ -292,33 +236,14 @@ class MainActivity : AppCompatActivity(), Serializable {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        firebaseDatabase = FirebaseDatabase.getInstance()
         gestureDetector = GestureDetector(this, gestureListener)
         db = DataBasePlayer(this)
-        themes = getPreferences(MODE_PRIVATE)
-        skinSelected = themes.getString("skin", "").toString()
-        speedSelected = themes.getString("speed", "").toString()
-        showPadB = themes.getInt("showPadB", 0)
-        hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
-        skinPad = themes.getString("skinPad", "default").toString()
-        alphaPadB = themes.getFloat("alphaPadB", 1f)
-        versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
-        valueOffset = themes.getLong("valueOffset", 0)
-        userName = themes.getString("userName","").toString()
-        //isFree = themes.getBoolean("isFree",false)
-        isMidLine = themes.getBoolean("isMidLine",false)
-        isCounter = themes.getBoolean("isCounter",false)
-        breakSong = themes.getBoolean("breakSong",true)
         idWithRegister = themes.getString("idWithRegister", "").toString()
-        typePadD = themes.getInt("typePadD", 0)
-        //themes.edit().putString("favorites", "").apply()
-
-
-
         val metrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(metrics)
-        width = metrics.widthPixels
-        height = metrics.heightPixels
+        windowManager.defaultDisplay.getRealMetrics(metrics)
+
+        width = min(metrics.widthPixels, metrics.heightPixels)
+        height = max(metrics.widthPixels, metrics.heightPixels)
 
         decimoWidth = width / 10
         decimoHeigtn = height / 10
@@ -328,31 +253,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         deviceIdFind = getDeviceId(this@MainActivity)
-
-        getValidFolders { folders ->
-            validFolders = folders
-        }
-
-        /*
-        validFolders = listOf(
-            "000-Finger Dance",
-            "03-SHORT CUT - V2",
-            "04-REMIX - V2",
-            "05-FULLSONGS - V2",
-            "10-PIU 1st TO PERFECT COLLECTION",
-            "11-EXTRA TO PREX 3",
-            "12-EXCEED TO ZERO",
-            "13-NX TO NXA",
-            "14-FIESTA TO FIESTA 2 - V2",
-            "15 - INFINITY",
-            "17-PRIME",
-            "18-PRIME 2",
-            "19-XX ANIVERSARY",
-            "20-PHOENIX",
-            "21-RISE",
-            "50-Prex Metal"
-        )
-        */
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -471,7 +371,9 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val folder = File(getExternalFilesDir(null), "FingerDance")
         if (folder.exists()) {
-            creaMain()
+            lifecycleScope.launch {
+                creaMain()
+            }
         } else {
             creaDescarga()
         }
@@ -479,7 +381,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             val zipUri = data?.data ?: return
 
@@ -495,9 +396,9 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     val unzip = Unzip(this@MainActivity)
                     unzip.performUnzip(localZip.absolutePath, "FingerDance.zip", true)
-                    themes.edit().putString("versionUpdate", numberUpdate).apply()
+                    //themes.edit().putString("versionUpdate", numberUpdate).apply()
                     themes.edit().putString("efects", "").apply()
-                    versionUpdate = numberUpdate
+                    //versionUpdate = numberUpdate
                     Toast.makeText(this@MainActivity, "Pack cargado correctamente", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Toast.makeText(this@MainActivity, "Error cargando pack: ${e.message}", Toast.LENGTH_LONG).show()
@@ -619,7 +520,6 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun updateDeviceDate(device: String): String {
-        // Formato: d6b1286955eda83b-Hectbaren1216$-31/12/2099
         val parts = device.split("-")
 
         if (parts.size >= 2) {
@@ -633,24 +533,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         return device
-    }
-
-    private fun addOneMonthAndSubtractOneDay(dateString: String): String {
-        return try {
-            val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-            val date = LocalDate.parse(dateString, formatter)
-
-            // Sumar 1 mes
-            val dateAfterMonth = date.plusMonths(1)
-
-            // Restar 1 día
-            val finalDate = dateAfterMonth.minusDays(1)
-
-            finalDate.format(formatter)
-        } catch (e: Exception) {
-            Log.e("DateParsing", "Error al parsear la fecha: ${e.message}")
-            dateString
-        }
     }
 
     private fun getDatePlusOneMonth(): String {
@@ -685,7 +567,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                 }
 
                 if (found) {
-                    // Reescribir el nodo completo con la lista actualizada
                     databaseRef.setValue(devicesList)
                         .addOnSuccessListener {
                             Toast.makeText(
@@ -854,53 +735,80 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private suspend fun iniciarDescargaDrive(idDownload: String, typeFile: String, isUpdate: Boolean = false, progressCallback: (Int) -> Unit): File? {
+
         descargando = false
         linearDownload.setOnClickListener { }
 
-        lbDescargando.isVisible = true
-        progressBar.isVisible = true
+        withContext(Dispatchers.Main) {
+            lbDescargando.isVisible = true
+            progressBar.isVisible = true
+        }
 
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://www.googleapis.com/drive/v3/files/$idDownload?alt=media&key=$API_KEY"
+
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
+                connection.connect()
 
-                if (connection.responseCode == 200) {
-                    val localFile = File(getExternalFilesDir(null), "FingerDance.$typeFile")
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
 
-                    val inputStream = connection.inputStream
-                    val outputStream = FileOutputStream(localFile)
-                    val buffer = ByteArray(1024)
-                    var bytesRead: Int
-                    var totalBytes = 0
-                    val totalSize = connection.contentLength
-
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        totalBytes += bytesRead
-                        val progress = (100.0 * totalBytes / totalSize).toInt()
-                        withContext(Dispatchers.Main) {
-                            progressCallback(progress)
-                        }
-                    }
-
-                    outputStream.flush()
-                    outputStream.close()
-                    inputStream.close()
-                    connection.disconnect()
-
-                    return@withContext localFile
-                } else {
                     withContext(Dispatchers.Main) {
                         showAlertFail(isUpdate)
                     }
+
                     return@withContext null
                 }
+
+                val localFile = File(getExternalFilesDir(null), "FingerDance.$typeFile")
+
+                val totalSize = connection.contentLength
+                val buffer = ByteArray(64 * 1024)
+
+                var totalBytes = 0
+                var lastProgress = 0
+
+                BufferedInputStream(connection.inputStream).use { input ->
+                    FileOutputStream(localFile).use { output ->
+
+                        var bytesRead: Int
+
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+
+                            output.write(buffer, 0, bytesRead)
+
+                            totalBytes += bytesRead
+
+                            if (totalSize > 0) {
+
+                                val progress = (100.0 * totalBytes / totalSize).toInt()
+
+                                if (progress != lastProgress) {
+
+                                    lastProgress = progress
+
+                                    withContext(Dispatchers.Main) {
+                                        progressCallback(progress)
+                                    }
+                                }
+                            }
+                        }
+
+                        output.flush()
+                    }
+                }
+
+                connection.disconnect()
+
+                return@withContext localFile
+
             } catch (e: Exception) {
+
                 withContext(Dispatchers.Main) {
                     showAlertFail(isUpdate)
                 }
+
                 return@withContext null
             }
         }
@@ -970,43 +878,23 @@ class MainActivity : AppCompatActivity(), Serializable {
         val size: String,
     )
 
-    private fun creaMain() {
-
+    private suspend fun creaMain() {
         showLoadingOverlay("Espere por favor...")
-
-        cleanFiles()
-
+        //cleanFiles()  // Comentado: esto borraba archivos importantes
         loadingLayout.visibility = View.INVISIBLE
-
-        // Los datos YA fueron cargados en SplashActivity
-        // Solo procesar según el modo
-        val preferences = getPreferences(MODE_PRIVATE)
-        var flagActiveAllows = preferences.getString("flagActiveAllows", "false").toBoolean()
-        val resetRegister = preferences.getBoolean("resetRegister", false)
-        val paypalOn = preferences.getBoolean("paypalOn", false)
-        val mpOn = preferences.getBoolean("mpOn", false)
-
-        // Actualizar variables globales con los datos cargados en Splash
-        TIME_ADJUST = preferences.getLong("TIME_ADJUST", 0)
-        timeToPresiscion = preferences.getInt("timeToPresiscion", 0)
-        timeToPresiscionHD = preferences.getInt("timeToPresiscionHD", 0)
-        flagActiveAllows = flagActiveAllows
 
         if (resetRegister) {
             themes.edit().putString("idWithRegister", "").apply()
             idWithRegister = ""
         }
-
-        if (!isOffline && flagActiveAllows) {
-            createMain(true, paypalOn, mpOn)
-        } else {
-            createMain(false)
-        }
+        checkAppVersion()
     }
 
     private fun cleanFiles() {
+        val baseDir = getExternalFilesDir(null)
 
-        val pathChannels = "/FingerDance/Songs/Channels"
+        val pathChannels = "FingerDance/Songs/Channels"
+
         val channels = listOf(
             "$pathChannels/03-SHORT CUT",
             "$pathChannels/04-REMIX",
@@ -1015,23 +903,167 @@ class MainActivity : AppCompatActivity(), Serializable {
         )
 
         channels.forEach { path ->
-            val dir = File(getExternalFilesDir(path)!!.absolutePath)
+            val dir = File(baseDir, path)
+
             if (dir.exists() && dir.isDirectory) {
-                deleteRecursive(dir)
+                dir.deleteRecursively()
             }
         }
 
         val imgsPads = listOf(
-            "/FingerDance/Themes/default/left_down.png",
-            "/FingerDance/Themes/default/left_up.png",
-            "/FingerDance/Themes/default/center.png",
-            "/FingerDance/Themes/default/right_up.png",
-            "/FingerDance/Themes/default/right_down.png"
+            "FingerDance/Themes/default/left_down.png",
+            "FingerDance/Themes/default/left_up.png",
+            "FingerDance/Themes/default/center.png",
+            "FingerDance/Themes/default/right_up.png",
+            "FingerDance/Themes/default/right_down.png"
         )
+
         imgsPads.forEach { path ->
-            val img = File(getExternalFilesDir(path)!!.absolutePath)
+            val img = File(baseDir, path)
             if (img.exists() && img.isFile) {
                 img.delete()
+            }
+        }
+    }
+
+    private suspend fun checkAppVersion() {
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val versionApp = packageInfo.versionName ?: ""
+        if (versionUpdate == versionApp) {
+            checkContentUpdate()
+        } else {
+            showForceUpdateDialog()
+        }
+    }
+
+    private suspend fun checkContentUpdate() {
+        if (numberUpdateLocal != numberUpdateFirebase) {
+            val downloadDialog = WebDownloadDialog(this)
+            downloadDialog.show("FingerDance-Update.zip")
+            val downloadedFile = iniciarDescargaUpdate { progress ->
+                runOnUiThread { downloadDialog.updateProgress(progress) }
+            }
+            downloadDialog.dismiss()
+
+            if (downloadedFile != null) {
+                unzipContent()
+            } else {
+                Toast.makeText(this, "Error en la descarga", Toast.LENGTH_LONG).show()
+                createMain(startOnline, paypalOn, mpOn)
+            }
+        } else {
+            createMain(startOnline, paypalOn, mpOn)
+        }
+    }
+
+    private suspend fun unzipContent() {
+        withContext(Dispatchers.IO) {
+            val unzip = Unzip(this@MainActivity)
+            val rutaZip = getExternalFilesDir("FingerDance.zip").toString()
+            unzip.performUnzip(rutaZip, "FingerDance.zip", false) // false = no reiniciar MainActivity
+            themes.edit().putString("numberUpdateLocal", numberUpdateFirebase).apply()
+            numberUpdateLocal = numberUpdateFirebase
+        }
+
+        createMain(startOnline, paypalOn, mpOn)
+    }
+
+    private fun showForceUpdateDialog() {
+        linearDownload.isVisible = true
+        linearDownload.bringToFront()
+
+        bg_download.visibility = View.VISIBLE
+        bg_download.setVideoURI(Uri.parse("android.resource://${packageName}/${R.raw.bg_download}"))
+        bg_download.setOnPreparedListener { mp ->
+            mp.isLooping = true
+            mp.start()
+        }
+        bg_download.start()
+        bg_download.setOnCompletionListener {
+            bg_download.start()
+        }
+
+        val builder = AlertDialog.Builder(this, R.style.TransparentDialog)
+        builder.setTitle("Actualizar Aplicación")
+        builder.setMessage("Se requiere una nueva versión de la aplicación.\n\nSe descargará e instalará automáticamente.")
+        builder.setCancelable(false)
+        builder.setPositiveButton("Descargar") { dialog, which ->
+            dialog.dismiss()
+            lifecycleScope.launch {
+                downloadAndInstallAPK()
+            }
+        }
+        builder.setNegativeButton("Salir") { dialog, which ->
+            cerrarApp()
+        }
+        builder.show()
+    }
+
+    private suspend fun downloadAndInstallAPK() {
+        val downloadDialog = WebDownloadDialog(this)
+        downloadDialog.show("FingerDance.apk")
+
+        val packageApp = iniciarDescargaDrive(
+            APK_ID_FILE,
+            "apk",
+            true
+        ) { progress ->
+            runOnUiThread { downloadDialog.updateProgress(progress) }
+        }
+
+        downloadDialog.dismiss()
+
+        if (packageApp != null) {
+            instalarAPK(File(getExternalFilesDir(null), "FingerDance.apk").absolutePath)
+        } else {
+            linearDownload.isVisible = false
+            lbDescargando.isVisible = false
+            progressBar.isVisible = false
+            Toast.makeText(this, "Error en la descarga del APK", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private suspend fun iniciarDescargaUpdate(progressCallback: (Int) -> Unit): File? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://www.googleapis.com/drive/v3/files/1D4sMohVuJ7aGOcSzNCijsdFGHUsAf-2R?alt=media&key=$API_KEY"
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+
+                if (connection.responseCode == 200) {
+                    val localFile = File(getExternalFilesDir(null), "FingerDance.zip")
+
+                    val inputStream = connection.inputStream
+                    val outputStream = FileOutputStream(localFile)
+                    val buffer = ByteArray(1024)
+                    var bytesRead: Int
+                    var totalBytes = 0
+                    val totalSize = connection.contentLength
+
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytes += bytesRead
+                        val progress = (100.0 * totalBytes / totalSize).toInt()
+                        progressCallback(progress)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    connection.disconnect()
+
+                    return@withContext localFile
+                } else {
+                    withContext(Dispatchers.Main) {
+                        showAlertFail(true)
+                    }
+                    return@withContext null
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showAlertFail(true)
+                }
+                return@withContext null
             }
         }
     }
@@ -1043,6 +1075,12 @@ class MainActivity : AppCompatActivity(), Serializable {
         val them = File(getExternalFilesDir(null), "FingerDance/Themes/$tema")
         if (!them.exists()) {
             tema ="default"
+        }
+
+        if(AppResources.arrayGrades.isNullOrEmpty()){
+            AppResources.arrayGrades = getGrades(rutaGrades)
+            AppResources.arrGradesDesc = getGradesDescription(gradeDescription)
+            AppResources.arrGradesDescAbrev = getGradesDescription(gradeDescriptionAbrev)
         }
 
         bgaPathSelectChannel = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4")!!.absolutePath
@@ -1549,21 +1587,43 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
+    private fun instalarAPK(filePath: String) {
+        try {
+            val file = File(filePath)
+            if (!file.exists()) {
+                Toast.makeText(this, "Archivo APK no encontrado", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                androidx.core.content.FileProvider.getUriForFile(
+                    this,
+                    "$packageName.provider",
+                    file
+                )
+            } else {
+                Uri.fromFile(file)
+            }
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+
+            startActivity(intent)
+
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error al instalar APK: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun cerrarApp() {
         val intent = Intent(Intent.ACTION_MAIN)
         intent.addCategory(Intent.CATEGORY_HOME)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(intent)
         exitProcess(0)
-    }
-
-    private fun deleteRecursive(fileOrDirectory: File) {
-        if (fileOrDirectory.isDirectory) {
-            fileOrDirectory.listFiles()?.forEach { child ->
-                deleteRecursive(child)
-            }
-        }
-        fileOrDirectory.delete()
     }
 
     private fun showPaySuscription(paypalOn: Boolean, mpOn: Boolean) {
@@ -1865,7 +1925,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun getAllowDevices(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase!!.getReference("freeDevices")
+        val databaseRef = firebaseDatabase.getReference("freeDevices")
         val listResult = arrayListOf<String>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -1882,23 +1942,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         })
     }
 
-    private fun getValidFolders(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase!!.getReference("version").child("validFolders")
-        val listResult = arrayListOf<String>()
-
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (folder in snapshot.children) {
-                    listResult.add(folder.value.toString())
-                }
-                callback(listResult)
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
-            }
-        })
-    }
 
     private fun getDeviceId(context: Context): String {
         return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)

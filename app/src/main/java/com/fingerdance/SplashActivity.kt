@@ -26,6 +26,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -37,17 +38,18 @@ class SplashActivity : AppCompatActivity() {
 
     // Data classes
     data class RemoteConfig(
-        val version: String,
         val flagActiveAllows: Boolean,
-        val numberUpdate: String,
-        val startOnline: Boolean,
-        val resetRegister: Boolean,
-        val paypalOn: Boolean,
         val mpOn: Boolean,
+        val numberUpdate: String,
+        val paypalOn: Boolean,
+        var rebootChannelsDrive: Boolean,
+        val resetRegister: Boolean,
+        val startOnline: Boolean,
+        val timeHalfDouble: Long,
+        val timeToPresiscion: Long,
         val timeAdjust: Long,
-        val timeHalfDouble: Int,
-        val timeToPresiscion: Int,
-        var rebootChannelsDrive: Boolean
+        var valiedFolders: List<String> = emptyList(),
+        val version: String,
     )
 
     private val MINIMUM_DISPLAY_TIME = 2000L
@@ -55,15 +57,21 @@ class SplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
-        val preferences = getPreferences(MODE_PRIVATE)
-        tema = preferences.getString("theme", "default").toString()
+
+        if (!isConnectedToInternet(this)) {
+            startActivity(Intent(this, NoInternetActivity::class.java))
+            finish()
+            overridePendingTransition(0, 0)
+            return
+        }
+
+        themes = getPreferences(MODE_PRIVATE)
+        firebaseDatabase = FirebaseDatabase.getInstance()
 
         val webView = findViewById<WebView>(R.id.webViewSplash)
         webView.loadUrl("file:///android_asset/splash.html")
 
         lifecycleScope.launch {
-
-            // Ejecuta carga y tiempo mínimo en paralelo
             val loadJob = async { loadAllDataForApp() }
             val minTimeJob = async { delay(MINIMUM_DISPLAY_TIME) }
 
@@ -78,130 +86,87 @@ class SplashActivity : AppCompatActivity() {
 
     private suspend fun loadAllDataForApp() {
         try {
+            getConfigToPreferences()
             val config = fetchRemoteConfigSuspend()
+            if(config != null){
+                setGlobalDataFromConfig(config)
+            }
+            getValidFolders { folders ->
+                validFolders = folders
+            }
             loadDriveDataSuspend(config)
 
-            if (config != null) {
-                saveConfigToPreferences(config)
+            val base = getExternalFilesDir(null)!!.absolutePath
+            rutaGrades = "$base/FingerDance/Themes/$tema/GraphicsStatics/dance_grade"
+            gradeDescription = "$base/FingerDance/Themes/$tema/GraphicsStatics/game_play/grade_description.png"
+            gradeDescriptionAbrev = "$base/FingerDance/Themes/$tema/GraphicsStatics/game_play/grade_description_abrev.png"
+
+            if (File(rutaGrades).exists() && File(gradeDescription).exists() && File(gradeDescriptionAbrev).exists()) {
+                coroutineScope {
+                    val gradesDeferred = async(Dispatchers.IO) { getGrades(rutaGrades) }
+                    val descDeferred = async(Dispatchers.IO) { getGradesDescription(gradeDescription) }
+                    val descAbrevDeferred = async(Dispatchers.IO) { getGradesDescription(gradeDescriptionAbrev) }
+                    AppResources.arrayGrades = gradesDeferred.await()
+                    AppResources.arrGradesDesc = descDeferred.await()
+                    AppResources.arrGradesDescAbrev = descAbrevDeferred.await()
+                }
             }
-
-            val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
-            val gradeDescription = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description.png"
-            val gradeDescriptionAbrev = "${rutaGrades.replace("dance_grade", "game_play")}/grade_description_abrev.png"
-
-            coroutineScope {
-                val gradesDeferred = async(Dispatchers.IO) { getGrades(rutaGrades) }
-                val descDeferred = async(Dispatchers.IO) { getGradesDescription(gradeDescription) }
-                val descAbrevDeferred = async(Dispatchers.IO) { getGradesDescription(gradeDescriptionAbrev) }
-
-                AppResources.arrayGrades = gradesDeferred.await()
-                AppResources.arrGradesDesc = descDeferred.await()
-                AppResources.arrGradesDescAbrev = descAbrevDeferred.await()
-            }
-
 
         } catch (e: Exception) {
             Log.e("SplashActivity", "Error: ${e.message}")
         }
     }
 
-    private fun getGrades(rutaGrades: String): ArrayList<Bitmap> {
-        val bit = BitmapFactory.decodeFile("$rutaGrades/evaluation_grades 1x8.png")
-        val cellWidth = bit.width / 2
-        val cellHeight = bit.height / 8
-
-        val gradesList = ArrayList<Bitmap>()
-
-        for (r in 0 until 8) {
-            for (c in 0 until 2) {
-                val x = c * cellWidth
-                val y = r * cellHeight
-                val original = Bitmap.createBitmap(bit, x, y, cellWidth, cellHeight)
-                val trimmed = trimTransparentEdges(original)
-                gradesList.add(trimmed)
-            }
-        }
-
-        return gradesList
+    private fun setGlobalDataFromConfig(config: RemoteConfig) {
+        flagActiveAllows = config.flagActiveAllows
+        mpOn = config.mpOn
+        numberUpdateFirebase = config.numberUpdate
+        resetRegister = config.resetRegister
+        paypalOn = config.paypalOn
+        startOnline = config.startOnline
+        TIME_ADJUST = config.timeAdjust
+        timeToPresiscion = config.timeToPresiscion
+        timeToPresiscionHD = config.timeHalfDouble
+        versionUpdate = config.version
     }
 
-    private fun getGradesDescription(rutaGrades: String): ArrayList<Bitmap> {
-        val bit = BitmapFactory.decodeFile(rutaGrades)
-        val cellWidth = bit.width
-        val cellHeight = bit.height / 8
+    private fun getValidFolders(callback: (ArrayList<String>) -> Unit) {
+        val databaseRef = firebaseDatabase.getReference("version").child("validFolders")
+        val listResult = arrayListOf<String>()
 
-        val gradesList = ArrayList<Bitmap>()
-
-        for (r in 0 until 8) {
-            val y = r * cellHeight
-            val original = Bitmap.createBitmap(bit, 0, y, cellWidth, cellHeight)
-            val trimmed = trimTransparentEdges(original)
-            gradesList.add(trimmed)
-        }
-
-        return gradesList
-    }
-
-    private fun trimTransparentEdges(source: Bitmap): Bitmap {
-
-        val width = source.width
-        val height = source.height
-
-        val pixels = IntArray(width * height)
-        source.copyPixelsToBuffer(IntBuffer.wrap(pixels))
-
-        var top = height
-        var left = width
-        var right = 0
-        var bottom = 0
-
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val alpha = pixels[y * width + x] ushr 24
-                if (alpha != 0) {
-                    if (x < left) left = x
-                    if (x > right) right = x
-                    if (y < top) top = y
-                    if (y > bottom) bottom = y
+        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (folder in snapshot.children) {
+                    listResult.add(folder.value.toString())
                 }
+                callback(listResult)
             }
-        }
 
-        if (right <= left || bottom <= top) return source
-
-        return Bitmap.createBitmap(
-            source,
-            left,
-            top,
-            right - left + 1,
-            bottom - top + 1
-        )
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer datos", error.toException())
+            }
+        })
     }
 
     private suspend fun fetchRemoteConfigSuspend(): RemoteConfig? =
         suspendCancellableCoroutine { continuation ->
-
-            val db = FirebaseDatabase.getInstance()
-            val ref = db.getReference("version")
-
+            val ref = firebaseDatabase.getReference("version")
             ref.addListenerForSingleValueEvent(object : ValueEventListener {
-
                 override fun onDataChange(snapshot: DataSnapshot) {
                     try {
                         val config = RemoteConfig(
-                            version = snapshot.child("value").getValue(String::class.java) ?: "",
                             flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false,
-                            numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java) ?: "",
-                            startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false,
-                            resetRegister = snapshot.child("resetRegister").getValue(Boolean::class.java) ?: false,
-                            paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false,
                             mpOn = snapshot.child("mpOn").getValue(Boolean::class.java) ?: false,
+                            numberUpdate = snapshot.child("numberUpdate").getValue(String::class.java) ?: "",
+                            paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false,
+                            rebootChannelsDrive = snapshot.child("rebootChannelsDrive").getValue(Boolean::class.java) ?: false,
+                            resetRegister = snapshot.child("resetRegister").getValue(Boolean::class.java) ?: false,
+                            startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false,
+                            timeHalfDouble = snapshot.child("timeHalfDouble").getValue(String::class.java)?.toLong() ?: 0L,
+                            timeToPresiscion = snapshot.child("timeToPresiscion").getValue(String::class.java)?.toLong() ?: 0L,
                             timeAdjust = snapshot.child("time_adjust").getValue(String::class.java)?.toLong() ?: 0L,
-                            timeHalfDouble = snapshot.child("timeHalfDouble").getValue(String::class.java)?.toInt() ?: 0,
-                            timeToPresiscion = snapshot.child("timeToPresiscion").getValue(Int::class.java) ?: 0,
-                            rebootChannelsDrive = snapshot.child("rebootChannelsDrive").getValue(Boolean::class.java) ?: false
+                            version = snapshot.child("value").getValue(String::class.java) ?: "",
                         )
-
                         continuation.resume(config, null)
 
                     } catch (e: Exception) {
@@ -282,8 +247,7 @@ class SplashActivity : AppCompatActivity() {
     private suspend fun getChannelsWithBgaDriveSuspend(config: RemoteConfig?) = coroutineScope {
         try {
             if(config!!.rebootChannelsDrive){
-                val preferences = getPreferences(MODE_PRIVATE)
-                preferences.edit().putString(KEY_CHANNELS_CACHE, "").apply()
+                themes.edit().putString(KEY_CHANNELS_CACHE, "").apply()
             }
             val cachedChannels = getChannelsCacheSuspend()
             if (cachedChannels != null) {
@@ -368,7 +332,7 @@ class SplashActivity : AppCompatActivity() {
                     "UTF-8"
                 )
 
-                val url = "https://www.googleapis.com/drive/v3/files?q=$query&fields=files(id,name,mimeType,size)&key=$API_KEY"
+                val url = "https://www.googleapis.com/drive/v3/files?q=$query&fields=nextPageToken,files(id,name,mimeType,size)&pageSize=300&key=$API_KEY"
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
 
@@ -389,8 +353,7 @@ class SplashActivity : AppCompatActivity() {
     private suspend fun getChannelsCacheSuspend(): List<MainActivity.ChannelsDrive>? {
         return withContext(Dispatchers.IO) {
             try {
-                val preferences = getPreferences(MODE_PRIVATE)
-                val json = preferences.getString(KEY_CHANNELS_CACHE, null)
+                val json = themes.getString(KEY_CHANNELS_CACHE, null)
                     ?: return@withContext null
 
                 if (json.isBlank()) return@withContext null
@@ -407,28 +370,32 @@ class SplashActivity : AppCompatActivity() {
     private suspend fun saveChannelsCacheSuspend(channels: List<MainActivity.ChannelsDrive>) {
         return withContext(Dispatchers.IO) {
             try {
-                val preferences = getPreferences(MODE_PRIVATE)
                 val json = Gson().toJson(channels)
-                preferences.edit().putString(KEY_CHANNELS_CACHE, json).apply()
+                themes.edit().putString(KEY_CHANNELS_CACHE, json).apply()
             } catch (e: Exception) {
                 Log.e("SplashActivity", "Error: ${e.message}")
             }
         }
     }
 
-    private fun saveConfigToPreferences(config: RemoteConfig) {
+    private fun getConfigToPreferences() {
         try {
-            val preferences = getPreferences(MODE_PRIVATE)
-            preferences.edit().apply {
-                putString("flagActiveAllows", config.flagActiveAllows.toString())
-                putLong("TIME_ADJUST", config.timeAdjust)
-                putInt("timeToPresiscion", config.timeToPresiscion)
-                putInt("timeToPresiscionHD", config.timeHalfDouble)
-                putBoolean("resetRegister", config.resetRegister)
-                putBoolean("paypalOn", config.paypalOn)
-                putBoolean("mpOn", config.mpOn)
-                apply()
-            }
+            tema = themes.getString("theme", "default").toString()
+            skinSelected = themes.getString("skin", "").toString()
+            speedSelected = themes.getString("speed", "").toString()
+            showPadB = themes.getInt("showPadB", 0)
+            hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
+            skinPad = themes.getString("skinPad", "default").toString()
+            alphaPadB = themes.getFloat("alphaPadB", 1f)
+            versionUpdate = themes.getString("versionUpdate", "0.0.0").toString()
+            valueOffset = themes.getLong("valueOffset", 0)
+            userName = themes.getString("userName","").toString()
+            isMidLine = themes.getBoolean("isMidLine",false)
+            isCounter = themes.getBoolean("isCounter",false)
+            breakSong = themes.getBoolean("breakSong",true)
+            typePadD = themes.getInt("typePadD", 0)
+            numberUpdateLocal = themes.getString("numberUpdateLocal", "0.0.0").toString()
+
         } catch (e: Exception) {
             Log.e("SplashActivity", "Error: ${e.message}")
         }
