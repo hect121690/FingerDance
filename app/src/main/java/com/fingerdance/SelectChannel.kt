@@ -49,9 +49,6 @@ private var up_sound : Int = 0
 
 private var press_start : Int = 0
 
-
-private lateinit var channel : String
-
 var listSongsChannelKsf: ArrayList<SongKsf> = ArrayList()
 
 private lateinit var recyclerChannels: ViewPager2
@@ -60,16 +57,6 @@ private lateinit var objectAnimator : ObjectAnimator
 
 private var animIndicator: Animation? = null
 private var position : Int = 0
-
-var currentChannel = ""
-var currentSong = ""
-var currentLevel = ""
-
-var positionCurrentChannel = 0
-
-var channelIndex = 0
-var songIndex = 0
-var levelIndex = 0
 
 class SelectChannel : AppCompatActivity() {
     private lateinit var lbNombreChannel: TextView
@@ -85,6 +72,7 @@ class SelectChannel : AppCompatActivity() {
     private lateinit var bgaSelectChannel: VideoView
     private lateinit var imageCircle : ImageView
     private var handlerSelectChannel = Handler(Looper.getMainLooper())
+    private var rutaBase = ""
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.repeatCount > 0) return true
@@ -108,6 +96,8 @@ class SelectChannel : AppCompatActivity() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         onWindowFocusChanged(true)
 
+        rutaBase = getExternalFilesDir(null)!!.absolutePath
+
         mediPlayer = MediaPlayer()
         soundSelecctChannel = MediaPlayer().apply {
             setAudioAttributes(
@@ -116,7 +106,7 @@ class SelectChannel : AppCompatActivity() {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
-            setDataSource(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)
+            setDataSource("$rutaBase/FingerDance/Themes/$tema/Sounds/channel_song.mp3")
             prepare()
             isLooping = true
             //start()
@@ -155,22 +145,22 @@ class SelectChannel : AppCompatActivity() {
 
             }
         }else{
-            linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
+            linearLayout.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")
         }
 
-        val filePathChannelmov = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_navegation.mp3")!!.absolutePath)
+        val filePathChannelmov = File("$rutaBase/FingerDance/Themes/$tema/Sounds/sound_navegation.mp3")
         val fileDecriptorChannelMov =FileInputStream(filePathChannelmov).fd
         channel_mov = soundPool.load(fileDecriptorChannelMov, 0, filePathChannelmov.length(),1)
 
-        val filePathChannelBack = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/exit_select_channel.ogg")!!.absolutePath)
+        val filePathChannelBack = File("$rutaBase/FingerDance/Themes/$tema/Sounds/exit_select_channel.ogg")
         val fileDecriptorChannelBack =FileInputStream(filePathChannelBack).fd
         channel_back = soundPool.load(fileDecriptorChannelBack, 0, filePathChannelBack.length(),1)
 
-        val filePathUpSound = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/up_sound.ogg")!!.absolutePath)
+        val filePathUpSound = File("$rutaBase/FingerDance/Themes/$tema/Sounds/up_sound.ogg")
         val fileDecriptorUpSound =FileInputStream(filePathUpSound).fd
         up_sound = soundPool.load(fileDecriptorUpSound, 0, filePathUpSound.length(), 1)
 
-        val filePathStart = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/start.ogg")!!.absolutePath)
+        val filePathStart = File("$rutaBase/FingerDance/Themes/$tema/Sounds/start.ogg")
         val fileDecriptorStart =FileInputStream(filePathStart).fd
         press_start = soundPool.load(fileDecriptorStart, 0, filePathStart.length(), 1)
 
@@ -179,24 +169,24 @@ class SelectChannel : AppCompatActivity() {
         nav_back_Izq = findViewById(R.id.nav_izq_gray)
         nav_back_der = findViewById(R.id.nav_der_gray)
         imgFloor = findViewById(R.id.floor)
-        val bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
+        val bmFloor = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/floor.png")
         imgFloor.setImageBitmap(bmFloor)
 
         indicatorIzq = findViewById(R.id.indicatorIzq)
-        val bmIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator.png")!!.absolutePath)
+        val bmIzq = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/indicator.png")
         indicatorIzq.setImageBitmap(bmIzq)
         indicatorIzq.rotation = 180f
 
         indicatorDer = findViewById(R.id.indicatorDer)
-        val bmDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator.png")!!.absolutePath)
+        val bmDer = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/indicator.png")
         indicatorDer.setImageBitmap(bmDer)
 
         imgAceptar = findViewById(R.id.imgAceptar)
-        val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
+        val bm = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")
         imgAceptar.setImageBitmap(bm)
 
         imageCircle = findViewById(R.id.imageCircle)
-        val bmCircle = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/preview_circle.png")!!.absolutePath)
+        val bmCircle = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/preview_circle.png")
         imageCircle.setImageBitmap(bmCircle)
         lbNombreChannel = findViewById(R.id.lbChannel)
         lbNombreChannel.isSelected = true
@@ -204,10 +194,10 @@ class SelectChannel : AppCompatActivity() {
         val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
         imageCircle.startAnimation(animatorSetRotation)
 
-        val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
-        val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
-        val arrowBackIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzq.png")!!.absolutePath)
-        val arrowBackDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDer.png")!!.absolutePath)
+        val arrowNavIzq = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")
+        val arrowNavDer = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")
+        val arrowBackIzq = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzq.png")
+        val arrowBackDer = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDer.png")
 
         val spriteWidth = arrowNavIzq.width / 2
         val spriteHeight = arrowNavIzq.height / 2
@@ -225,7 +215,7 @@ class SelectChannel : AppCompatActivity() {
 
         val ancho = (width * 0.6).toInt()
         val imageViewTheme = findViewById<ImageView>(R.id.imgChannel)
-        val bitTheme = BitmapFactory.decodeFile(this.getExternalFilesDir("/FingerDance/Themes/$tema/logo_theme.png")!!.absolutePath)
+        val bitTheme = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/logo_theme.png")
         imageViewTheme.setImageBitmap(bitTheme)
         imageViewTheme.layoutParams.width = ancho
 
@@ -501,13 +491,6 @@ class SelectChannel : AppCompatActivity() {
             bgaSelectChannel.setVideoPath(bgaPathSelectChannel)
             bgaSelectChannel.start()
         }
-        /*
-        handlerSelectChannel.postDelayed({
-            if(mediPlayer.isPlaying){
-                mediPlayer.stop()
-            }
-        }, 750L)
-        */
     }
 
     override fun onPause() {
@@ -543,27 +526,5 @@ class SelectChannel : AppCompatActivity() {
     }
 }
 
-data class FirstRank(
-    val nombre: String = "---------",
-    val puntaje: String = "0",
-    val grade: String = "?"
-)
 
-data class Nivel(
-    val nivel: String = "??",
-    val checkedValues: String = "",
-    val type: String = "",
-    val player: String = "",
-    val fisrtRank: ArrayList<FirstRank> = arrayListOf()
-)
-
-data class Cancion(
-    val cancion: String,
-    val niveles: ArrayList<Nivel>
-)
-
-data class Canal(
-    val canal: String,
-    val canciones: ArrayList<Cancion>
-)
 

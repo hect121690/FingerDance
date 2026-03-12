@@ -1393,12 +1393,58 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
         setupMidLineSwitch(view, thumbColor, trackColor)
         setupCounterSwitch(view, thumbColor, trackColor)
         setupBreakSongSwitch(view, thumbColor, trackColor)
+        setupHorizontalMode(view, thumbColor, trackColor)
         val holdProgress = view.findViewById<HoldProgressView>(R.id.holdProgress)
         holdProgress.layoutParams.width = (width * 0.5).toInt()
         holdProgress.onHoldComplete = {
             themes.edit().putString("allTunes", "").apply()
         }
         setupUpdateNoteSkins(view)
+    }
+
+    private fun setupHorizontalMode(view: View, thumbColor: ColorStateList, trackColor: ColorStateList){
+        val btnHorizontalMode = view.findViewById<SwitchCompat>(R.id.btnHorizontalMode)
+        btnHorizontalMode.layoutParams.width = (width / 10) * 8
+        btnHorizontalMode.isChecked = isHorizontalMode
+        btnHorizontalMode.thumbTintList = thumbColor
+        btnHorizontalMode.trackTintList = trackColor
+
+        btnHorizontalMode.setOnClickListener {
+            val dialog = AlertDialog.Builder(requireContext(), R.style.TransparentDialog).apply {
+                setTitle("Modo Horizontal")
+                setCancelable(false)
+            }
+            if (!isHorizontalMode) {
+                dialog.setMessage(R.string.MessageHorizontalModeOn)
+                dialog.setNegativeButton("Cancelar") { d, _ ->
+                    btnHorizontalMode.isChecked = false
+                    isHorizontalMode = btnHorizontalMode.isChecked
+                    themes.edit().putBoolean("isHorizontalMode", isHorizontalMode).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Activar") { d, _ ->
+                    btnHorizontalMode.isChecked = true
+                    isHorizontalMode = btnHorizontalMode.isChecked
+                    themes.edit().putBoolean("isHorizontalMode", isHorizontalMode).apply()
+                    d.dismiss()
+                }
+            } else {
+                dialog.setMessage(R.string.MessageHorizontalModeOff)
+                dialog.setNegativeButton("Cancelar") { d, _ ->
+                    btnHorizontalMode.isChecked = true
+                    isHorizontalMode = btnHorizontalMode.isChecked
+                    themes.edit().putBoolean("isHorizontalMode", isHorizontalMode).apply()
+                    d.dismiss()
+                }
+                dialog.setPositiveButton("Desactivar") { d, _ ->
+                    btnHorizontalMode.isChecked = false
+                    isHorizontalMode = btnHorizontalMode.isChecked
+                    themes.edit().putBoolean("isHorizontalMode", isHorizontalMode).apply()
+                    d.dismiss()
+                }
+            }
+            dialog.show()
+        }
     }
 
     private fun setupBreakSongSwitch(view: View, thumbColor: ColorStateList, trackColor: ColorStateList) {

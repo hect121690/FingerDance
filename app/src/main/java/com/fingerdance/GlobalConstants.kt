@@ -41,6 +41,17 @@ var padPositionsHD = listOf<Array<Float>>()
 var touchAreas = listOf<Array<Float>>()
 var colWidth = 0f
 
+var currentChannel = ""
+var currentSong = ""
+var currentLevel = ""
+
+var positionCurrentChannel = 0
+
+var channelIndex = 0
+var songIndex = 0
+var levelIndex = 0
+var oldValue: Int = 0
+
 // ========== VARIABLES GLOBALES - VERSION ==========
 var flagActiveAllows = false
 var numberUpdateFirebase = ""
@@ -59,6 +70,7 @@ lateinit var themes : SharedPreferences
 var isMidLine = false
 var isCounter = false
 var breakSong = true
+var isHorizontalMode = false
 var skinSelected : String = ""
 var speedSelected : String = ""
 var valueOffset = 0L
@@ -134,7 +146,7 @@ fun trimTransparentEdges(source: Bitmap): Bitmap {
     val height = source.height
 
     val pixels = IntArray(width * height)
-    source.copyPixelsToBuffer(IntBuffer.wrap(pixels))
+    source.getPixels(pixels, 0, width, 0, 0, width, height)
 
     var top = height
     var left = width
@@ -142,8 +154,11 @@ fun trimTransparentEdges(source: Bitmap): Bitmap {
     var bottom = 0
 
     for (y in 0 until height) {
+        val offset = y * width
+
         for (x in 0 until width) {
-            val alpha = pixels[y * width + x] ushr 24
+            val alpha = pixels[offset + x] ushr 24
+
             if (alpha != 0) {
                 if (x < left) left = x
                 if (x > right) right = x
@@ -163,3 +178,27 @@ fun trimTransparentEdges(source: Bitmap): Bitmap {
         bottom - top + 1
     )
 }
+
+data class FirstRank(
+    val nombre: String = "---------",
+    val puntaje: String = "0",
+    val grade: String = "?"
+)
+
+data class Nivel(
+    val nivel: String = "??",
+    val checkedValues: String = "",
+    val type: String = "",
+    val player: String = "",
+    val fisrtRank: ArrayList<FirstRank> = arrayListOf()
+)
+
+data class Cancion(
+    val cancion: String,
+    val niveles: ArrayList<Nivel>
+)
+
+data class Canal(
+    val canal: String,
+    val canciones: ArrayList<Cancion>
+)

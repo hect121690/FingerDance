@@ -66,7 +66,6 @@ private lateinit var indicatorIzq: ImageView
 private lateinit var indicatorDer: ImageView
 
 private lateinit var imageCircle : ImageView
-private lateinit var channel : String
 
 //var listSongsChannel: ArrayList<Song> = ArrayList()
 var listSongsChannelKsfOnline: ArrayList<SongKsf> = ArrayList()

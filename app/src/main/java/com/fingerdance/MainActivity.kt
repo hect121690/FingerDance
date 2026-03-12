@@ -136,6 +136,8 @@ lateinit var mockListChannels : ArrayList<Canal>
 
 private var bmLogo : Bitmap? = null
 
+lateinit var channel : String
+
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
     private lateinit var bg_download : VideoView
@@ -1385,7 +1387,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         loadingLayout.visibility = View.INVISIBLE
-        val intent = Intent(this@MainActivity, SelectChannel::class.java)
+        val intent = Intent(this@MainActivity, if(isHorizontalMode) SelectChannelHorizontal::class.java else SelectChannel::class.java)
         startActivity(intent)
         mediaPlayerMain.pause()
         soundPlayer!!.pause()

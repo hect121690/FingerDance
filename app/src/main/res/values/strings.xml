@@ -67,9 +67,14 @@
                                     \n
                                     Desactivar?
     </string>
-    <string name="MessageBreakSongOn">-Al activar esta opción la cancion se cortara si la barra de vida llega a 0\n
+    <string name="MessageBreakSongOn">Al activar esta opción la cancion se cortara si la barra de vida llega a 0\n
                                     \n
                                     Activar?
+    </string>
+
+    <string name="MessageHorizontalModeOff">Desactivar modo horizontal?\n
+    </string>
+    <string name="MessageHorizontalModeOn">-Activar modo horizontal?\n
     </string>
 
     <string name="PaySuscriptionInfo">⚠️ AVISO IMPORTANTE ⚠️\n\nTu suscripción mensual no existe ó ha expirado.\n\n

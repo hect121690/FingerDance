@@ -13692,34 +13692,6 @@
         ]
       },
       {
-        "cancion": "Gargoyle (Full Song)",
-        "niveles": [
-          {
-            "checkedValues": "3617|468|2836678",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "23",
-            "player": "A",
-            "type": "NORMAL"
-          }
-        ]
-      },
-      {
         "cancion": "Jonathan\u0027s Dream (Full Song)",
         "niveles": [
           {

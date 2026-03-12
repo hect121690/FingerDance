@@ -105,7 +105,6 @@ private lateinit var recyclerCommandsValues: ViewPager2
 private lateinit var listItemsKsf: ArrayList<SongKsf>
 
 private var middle: Int = 0
-private var oldValue: Int = 0
 private var oldValueCommand: Int = 0
 private var oldValueCommandValues: Int = 0
 private var ultimoLv: Int = 0

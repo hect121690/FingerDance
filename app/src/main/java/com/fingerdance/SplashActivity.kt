@@ -65,7 +65,7 @@ class SplashActivity : AppCompatActivity() {
             return
         }
 
-        themes = getPreferences(MODE_PRIVATE)
+        //themes = getPreferences(MODE_PRIVATE)
         firebaseDatabase = FirebaseDatabase.getInstance()
 
         val webView = findViewById<WebView>(R.id.webViewSplash)
@@ -395,6 +395,7 @@ class SplashActivity : AppCompatActivity() {
             breakSong = themes.getBoolean("breakSong",true)
             typePadD = themes.getInt("typePadD", 0)
             numberUpdateLocal = themes.getString("numberUpdateLocal", "0.0.0").toString()
+            isHorizontalMode = themes.getBoolean("isHorizontalMode", false)
 
         } catch (e: Exception) {
             Log.e("SplashActivity", "Error: ${e.message}")
