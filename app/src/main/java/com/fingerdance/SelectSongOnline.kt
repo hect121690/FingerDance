@@ -105,8 +105,6 @@ private lateinit var recyclerCommandsValues: ViewPager2
 private lateinit var listItemsKsf: ArrayList<SongKsf>
 
 private var middle: Int = 0
-private var oldValueCommand: Int = 0
-private var oldValueCommandValues: Int = 0
 private var ultimoLv: Int = 0
 
 private var animPressNav: Animation? = null
@@ -128,12 +126,9 @@ private val startTimeMs = 30000
 private var timer: CountDownTimer? = null
 private var isTimerRunning = false
 
-private var ready = 0
-
 private lateinit var overlayBG: View
 private lateinit var btnAddPreview: Button
 private lateinit var btnAddBga: Button
-private var currentPathSong: String = ""
 
 private lateinit var difficultySelected : Bitmap
 private lateinit var difficultySelectedHD : Bitmap
@@ -337,9 +332,6 @@ class SelectSongOnline : AppCompatActivity() {
             val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
             imageCircle.startAnimation(animatorSetRotation)
 
-            bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
-            bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
-
             imgSelected.layoutParams.height = width / 3
             imgSelected.layoutParams.width = width / 3
             val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select);
@@ -352,22 +344,17 @@ class SelectSongOnline : AppCompatActivity() {
 
             video_fondo = findViewById(R.id.videoPreview)
 
-            val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
-            val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
-            val arrowBackIzqColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzqColor.png")!!.absolutePath)
-            val arrowBackDerColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDerColor.png")!!.absolutePath)
-
-            val spriteWidth = arrowNavIzq.width / 2
-            val spriteHeight = arrowNavIzq.height / 2
+            val spriteWidth = AppResources.arrowNavIzq.width / 2
+            val spriteHeight = AppResources.arrowNavIzq.height / 2
             val frameDuration = 800
 
-            val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight, frameDuration)
+            val navIzq = animaNavs(AppResources.arrowNavIzq, spriteWidth, spriteHeight, frameDuration)
             navIzq.start()
-            val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight, frameDuration)
+            val navDer = animaNavs(AppResources.arrowNavDer, spriteWidth, spriteHeight, frameDuration)
             navDer.start()
-            val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight, frameDuration)
+            val navBackIzq = animaNavs(AppResources.arrowBackIzqColor, spriteWidth, spriteHeight, frameDuration)
             navBackIzq.start()
-            val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight, frameDuration)
+            val navBackDer = animaNavs(AppResources.arrowBackDerColor, spriteWidth, spriteHeight, frameDuration)
             navBackDer.start()
 
             nav_izq.setImageDrawable(navIzq)
@@ -1409,17 +1396,8 @@ class SelectSongOnline : AppCompatActivity() {
 
     private fun createSongListKsf(): ArrayList<SongKsf> {
         val arraylist=ArrayList<SongKsf>()
-        for(index in 0 until listSongsChannelKsf.size) {
-            arraylist.add(SongKsf(
-                listSongsChannelKsf[index].title,
-                listSongsChannelKsf[index].artist,
-                listSongsChannelKsf[index].displayBpm,
-                listSongsChannelKsf[index].rutaDisc,
-                listSongsChannelKsf[index].rutaTitle,
-                listSongsChannelKsf[index].rutaSong,
-                listSongsChannelKsf[index].rutaPreview,
-                listSongsChannelKsf[index].rutaBGA,
-                listSongsChannelKsf[index].listKsf))
+        for(index in 0 until AppResources.listSongsChannelKsf.size) {
+            arraylist.add(AppResources.listSongsChannelKsf[index])
         }
 
         if(arraylist.size > 50){

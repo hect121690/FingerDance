@@ -91,12 +91,6 @@ var width: Int = 0
 var bgaOff : String = ""
 val gson = Gson()
 
-lateinit var bitmapNumber : Bitmap
-lateinit var bitmapNumberMiss : Bitmap
-
-lateinit var numberBitmaps: List<Bitmap>
-lateinit var numberBitmapsMiss: List<Bitmap>
-
 lateinit var mediPlayer : MediaPlayer
 lateinit var playerSong: PlayerSong
 var positionActualLvs: Int = 0
@@ -110,6 +104,8 @@ lateinit var mediaPlayer : MediaPlayer
 var ruta = ""
 var ksf = KsfProccess()
 var ksfHD = KsfProccessHD()
+
+var rutaBase = ""
 
 lateinit var salaRef: DatabaseReference
 lateinit var activeSala : Sala
@@ -229,13 +225,19 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if(isHorizontalMode){
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+        }else{
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        }
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler(this))
         setContentView(R.layout.activity_main)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        //setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         gestureDetector = GestureDetector(this, gestureListener)
@@ -253,6 +255,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         if(tema == ""){
             tema ="default"
         }
+
+        rutaBase = getExternalFilesDir(null)!!.absolutePath
 
         deviceIdFind = getDeviceId(this@MainActivity)
 
@@ -311,9 +315,25 @@ class MainActivity : AppCompatActivity(), Serializable {
             arrayOf(0f,0f)
         )
 
-        //themes.edit().putString("allTunes", "").apply()
-        //themes.edit().putString("efects", "").apply()
-        //themes.edit().putString("userName", "").apply()
+        medidaFlechasHorizontal = width / 8f
+        //height = 2436 width = 1080
+        heightBtnsHorizontal = width / 3.35f               //323
+        widthBtnsHorizontal = height * 0.115f               //248
+        val initPadB = height - (widthBtnsHorizontal * 3f)
+
+        padPositionsHorizontal = listOf(
+            arrayOf(0f, width - heightBtnsHorizontal), // leftDown
+            arrayOf(0f, (medidaFlechasHorizontal * 2)), // leftUp
+            arrayOf(widthBtnsHorizontal, width - (heightBtnsHorizontal * 1.75f)), // center
+            arrayOf((widthBtnsHorizontal * 2f), (medidaFlechasHorizontal * 2)), // rightUp
+            arrayOf((widthBtnsHorizontal * 2f), width - heightBtnsHorizontal),  // rightDown
+
+            arrayOf(initPadB, width - heightBtnsHorizontal), // leftDown
+            arrayOf(initPadB, (medidaFlechasHorizontal * 2)), // leftUp
+            arrayOf(initPadB + widthBtnsHorizontal, width - (heightBtnsHorizontal * 1.75f)), // center
+            arrayOf(initPadB + (widthBtnsHorizontal * 2f), (medidaFlechasHorizontal * 2)), // rightUp
+            arrayOf(initPadB + (widthBtnsHorizontal * 2f), width - heightBtnsHorizontal)  // rightDown
+        )
 
         linearDownload = findViewById(R.id.linearDownload)
 
@@ -1085,34 +1105,59 @@ class MainActivity : AppCompatActivity(), Serializable {
             AppResources.arrGradesDescAbrev = getGradesDescription(gradeDescriptionAbrev)
         }
 
-        bgaPathSelectChannel = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4")!!.absolutePath
-        bgaPathSelectSong = getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4")!!.absolutePath
+        bgaPathSelectChannel = "$rutaBase/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4"
+        bgaPathSelectSong = "$rutaBase/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4"
 
         if(File(bgaPathSelectChannel).isDirectory){
             File(bgaPathSelectChannel).delete()
         }
 
-        btnPlay.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play.png").toString())
-        btnPlayOnline.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/play_online.png").toString())
+        btnPlay.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/play.png")
+        btnPlayOnline.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/play_online.png")
 
         arrayGrades = AppResources.arrayGrades ?: arrayListOf()
         arrGradesDesc = AppResources.arrGradesDesc ?: arrayListOf()
         arrGradesDescAbrev = AppResources.arrGradesDescAbrev ?: arrayListOf()
 
-        if(!startOnline){
-            btnPlayOnline.visibility = View.GONE
-            val lpOptions = btnOptions.layoutParams as ConstraintLayout.LayoutParams
-            lpOptions.verticalBias = 0.55f
-            btnOptions.layoutParams = lpOptions
+        val lpPlay = btnPlay.layoutParams as ConstraintLayout.LayoutParams
+        val lpPlayOnline = btnPlayOnline.layoutParams as ConstraintLayout.LayoutParams
+        val lpOptions = btnOptions.layoutParams as ConstraintLayout.LayoutParams
+        val lpExit = btnExit.layoutParams as ConstraintLayout.LayoutParams
 
-            val lpExit = btnExit.layoutParams as ConstraintLayout.LayoutParams
-            lpExit.verticalBias = 0.70f
-            btnExit.layoutParams = lpExit
+        if (isHorizontalMode) {
+            lpPlay.verticalBias = 0.20f
+            lpPlayOnline.verticalBias = 0.45f
+            lpOptions.verticalBias = 0.70f
+            lpExit.verticalBias = 0.95f
+        } else {
+            lpPlay.verticalBias = 0.40f
+            lpPlayOnline.verticalBias = 0.55f
+            lpOptions.verticalBias = 0.70f
+            lpExit.verticalBias = 0.85f
         }
-        btnOptions.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/options.png").toString())
-        btnExit.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/exit.png").toString())
 
-        val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg").toString())))
+        if (!startOnline) {
+            btnPlayOnline.visibility = View.GONE
+            if (isHorizontalMode) {
+                lpPlay.verticalBias = 0.25f
+                lpOptions.verticalBias = 0.60f
+                lpExit.verticalBias = 0.95f
+            } else {
+                lpPlay.verticalBias = 0.40f
+                lpOptions.verticalBias = 0.55f
+                lpExit.verticalBias = 0.70f
+            }
+        }
+
+        btnPlay.layoutParams = lpPlay
+        btnPlayOnline.layoutParams = lpPlayOnline
+        btnOptions.layoutParams = lpOptions
+        btnExit.layoutParams = lpExit
+
+        btnOptions.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/options.png")
+        btnExit.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/exit.png")
+
+        val sound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File("$rutaBase/FingerDance/Themes/$tema/Sounds/screen_title_music.ogg")))
         soundPlayer = sound
         soundPlayer!!.isLooping = true
         soundPlayer!!.start()
@@ -1120,10 +1165,16 @@ class MainActivity : AppCompatActivity(), Serializable {
         animLogo = findViewById(R.id.imgLogo)
         //animLogo.layoutParams.height = decimoHeigtn * 2
         animLogo.layoutParams.width = width / 2
-        bmLogo = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/logo.png").toString())
+        if(isHorizontalMode){
+            animLogo.visibility = View.INVISIBLE
+        }else{
+            animar()
+        }
+
+        bmLogo = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/logo.png")
         animLogo.setImageBitmap(bmLogo)
-        bgaOff = getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
-        video_fondo.setVideoPath(getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/fondo.mp4").toString())
+        bgaOff = "$rutaBase/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4"
+        video_fondo.setVideoPath("$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.mp4")
 
         video_fondo.start()
         video_fondo.setOnPreparedListener{ mp ->
@@ -1133,8 +1184,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             mediaPlayerMain.seekTo(currentVideoPosition)
             mediaPlayerMain.start()
         }
-        animar()
-        val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/hitme.mp3").toString())))
+
+        val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File("$rutaBase/FingerDance/Themes/$tema/Sounds/hitme.mp3")))
         val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
 
         animLogo.setOnLongClickListener {
@@ -1354,7 +1405,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-
             listChannels = ls.getChannels(this@MainActivity)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
@@ -1376,21 +1426,27 @@ class MainActivity : AppCompatActivity(), Serializable {
             listFavorites = gson.fromJson(jsonListFavoites, object : TypeToken<ArrayList<SongKsf>>() {}.type)
             val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
             channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCancionesKsf = listFavorites)
-            listChannels.add(channelFavorites)
-            listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+            if(listFavorites.isNotEmpty()){
+                listChannels.add(channelFavorites)
+                listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+            }
         }else{
             listFavorites = arrayListOf()
             val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
             channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCancionesKsf = listFavorites)
-            listChannels.add(channelFavorites)
-            listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+            if(listFavorites.isNotEmpty()){
+                listChannels.add(channelFavorites)
+                listChannels.sortBy { it.nombre.substringBefore("-").trim() }
+            }
         }
 
         loadingLayout.visibility = View.INVISIBLE
-        val intent = Intent(this@MainActivity, if(isHorizontalMode) SelectChannelHorizontal::class.java else SelectChannel::class.java)
-        startActivity(intent)
         mediaPlayerMain.pause()
         soundPlayer!!.pause()
+        //val intent = Intent(this@MainActivity, if(isHorizontalMode) SelectChannelHorizontal::class.java else SelectChannel::class.java)
+        val intent = Intent(this@MainActivity, LoadResourcesActivity::class.java)
+        startActivity(intent)
+
         btnPlay.isEnabled = true
     }
 

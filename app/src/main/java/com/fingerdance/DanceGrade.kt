@@ -97,7 +97,12 @@ class DanceGrade : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dance_grade)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+
+        if(isHorizontalMode){
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+        }else {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        }
         onWindowFocusChanged(true)
 
         DGContext = this
@@ -578,7 +583,7 @@ class DanceGrade : AppCompatActivity() {
         lbBestScoreDG: TextView
     ) {
         var nameChannels = if (currentChannel == "06-FAVORITES") {
-            listSongsChannelKsf.find { it.title == currentSong }?.channel.toString()
+            AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel.toString()
         } else {
             currentChannel
         }

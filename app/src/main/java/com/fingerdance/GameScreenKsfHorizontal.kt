@@ -14,7 +14,7 @@ import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import kotlin.math.abs
 
-open class GameScreenKsf(activity: GameScreenActivity) : Screen {
+open class GameScreenKsfHorizontal(activity: GameScreenActivityHorizontal) : Screen {
     val a = activity
 
     private lateinit var batch: SpriteBatch
@@ -62,14 +62,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     private lateinit var padB : TextureRegion
     lateinit var spritePadB: Sprite
 
-    lateinit var padLefDownC : Array<TextureRegion>
-    lateinit var padLeftUpC : Array<TextureRegion>
-    lateinit var padCenterC : Array<TextureRegion>
-    lateinit var padRightUpC : Array<TextureRegion>
-    lateinit var padRightDownC : Array<TextureRegion>
-
-    lateinit var arrPadsC : Array<Array<TextureRegion>>
-
     private val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
     private val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
     private val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
@@ -89,8 +81,9 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
     private var isPaused = false
     lateinit var camera : OrthographicCamera
-    lateinit var player: Player
-    private val posYpadB = height.toFloat() - (width.toFloat() * 1.1f)
+    lateinit var player: PlayerHorizontal
+    private val posYpadB = (medidaFlechasHorizontal * 2)
+    private val posXpadRight = height - (widthBtnsHorizontal * 3)
 
     private var timer = 0f
     private var showOverlay = false
@@ -98,20 +91,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
-    val maxWidth = medidaFlechas * 5f
-    val maxlHeight = medidaFlechas / 2f
+    val maxWidth = medidaFlechasHorizontal * 7f
+    val maxlHeight = medidaFlechasHorizontal / 2f
 
     val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
-
-    data class PadPositionC(val x: Float, val y: Float, val size: Float)
-    val padPositionsC = listOf(
-        PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.61f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.063f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.283f, width.toFloat() * 1.334f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.063f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.61f, medidaFlechas * 3f)
-    )
+    val posYGauje = medidaFlechasHorizontal / 4f
 
     init {
         if(showPadB == 1){
@@ -121,13 +106,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/BG.png")))
             padB.flip(false, true)
 
-            padLefDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownLeft.png")))
-            padLeftUpC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/UpLeft.png")))
-            padCenterC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/Center.png")))
-            padRightUpC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/UpRight.png")))
-            padRightDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownRight.png")))
-
-            arrPadsC = arrayOf(padLefDownC, padLeftUpC, padCenterC, padRightUpC, padRightDownC)
         }else if(showPadB == 3){
             when(typePadD){
                 0 -> {
@@ -150,12 +128,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
     override fun show() {
         batch = SpriteBatch()
         stage = Stage(ScreenViewport())
-        camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-        camera.setToOrtho(true)
+        camera = OrthographicCamera()
+        camera.setToOrtho(true, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
 
-        player = Player(batch, a)
+        player = PlayerHorizontal(batch, a)
         rithymAnim = (60f / displayBPM)
-        targetTop = medidaFlechas
+        targetTop = medidaFlechasHorizontal
 
         if(showPadB == 0){
             padLefDown.flip(false, true)
@@ -195,10 +173,10 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             player.render(currentTime)
 
             barBlack.setSize(maxWidth, maxlHeight)
-            barBlack.setPosition(medidaFlechas, 0f)
+            barBlack.setPosition(medidaFlechasHorizontal, posYGauje)
 
             barRed.setSize(maxWidth, maxlHeight)
-            barRed.setPosition(medidaFlechas, 0f)
+            barRed.setPosition(medidaFlechasHorizontal, posYGauje)
 
             batch.end()
             stage.act(delta)
@@ -234,68 +212,65 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         return frames
     }
 
-    private fun getPadC(texture: Texture) : Array<TextureRegion>{
-        val tmp = TextureRegion.split(texture, texture.width, texture.height / 6)
-        val frames = arrayOf(
-            tmp[0][0],
-            tmp[1][0],
-            tmp[2][0],
-            tmp[3][0],
-            tmp[4][0],
-            tmp[5][0],
-        )
-        frames[0].flip(false, true)
-        frames[1].flip(false, true)
-        frames[2].flip(false, true)
-        frames[3].flip(false, true)
-        frames[4].flip(false, true)
-        frames[5].flip(false, true)
-        return frames
-    }
-
     private fun showBgPads() {
         if(showPadB == 0){
             if(!hideImagesPadA){
+                batch.draw(padLefDown, padPositionsHorizontal[0][0], padPositionsHorizontal[0][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padLeftUp, padPositionsHorizontal[1][0], padPositionsHorizontal[1][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padCenter, padPositionsHorizontal[2][0], padPositionsHorizontal[2][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightUp, padPositionsHorizontal[3][0], padPositionsHorizontal[3][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightDown, padPositionsHorizontal[4][0], padPositionsHorizontal[4][1], widthBtnsHorizontal, heightBtnsHorizontal)
 
-                batch.draw(padLefDown, padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
-                batch.draw(padLeftUp, padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
-                batch.draw(padCenter, padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
-                batch.draw(padRightUp, padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
-                batch.draw(padRightDown, padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
+                batch.draw(padLefDown, padPositionsHorizontal[5][0], padPositionsHorizontal[5][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padLeftUp, padPositionsHorizontal[6][0], padPositionsHorizontal[6][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padCenter, padPositionsHorizontal[7][0], padPositionsHorizontal[7][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightUp, padPositionsHorizontal[8][0], padPositionsHorizontal[8][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightDown, padPositionsHorizontal[9][0], padPositionsHorizontal[9][1], widthBtnsHorizontal, heightBtnsHorizontal)
+
+
             }
         }else if (showPadB == 1){
             spritePadB.setAlpha(alphaPadB)
-            spritePadB.setBounds(0f, posYpadB, width.toFloat(), width.toFloat() * 1.1f)
+            // IZQUIERDA
+            spritePadB.setBounds(0f, posYpadB, widthBtnsHorizontal * 3, width - (medidaFlechasHorizontal * 2))
             spritePadB.draw(batch)
-        }else if (showPadB == 2){
-            batch.draw(padB,width.toFloat() * 0.05f,  width.toFloat() * 1.1f, width.toFloat() * 0.9f, width.toFloat() * 0.9f)
+
+            // DERECHA
+            spritePadB.setBounds(posXpadRight, posYpadB, widthBtnsHorizontal * 3, width - (medidaFlechasHorizontal * 2))
+            spritePadB.draw(batch)
         }else if (showPadB == 3){
-            batch.draw(arrayPad4Bg[0], padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[1], padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[2], padPositions[2][0], padPositions[2][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[3], padPositions[3][0], padPositions[3][1], widthBtns, heightBtns)
-            batch.draw(arrayPad4Bg[4], padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
+            batch.draw(arrayPad4Bg[0], padPositionsHorizontal[0][0], padPositionsHorizontal[0][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[1], padPositionsHorizontal[1][0], padPositionsHorizontal[1][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[2], padPositionsHorizontal[2][0], padPositionsHorizontal[2][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[3], padPositionsHorizontal[3][0], padPositionsHorizontal[3][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[4], padPositionsHorizontal[4][0], padPositionsHorizontal[4][1], widthBtnsHorizontal, heightBtnsHorizontal)
+
+            batch.draw(arrayPad4Bg[0], padPositionsHorizontal[5][0], padPositionsHorizontal[5][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[1], padPositionsHorizontal[6][0], padPositionsHorizontal[6][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[2], padPositionsHorizontal[7][0], padPositionsHorizontal[7][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[3], padPositionsHorizontal[8][0], padPositionsHorizontal[8][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[4], padPositionsHorizontal[9][0], padPositionsHorizontal[9][1], widthBtnsHorizontal, heightBtnsHorizontal)
         }
     }
     private var aBatch = 0
     private var bBatch = 0
 
     private fun drawRecepts(luaReceptOffsetX: Float) {
-        batch.draw(recept0Frames[0], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept1Frames[0], (medidaFlechas * 2) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept2Frames[0], (medidaFlechas * 3) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept3Frames[0], (medidaFlechas * 4) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept4Frames[0], (medidaFlechas * 5) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept0Frames[0], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept1Frames[0], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept2Frames[0], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept3Frames[0], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept4Frames[0], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(recept0Frames[1], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)    
-            batch.draw(recept1Frames[1], (medidaFlechas * 2) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept2Frames[1], (medidaFlechas * 3) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept3Frames[1], (medidaFlechas * 4) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept4Frames[1], (medidaFlechas * 5) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept0Frames[1], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept1Frames[1], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept2Frames[1], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept3Frames[1], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept4Frames[1], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
@@ -313,11 +288,11 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         }
 
         val bases = floatArrayOf(
-            medidaFlechas * 1f,
-            medidaFlechas * 2f,
-            medidaFlechas * 3f,
-            medidaFlechas * 4f,
-            medidaFlechas * 5f
+            medidaFlechasHorizontal * 1f,
+            medidaFlechasHorizontal * 2f,
+            medidaFlechasHorizontal * 3f,
+            medidaFlechasHorizontal * 4f,
+            medidaFlechasHorizontal * 5f
         )
 
         val frames = arrayOf(
@@ -329,7 +304,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
         )
 
         // 🎯 pivote = centro de las 5 columnas
-        val centerX = medidaFlechas * 3f + medidaFlechas * 0.5f
+        val centerX = medidaFlechasHorizontal * 3f + medidaFlechasHorizontal * 0.5f
 
         val cosA = MathUtils.cos(ySpinAngle)
         val sinA = MathUtils.sin(ySpinAngle)
@@ -338,7 +313,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
         for (i in 0 until 5) {
 
-            val baseCenter = bases[i] + medidaFlechas * 0.5f
+            val baseCenter = bases[i] + medidaFlechasHorizontal * 0.5f
             val xLocal = baseCenter - centerX
 
             val depth = xLocal * sinA
@@ -348,12 +323,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
             batch.draw(
                 frames[i][0],
-                projCenter - medidaFlechas/2f,
+                projCenter - medidaFlechasHorizontal/2f,
                 targetTop,
-                medidaFlechas/2f,
-                medidaFlechas/2f,
-                medidaFlechas,
-                medidaFlechas,
+                medidaFlechasHorizontal/2f,
+                medidaFlechasHorizontal/2f,
+                medidaFlechasHorizontal,
+                medidaFlechasHorizontal,
                 scaleX,
                 1f,
                 0f
@@ -370,7 +345,7 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
             for (i in 0 until 5) {
 
-                val baseCenter = bases[i] + medidaFlechas * 0.5f
+                val baseCenter = bases[i] + medidaFlechasHorizontal * 0.5f
                 val xLocal = baseCenter - centerX
 
                 val depth = xLocal * sinA
@@ -380,12 +355,12 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
                 batch.draw(
                     frames[i][1],
-                    projCenter - medidaFlechas/2f,
+                    projCenter - medidaFlechasHorizontal/2f,
                     targetTop,
-                    medidaFlechas/2f,
-                    medidaFlechas/2f,
-                    medidaFlechas,
-                    medidaFlechas,
+                    medidaFlechasHorizontal/2f,
+                    medidaFlechasHorizontal/2f,
+                    medidaFlechasHorizontal,
+                    medidaFlechasHorizontal,
                     scaleX,
                     1f,
                     0f
@@ -482,10 +457,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
 
         if (showPadB == 1 || showPadB == 2) {
             padB.texture.dispose()
-        }
-
-        if (showPadB == 2) {
-            arrPadsC.forEach { it[0].texture.dispose() }
         }
 
         if (showPadB == 3) {

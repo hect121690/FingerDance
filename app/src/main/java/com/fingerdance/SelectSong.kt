@@ -82,6 +82,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import androidx.core.graphics.scale
+import androidx.core.net.toUri
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -96,19 +97,12 @@ private lateinit var recyclerCommandsValues: ViewPager2
 private lateinit var listItemsKsf: ArrayList<SongKsf>
 
 private var middle: Int = 0
-private var oldValueCommand: Int = 0
-private var oldValueCommandValues: Int = 0
 
-private var animPressNav: Animation? = null
-private var animNameSong: Animation? = null
 private var animOn: Animation? = null
 private var animOff: Animation? = null
 
 private val sequence = mutableListOf<Boolean>()
 private val sequencePattern = listOf(false, true, false, true, false, true)
-
-private lateinit var bmFloor: Bitmap
-private lateinit var bmFloor2: Bitmap
 
 private var contador = 0
 
@@ -121,8 +115,6 @@ private val startTimeMs = 30000
 private var timer: CountDownTimer? = null
 private var isTimerRunning = false
 
-private var ready = 0
-
 var currentScore = ""
 var currentWorldScore = listOf<String>()
 lateinit var currentBestGrade : Bitmap
@@ -130,12 +122,8 @@ lateinit var currentBestGrade : Bitmap
 //private var idAdd = ""
 //private var interstitialAd: InterstitialAd? = null
 
-lateinit var listSongScores: Array<ObjPuntaje>
-
-private var currentPathSong: String = ""
 private lateinit var niveles: ArrayList<Nivel>
 
-var isVideo = false
 var isMediaPlayerPrepared = false
 val widthJudges = width / 2
 val heightJudges = widthJudges / 6
@@ -191,11 +179,11 @@ class SelectSong : AppCompatActivity() {
     private lateinit var imgLoading: ImageView
     private lateinit var imgAceptar: ImageView
     private lateinit var imgFloor: ImageView
+
     private lateinit var imgLvSelected: ImageView
     private lateinit var lbLvActive: TextView
 
     private lateinit var imgBestScore: ImageView
-
     private lateinit var lbBestScore: TextView
     private lateinit var imgBestGrade: ImageView
 
@@ -224,11 +212,11 @@ class SelectSong : AppCompatActivity() {
     private lateinit var bitFavorite : Bitmap
     private lateinit var bitFavoriteListed: Bitmap
     private var saveFavorites = false
-    val imageCache = HashMap<String, Bitmap>()
+    private val imageCache = HashMap<String, Bitmap>()
 
-    var selectedIndex = 0
-    val visibleItems = 9
-    var firstVisible = 0
+    private var selectedIndex = 0
+    private val visibleItems = 9
+    private var firstVisible = 0
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -267,8 +255,7 @@ class SelectSong : AppCompatActivity() {
         recyclerCommandsValues = findViewById(R.id.recyclerValues)
         recyclerCommandsValues.isUserInputEnabled = false
 
-        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
-                                 false,"", "", "")
+        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false, false,"", "", "")
 
         constraintMain = findViewById(R.id.constraintMain)
         progressLoading = findViewById(R.id.progressLoading)
@@ -288,7 +275,7 @@ class SelectSong : AppCompatActivity() {
 
 
         }else{
-            linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
+            linearBG.background = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")
         }
         prepareGradeBitmaps()
         imgPrev = findViewById(R.id.imgPrev)
@@ -297,14 +284,13 @@ class SelectSong : AppCompatActivity() {
         params.height = (height * 0.3).toInt()
         imgPrev.layoutParams = params
 
-        animPressNav = AnimationUtils.loadAnimation(this, R.anim.press_nav)
-        animNameSong = AnimationUtils.loadAnimation(this, R.anim.anim_name_song)
+
         animOn = AnimationUtils.loadAnimation(this, R.anim.anim_command_window_on)
         animOff = AnimationUtils.loadAnimation(this, R.anim.anim_command_window_off)
 
         commandWindow = findViewById(R.id.command_window)
         commandWindowBG = findViewById(R.id.command_window_bg)
-        commandWindowBG.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")!!.absolutePath)
+        commandWindowBG.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")
         mediPlayer = MediaPlayer()
 
         mediaPlayerVideo = MediaPlayer()
@@ -321,7 +307,7 @@ class SelectSong : AppCompatActivity() {
         commandWindowBG.layoutParams.height = commandWindow.layoutParams.height
         commandWindowBG.layoutParams.width = commandWindow.layoutParams.width
 
-        val fondos = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Back.png")!!.absolutePath)
+        val fondos = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Back.png")
         linearTop = findViewById(R.id.linearTop)
         linearMenus = findViewById(R.id.linearMenus)
 
@@ -347,16 +333,13 @@ class SelectSong : AppCompatActivity() {
 
         lbCurrentBpm = findViewById(R.id.lbCurrentBpm)
         txCurrentBpm = findViewById(R.id.txCurrentBpm)
-        //txAV = findViewById(R.id.txAV)
-        //txAV.isVisible = false
 
         imgVelocidadActual = findViewById(R.id.imgVelocidadActual)
-        val bmVA= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
-        imgVelocidadActual.setImageBitmap(bmVA)
+        imgVelocidadActual.setImageBitmap(AppResources.bmCommandEmpty)
         txVelocidadActual = findViewById(R.id.txVelocidadActual)
 
         imgOffset = findViewById(R.id.imgOffsetActual)
-        imgOffset.setImageBitmap(bmVA)
+        imgOffset.setImageBitmap(AppResources.bmCommandEmpty)
         txOffset = findViewById(R.id.txOffsetActual)
         txOffset.text = "0"
 
@@ -367,7 +350,7 @@ class SelectSong : AppCompatActivity() {
         imgNoteSkin = findViewById(R.id.imgNoteSkin)
         imgNoteSkin.isVisible=false
         imgNoteSkinFondo = findViewById(R.id.imgNoteSkinFondo)
-        imgNoteSkinFondo.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
+        imgNoteSkinFondo.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")
         imgNoteSkinFondo.isVisible=false
 
         linearTop.layoutParams.height = (commandWindow.layoutParams.height / 4.2).roundToInt()
@@ -391,12 +374,11 @@ class SelectSong : AppCompatActivity() {
         iniciarContador()
 
         indicatorLayout = findViewById(R.id.indicatorImageView)
-        val bmIndicator= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator_lv.png")!!.absolutePath)
-        indicatorLayout.setImageBitmap(bmIndicator)
+        indicatorLayout.setImageBitmap(AppResources.bmIndicator)
         indicatorLayout.layoutParams.width = sizeLvs
 
-        bitFavorite = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")!!.absolutePath)
-        bitFavoriteListed = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")!!.absolutePath)
+        bitFavorite = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")
+        bitFavoriteListed = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")
         imgFavorite = findViewById(R.id.imgFavorite)
         imgFavorite.layoutParams.width = (medidaFlechas).toInt()
 
@@ -414,25 +396,20 @@ class SelectSong : AppCompatActivity() {
         txInfoCW.layoutParams.width = anchoTxInfo
 
         imgSelected = findViewById(R.id.imgSelected)
-        val bmSelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/imgSelect.png")!!.absolutePath)
-        imgSelected.setImageBitmap(bmSelected)
+        imgSelected.setImageBitmap(AppResources.bmSelected)
         imageCircle = findViewById(R.id.imageCircleSS)
-        val bmCircle = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/preview_circle.png")!!.absolutePath)
-        imageCircle.setImageBitmap(bmCircle)
+
+        imageCircle.setImageBitmap(AppResources.bmCircle)
 
         imgFloor = findViewById(R.id.floor_song)
-        bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
-        imgFloor.setImageBitmap(bmFloor)
-
-        bmFloor2 = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor2.png")!!.absolutePath)
+        imgFloor.setImageBitmap(AppResources.bmFloor)
 
         imgAceptar = findViewById(R.id.floor_start)
-        val bmAceptar = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
-        imgAceptar.setImageBitmap(bmAceptar)
+        imgAceptar.setImageBitmap(AppResources.bmAceptar)
 
         imgLvSelected = findViewById(R.id.imgLvSelected)
-        difficultySelected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
-        difficultySelectedHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
+        difficultySelected = AppResources.difficultedSelected
+        difficultySelectedHD = AppResources.difficultedSelectedHD
         imgLvSelected.isVisible = false
         lbLvActive = findViewById(R.id.lbLvActive)
         lbLvActive.isVisible = false
@@ -442,8 +419,7 @@ class SelectSong : AppCompatActivity() {
         val frameBestScoreWidth = (width * 0.6).toInt()
 
         imgBestScore = findViewById(R.id.imgBestScore)
-        val bestScore = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/score_body_select_song.png")!!.absolutePath)
-        imgBestScore.setImageBitmap(bestScore)
+        imgBestScore.setImageBitmap(AppResources.bmBestScore)
         imgBestScore.isVisible = false
         imgBestScore.layoutParams.width = frameBestScoreWidth
 
@@ -460,7 +436,7 @@ class SelectSong : AppCompatActivity() {
         lbWorldName.isVisible = false
         lbWorldName.layoutParams.width = (frameBestScoreWidth * 0.6).toInt()
 
-        lbWorldScore = findViewById(R.id.lbWorldScore)
+        lbWorldScore = findViewById(R.id.lbWorldScoreHorizontal)
         lbWorldScore.isVisible = false
         lbWorldScore.layoutParams.width = (frameBestScoreWidth * 0.4).toInt()
 
@@ -479,24 +455,6 @@ class SelectSong : AppCompatActivity() {
 
         val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
         imageCircle.startAnimation(animatorSetRotation)
-
-        bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
-        bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
-
-        numberBitmaps = ArrayList<Bitmap>().apply {
-            val frameWidth = bitmapNumber.width / 10
-            for (a in 0 until 10) {
-                add(Bitmap.createBitmap(bitmapNumber, a * frameWidth, 0, frameWidth, bitmapNumber.height))
-            }
-        }
-
-        numberBitmapsMiss = ArrayList<Bitmap>().apply {
-            val frameWidth = bitmapNumberMiss.width / 10
-            for (a in 0 until 10) {
-                add(Bitmap.createBitmap(bitmapNumberMiss, a * frameWidth, 0, frameWidth, bitmapNumberMiss.height))
-            }
-        }
-
 
         imgSelected.layoutParams.height = width / 3
         imgSelected.layoutParams.width = width / 3
@@ -530,9 +488,7 @@ class SelectSong : AppCompatActivity() {
         prev.visibility = View.GONE
 
         nextPlayer = MediaPlayer().apply {
-            setDataSource(
-                getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/next.mp4")!!.absolutePath
-            )
+            setDataSource("$rutaBase/FingerDance/Themes/$tema/BGAs/next.mp4")
             isLooping = false
             setVolume(0f, 0f)
             prepare()
@@ -547,9 +503,7 @@ class SelectSong : AppCompatActivity() {
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
         }
         prevPlayer = MediaPlayer().apply {
-            setDataSource(
-                getExternalFilesDir("/FingerDance/Themes/$tema/BGAs/prev.mp4")!!.absolutePath
-            )
+            setDataSource("$rutaBase/FingerDance/Themes/$tema/BGAs/prev.mp4")
             isLooping = false
             setVolume(0f, 0f)
             prepare()
@@ -564,21 +518,16 @@ class SelectSong : AppCompatActivity() {
 
         }
 
-        val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
-        val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
-        val arrowBackIzqColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzqColor.png")!!.absolutePath)
-        val arrowBackDerColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDerColor.png")!!.absolutePath)
+        val spriteWidth = AppResources.arrowNavIzq.width / 2
+        val spriteHeight = AppResources.arrowNavIzq.height / 2
 
-        val spriteWidth = arrowNavIzq.width / 2
-        val spriteHeight = arrowNavIzq.height / 2
-
-        val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight)
+        val navIzq = animaNavs(AppResources.arrowNavIzq, spriteWidth, spriteHeight)
         navIzq.start()
-        val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight)
+        val navDer = animaNavs(AppResources.arrowNavDer, spriteWidth, spriteHeight)
         navDer.start()
-        val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight)
+        val navBackIzq = animaNavs(AppResources.arrowBackIzqColor, spriteWidth, spriteHeight)
         navBackIzq.start()
-        val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight)
+        val navBackDer = animaNavs(AppResources.arrowBackDerColor, spriteWidth, spriteHeight)
         navBackDer.start()
 
         nav_izq.setImageDrawable(navIzq)
@@ -591,14 +540,14 @@ class SelectSong : AppCompatActivity() {
         //Por ahora solo se enviaran KSF
         //val listVacios = ArrayList<Lvs>()
         val listVacios = ArrayList<Ksf>()
-        val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
+        val rutaLvSelected = "$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png"
 
         repeat(20) {
             listVacios.add(Ksf("", "", rutaLvSelected))
         }
         llenaLvsVacios(listVacios)
 
-        if (listSongsChannelKsf.isNotEmpty()){
+        if (AppResources.listSongsChannelKsf.isNotEmpty()){
             listItemsKsf = createSongListKsf()
         }
 
@@ -657,7 +606,6 @@ class SelectSong : AppCompatActivity() {
         txInfoCW.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
         lbBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-        //lbBpm.layoutParams.width = (width * 0.2).toInt()
 
         textSize = width / 40
         lbCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
@@ -778,7 +726,7 @@ class SelectSong : AppCompatActivity() {
 
         nav_back_Izq.setOnClickListener() {
             ready = 0
-            imgFloor.setImageBitmap(bmFloor)
+            imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -806,7 +754,7 @@ class SelectSong : AppCompatActivity() {
         }
         nav_back_der.setOnClickListener() {
             ready = 0
-            imgFloor.setImageBitmap(bmFloor)
+            imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 //goSelectChannel()
                 Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
@@ -836,14 +784,14 @@ class SelectSong : AppCompatActivity() {
 
         nav_izq.setOnClickListener {
             ready = 0
-            imgFloor.setImageBitmap(bmFloor)
+            imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 if (oldValue == 2) {
                     oldValue = listItemsKsf.size - 3
                 } else {
                     oldValue -= 1
                 }
-                moverCanciones(nav_izq,animPressNav, oldValue)
+                moverCanciones(nav_izq)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(false)) return@setOnClickListener
@@ -851,7 +799,7 @@ class SelectSong : AppCompatActivity() {
                 if (selectedIndex > 0) {
                     selectedIndex--
                     positionActualLvs = selectedIndex
-                    moverLvs(positionActualLvs)
+                    moverLvs()
                     if (selectedIndex < firstVisible) {
                         firstVisible--
                     }
@@ -878,7 +826,7 @@ class SelectSong : AppCompatActivity() {
         }
         nav_der.setOnClickListener {
             ready = 0
-            imgFloor.setImageBitmap(bmFloor)
+            imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 //if (oldValue == listItems.size - 3) {
                 if (oldValue == listItemsKsf.size - 3) {
@@ -886,7 +834,7 @@ class SelectSong : AppCompatActivity() {
                 } else {
                     oldValue += 1
                 }
-                moverCanciones(nav_der, animPressNav, oldValue, true)
+                moverCanciones(nav_der, true)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(true)) return@setOnClickListener
@@ -896,7 +844,7 @@ class SelectSong : AppCompatActivity() {
                 if (selectedIndex < total - 1) {
                     selectedIndex++
                     positionActualLvs = selectedIndex
-                    moverLvs(positionActualLvs)
+                    moverLvs()
                     if (selectedIndex >= firstVisible + visibleItems) {
                         firstVisible++
                     }
@@ -935,7 +883,7 @@ class SelectSong : AppCompatActivity() {
                     soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     imgAceptar.isEnabled = false
 
-                    val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaTitle)
+                    val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaDisc)
                     imgLoading.setImageBitmap(bit)
                     linearLoading.isVisible = true
                     linearLoading.setOnClickListener(object : View.OnClickListener {
@@ -954,7 +902,7 @@ class SelectSong : AppCompatActivity() {
                     if(playerSong.rutaNoteSkin != ""){
                         ruta = playerSong.rutaNoteSkin!!
                     }else{
-                        val directorioBase = getExternalFilesDir("/FingerDance/NoteSkins")!!.absolutePath
+                        val directorioBase = "$rutaBase/FingerDance/NoteSkins"
                         val directorios = File(directorioBase).listFiles { file ->
                             file.isDirectory && file.name.contains("default", ignoreCase = true)
                         }
@@ -1012,7 +960,7 @@ class SelectSong : AppCompatActivity() {
                     if(!isOnline){
                         if(!isOffline){
                             if(currentChannel == "06-FAVORITES"){
-                                val nameChannels = listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
+                                val nameChannels = AppResources.listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
                                 channelIndex = validFolders.indexOf(nameChannels)
                                 val canciones = mockListChannels.find { it.canal == nameChannels }?.canciones
                                 songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
@@ -1033,13 +981,13 @@ class SelectSong : AppCompatActivity() {
                             imgLoading.isVisible = false
                         }, 1000L)
                         ready = 0
-                        imgFloor.setImageBitmap(bmFloor)
+                        imgFloor.setImageBitmap(AppResources.bmFloor)
                     }, 3000L)
                 }
                 imgAceptar.isEnabled = true
                 if(ready == 0){
                     ready = 1
-                    imgFloor.setImageBitmap(bmFloor2)
+                    imgFloor.setImageBitmap(AppResources.bmFloor2)
                     soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
             }
@@ -1708,7 +1656,7 @@ class SelectSong : AppCompatActivity() {
         onMainClick: () -> Unit,
         onDownloadClick: () -> Unit,
         existDownloaded: Boolean = false,
-        existInDrive: Boolean = false
+        existInDrive: Boolean = false,
     ): Pair<LinearLayout, Button> {
         val dpToPx = { dp: Int -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics).toInt() }
 
@@ -2022,10 +1970,10 @@ class SelectSong : AppCompatActivity() {
         }
 
     private fun dividirPNG(digito: Int): Bitmap {
-        val anchoTotal = bitmapNumber.width
+        val anchoTotal = AppResources.bitmapNumber.width
         val anchoDigito = anchoTotal / 10
         val x = anchoDigito * digito
-        return Bitmap.createBitmap(bitmapNumber, x, 0, anchoDigito, bitmapNumber.height)
+        return Bitmap.createBitmap(AppResources.bitmapNumber, x, 0, anchoDigito, AppResources.bitmapNumber.height)
     }
 
     private fun combinarBitmaps(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
@@ -2046,7 +1994,7 @@ class SelectSong : AppCompatActivity() {
     private val runnable: Runnable = object : Runnable {
         override fun run() {
             if (contador < listEfectsDisplay.size) {
-                imgDisplay.setImageURI(Uri.parse(listEfectsDisplay[contador].rutaCommandImg))
+                imgDisplay.setImageURI(listEfectsDisplay[contador].rutaCommandImg.toUri())
                 contador++
             } else {
                 contador = 0
@@ -2134,7 +2082,7 @@ class SelectSong : AppCompatActivity() {
         lbWorldScore.startAnimation(animOn)
         lbWorldName.startAnimation(animOn)
 
-        moverLvs(positionActualLvs)
+        moverLvs()
     }
 
     private val scaledMainGrades = mutableMapOf<String, Bitmap>()
@@ -2285,7 +2233,6 @@ class SelectSong : AppCompatActivity() {
             linearCommands.startAnimation(animOn)
             linearInfo.startAnimation(animOn)
             soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            //oldValueCommand = 0
             isFocusCommandWindow(1)
         }else{
             commandWindow.visibility = View.GONE
@@ -2360,6 +2307,7 @@ class SelectSong : AppCompatActivity() {
 
         imgLvSelected.startAnimation(animOff)
         imgBestScore.startAnimation(animOff)
+        imgBestGrade.startAnimation(animOff)
         lbLvActive.startAnimation(animOff)
         lbBestScore.startAnimation(animOff)
 
@@ -2378,7 +2326,7 @@ class SelectSong : AppCompatActivity() {
         lbWorldName.isVisible = false
     }
 
-    private fun moverLvs(positionActualLvs: Int) {
+    private fun moverLvs() {
         val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
 
@@ -2419,10 +2367,10 @@ class SelectSong : AppCompatActivity() {
         //moveIndicatorToPosition(positionActualLvs)
     }
 
-    private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int, isNext: Boolean = false) {
+    private fun moverCanciones(flecha : ImageView, isNext: Boolean = false) {
         resetIndicatorPosition()
         soundPoolSelectSongKsf.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
-        flecha.startAnimation(animation)
+        flecha.startAnimation(AppResources.animPressNav)
         recyclerView.scrollToPosition(oldValue)
         isFocus(oldValue)
         showTransitionVideo(isNext)
@@ -2564,7 +2512,7 @@ class SelectSong : AppCompatActivity() {
         }else{
             lbNameSong.text = item.title
         }
-        lbNameSong.startAnimation(animNameSong)
+        lbNameSong.startAnimation(AppResources.animNameSong)
 
         if(item.artist == ""){
             lbArtist.text = "NO ARTIST"
@@ -2804,8 +2752,8 @@ class SelectSong : AppCompatActivity() {
 
     private fun createSongListKsf(): ArrayList<SongKsf> {
         val arraylist=ArrayList<SongKsf>()
-        for(index in 0 until listSongsChannelKsf.size) {
-            arraylist.add(listSongsChannelKsf[index])
+        for(index in 0 until AppResources.listSongsChannelKsf.size) {
+            arraylist.add(AppResources.listSongsChannelKsf[index])
         }
 
         if(arraylist.size > 50){

@@ -7,7 +7,11 @@ import android.graphics.BitmapFactory
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.util.Log
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import java.nio.IntBuffer
 
 // ========== CONSTANTES DE API ==========
@@ -33,11 +37,16 @@ var idSala = ""
 
 // ========== VARIABLES GLOBALES - UI ==========
 var medidaFlechas = 0f
+var medidaFlechasHorizontal = 0f
+var spaceInitHorizontal = 0f
 var heightLayoutBtns = 0f
 var heightBtns  = 0f
 var widthBtns = 0f
 var padPositions = listOf<Array<Float>>()
 var padPositionsHD = listOf<Array<Float>>()
+var padPositionsHorizontal = listOf<Array<Float>>()
+var heightBtnsHorizontal  = 0f
+var widthBtnsHorizontal = 0f
 var touchAreas = listOf<Array<Float>>()
 var colWidth = 0f
 
@@ -46,11 +55,21 @@ var currentSong = ""
 var currentLevel = ""
 
 var positionCurrentChannel = 0
+var isVideo = false
 
 var channelIndex = 0
 var songIndex = 0
 var levelIndex = 0
 var oldValue: Int = 0
+var oldValueCommand: Int = 0
+var oldValueCommandValues: Int = 0
+
+var currentPathSong: String = ""
+
+var countMiss = 0
+var halfDouble = false
+
+lateinit var listSongScores: Array<ObjPuntaje>
 
 // ========== VARIABLES GLOBALES - VERSION ==========
 var flagActiveAllows = false
@@ -85,7 +104,51 @@ var rutaGrades = ""
 var gradeDescription = ""
 var gradeDescriptionAbrev = ""
 
+var ready = 0
+
 // ========== FUNCIONES HELPER ==========
+
+fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
+    val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
+    val listResult = arrayListOf<Cancion>()
+    canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            for (canalSnapshot in snapshot.children) {
+                val cancionesSnapshot = canalSnapshot.child("canciones")
+                for (cancionSnapshot in cancionesSnapshot.children) {
+                    val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
+                    val niveles = arrayListOf<Nivel>()
+
+                    for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
+                        val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
+                        val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
+                        val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
+                        val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
+                        val rankings = arrayListOf<FirstRank>()
+                        for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
+                            val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                            val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                            val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
+                            rankings.add(FirstRank(nombre, puntaje, grade))
+                        }
+
+                        niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
+                    }
+
+                    listResult.add(Cancion(nombreCancion, niveles))
+                }
+            }
+
+            callback(listResult)
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
+            callback(listResult)
+        }
+    })
+}
+
 fun isConnectedToInternet(context: Context): Boolean {
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 

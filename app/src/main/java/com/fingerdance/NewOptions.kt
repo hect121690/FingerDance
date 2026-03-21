@@ -793,6 +793,7 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
             themes.edit().putString("efects", "").apply()
             listChannels.clear()
             tema = theme.text
+            AppResources.isLoaded = false
             val intent = Intent(requireContext(), MainActivity::class.java)
             startActivity(intent)
             requireActivity().finish()

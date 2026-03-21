@@ -24,7 +24,8 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemLvsBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        binding.root.layoutParams.width = widthLevel
+        val params = RecyclerView.LayoutParams(widthLevel, ViewGroup.LayoutParams.WRAP_CONTENT)
+        binding.root.layoutParams = params
 
         if (purple == 0) {
             purple = ContextCompat.getColor(parent.context, R.color.purple_200)
@@ -41,9 +42,6 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
         holder.bindItem(lvListKsf[position], purple, yellow, cyan, blue, pink)
         val imageView = holder.itemView.findViewById<ImageView>(R.id.image_lvl)
         imageView.layoutParams.width = widthLevel
-
-        //val imageViewType = holder.itemView.findViewById<ImageView>(R.id.image_type)
-        //imageViewType.layoutParams.height = (widthLevel * 0.25).toInt()
 
         val textView = holder.itemView.findViewById<TextView>(R.id.text_lv)
         textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, widthLevel.toFloat() / 2)

@@ -365,7 +365,7 @@ class SelectChannelOnline : AppCompatActivity() {
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
             if(listChannelsOnline[position].listCancionesKsf.size > 0){
-                listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
+                AppResources.listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
                 currentChannel = listChannelsOnline[position].nombre
 
                 handlerChannelOnline.postDelayed({

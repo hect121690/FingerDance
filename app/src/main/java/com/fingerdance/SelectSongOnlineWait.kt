@@ -95,9 +95,6 @@ private lateinit var commandWindow: ConstraintLayout
 private lateinit var recyclerCommands: ViewPager2
 private lateinit var recyclerCommandsValues: ViewPager2
 
-private var oldValueCommand: Int = 0
-private var oldValueCommandValues: Int = 0
-
 private var animPressNav: Animation? = null
 private var animNameSong: Animation? = null
 private var animOn: Animation? = null
@@ -116,8 +113,6 @@ private lateinit var imgContador: ImageView
 private val startTimeMs = 30000
 private var timer: CountDownTimer? = null
 private var isTimerRunning = false
-
-private var ready = 0
 
 class SelectSongOnlineWait : AppCompatActivity() {
     private lateinit var overlayBG: View
@@ -308,9 +303,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
         imageCircle.startAnimation(animatorSetRotation)
 
-        bitmapNumber = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersCombo.png").toString())
-        bitmapNumberMiss = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/numbersComboMiss.png").toString())
-
         nav_izq = findViewById(R.id.nav_izq_song)
         nav_der = findViewById(R.id.nav_der_song)
         nav_back_Izq = findViewById(R.id.back_izq)
@@ -318,22 +310,17 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
         video_fondo = findViewById(R.id.videoPreview)
 
-        val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
-        val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
-        val arrowBackIzqColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzqColor.png")!!.absolutePath)
-        val arrowBackDerColor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDerColor.png")!!.absolutePath)
-
-        val spriteWidth = arrowNavIzq.width / 2
-        val spriteHeight = arrowNavIzq.height / 2
+        val spriteWidth = AppResources.arrowNavIzq.width / 2
+        val spriteHeight = AppResources.arrowNavIzq.height / 2
         val frameDuration = 800
 
-        val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight, frameDuration)
+        val navIzq = animaNavs(AppResources.arrowNavIzq, spriteWidth, spriteHeight, frameDuration)
         navIzq.start()
-        val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight, frameDuration)
+        val navDer = animaNavs(AppResources.arrowNavDer, spriteWidth, spriteHeight, frameDuration)
         navDer.start()
-        val navBackIzq = animaNavs(arrowBackIzqColor, spriteWidth, spriteHeight, frameDuration)
+        val navBackIzq = animaNavs(AppResources.arrowBackIzqColor, spriteWidth, spriteHeight, frameDuration)
         navBackIzq.start()
-        val navBackDer = animaNavs(arrowBackDerColor, spriteWidth, spriteHeight, frameDuration)
+        val navBackDer = animaNavs(AppResources.arrowBackDerColor, spriteWidth, spriteHeight, frameDuration)
         navBackDer.start()
 
         nav_izq.setImageDrawable(navIzq)

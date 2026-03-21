@@ -20,6 +20,7 @@ import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import android.widget.RelativeLayout.LayoutParams
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.core.view.isVisible
@@ -35,7 +36,7 @@ private val thisHandler = Handler(Looper.getMainLooper())
 
 private const val timeToPlay = 1000L
 
-open class GameScreenActivity : AndroidApplication() {
+open class GameScreenActivityHorizontal : AndroidApplication() {
 
     private lateinit var gdxContainer : RelativeLayout
     private var currentVideoPositionScreen : Int = 0
@@ -94,7 +95,7 @@ open class GameScreenActivity : AndroidApplication() {
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
-        val gdxView = initializeForView(MyGameScreen(this), config)
+        val gdxView = initializeForView(MyGameScreenHorizontal(this), config)
         if(gdxView is SurfaceView){
             (gdxView).setZOrderOnTop(true)
             (gdxView).holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -192,13 +193,10 @@ open class GameScreenActivity : AndroidApplication() {
         videoBgaOnPLayer = MediaPlayer()
 
         videoBgaOn = findViewById(R.id.videoViewBgaOn)
-        videoBgaOn.y = medidaFlechas * 2
-        val newWidth = (width * 1.25).toInt()
-        val newHeight = (newWidth * 9 / 16).toInt()
 
         videoBgaOn.layoutParams = videoBgaOn.layoutParams.apply {
-            width = newWidth
-            height = newHeight
+            LayoutParams.MATCH_PARENT
+            LayoutParams.MATCH_PARENT
         }
 
         videoBgaOn.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
@@ -549,24 +547,23 @@ open class GameScreenActivity : AndroidApplication() {
     }
 }
 
-class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
+class MyGameScreenHorizontal(gameScreenActivity: GameScreenActivityHorizontal) : Game() {
     val gsa = gameScreenActivity
-    private var gameScreen: GameScreenKsf? = null
+    private var gameScreenHorizontal: GameScreenKsfHorizontal? = null
     private var gameScreenHD: GameScreenKsfHD? = null
     override fun create() {
         if(halfDouble){
-            gameScreenHD = GameScreenKsfHD(gsa)
-            setScreen(gameScreenHD)
+            //gameScreenHD = GameScreenKsfHD(gsa)
+            //setScreen(gameScreenHD)
         }else {
-            gameScreen = GameScreenKsf(gsa)
-            setScreen(gameScreen)
+            gameScreenHorizontal = GameScreenKsfHorizontal(gsa)
+            setScreen(gameScreenHorizontal)
         }
     }
 
     override fun dispose() {
         super.dispose()
-        gameScreen?.dispose()
-        gameScreenHD?.dispose()
+        gameScreenHorizontal?.dispose()
     }
 }
 

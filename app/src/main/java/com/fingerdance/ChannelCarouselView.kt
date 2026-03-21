@@ -71,7 +71,7 @@
         }
 
         private fun bind(view: View, channel: Channels) {
-            val banner = view.findViewById<ImageView>(R.id.channelBanner)
+            val banner = view.findViewById<ImageView>(R.id.banner)
             var bitmap = BannerCache.get(channel.banner)
             if (bitmap == null) {
                 bitmap = BannerCache.load(channel.banner)
