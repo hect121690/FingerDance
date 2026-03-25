@@ -8,10 +8,12 @@ import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -20,16 +22,20 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.LinearInterpolator
 import android.view.animation.TranslateAnimation
+import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.ActionBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
@@ -49,6 +55,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.drawable.toDrawable
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 
 private lateinit var bgConstraint: ConstraintLayout
@@ -74,9 +83,9 @@ private val sizeLabels = (decimoHeigtn / 3.8).toInt()
 private var rutaWin = ""
 private var rutaDraw = ""
 
-class DanceGrade : AppCompatActivity() {
+class DanceGradeHorizontal : AppCompatActivity() {
     private lateinit var DGContext: Context
-    private lateinit var linearEfects: RelativeLayout
+    private lateinit var linearEfects: LinearLayout
     private var winP1 = false
     private var winP2 = false
     private var draw = false
@@ -94,15 +103,18 @@ class DanceGrade : AppCompatActivity() {
     private var resultListener: ValueEventListener? = null
     private var checkedValuesMock = Nivel()
 
+    private lateinit var linearLevel: ConstraintLayout
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_dance_grade)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        setContentView(R.layout.activity_dance_grade_horizontal)
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
         onWindowFocusChanged(true)
 
         DGContext = this
         bgConstraint = findViewById(R.id.bgContraint)
         linearEfects = findViewById(R.id.linearEfects)
+        linearLevel = findViewById(R.id.linearLevel)
 
         val txPlayer1 = findViewById<TextView>(R.id.txPlayer1)
         val txPlayer2 = findViewById<TextView>(R.id.txPlayer2)
@@ -163,11 +175,8 @@ class DanceGrade : AppCompatActivity() {
         }
 
         val bgBanner: ImageView = findViewById(R.id.bgImage)
-        val bitmap = BitmapFactory.decodeFile(playerSong.rutaBanner)
-        val bitmapDrawable = bitmap.toDrawable(resources)
-        bgBanner.background = bitmapDrawable
-        bgBanner.layoutParams.height = height
-        bgBanner.layoutParams.width = height + (height / 2)
+        val bitmap = trimTransparentEdges(BitmapFactory.decodeFile(playerSong.rutaBanner))
+        bgBanner.background = bitmap.toDrawable(resources)
 
         bgBanner.alpha = 0.5f
 
@@ -178,7 +187,7 @@ class DanceGrade : AppCompatActivity() {
         val dbDG = DataBasePlayer(this)
         dbDG.writableDatabase
 
-        val widthGrades = ((width / 10) * 4.5).toInt()
+        val widthGrades = ((height / 10) * 1.5).toInt()
         val heigthGrades = (decimoHeigtn * 1.5).toInt()
 
         val imgGrade = findViewById<ImageView>(R.id.imgGrade)
@@ -188,7 +197,7 @@ class DanceGrade : AppCompatActivity() {
 
         imgGradeDescription = findViewById(R.id.imgGradeDescription)
         imgGradeDescription.visibility = View.INVISIBLE
-        imgGradeDescription.layoutParams.height = (medidaFlechas / 2).toInt()
+        imgGradeDescription.layoutParams.height = (medidaFlechasHorizontal / 2).toInt()
 
         val imgGradeP1 = findViewById<ImageView>(R.id.imgGradeP1)
         imgGradeP1.visibility = View.INVISIBLE
@@ -213,17 +222,12 @@ class DanceGrade : AppCompatActivity() {
         val imgMyBestGrade = findViewById<ImageView>(R.id.imgBestGradeDG)
         val lbBestScoreDG = findViewById<TextView>(R.id.lbBestScoreDG)
 
-        imgMyBestScore.post {
-            val newHeight = (imgMyBestScore.height * 0.5).toInt()
-            val params = imgMyBestGrade.layoutParams
-            params.height = newHeight
-            imgMyBestGrade.layoutParams = params
-        }
-
+        imgMyBestScore.layoutParams.height = (width * 0.2).toInt()
+        imgMyBestScore.layoutParams.width = (height * 0.25).toInt()
 
         val imgNewRecord = findViewById<ImageView>(R.id.imgNewRecord)
         imgNewRecord.visibility = View.INVISIBLE
-        imgNewRecord.layoutParams.height = heigthGrades
+        imgNewRecord.layoutParams.height = (width * 0.25).toInt()
 
         val txNameSong = findViewById<TextView>(R.id.txNameSong)
         val txNameChannel = findViewById<TextView>(R.id.txNameChannel)
@@ -253,7 +257,7 @@ class DanceGrade : AppCompatActivity() {
         txStepMaker.apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
-            textSize = medidaFlechas / 10f
+            textSize = medidaFlechasHorizontal / 10f
             setTypeface(typeface, Typeface.BOLD)
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
         }
@@ -326,39 +330,39 @@ class DanceGrade : AppCompatActivity() {
         val bitmapEvalutaionLables = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/Evaluation_labels 1x8.png")!!.absolutePath)
         val partHeight = bitmapEvalutaionLables.height / 8
         val imageViews = listOf(
-            findViewById(R.id.imgPerfect),
-            findViewById(R.id.imgGreat),
-            findViewById(R.id.imgGood),
-            findViewById(R.id.imgBad),
-            findViewById(R.id.imgMiss),
-            findViewById(R.id.imgMaxCombo),
+            findViewById<ImageView>(R.id.imgPerfect),
+            findViewById<ImageView>(R.id.imgGreat),
+            findViewById<ImageView>(R.id.imgGood),
+            findViewById<ImageView>(R.id.imgBad),
+            findViewById<ImageView>(R.id.imgMiss),
+            findViewById<ImageView>(R.id.imgMaxCombo),
             findViewById<ImageView>(R.id.imgScore)
         )
 
         val textViewsP1 = listOf(
-            findViewById(R.id.txPerfectP1),
-            findViewById(R.id.txGreatP1),
-            findViewById(R.id.txGoodP1),
-            findViewById(R.id.txBadP1),
-            findViewById(R.id.txMissP1),
-            findViewById(R.id.txMaxComboP1),
+            findViewById<TextView>(R.id.txPerfectP1),
+            findViewById<TextView>(R.id.txGreatP1),
+            findViewById<TextView>(R.id.txGoodP1),
+            findViewById<TextView>(R.id.txBadP1),
+            findViewById<TextView>(R.id.txMissP1),
+            findViewById<TextView>(R.id.txMaxComboP1),
             findViewById<TextView>(R.id.txScoreP1)
         )
         val textViewsP2 = listOf(
-            findViewById(R.id.txPerfectP2),
-            findViewById(R.id.txGreatP2),
-            findViewById(R.id.txGoodP2),
-            findViewById(R.id.txBadP2),
-            findViewById(R.id.txMissP2),
-            findViewById(R.id.txMaxComboP2),
+            findViewById<TextView>(R.id.txPerfectP2),
+            findViewById<TextView>(R.id.txGreatP2),
+            findViewById<TextView>(R.id.txGoodP2),
+            findViewById<TextView>(R.id.txBadP2),
+            findViewById<TextView>(R.id.txMissP2),
+            findViewById<TextView>(R.id.txMaxComboP2),
             findViewById<TextView>(R.id.txScoreP2)
         )
 
         for (i in 0 until 7) {
             val partBitmap = Bitmap.createBitmap(bitmapEvalutaionLables, 0, i * partHeight, bitmapEvalutaionLables.width, partHeight)
             imageViews[i].setImageBitmap(partBitmap)
-            textViewsP1[i].layoutParams.width = (width * 0.2).toInt()
-            textViewsP2[i].layoutParams.width = (width * 0.2).toInt()
+            //textViewsP1[i].layoutParams.width = (width * 0.2).toInt()
+            //textViewsP2[i].layoutParams.width = (width * 0.2).toInt()
         }
 
         for (i in 0 until 7) {
@@ -371,24 +375,26 @@ class DanceGrade : AppCompatActivity() {
                 isAllCaps = true
                 setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
                 layoutParams.height = (decimoHeigtn / 3.6).toInt()
+                layoutParams.width = (decimoHeigtn).toInt()
+                gravity = Gravity.CENTER
             }
             textViewsP2[i].apply {
                 setTextColor(Color.WHITE)
                 isAllCaps = true
                 setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
                 layoutParams.height = (decimoHeigtn / 3.6).toInt()
+                layoutParams.width = (decimoHeigtn).toInt()
+                gravity = Gravity.CENTER
             }
         }
 
         handlerDG.postDelayed({
             CoroutineScope(Dispatchers.Main).launch {
                 // Animate bars
-                val jobs = mutableListOf<Job>()
                 for (bar in imageViews) {
-                    jobs.add(animateBar(bar))
-                    delay(200)
+                    animateBar(bar).join()
+                    delay(80)
                 }
-                jobs.joinAll()
 
                 if (!isOnline) {
                     // Solo/Offline mode
@@ -509,7 +515,7 @@ class DanceGrade : AppCompatActivity() {
         imgMyBestGrade: ImageView,
         lbBestScoreDG: TextView,
         imgNewRecord: ImageView,
-        dbDG: DataBasePlayer,
+        dbDG: DataBasePlayer
     ) {
         when (resolveSaveScenario()) {
             SaveResult.NONE -> {
@@ -572,11 +578,7 @@ class DanceGrade : AppCompatActivity() {
             SaveResult.LOCAL
     }
 
-    private fun saveLocalScore(
-        dbDG: DataBasePlayer,
-        imgMyBestGrade: ImageView,
-        lbBestScoreDG: TextView
-    ) {
+    private fun saveLocalScore(dbDG: DataBasePlayer, imgMyBestGrade: ImageView, lbBestScoreDG: TextView) {
         var nameChannels = if (currentChannel == "06-FAVORITES") {
             AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel.toString()
         } else {
@@ -629,7 +631,7 @@ class DanceGrade : AppCompatActivity() {
 
     private fun showInvalidLevelWarning() {
         val warningMessage = getString(R.string.warning_message, userName)
-        AlertDialog.Builder(this@DanceGrade)
+        AlertDialog.Builder(this@DanceGradeHorizontal)
             .setTitle("Nivel modificado")
             .setMessage(warningMessage)
             .setPositiveButton("Entiendo") { dialog, _ ->
@@ -646,8 +648,8 @@ class DanceGrade : AppCompatActivity() {
             // Limpiar userName y deviceIdFind: solo caracteres alfanuméricos
             val cleanUserName = userName.replace(Regex("[^a-zA-Z0-9]"), "")
             val key = "$cleanUserName-$deviceIdFind"
-            val calendar = java.util.Calendar.getInstance()
-            val sdf = java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm", java.util.Locale("es", "ES"))
+            val calendar = Calendar.getInstance()
+            val sdf = SimpleDateFormat("dd-MMM-yyyy HH:mm", Locale("es", "ES"))
             val fechaHora = sdf.format(calendar.time)
 
             val banAttempt = mapOf(
@@ -829,14 +831,7 @@ class DanceGrade : AppCompatActivity() {
         }, 3500)
     }
 
-    private fun getWinner(
-        imgGradeP1: ImageView,
-        imgGradeP2: ImageView,
-        imgWinP1: ImageView,
-        imgWinP2: ImageView,
-        imgDraw: ImageView,
-        txNameChannel: TextView,
-    ) {
+    private fun getWinner(imgGradeP1: ImageView, imgGradeP2: ImageView, imgWinP1: ImageView, imgWinP2: ImageView, imgDraw: ImageView, txNameChannel: TextView) {
         handlerDG.postDelayed({
             txNameChannel.text = getString(R.string.victories_text, victoriesP1.toString(), victoriesP2.toString())
             imgGradeP1.setImageBitmap(gradeP1)
@@ -897,65 +892,70 @@ class DanceGrade : AppCompatActivity() {
 
     private fun getEfects(pathCommandEffect: String) {
         showLevel()
-        val posX = medidaFlechas
         val heightImages = (decimoHeigtn / 2).toInt()
+        val widthImages = medidaFlechasHorizontal.toInt()
 
-        linearEfects.layoutParams.width = (medidaFlechas * 4).toInt()
-        linearEfects.layoutParams.height = (heightImages * 2)
+        fun createOverlay(bottom: View, top: View): FrameLayout {
+            return FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(widthImages, heightImages)
 
+                addView(bottom.apply {
+                    layoutParams = FrameLayout.LayoutParams(widthImages, heightImages)
+                })
+
+                addView(top.apply {
+                    layoutParams = FrameLayout.LayoutParams(widthImages, heightImages).apply {
+                        gravity = Gravity.CENTER
+                    }
+                })
+            }
+        }
+
+        // 🔹 SPEED (imagen + texto encima)
         val imgSpeed = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeFile(pathCommandEffect))
         }
-        linearEfects.addView(imgSpeed)
-
-        imgSpeed.layoutParams.width = medidaFlechas.toInt()
-        imgSpeed.layoutParams.height = heightImages
 
         val txtSpeed = TextView(this).apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
-            textSize = medidaFlechas / 10f
+            textSize = medidaFlechasHorizontal / 10f
             setTypeface(typeface, Typeface.BOLD_ITALIC)
+            gravity = Gravity.CENTER
             text = playerSong.speed
         }
-        linearEfects.addView(txtSpeed)
-        txtSpeed.layoutParams.width = medidaFlechas.toInt()
-        txtSpeed.layoutParams.height = heightImages
-        txtSpeed.y = linearEfects.y + (heightImages.toFloat() / 4)
 
+        val speedOverlay = createOverlay(imgSpeed, txtSpeed)
+        linearEfects.addView(speedOverlay)
+
+        // 🔹 NOTESKIN (BG + icon encima)
         val imgNoteSkinBG = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeFile(pathCommandEffect))
         }
-        linearEfects.addView(imgNoteSkinBG)
-        imgNoteSkinBG.x = posX
-        imgNoteSkinBG.layoutParams.height = heightImages
-        imgNoteSkinBG.layoutParams.width = medidaFlechas.toInt()
 
         val imgNoteSkinDG = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeFile(playerSong.rutaNoteSkin + "/_Icon.png"))
         }
-        linearEfects.addView(imgNoteSkinDG)
-        imgNoteSkinDG.x = posX
-        imgNoteSkinDG.layoutParams.width = medidaFlechas.toInt()
-        imgNoteSkinDG.layoutParams.height = heightImages
 
+        val noteSkinOverlay = createOverlay(imgNoteSkinBG, imgNoteSkinDG)
+        linearEfects.addView(noteSkinOverlay)
+
+        // 🔹 HJ (normal)
         if (playerSong.hj) {
-            val image = ImageView(this)
-            image.setImageBitmap(BitmapFactory.decodeFile(playerSong.pathImgHJ))
+            val image = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(widthImages, heightImages)
+                setImageBitmap(BitmapFactory.decodeFile(playerSong.pathImgHJ))
+            }
             linearEfects.addView(image)
-            image.x = posX * 2
-            image.layoutParams.width = medidaFlechas.toInt()
-            image.layoutParams.height = heightImages
         }
 
+        // 🔹 EFECTOS EXTRA (normales)
         for (i in 0 until listEfectsDisplay.size) {
-            val image = ImageView(this)
-            image.setImageBitmap(BitmapFactory.decodeFile(listEfectsDisplay[i].rutaCommandImg))
+            val image = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(widthImages, heightImages)
+                setImageBitmap(BitmapFactory.decodeFile(listEfectsDisplay[i].rutaCommandImg))
+            }
             linearEfects.addView(image)
-            image.x = (posX * i)
-            image.y = linearEfects.y + heightImages.toFloat()
-            image.layoutParams.width = medidaFlechas.toInt()
-            image.layoutParams.height = heightImages
         }
     }
 
@@ -968,18 +968,17 @@ class DanceGrade : AppCompatActivity() {
         } else {
             imgBitActive.setImageBitmap(bitActiveLv)
         }
-        bgConstraint.addView(imgBitActive)
+        linearLevel.addView(imgBitActive)
 
-        imgBitActive.layoutParams.height = medidaFlechas.toInt() * 2
-        imgBitActive.layoutParams.width = medidaFlechas.toInt() * 2
-        imgBitActive.x = medidaFlechas * 4.5f
-        imgBitActive.y = (height / 2f)
+        imgBitActive.layoutParams.height = medidaFlechasHorizontal.toInt() * 2
+        imgBitActive.layoutParams.width = medidaFlechasHorizontal.toInt() * 2
 
         val txtLv = TextView(this).apply {
             setShadowLayer(1.6f, 1.5f, 1.3f, Color.BLACK)
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
             setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
             if (!isOnline) {
                 text = playerSong.level
             } else {
@@ -987,7 +986,7 @@ class DanceGrade : AppCompatActivity() {
             }
         }
 
-        bgConstraint.addView(txtLv)
+        linearLevel.addView(txtLv)
 
         val textSize = (imgBitActive.layoutParams.width / 2.5f)
         txtLv.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
@@ -995,8 +994,6 @@ class DanceGrade : AppCompatActivity() {
         txtLv.layoutParams.width = imgBitActive.layoutParams.width
         txtLv.layoutParams.height = imgBitActive.layoutParams.height
 
-        txtLv.x = imgBitActive.x + (imgBitActive.layoutParams.width - txtLv.layoutParams.width) / 2
-        txtLv.y = imgBitActive.y + (txtLv.layoutParams.height / 4.5).toInt()
     }
 
     private fun getBestScore(imgMyBestGrade: ImageView, lbBestScoreDG: TextView) {
@@ -1268,7 +1265,7 @@ class DanceGrade : AppCompatActivity() {
     private fun animateBar(bar: ImageView): Job {
         return CoroutineScope(Dispatchers.Main).launch {
             bar.isVisible = true
-            val animation = ValueAnimator.ofInt(0, width)
+            val animation = ValueAnimator.ofInt(0, height)
             animation.duration = 500
             animation.interpolator = LinearInterpolator()
 
@@ -1342,12 +1339,7 @@ class DanceGrade : AppCompatActivity() {
         }
     }
 
-    private suspend fun animatedNumber(
-        number: String,
-        delayMs: Long,
-        textView: TextView,
-        isPoolLoaded: () -> Boolean,
-    ) {
+    private suspend fun animatedNumber(number: String, delayMs: Long, textView: TextView, isPoolLoaded: () -> Boolean) {
         delay(delayMs)
         if (!isPoolLoaded()) return
 
@@ -1386,11 +1378,7 @@ class DanceGrade : AppCompatActivity() {
         textView.text = strNumber.toInt().toString()
     }
 
-    private suspend fun animateScore(
-        textView: TextView,
-        score: String,
-        isPoolLoaded: () -> Boolean,
-    ) {
+    private suspend fun animateScore(textView: TextView, score: String, isPoolLoaded: () -> Boolean) {
         val strScore = String.format("%07d", score.toInt())
         val reversed = strScore.reversed()
         var currentDisplay = ""
@@ -1419,7 +1407,7 @@ class DanceGrade : AppCompatActivity() {
         animateSetTraslation.repeatCount = Animation.INFINITE
         animateSetTraslation.repeatMode = Animation.REVERSE
         imgAceptar.startAnimation(animateSetTraslation)
-        imgAceptar.bringToFront()
+        //imgAceptar.bringToFront()
     }
 
     override fun onDestroy() {
@@ -1467,4 +1455,3 @@ class DanceGrade : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_FULLSCREEN)
     }
 }
-

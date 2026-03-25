@@ -294,7 +294,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         )
 
         touchAreas = listOf(
-            arrayOf(widthBtns, heightLayoutBtns + heightBtns + (heightBtns / 2)), //leffDown
+            arrayOf(widthBtns, heightLayoutBtns + heightBtns + (heightBtns / 2)), //leftDown
             arrayOf(widthBtns + (widthBtns / 2), heightLayoutBtns + heightBtns + (heightBtns / 2)),  //rightDown
             arrayOf(widthBtns, heightLayoutBtns), //leftUp
             arrayOf(widthBtns + (widthBtns / 2), heightLayoutBtns) //rightUp
@@ -334,6 +334,46 @@ class MainActivity : AppCompatActivity(), Serializable {
             arrayOf(initPadB + (widthBtnsHorizontal * 2f), (medidaFlechasHorizontal * 2)), // rightUp
             arrayOf(initPadB + (widthBtnsHorizontal * 2f), width - heightBtnsHorizontal)  // rightDown
         )
+
+        val verticalSpace = getVerticalGap(
+            padPositionsHorizontal[1], // LU
+            padPositionsHorizontal[0], // LD
+            heightBtnsHorizontal
+        )
+
+        val leftAreas = listOf(
+            arrayOf(0f, ((medidaFlechasHorizontal * 2) + heightBtnsHorizontal) + (verticalSpace / 2)),                      //leftDown-UP
+            arrayOf(0f, (medidaFlechasHorizontal * 2) + heightBtnsHorizontal),                                              //LefUp-DOWN
+            arrayOf(widthBtnsHorizontal, (medidaFlechasHorizontal * 2)),                                                    //LefttUp-Right
+            arrayOf(widthBtnsHorizontal + (widthBtnsHorizontal / 2), (medidaFlechasHorizontal * 2)),                        //rightUp-Left
+            arrayOf(widthBtnsHorizontal * 2f, (medidaFlechasHorizontal * 2) + heightBtnsHorizontal),                        //rightUp-Down
+            arrayOf(widthBtnsHorizontal * 2f, (medidaFlechasHorizontal * 2) + heightBtnsHorizontal) + (verticalSpace / 2),  //rightDown-Up
+            arrayOf((widthBtnsHorizontal) * 1.5f, padPositionsHorizontal[2][1] + heightBtnsHorizontal),                     //rightDown-Right
+            arrayOf(widthBtnsHorizontal, padPositionsHorizontal[2][1] + heightBtnsHorizontal)                               //leftDown-Right
+
+        )
+        val rightAreas = leftAreas.map { area ->
+            arrayOf(
+                area[0] + initPadB,
+                area[1]
+            )
+        }
+
+        touchAreasHorizontal = leftAreas + rightAreas
+
+        val leftMap = listOf(
+            0,
+            1,
+            1,
+            3,
+            3,
+            4,
+            4,
+            0
+        )
+
+        val rightMap = leftMap.map { it + 5 }
+        areaToPadMap = leftMap + rightMap
 
         linearDownload = findViewById(R.id.linearDownload)
 
@@ -399,6 +439,10 @@ class MainActivity : AppCompatActivity(), Serializable {
         } else {
             creaDescarga()
         }
+    }
+
+    fun getVerticalGap(topPad: Array<Float>, bottomPad: Array<Float>, height: Float): Float {
+        return bottomPad[1] - (topPad[1] + height)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

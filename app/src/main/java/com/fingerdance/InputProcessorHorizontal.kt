@@ -129,11 +129,37 @@ class InputProcessorHorizontal : InputAdapter() {
     }
 
     private fun getPadIndex(x: Float, y: Float): Int? {
-        val index = padPositionsHorizontal.indexOfFirst { pad ->
+
+        // 🔹 1. Pads reales (prioridad absoluta)
+        val visible = padPositionsHorizontal.indexOfFirst { pad ->
             x in pad[0]..(pad[0] + widthBtnsHorizontal) &&
                     y in pad[1]..(pad[1] + heightBtnsHorizontal)
         }
-        return index.takeIf { it >= 0 }
+
+        if (visible >= 0) return visible
+
+        // 🔹 2. Fallback: nearest pad (tipo arcade)
+        var minDist = Float.MAX_VALUE
+        var nearestIndex = -1
+
+        for (i in padPositionsHorizontal.indices) {
+            val pad = padPositionsHorizontal[i]
+
+            val centerX = pad[0] + (widthBtnsHorizontal / 2f)
+            val centerY = pad[1] + (heightBtnsHorizontal / 2f)
+
+            val dx = x - centerX
+            val dy = y - centerY
+
+            val dist = dx * dx + dy * dy // sin sqrt (más rápido)
+
+            if (dist < minDist) {
+                minDist = dist
+                nearestIndex = i
+            }
+        }
+
+        return nearestIndex.takeIf { it >= 0 }
     }
 
     fun update() {

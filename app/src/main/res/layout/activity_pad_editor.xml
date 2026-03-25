@@ -1,0 +1,80 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/bgFrame"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0a0a0a">
+
+    <!-- HEADER -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="#1a1a1a"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:text="PAD EDITOR"
+            android:textColor="#00ff00"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- BOTÓN IZQUIERDO (VERDE) -->
+    <Button
+        android:id="@+id/btnMirrorRight"
+        android:layout_width="wrap_content"
+        android:layout_height="35dp"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="55dp"
+        android:background="@drawable/btn_gamer"
+        android:text="Igualar Posicion→"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <!-- SEEKBAR ANCHO GLOBAL (HORIZONTAL) - ARRIBA ENTRE BOTONES -->
+    <SeekBar
+        android:id="@+id/seekWidthLeft"
+        android:layout_width="585dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="65dp"
+        android:max="200"
+        android:progress="100"
+        android:progressTint="#00ff00"
+        android:thumbTint="#00ff00" />
+
+    <!-- BOTÓN DERECHO (MAGENTA) -->
+    <Button
+        android:id="@+id/btnMirrorLeft"
+        android:layout_width="wrap_content"
+        android:layout_height="35dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="55dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/btn_gamer_secondary"
+        android:text="← Igualar Posicion"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <!-- SEEKBAR ALTO GLOBAL (VERTICAL) - CENTRO -->
+    <SeekBar
+        android:id="@+id/seekHeightLeft"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:max="200"
+        android:progress="100"
+        android:progressTint="#00ff00"
+        android:rotation="-90"
+        android:thumbTint="#00ff00" />
+
+
+</FrameLayout>

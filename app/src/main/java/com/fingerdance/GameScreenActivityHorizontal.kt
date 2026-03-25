@@ -272,7 +272,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 getEndSong()
             },1000)
             thisHandler.postDelayed({
-                val intent = Intent(this, DanceGrade()::class.java)
+                val intent = Intent(this, DanceGradeHorizontal()::class.java)
                 startActivity(intent)
                 this.finish()
             }, 4000)

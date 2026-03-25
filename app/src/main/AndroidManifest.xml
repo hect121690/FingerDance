@@ -22,17 +22,21 @@
         android:theme="@style/Theme.FingerDance"
         tools:targetApi="36">
         <activity
+            android:name=".PadEditorActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"/>
+        <activity
             android:name=".LoadResourcesActivity"
-            android:screenOrientation="sensor"
-            android:configChanges="orientation|screenSize"/>
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="sensor" />
         <activity
             android:name=".SelectSongHorizontal"
-            android:screenOrientation="landscape"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".SelectChannelHorizontal"
-            android:screenOrientation="landscape"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".OptionsActivity"
             android:exported="false" />
@@ -42,8 +46,12 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
         <activity
             android:name=".DanceGrade"
-            android:exported="false"
-            android:configChanges="orientation|screenSize"/>
+            android:configChanges="orientation|screenSize"
+            android:exported="false" />
+        <activity
+            android:name=".DanceGradeHorizontal"
+            android:screenOrientation="landscape"
+            android:exported="false" />
         <activity
             android:name=".BreakDance"
             android:exported="false" />
@@ -85,8 +93,8 @@
         </activity>
         <activity
             android:name=".MainActivity"
-            android:exported="true"
             android:configChanges="orientation|screenSize"
+            android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
         <provider

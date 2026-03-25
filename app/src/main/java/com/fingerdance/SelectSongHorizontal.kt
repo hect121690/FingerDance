@@ -1530,7 +1530,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         imgLoading.isVisible = true
         showProgressBar()
         mediPlayer.pause()
-        playerSong.rutaBanner = AppResources.listSongsChannelKsf[oldValue].rutaTitle
+        playerSong.rutaBanner = AppResources.listSongsChannelKsf[oldValue].rutaDisc
         mediaPlayerSelectSongHorizontal.pause()
         txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
 

@@ -45,6 +45,8 @@ var widthBtns = 0f
 var padPositions = listOf<Array<Float>>()
 var padPositionsHD = listOf<Array<Float>>()
 var padPositionsHorizontal = listOf<Array<Float>>()
+var touchAreasHorizontal = listOf<Array<Float>>()
+var areaToPadMap = listOf<Int>()
 var heightBtnsHorizontal  = 0f
 var widthBtnsHorizontal = 0f
 var touchAreas = listOf<Array<Float>>()
@@ -265,3 +267,10 @@ data class Canal(
     val canal: String,
     val canciones: ArrayList<Cancion>
 )
+
+enum class SaveResult {
+    NONE,
+    LOCAL,
+    LOCAL_AND_FIREBASE,
+    INVALID_LEVEL
+}
