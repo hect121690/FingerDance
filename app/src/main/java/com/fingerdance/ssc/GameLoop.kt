@@ -3,11 +3,11 @@ package com.fingerdance.ssc
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.fingerdance.ssc.Parser.Chart
 import com.fingerdance.ssc.Parser.NoteType
+import ssc.RenderSteps
 
 class GameLoop(
-    private val chart: Chart,
+    private val chart: Parser.Chart,
     private val audio: AudioEngine,
     private val timing: TimingEngine,
     private val scroll: ScrollEngine,
@@ -15,7 +15,9 @@ class GameLoop(
     private val input: InputProcessorSsc,
     private val batch: SpriteBatch,
     private val onJudgment: ((Int, Long) -> Unit)? = null,
-    private val timingOffsetMs: Double = 360.0  // 🔥 OFFSET DE TIMING
+    private val timingOffsetMs: Double = 360.0,
+    private val onFrameBeat: ((Double) -> Unit)? = null
+
 ) {
 
     private val judgment = JudgmentEngine(timing)
@@ -84,23 +86,17 @@ class GameLoop(
     // =========================================================
 
     fun update(screenHeight: Float) {
-
         when (phase) {
-
             Phase.COUNTDOWN -> {
-
                 val elapsed = (System.nanoTime() - countdownStart) / 1_000_000
-
                 if (elapsed >= 2000) {
                     phase = Phase.PLAYING
                     audio.play()
                 }
-
                 renderEmpty()
             }
 
             Phase.PLAYING -> {
-
                 val now = audio.currentTimeMs()
 
                 // =========================
@@ -120,6 +116,7 @@ class GameLoop(
                 // =========================
 
                 val currentBeat = timing.timeToBeat(now)
+                onFrameBeat?.invoke(currentBeat)   // ✅ aquí
                 val currentVisual = scroll.beatToVisual(currentBeat)
 
                 // =========================
