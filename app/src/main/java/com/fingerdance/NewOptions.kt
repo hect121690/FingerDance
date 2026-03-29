@@ -1025,7 +1025,7 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         super.onViewCreated(view, savedInstanceState)
 
         val btnGuardarPads = view.findViewById<Button>(R.id.btnGuardarPads)
-        //btnGuardarPads.visibility = View.INVISIBLE
+        btnGuardarPads.setText("Guardar y salir")
 
         val switchImagePadA = view.findViewById<SwitchCompat>(R.id.showImagePadA)
         switchImagePadA.visibility = View.GONE
@@ -1159,12 +1159,15 @@ class PadsFragment : Fragment(R.layout.options_pads) {
 
         val btnPad = view.findViewById<Button>(R.id.txPad)
         btnGuardarPads.setOnClickListener {
-            val intent = Intent(this@PadsFragment.requireContext(), PadEditorActivity::class.java)
-            startActivity(intent)
+            //val intent = Intent(this@PadsFragment.requireContext(), PadEditorActivity::class.java)
+            //startActivity(intent)
 
-        //btnPad.performClick()
-            //Toast.makeText(requireContext(), "Configuracion guardada.", Toast.LENGTH_SHORT).show()
-            //btnGuardarPads.visibility = View.INVISIBLE
+            //btnPad.performClick()
+            Toast.makeText(requireContext(), "Configuracion guardada.", Toast.LENGTH_SHORT).show()
+            btnGuardarPads.visibility = View.INVISIBLE
+            requireActivity().finish()
+            val intent = Intent(this@PadsFragment.requireContext(), MainActivity::class.java)
+            startActivity(intent)
         }
     }
 

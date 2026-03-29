@@ -57,6 +57,8 @@ import androidx.lifecycle.lifecycleScope
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
+import com.fingerdance.ssc.LoadingSongs
+import com.fingerdance.ssc.Parser
 import com.google.common.primitives.Ints.min
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
@@ -67,8 +69,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -1376,19 +1376,16 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val builder = AlertDialog.Builder(this@MainActivity)
         btnExit.setOnClickListener {
-            /*
+
             val ls = LoadingSongs(this@MainActivity)
             val listChannelsSsc = ls.getChannels(this@MainActivity)
             val parser = Parser()
-            sscSong = listChannelsSsc[0].listCanciones[9]
-            sscCharData = parser.parseSSC(sscSong.listLvs[2].steps)
+            sscSong = listChannelsSsc[0].listCanciones[0]
+            //val sscCharData = parser.parseSSC(sscSong.listLvs[2].steps)
             isSsc = true
             btnPlay.performClick()
 
-            for(i in 0 until steps.notes.size){
-                Log.d("Steps: ", "${steps.notes[i]}")
-            }
-            */
+
             builder.setTitle("Aviso")
             builder.setMessage("Deseas salir del juego?")
             builder.setPositiveButton(android.R.string.yes) { dialog, which ->
@@ -1433,8 +1430,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         }else{
             Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
         }
-
     }
+
 
     private fun goPlay(goSound: MediaPlayer, animation: Animation){
         isOnline = false

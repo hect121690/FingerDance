@@ -29,9 +29,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.viewpager2.widget.ViewPager2
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.ValueEventListener
+import com.google.gson.GsonBuilder
 import java.io.File
 
 class SelectChannel : AppCompatActivity() {
@@ -201,6 +199,35 @@ class SelectChannel : AppCompatActivity() {
                 AppResources.listSongsChannelKsf = listChannels[position].listCancionesKsf
                 currentChannel = listChannels[position].nombre
                 Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
+
+
+                /*
+                val gson = GsonBuilder().setPrettyPrinting().create()
+                //val i = position
+                val listCanales = arrayListOf<Canal>()
+                for(i in 0 until listChannels.size) {
+                    val listCanciones = arrayListOf<Cancion>()
+                    for (a in 0 until listChannels[i].listCancionesKsf.size) {
+                        val listNiveles = arrayListOf<Nivel>()
+                        for (b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size) {
+                            val checkedValues = listChannels[i].listCancionesKsf[a].listKsf[b].checkedValues
+                            val level = listChannels[i].listCancionesKsf[a].listKsf[b].level
+                            val type = listChannels[i].listCancionesKsf[a].listKsf[b].typeSteps
+                            val player = listChannels[i].listCancionesKsf[a].listKsf[b].typePlayer
+                            val n = Nivel(level, checkedValues, type, player, ArrayList(List(3) { FirstRank() }))
+                            listNiveles.add(n)
+                        }
+                        val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNiveles)
+                        listCanciones.add(cancion)
+                    }
+                    val canal = Canal(listChannels[i].nombre, listCanciones)
+                    listCanales.add(canal)
+                }
+
+                val json = gson.toJson(listCanales)
+                Log.d("JSON", json)
+                */
+
 
                 if(!isOffline){
                     listenScoreChannel(listChannels[position].nombre) { listSongs ->

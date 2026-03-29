@@ -973,9 +973,27 @@ class SelectSong : AppCompatActivity() {
                     }
 
                     handler.postDelayed({
-                        val intent = Intent(this, GameScreenActivity()::class.java)
-                        intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
-                        startActivity(intent)
+                        if(isSsc){
+                            playerSong.rutaCancion = sscSong.rutaCancion
+                            mediaPlayer = MediaPlayer().apply {
+                                setAudioAttributes(
+                                    AudioAttributes.Builder()
+                                        .setUsage(AudioAttributes.USAGE_GAME)
+                                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                        .build()
+                                )
+                                setDataSource(File(playerSong.rutaCancion!!).absolutePath)
+                                prepare()
+                            }
+
+                            val intent = Intent(this, GameScreenActivity()::class.java)
+                            intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
+                            startActivity(intent)
+                        }else{
+                            val intent = Intent(this, GameScreenActivity()::class.java)
+                            intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
+                            startActivity(intent)
+                        }
                         handler.postDelayed({
                             linearLoading.isVisible = false
                             imgLoading.isVisible = false

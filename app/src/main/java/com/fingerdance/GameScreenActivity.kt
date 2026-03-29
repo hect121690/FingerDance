@@ -521,14 +521,14 @@ open class GameScreenActivity : AndroidApplication() {
         if (!hasWaitedForDelay) {
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!mediaPlayer.isPlaying) {
-                    mediaPlayer.start()
+                    //mediaPlayer.start()
                 }
                 startVideoFromPosition()
                 hasWaitedForDelay = true
             }, 2000)
         } else {
             if (!mediaPlayer.isPlaying) {
-                mediaPlayer.start()
+                //mediaPlayer.start()
             }
             startVideoFromPosition()
         }
@@ -558,8 +558,12 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
             gameScreenHD = GameScreenKsfHD(gsa)
             setScreen(gameScreenHD)
         }else {
-            gameScreen = GameScreenKsf(gsa)
-            setScreen(gameScreen)
+            if(isSsc){
+                setScreen(GameScreenSsc(gsa))
+            }else{
+                gameScreen = GameScreenKsf(gsa)
+                setScreen(gameScreen)
+            }
         }
     }
 

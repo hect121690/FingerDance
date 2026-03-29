@@ -27,6 +27,8 @@ var listFilesDrive = arrayListOf<Pair<String, String>>()
 var listThemesDrive = arrayListOf<Pair<String, String>>()
 var listChannelsDrive = mutableListOf<MainActivity.ChannelsDrive>()
 
+var sscSong = Song()
+var isSsc = false
 // ========== VARIABLES GLOBALES - USUARIO ==========
 var userName = ""
 lateinit var firebaseDatabase : FirebaseDatabase

@@ -1,8 +1,13 @@
-package com.fingerdance
+package com.fingerdance.ssc
 
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
+import com.fingerdance.Channels
+import com.fingerdance.Lvs
+import com.fingerdance.Song
+import com.fingerdance.bgaOff
+import com.fingerdance.tema
 import java.io.File
 import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
@@ -10,7 +15,6 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 private lateinit var soundPoolSelectSong: SoundPool
-
 private var selectSong_mov : Int = 0
 private var selectSong_back : Int = 0
 private var up_SelectSound : Int = 0
@@ -27,7 +31,7 @@ private var start : Int = 0
 class LoadingSongs (context: Context) {
 
     fun loadImages(c: Context) {
-        bgaOff = c.getExternalFilesDir("/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4").toString()
+        bgaOff = c.getExternalFilesDir("/FingerDance/Themes/${tema}/Movies/BGA_OFF.mp4").toString()
 
         //barLife1 = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png").toString())
         //barLife = Drawable.createFromPath(c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife.png").toString())
@@ -45,43 +49,63 @@ class LoadingSongs (context: Context) {
             .setAudioAttributes(audioAttributes)
             .build()
 
-        val pathChannelmov = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_navegation.mp3").toString())
+        val pathChannelmov = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/sound_navegation.mp3")
+                .toString()
+        )
         val decriptorChannelMov = FileInputStream(pathChannelmov).fd
         selectSong_mov = soundPoolSelectSong.load(decriptorChannelMov, 0, pathChannelmov.length(), 1)
 
-        val pathChannelBack = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_back.ogg").toString())
+        val pathChannelBack = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/sound_back.ogg").toString()
+        )
         val decriptorChannelBack = FileInputStream(pathChannelBack).fd
         selectSong_back = soundPoolSelectSong.load(decriptorChannelBack, 0, pathChannelBack.length(), 1)
 
-        val pathUpSound = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/up_sound.ogg").toString())
+        val pathUpSound = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/up_sound.ogg").toString()
+        )
         val decriptorUpSound = FileInputStream(pathUpSound).fd
         up_SelectSound = soundPoolSelectSong.load(decriptorUpSound, 0, pathUpSound.length(), 1)
 
-        val pathMoveLv = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/move_lvs.mp3").toString())
+        val pathMoveLv = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/move_lvs.mp3").toString()
+        )
         val decriptorMoveLv = FileInputStream(pathMoveLv).fd
         move_lvs = soundPoolSelectSong.load(decriptorMoveLv, 0, pathMoveLv.length(), 1)
 
-        val pathSwitch = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_switch.mp3").toString())
+        val pathSwitch = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/command_switch.mp3")
+                .toString()
+        )
         val decriptorSwitsh = FileInputStream(pathSwitch).fd
         command_switch = soundPoolSelectSong.load(decriptorSwitsh, 0, pathSwitch.length(), 1)
 
-        val pathBack = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_back.mp3").toString())
+        val pathBack = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/command_back.mp3").toString()
+        )
         val decriptorBack = FileInputStream(pathBack).fd
         command_back = soundPoolSelectSong.load(decriptorBack,0 , pathBack.length(), 1)
 
-        val pathMove = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_move.mp3").toString())
+        val pathMove = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/command_move.mp3").toString()
+        )
         val decriptorMove = FileInputStream(pathMove).fd
         command_move = soundPoolSelectSong.load(decriptorMove, 0, pathMove.length(), 1)
 
-        val pathMod = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/command_mod.mp3").toString())
+        val pathMod = File(
+            c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/command_mod.mp3").toString()
+        )
         val decriptorMod = FileInputStream(pathMod).fd
         command_mod = soundPoolSelectSong.load(decriptorMod, 0, pathMod.length(), 1)
 
-        val pathSelect = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/select.ogg").toString())
+        val pathSelect =
+            File(c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/select.ogg").toString())
         val decriptorSelect = FileInputStream(pathSelect).fd
         select = soundPoolSelectSong.load(decriptorSelect, 0, pathSelect.length(), 1)
 
-        val pathStart = File(c.getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/start.ogg").toString())
+        val pathStart =
+            File(c.getExternalFilesDir("/FingerDance/Themes/${tema}/Sounds/start.ogg").toString())
         val decriptorStart = FileInputStream(pathStart).fd
         start = soundPoolSelectSong.load(decriptorStart, 0, pathStart.length(), 1)
     }
@@ -131,8 +155,8 @@ class LoadingSongs (context: Context) {
         var rutaBga = ""
         var listLevels = mutableListOf<Lvs>()
         val listSongs = ArrayList<Song>()
-        val rutaBitActiveSingle = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
-        val rutaBitActiveHalfDouble = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_hd.png").toString()
+        val rutaBitActiveSingle = c.getExternalFilesDir("/FingerDance/Themes/${tema}/GraphicsStatics/img_lv.png").toString()
+        val rutaBitActiveHalfDouble = c.getExternalFilesDir("/FingerDance/Themes/${tema}/GraphicsStatics/img_lv_hd.png").toString()
 
         val listRutas = getRutasSongs(rutaChannel)
         for(index in 0 until listRutas.size) {
@@ -214,7 +238,14 @@ class LoadingSongs (context: Context) {
                                 }
                             }
                             if(stepType.equals("pump-single", true) || stepType.equals("pump-half-double", true) || stepType.equals("pump-halfdouble", true)){
-                                listLevels.add(Lvs(lvl = numberLevel, rutaLvImg = rutaBitlevel, steps = noteString, typePlayer = stepType))
+                                listLevels.add(
+                                    Lvs(
+                                        lvl = numberLevel,
+                                        rutaLvImg = rutaBitlevel,
+                                        steps = noteString,
+                                        typePlayer = stepType
+                                    )
+                                )
                             }
                             listLevels.sortWith(compareBy<Lvs> {
                                 when (it.typePlayer) {
@@ -310,8 +341,3 @@ class LoadingSongs (context: Context) {
         return directorio.delete()
     }
 }
-
-
-
-
-

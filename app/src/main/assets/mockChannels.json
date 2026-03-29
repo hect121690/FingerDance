@@ -189,103 +189,6 @@
         ]
       },
       {
-        "cancion": "Bring Back The Beat",
-        "niveles": [
-          {
-            "checkedValues": "363|29|2564806",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "07",
-            "player": "A",
-            "type": "NORMAL"
-          },
-          {
-            "checkedValues": "427|128|2564806",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "12",
-            "player": "A",
-            "type": "NORMAL"
-          },
-          {
-            "checkedValues": "576|412|2564806",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "17",
-            "player": "A",
-            "type": "NORMAL"
-          },
-          {
-            "checkedValues": "1116|972|2564806",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "19",
-            "player": "A",
-            "type": "NORMAL"
-          }
-        ]
-      },
-      {
         "cancion": "Classical Insanity",
         "niveles": [
           {
@@ -3138,7 +3041,7 @@
         "cancion": "Stardust overdrive",
         "niveles": [
           {
-            "checkedValues": "239|539|2317729",
+            "checkedValues": "245|1142|1385348",
             "fisrtRank": [
               {
                 "grade": "?",
@@ -3159,29 +3062,6 @@
             "nivel": "16",
             "player": "A",
             "type": "NORMAL"
-          },
-          {
-            "checkedValues": "244|547|2317729",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "16",
-            "player": "A",
-            "type": "NEW"
           }
         ]
       },
@@ -18763,7 +18643,7 @@
         ]
       },
       {
-        "cancion": "First Love",
+        "cancion": "FirstLove",
         "niveles": [
           {
             "checkedValues": "135|0|1478897",
@@ -20693,7 +20573,7 @@
         ]
       },
       {
-        "cancion": "Love",
+        "cancion": "Love-S.E.S",
         "niveles": [
           {
             "checkedValues": "110|0|1542858",
@@ -60758,7 +60638,7 @@
             ],
             "nivel": "03",
             "player": "A",
-            "type": "NORMAL"
+            "type": "ANOTHER"
           },
           {
             "checkedValues": "134|7|2610880",
@@ -83942,29 +83822,6 @@
         "cancion": "Latino Virus",
         "niveles": [
           {
-            "checkedValues": "168|0|2863296",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "03",
-            "player": "A",
-            "type": "NORMAL"
-          },
-          {
             "checkedValues": "167|0|2863296",
             "fisrtRank": [
               {
@@ -83984,29 +83841,6 @@
               }
             ],
             "nivel": "03",
-            "player": "A",
-            "type": "NORMAL"
-          },
-          {
-            "checkedValues": "371|127|2863296",
-            "fisrtRank": [
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              },
-              {
-                "grade": "?",
-                "nombre": "---------",
-                "puntaje": "0"
-              }
-            ],
-            "nivel": "07",
             "player": "A",
             "type": "NORMAL"
           },
@@ -113084,7 +112918,7 @@
                 "puntaje": "0"
               }
             ],
-            "nivel": "18",
+            "nivel": "17",
             "player": "A",
             "type": "NORMAL"
           },

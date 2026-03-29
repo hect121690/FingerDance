@@ -1,5 +1,7 @@
 package com.fingerdance
 
+import com.fingerdance.ssc.Parser.Note
+
 class Levels(
     //var meter: String,
     var offset: Float = 0f,
@@ -23,5 +25,5 @@ class Levels(
     var combos: MutableList<Pair<Float, Float>> = arrayListOf(),
     var warps: MutableList<Pair<Float, Float>> = arrayListOf(),
     var delays: MutableList<Pair<Float, Float>> = arrayListOf(),
-    var notes: MutableList<Parser.Note> = arrayListOf(),
+    var notes: MutableList<Note> = arrayListOf(),
     var stringNotes: MutableList<String> = arrayListOf())
