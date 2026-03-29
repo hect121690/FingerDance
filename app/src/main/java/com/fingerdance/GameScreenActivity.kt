@@ -119,7 +119,7 @@ open class GameScreenActivity : AndroidApplication() {
                     linearBGADark.visibility = View.GONE
                 }
             }
-            mediaPlayer.start()
+            //mediaPlayer.start()
 
         }, timeToPlay)
         if(!isOnline){

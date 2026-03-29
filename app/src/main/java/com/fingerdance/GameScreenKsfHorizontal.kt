@@ -252,8 +252,6 @@ open class GameScreenKsfHorizontal(activity: GameScreenActivityHorizontal) : Scr
             batch.draw(arrayPad4Bg[4], padPositionsHorizontal[9][0], padPositionsHorizontal[9][1], widthBtnsHorizontal, heightBtnsHorizontal)
         }
     }
-    private var aBatch = 0
-    private var bBatch = 0
 
     private fun drawRecepts(luaReceptOffsetX: Float) {
         batch.draw(recept0Frames[0], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)

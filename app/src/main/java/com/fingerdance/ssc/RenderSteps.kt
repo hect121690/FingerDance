@@ -1,11 +1,14 @@
 package ssc
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.fingerdance.GameScreenKsf
+import com.fingerdance.aBatch
 import com.fingerdance.alphaPadB
+import com.fingerdance.bBatch
 import com.fingerdance.height
 import com.fingerdance.heightBtns
 import com.fingerdance.medidaFlechas
@@ -76,16 +79,7 @@ class RenderSteps(
     private val widthJudges = Gdx.graphics.width / 2
     private val heightJudges = widthJudges / 6
 
-    // Flare (como Player)
-    private var yFlare = medidaFlechas - (medidaFlechas * 2f)
-    private val xFlare1 = medidaFlechas * 2.1f
-    private val xFlare2 = medidaFlechas * 2.15f
-    private val xFlare3 = medidaFlechas * 2.1f
-    private val xFlare4 = medidaFlechas * 2.05f
-    private val xFlare5 = medidaFlechas * 2.05f
-    private val widthFlare = medidaFlechas * 5f
-    private val arrPosXFlare = arrayOf(xFlare1, xFlare2, xFlare3, xFlare4, xFlare5)
-
+    // Scroll
     var scrollSpeed = (1f * playerSong.speed.replace("X", "").toFloat()) + 1f
     var basePixelsPerBeat = 150f
 
@@ -93,6 +87,19 @@ class RenderSteps(
     private val sizeScale = medidaFlechas * 1.2f
     private val topPos = medidaFlechas * 0.9f
     private val posX = medidaFlechas * 0.1f
+
+    // =========================================================
+    // Flare (FIX: por evento, anclado al receptor)
+    // =========================================================
+    private val flareStartMs = LongArray(5) { 0L }
+    private val flareDurationMs = 140L
+    private val flareScale = 1.0f
+    private val flareSize = medidaFlechas * 3.2f * flareScale
+
+    fun triggerFlare(column: Int, nowMs: Long) {
+        if (column !in 0..4) return
+        flareStartMs[column] = nowMs
+    }
 
     private fun getFrame(currentBeat: Double): Int = ((currentBeat * 6.0) % 6).toInt()
 
@@ -246,13 +253,13 @@ class RenderSteps(
         currentTimeMs: Long = 0,
         arrowFrame: Int = 0,
 
-        // ✅ NUEVO: para emular Pump (cachando holds)
+        // Pump: saber si se está “cachando”
         isHeld: (Int) -> Boolean
     ) {
 
         val frame = getFrame(currentBeat)
 
-        // ✅ igual a KSF
+        // igual a KSF
         val receptorY = medidaFlechas
         val pxPerBeat = basePixelsPerBeat * scrollSpeed
 
@@ -261,14 +268,12 @@ class RenderSteps(
             return receptorY + ((vb - currentVisualBeat) * pxPerBeat).toFloat()
         }
 
-        // Offsets que ya usabas (pero ahora coherentes)
-        val headOffsetY = 40f
-        val tailOffsetY = 10f
+        // offsets actuales
+        val headOffsetY = 0f
+        val tailOffsetY = 0f
 
         // =========================================================
         // 1) HOLD BODY + TAIL (Pump)
-        // - si catching: body se consume desde receptorY
-        // - tail sigue subiendo
         // =========================================================
         for (note in notes) {
 
@@ -277,6 +282,12 @@ class RenderSteps(
             if (note.holdState == GameNote.HoldState.COMPLETED) continue
 
             val endBeat = note.endBeat ?: continue
+
+            val inWindow = currentBeat >= note.beat && currentBeat <= endBeat
+            if (inWindow && isHeld(note.column)) {
+                // refresca el flare continuamente (lo extiende)
+                flareStartMs[note.column] = currentTimeMs
+            }
 
             val catching =
                 isHeld(note.column) &&
@@ -287,7 +298,6 @@ class RenderSteps(
             val headY = if (catching) receptorY.toFloat() else rawHeadY
             val tailY = y(endBeat)
 
-            // top-left de sprites
             val headDrawY = headY - headOffsetY
             val tailDrawY = tailY - tailOffsetY
 
@@ -302,7 +312,6 @@ class RenderSteps(
 
                 val newLo = max(lo, receptorY.toFloat())
 
-                // reconstruir conservando orientación
                 if (a <= b) { a = newLo; b = hi } else { a = hi; b = newLo }
             }
 
@@ -313,13 +322,14 @@ class RenderSteps(
             // culling
             if (bottom < -medidaFlechas) continue
             if (top > screenHeight + medidaFlechas) continue
+
             if (bodyH > 0.5f) {
                 val cx = columnX[note.column] + luaNoteOffsetX
                 val body = textures.arrowsBody[note.column][frame]
                 batch.draw(body, cx, top, medidaFlechas, bodyH)
             }
 
-            // tail cap (si está visible)
+            // tail cap visible
             val tailVisible = tailDrawY <= screenHeight + medidaFlechas && tailDrawY >= -medidaFlechas * 2
             if (tailVisible) {
                 val cx = columnX[note.column] + luaNoteOffsetX
@@ -330,7 +340,6 @@ class RenderSteps(
 
         // =========================================================
         // 2) NOTES (TAP + HEAD de HOLD)
-        // - si catching: el head del HOLD se pega al receptor
         // =========================================================
         for (note in notes) {
             if (note.missed) continue
@@ -373,12 +382,6 @@ class RenderSteps(
                     batch.draw(region, cx - 40f, noteY - 40f, 80f, 80f)
                 }
             }
-
-            // flare (igual que tu lógica actual: depende de note.hit)
-            if (note.hit && note.type != NoteType.MINE) {
-                val flare = textures.flare[frame]
-                batch.draw(flare, arrPosXFlare[note.column] + luaNoteOffsetX, yFlare, widthFlare, widthFlare)
-            }
         }
 
         // =========================================================
@@ -392,6 +395,29 @@ class RenderSteps(
                 medidaFlechas,
                 medidaFlechas
             )
+        }
+
+        // =========================================================
+        // 3.5) FLARE (FIX: por evento, en receptor)
+        // =========================================================
+        for (col in 0..4) {
+            val start = flareStartMs[col]
+            if (start == 0L) continue
+
+            val dt = currentTimeMs - start
+            if (dt < 0 || dt > flareDurationMs) continue
+
+            val flare = textures.flare[frame]
+
+            // centrar flare en la columna/receptor
+            val cx = columnX[col] + luaNoteOffsetX
+            val x = cx + (medidaFlechas * 0.5f) - (flareSize * 0.5f)
+            val yFlare = receptorY.toFloat() + (medidaFlechas * 0.5f) - (flareSize * 0.5f)
+            aBatch = batch.blendSrcFunc
+            bBatch = batch.blendDstFunc
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+            batch.draw(flare, x, yFlare, flareSize, flareSize)
+            batch.setBlendFunction(aBatch, bBatch)
         }
 
         // =========================================================

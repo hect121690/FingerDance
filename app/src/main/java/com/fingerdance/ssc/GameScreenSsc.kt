@@ -210,7 +210,7 @@ class GameScreenSsc(
         batch.projectionMatrix = camera.combined
 
         parser = Parser()
-        val chart = parser.parseSSC(sscSong.listLvs[5].steps)
+        val chart = parser.parseSSC(sscSong.listLvs[3].steps)
 
         timing = TimingEngine(chart.bpms, chart.stops, chart.warps)
         scroll = ScrollEngine(chart.speeds, chart.scrolls, timing)
@@ -218,7 +218,7 @@ class GameScreenSsc(
         val music: Music = Gdx.audio.newMusic(Gdx.files.absolute(playerSong.rutaCancion))
         music.stop()
         audio = AudioEngine(music)
-        audio.load(offsetMs = 0.0)
+        audio.load(offsetMs = -50.0)
 
         val tex = RenderSteps.TextureSet(
             arrows = arrArrows,

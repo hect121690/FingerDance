@@ -76,6 +76,7 @@ class GameLoop(
                 onJudgment?.invoke(judgmentIndex, now.toLong())
                 renderer.setJudgment(judgmentIndex, now.toLong())
                 renderer.setShowExpand(column, now.toLong())
+                renderer.triggerFlare(column, now.toLong())
             }
         }
     }

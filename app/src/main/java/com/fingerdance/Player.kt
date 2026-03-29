@@ -25,8 +25,7 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     private val sizeScale = medidaFlechas * 1.2f
     private val topPos = medidaFlechas * 0.9f
     private val posX = medidaFlechas * 0.1f
-    private var aBatch = 0
-    private var bBatch = 0
+
     private val xFlare1 = medidaFlechas * 2.1f
     private val xFlare2 = medidaFlechas * 2.15f
     private val xFlare3 = medidaFlechas * 2.1f

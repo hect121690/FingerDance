@@ -277,8 +277,6 @@ open class GameScreenKsf(activity: GameScreenActivity) : Screen {
             batch.draw(arrayPad4Bg[4], padPositions[4][0], padPositions[4][1], widthBtns, heightBtns)
         }
     }
-    private var aBatch = 0
-    private var bBatch = 0
 
     private fun drawRecepts(luaReceptOffsetX: Float) {
         batch.draw(recept0Frames[0], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)

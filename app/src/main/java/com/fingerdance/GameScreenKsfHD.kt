@@ -223,8 +223,6 @@ open class GameScreenKsfHD(activity: GameScreenActivity) : Screen {
             }
         }
     }
-    private var aBatch = 0
-    private var bBatch = 0
     private fun getReceptsAnimation() {
         batch.draw(receptCE[0], arrowsSize, targetTop, arrowsSize, arrowsSize)  //Centro Izq
         batch.draw(receptRU[0], arrowsSize * 2, targetTop, arrowsSize, arrowsSize) // Roja Arriba Der

@@ -29,6 +29,8 @@ var listChannelsDrive = mutableListOf<MainActivity.ChannelsDrive>()
 
 var sscSong = Song()
 var isSsc = false
+var aBatch = 0
+var bBatch = 0
 // ========== VARIABLES GLOBALES - USUARIO ==========
 var userName = ""
 lateinit var firebaseDatabase : FirebaseDatabase
