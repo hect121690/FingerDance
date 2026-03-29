@@ -17,7 +17,6 @@ class GameLoop(
     private val onJudgment: ((Int, Long) -> Unit)? = null,
     private val timingOffsetMs: Double = 360.0,
     private val onFrameBeat: ((Double) -> Unit)? = null
-
 ) {
 
     private val judgment = JudgmentEngine(timing)
@@ -136,7 +135,8 @@ class GameLoop(
                     timing = timing,
                     scroll = scroll,
                     currentTimeMs = now.toLong(),
-                    arrowFrame = ((currentBeat * 6.0) % 6).toInt()
+                    arrowFrame = ((currentBeat * 6.0) % 6).toInt(),
+                    isHeld = { col -> input.isHeld(col) }
                 )
 
                 batch.end()
