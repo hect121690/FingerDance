@@ -126,6 +126,7 @@ class RenderSteps(
                 val progress = elapsedTime / 300f
                 Triple(1.0f + progress, 1.0f + progress, 1f)
             }
+
             elapsedTime > 1200 -> {
                 val progress = ((elapsedTime - 1200) / 300f).coerceIn(0f, 1f)
                 Triple(
@@ -134,6 +135,7 @@ class RenderSteps(
                     (1.0f - progress).coerceIn(0f, 1f)
                 )
             }
+
             else -> Triple(1.0f, 1.0f, 1f)
         }
 
@@ -251,7 +253,23 @@ class RenderSteps(
         }
 
         // =========================================================
-        // 1) HOLD BODY
+        // 0) CONSTANTES PARA CONECTAR SIN HUECOS (QUITAR MAGIA -40/-10)
+        // =========================================================
+        // En tu código actual la nota (head) se dibuja en noteY - 40 y el tail en tailY - 10.
+        // Eso crea gaps porque el body no sabe esos offsets.
+        //
+        // Para "conectar sin huecos", hacemos que:
+        // - headDrawY sea el Y real donde se dibuja la textura arrArrows (top-left)
+        // - tailDrawY sea el Y real donde se dibuja arrArrowsBottom (top-left)
+        // - body ocupe EXACTO entre (headDrawY + medidaFlechas) y tailDrawY
+        //
+        // Si quieres mantener el look visual de los offsets, los definimos aquí,
+        // pero el body ahora los respeta.
+        val headOffsetY = 40f
+        val tailOffsetY = 10f
+
+        // =========================================================
+        // 1) HOLD BODY (conectado al head y tail sin huecos)
         // =========================================================
         for (note in notes) {
 
@@ -264,32 +282,52 @@ class RenderSteps(
             val headY = y(note.beat)
             val tailY = y(endBeat)
 
-            if (headY < -medidaFlechas && tailY < -medidaFlechas) continue
-            if (headY > screenHeight + medidaFlechas && tailY > screenHeight + medidaFlechas) continue
+            // Y reales donde se dibujan los sprites (top-left)
+            val headDrawY = headY - headOffsetY
+            val tailDrawY = tailY - tailOffsetY
 
-            val clippedHead = max(headY, receptorY)
-            val clippedTail = min(tailY, receptorY)
+            // Body: desde abajo del head hasta arriba del tail
+            var bodyStartY = headDrawY + medidaFlechas
+            var bodyEndY = tailDrawY
 
-            val top = min(clippedHead, clippedTail)
-            val bottom = max(clippedHead, clippedTail)
-            val height = bottom - top
-            if (height <= 0) continue
+            // Si vienen invertidos por cualquier razón, normalizamos
+            val top = min(bodyStartY, bodyEndY)
+            val bottom = max(bodyStartY, bodyEndY)
+            var bodyY = top
+            var bodyH = bottom - top
+
+            // Culling rápido
+            if (bottom < -medidaFlechas) continue
+            if (top > screenHeight + medidaFlechas) continue
+            if (bodyH <= 0f) continue
+
+            // Opcional: recortar por receptor (para que no se vea "pasado" cuando ya llegó)
+            // Mantengo tu intención original: al cruzar receptor, recorta.
+            // Si quieres el hold completo head↔tail sin recorte, me dices y lo quito.
+            val clipTop = receptorY // línea del receptor
+            val clippedTop = max(bodyY, clipTop)
+            val clippedBottom = min(bodyY + bodyH, clipTop)
+            val clippedY = min(clippedTop, clippedBottom)
+            val clippedH = max(0f, max(clippedTop, clippedBottom) - clippedY)
 
             val cx = columnX[note.column] + luaNoteOffsetX
             val body = textures.arrowsBody[note.column][frame]
 
-            // Body alineado a columna (sin cx - half)
-            batch.draw(body, cx, top, medidaFlechas, height)
+            if (clippedH > 0f) {
+                batch.draw(body, cx, clippedY, medidaFlechas, clippedH)
+            }
 
-            // bottom cap
-            if (tailY < receptorY) {
+            // Tail: lo dibujamos SIEMPRE que esté en pantalla y aún no llegó al receptor,
+            // para que "cierre" el body sin huecos
+            val tailVisible = tailDrawY <= screenHeight + medidaFlechas && tailDrawY >= -medidaFlechas * 2
+            if (tailVisible && tailY < receptorY) {
                 val tail = textures.arrowsBottom[note.column][frame]
-                batch.draw(tail, cx, tailY - 10f, medidaFlechas, medidaFlechas)
+                batch.draw(tail, cx, tailDrawY, medidaFlechas, medidaFlechas)
             }
         }
 
         // =========================================================
-        // 2) NOTES
+        // 2) NOTES (head de tap y head de hold)
         // =========================================================
         for (note in notes) {
             if (note.missed) continue
@@ -305,8 +343,10 @@ class RenderSteps(
             when (note.type) {
                 NoteType.TAP, NoteType.HOLD -> {
                     val region = textures.arrows[note.column][frame]
-                    batch.draw(region, cx, noteY - 40f, medidaFlechas, medidaFlechas)
+                    // headDrawY consistente con el body
+                    batch.draw(region, cx, noteY - headOffsetY, medidaFlechas, medidaFlechas)
                 }
+
                 NoteType.MINE -> {
                     val region = textures.mines[frame]
                     batch.draw(region, cx - 40f, noteY - 40f, 80f, 80f)
