@@ -268,6 +268,19 @@ class RenderSteps(
             return receptorY + ((vb - currentVisualBeat) * pxPerBeat).toFloat()
         }
 
+        // =========================================================
+        // 3) RECEPTORS
+        // =========================================================
+        for (i in 0..4) {
+            batch.draw(
+                textures.receptor[i][0],
+                (medidaFlechas * (i + 1)) + luaReceptOffsetX,
+                receptorY.toFloat(),
+                medidaFlechas,
+                medidaFlechas
+            )
+        }
+
         // offsets actuales
         val headOffsetY = 0f
         val tailOffsetY = 0f
@@ -326,7 +339,7 @@ class RenderSteps(
             if (bodyH > 0.5f) {
                 val cx = columnX[note.column] + luaNoteOffsetX
                 val body = textures.arrowsBody[note.column][frame]
-                batch.draw(body, cx, top, medidaFlechas, bodyH)
+                batch.draw(body, cx, top - (medidaFlechas / 2f), medidaFlechas, bodyH)
             }
 
             // tail cap visible
@@ -334,7 +347,7 @@ class RenderSteps(
             if (tailVisible) {
                 val cx = columnX[note.column] + luaNoteOffsetX
                 val tail = textures.arrowsBottom[note.column][frame]
-                batch.draw(tail, cx, tailDrawY, medidaFlechas, medidaFlechas)
+                batch.draw(tail, cx, tailDrawY - (medidaFlechas / 2f), medidaFlechas, medidaFlechas)
             }
         }
 
@@ -382,19 +395,6 @@ class RenderSteps(
                     batch.draw(region, cx - 40f, noteY - 40f, 80f, 80f)
                 }
             }
-        }
-
-        // =========================================================
-        // 3) RECEPTORS
-        // =========================================================
-        for (i in 0..4) {
-            batch.draw(
-                textures.receptor[i][0],
-                (medidaFlechas * (i + 1)) + luaReceptOffsetX,
-                receptorY.toFloat(),
-                medidaFlechas,
-                medidaFlechas
-            )
         }
 
         // =========================================================
