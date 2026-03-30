@@ -1,4 +1,4 @@
-package com.fingerdance
+package com.fingerdance.ssc
 
 import android.os.SystemClock
 import com.badlogic.gdx.Gdx
@@ -12,6 +12,24 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
+import com.fingerdance.GameScreenActivity
+import com.fingerdance.aBatch
+import com.fingerdance.alphaPadB
+import com.fingerdance.bBatch
+import com.fingerdance.displayBPM
+import com.fingerdance.height
+import com.fingerdance.heightBtns
+import com.fingerdance.hideImagesPadA
+import com.fingerdance.medidaFlechas
+import com.fingerdance.padPositions
+import com.fingerdance.playerSong
+import com.fingerdance.ruta
+import com.fingerdance.showPadB
+import com.fingerdance.skinPad
+import com.fingerdance.tema
+import com.fingerdance.typePadD
+import com.fingerdance.width
+import com.fingerdance.widthBtns
 import kotlin.math.abs
 
 open class GameScreenSsc(activity: GameScreenActivity) : Screen {
@@ -89,7 +107,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     private var isPaused = false
     lateinit var camera : OrthographicCamera
-    lateinit var player: Player
+    lateinit var player: PlayerSsc
     private val posYpadB = height.toFloat() - (width.toFloat() * 1.1f)
 
     private var timer = 0f
@@ -153,7 +171,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
-        player = Player(batch, a)
+        player = PlayerSsc(batch, a)
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechas
 

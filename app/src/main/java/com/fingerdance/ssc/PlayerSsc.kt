@@ -1,4 +1,4 @@
-package com.fingerdance
+package com.fingerdance.ssc
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -9,15 +9,35 @@ import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
+import com.fingerdance.GameScreenActivity
+import com.fingerdance.InputProcessorSsc
 import com.fingerdance.KsfProccess.LuaVisualEvent
 import com.fingerdance.KsfProccess.Pattern
 import com.fingerdance.KsfProccess.TypeNote
+import com.fingerdance.aBatch
+import com.fingerdance.bBatch
+import com.fingerdance.breakSong
+import com.fingerdance.height
+import com.fingerdance.heightBtns
+import com.fingerdance.heightJudges
+import com.fingerdance.isMidLine
+import com.fingerdance.isOnline
+import com.fingerdance.medidaFlechas
+import com.fingerdance.padPositions
+import com.fingerdance.playerSong
+import com.fingerdance.resultSong
+import com.fingerdance.ruta
+import com.fingerdance.showPadB
+import com.fingerdance.soundPoolSelectSongKsf
+import com.fingerdance.sound_mine
+import com.fingerdance.widthBtns
+import com.fingerdance.widthJudges
 import java.io.File
 import java.lang.Math.abs
 import kotlin.experimental.and
 import kotlin.math.sqrt
 
-class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : GameScreenKsf(activity) {
+class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : GameScreenSsc(activity) {
 
     private val chkPtnNum = IntArray(5)
     private val chkLineNum = IntArray(5)
@@ -136,7 +156,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     private val widthFlare = medidaFlechas * 5f
     private var yFlare = medidaFlechas - (medidaFlechas * 2f)
 
-    private val inputProcessor = InputProcessor()
+    private val inputProcessor = InputProcessorSsc()
 
     private var speed = playerSong.speed.replace("X", "").toFloat() + 1f
 
@@ -255,14 +275,9 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         if(showPadB == 0){
             inputProcessor.render(batch)
         }
-        val msPorBeat = (MINUTE / m_fCurBPM.coerceIn(1f, ksf.MAX_BPM))
+        val msPorBeat = 500//(MINUTE / m_fCurBPM.coerceIn(1f, ksf.MAX_BPM))
         val msPorFrame = msPorBeat / 5
         arrowFrame = ((timeCom % msPorBeat) / msPorFrame).toInt()
-
-        val currentBeat = getGlobalBeat(time)
-        updateLuaEvents(currentBeat)
-
-
 
         if(m_fGauge > 1.0f){
             m_fGauge = 1.0f
@@ -324,7 +339,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
     fun updateStepData(time: Long) {
         var iptn: Int
-        val iptnc = ksf.patterns.size
         var line_num_s: Int
         var line_num_c: Int
         var judge_time: Long
@@ -372,67 +386,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         luaReceptOffsetX = 0f
         luaNoteOffsetX = 0f
 
-        for (event in ksf.luaEvents) {
-            if (!event.started && currentBeat >= event.startBeat) {
-                event.started = true
-                event.runtimeStartBeat = event.startBeat
-                activeLuaEvents.add(event)
-            }
-        }
-
-        val iterator = activeLuaEvents.iterator()
-
-        while (iterator.hasNext()) {
-
-            val event = iterator.next()
-            val elapsed = currentBeat - event.runtimeStartBeat
-
-            if (elapsed >= event.durationBeat) {
-
-                val xPercent = event.params["x"] ?: 0f
-                val finalOffset = gdxWidth * xPercent
-
-                when (event.target) {
-                    KsfProccess.VisualTarget.RECEPTOR -> luaReceptOffsetX += finalOffset
-                    KsfProccess.VisualTarget.NOTES -> luaNoteOffsetX += finalOffset
-                }
-
-                iterator.remove()
-                continue
-            }
-
-            val duration = maxOf(event.durationBeat, 0.0001f)
-            val t = (elapsed / duration).coerceIn(0f, 1f)
-
-            val xPercent = event.params["x"] ?: 0f
-            val targetOffset = gdxWidth * xPercent
-            val offset = targetOffset * t
-
-            when (event.target) {
-                KsfProccess.VisualTarget.RECEPTOR -> luaReceptOffsetX += offset
-                KsfProccess.VisualTarget.NOTES -> luaNoteOffsetX += offset
-            }
-        }
-    }
-
-    private fun findPatternByTime(time: Long): Pattern {
-        for (i in ksf.patterns.size - 1 downTo 0) {
-            if (time >= ksf.patterns[i].timePos) return ksf.patterns[i]
-        }
-        return ksf.patterns.first()
-    }
-
-    fun getGlobalBeat(songTimeMs: Long): Float {
-
-        val ptn = findPatternByTime(songTimeMs)
-
-        if (ptn.fBPM <= 0f) return ptn.beatStart
-
-        val localMs = songTimeMs - ptn.timePos
-        val msPerBeat = MINUTE / ptn.fBPM
-        val localBeat = localMs / msPerBeat
-
-        return ptn.beatStart + localBeat
     }
 
     private val initArrow = (gdxHeight * 0.55)

@@ -1,10 +1,15 @@
-package com.fingerdance
+package com.fingerdance.ssc
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.fingerdance.heightBtns
+import com.fingerdance.padPositions
+import com.fingerdance.tema
+import com.fingerdance.touchAreas
+import com.fingerdance.widthBtns
 
 private const val KEY_NONE = 0
 private const val KEY_DOWN = 1
