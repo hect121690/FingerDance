@@ -190,14 +190,13 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
-            val currentTime = (elapsedTime * 1000).toLong() - 1000
+            elapsedTime += delta
+            val currentTime = (elapsedTime * 1000).toLong() - 500
 
             batch.begin()
             showBgPads()
             player.updateStepData(currentTime)
             //batch.color = Color(0f, 0f, 0f, 0f)
-
-            elapsedTime += delta
 
             if(!playerSong.fd){
                 intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
