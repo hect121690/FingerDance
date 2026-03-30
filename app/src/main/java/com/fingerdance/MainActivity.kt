@@ -1380,7 +1380,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             val ls = LoadingSongs(this@MainActivity)
             val listChannelsSsc = ls.getChannels(this@MainActivity)
-            sscSong = listChannelsSsc[0].listCanciones[8]
+            sscSong = listChannelsSsc[0].listCanciones[3]
             //val sscCharData = parser.parseSSC(sscSong.listLvs[2].steps)
             isSsc = true
             btnPlay.performClick()

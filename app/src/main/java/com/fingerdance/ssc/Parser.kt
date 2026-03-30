@@ -20,6 +20,7 @@ class Parser {
     )
 
     data class BpmSegment(val beat: Double, val bpm: Double)
+    data class TickCountSegment(val beat: Double, val tickcount: Int)
     data class Stop(val beat: Double, val durationMs: Double)
     data class Warp(val beat: Double, val duration: Double)
     data class Fake(val beat: Double, val duration: Double)
@@ -28,7 +29,9 @@ class Parser {
     data class Scroll(val beat: Double, val ratio: Double)
 
     data class Chart(
+        val offset: Double = 0.0,
         val bpms: List<BpmSegment>,
+        val tickcounts: List<TickCountSegment>,
         val stops: List<Stop>,
         val warps: List<Warp>,
         val fakes: List<Fake>,
@@ -42,8 +45,9 @@ class Parser {
     // =========================
 
     fun parseSSC(text: String): Chart {
-
+        val offset = extractTag(text, "OFFSET")?.toDoubleOrNull() ?: 0.0
         val bpms = parsePairs(text, "BPMS").map { BpmSegment(it.first, it.second) }
+        val tickcounts = parsePairs(text, "TICKCOUNTS").map { TickCountSegment(it.first, it.second.toInt()) }
         val stops = parsePairs(text, "STOPS").map { Stop(it.first, it.second * 1000) }
         val delays = parsePairs(text, "DELAYS").map { Stop(it.first, it.second * 1000) }
         val warps = parsePairs(text, "WARPS").map { Warp(it.first, it.second) }
@@ -57,7 +61,9 @@ class Parser {
         val notes = parseNotes(text, fakes)
 
         return Chart(
+            offset = offset,
             bpms = bpms,
+            tickcounts = tickcounts,
             stops = allStops,
             warps = warps,
             fakes = fakes,

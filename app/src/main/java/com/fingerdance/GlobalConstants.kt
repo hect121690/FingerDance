@@ -8,6 +8,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
+import com.fingerdance.ssc.Parser.Chart
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -29,6 +30,10 @@ var listChannelsDrive = mutableListOf<MainActivity.ChannelsDrive>()
 
 var sscSong = Song()
 var isSsc = false
+var chart = Chart(0.0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+
+
+
 var aBatch = 0
 var bBatch = 0
 // ========== VARIABLES GLOBALES - USUARIO ==========

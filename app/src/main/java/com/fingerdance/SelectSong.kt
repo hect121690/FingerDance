@@ -83,6 +83,7 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import androidx.core.graphics.scale
 import androidx.core.net.toUri
+import com.fingerdance.ssc.Parser
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -985,7 +986,7 @@ class SelectSong : AppCompatActivity() {
                                 setDataSource(File(playerSong.rutaCancion!!).absolutePath)
                                 prepare()
                             }
-
+                            chart = Parser().parseSSC(sscSong.listLvs[3].steps)
                             val intent = Intent(this, GameScreenActivity()::class.java)
                             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
                             startActivity(intent)

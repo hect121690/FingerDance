@@ -26,6 +26,7 @@ import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.fingerdance.ssc.GameScreenSsc
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -119,9 +120,7 @@ open class GameScreenActivity : AndroidApplication() {
                     linearBGADark.visibility = View.GONE
                 }
             }
-            if(!isSsc){
-                mediaPlayer.start()
-            }
+            mediaPlayer.start()
 
         }, timeToPlay)
         if(!isOnline){
@@ -523,18 +522,14 @@ open class GameScreenActivity : AndroidApplication() {
         if (!hasWaitedForDelay) {
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!mediaPlayer.isPlaying) {
-                    if(!isSsc){
-                        mediaPlayer.start()
-                    }
+                    mediaPlayer.start()
                 }
                 startVideoFromPosition()
                 hasWaitedForDelay = true
             }, 2000)
         } else {
             if (!mediaPlayer.isPlaying) {
-                if(!isSsc){
-                    mediaPlayer.start()
-                }
+                mediaPlayer.start()
             }
             startVideoFromPosition()
         }
