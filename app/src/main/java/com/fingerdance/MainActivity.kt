@@ -1328,6 +1328,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val goOptionMP = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
         btnOptions.setOnClickListener {
+            isSsc = false
             if(flagActiveAllows){
                 if(idWithRegister == ""){
                     showLoadingOverlay("Espere por favor...")
@@ -1379,12 +1380,10 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             val ls = LoadingSongs(this@MainActivity)
             val listChannelsSsc = ls.getChannels(this@MainActivity)
-            val parser = Parser()
-            sscSong = listChannelsSsc[0].listCanciones[0]
+            sscSong = listChannelsSsc[0].listCanciones[8]
             //val sscCharData = parser.parseSSC(sscSong.listLvs[2].steps)
             isSsc = true
             btnPlay.performClick()
-
 
             builder.setTitle("Aviso")
             builder.setMessage("Deseas salir del juego?")

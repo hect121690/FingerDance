@@ -50,7 +50,7 @@ class RenderSteps(
         val arrowsBody: Array<Array<TextureRegion>>,
         val arrowsBottom: Array<Array<TextureRegion>>,
         val mines: Array<TextureRegion>,
-        val flare: Array<TextureRegion>,
+        val flare: Array<TextureRegion>,                // 6 frames como en Player
         val receptor: Array<Array<TextureRegion>>,
         val judgments: Array<TextureRegion>? = null,
         val pads: Array<TextureRegion>? = null // PadA
@@ -89,10 +89,14 @@ class RenderSteps(
     private val posX = medidaFlechas * 0.1f
 
     // =========================================================
-    // Flare (FIX: por evento, anclado al receptor)
+    // Flare (igual que Player: ~6 frames de ~64ms)
     // =========================================================
     private val flareStartMs = LongArray(5) { 0L }
-    private val flareDurationMs = 140L
+    // ya no usamos flareDurationMs ni frame por beat
+    private val flareStepMs = 64L              // *** CAMBIO: 64ms por frame como en Player (>> 6)
+    private val flareMaxFrames = 6            // *** CAMBIO: 0..5
+
+    // tamaño y posición de flare (centrado en receptor, similar a Player)
     private val flareScale = 1.0f
     private val flareSize = medidaFlechas * 3.2f * flareScale
 
@@ -101,6 +105,7 @@ class RenderSteps(
         flareStartMs[column] = nowMs
     }
 
+    // frame de flechas (animación base, sigue por beat)
     private fun getFrame(currentBeat: Double): Int = ((currentBeat * 6.0) % 6).toInt()
 
     fun updateLayout(screenWidth: Float) {
@@ -133,7 +138,6 @@ class RenderSteps(
                 val progress = elapsedTime / 300f
                 Triple(1.0f + progress, 1.0f + progress, 1f)
             }
-
             elapsedTime > 1200 -> {
                 val progress = ((elapsedTime - 1200) / 300f).coerceIn(0f, 1f)
                 Triple(
@@ -142,7 +146,6 @@ class RenderSteps(
                     (1.0f - progress).coerceIn(0f, 1f)
                 )
             }
-
             else -> Triple(1.0f, 1.0f, 1f)
         }
 
@@ -156,6 +159,9 @@ class RenderSteps(
         judgeSprite.draw(batch)
     }
 
+    // =========================================================
+    // PADS BACKGROUND (igual que Player, pero siempre al fondo)
+    // =========================================================
     private fun drawBgPads() {
         // Pad A (tema)
         if (showPadB == 0) {
@@ -204,10 +210,14 @@ class RenderSteps(
         }
     }
 
+    // =========================================================
+    // SHOW EXPAND (receptor + pads C/D) – igual que Player
+    // =========================================================
     private fun showExpand(position: Int, arrowFrame: Int, nowMs: Long) {
         if (currentPadExpand.column != position) return
         if (currentPadExpand.startTime == 0L) return
 
+        // duración ~300ms como en Player.animationDuration
         if (currentPadExpand.startTime + 300 < nowMs) {
             currentPadExpand.startTime = 0
             currentPadExpand.column = -1
@@ -220,23 +230,80 @@ class RenderSteps(
             if (showPadB == 2 && arrPadsC != null && padPositionsC != null) {
                 val padPos = padPositionsC[position]
                 batch.setColor(1f, 1f, 1f, 1f)
-                batch.draw(arrPadsC[position][arrowFrame], padPos.x, padPos.y, padPos.size, padPos.size)
+                batch.draw(
+                    arrPadsC[position][arrowFrame],
+                    padPos.x,
+                    padPos.y,
+                    padPos.size,
+                    padPos.size
+                )
             }
         }
 
         fun drawPadD() {
             if (showPadB == 3 && arrayPad4 != null) {
                 batch.setColor(1f, 1f, 1f, 1f)
-                batch.draw(arrayPad4[position], padPositions[position][0], padPositions[position][1], widthBtns, heightBtns)
+                batch.draw(
+                    arrayPad4[position],
+                    padPositions[position][0],
+                    padPositions[position][1],
+                    widthBtns,
+                    heightBtns
+                )
             }
         }
 
         when (position) {
-            0 -> { batch.draw(recept0Frames!![2], (medidaFlechas) - posX + luaReceptOffsetX, topPos, sizeScale, sizeScale); drawPadC(); drawPadD() }
-            1 -> { batch.draw(recept1Frames!![2], (medidaFlechas * 2) - posX + luaReceptOffsetX, topPos, sizeScale, sizeScale); drawPadC(); drawPadD() }
-            2 -> { batch.draw(recept2Frames!![2], (medidaFlechas * 3) - posX + luaReceptOffsetX, topPos, sizeScale, sizeScale); drawPadC(); drawPadD() }
-            3 -> { batch.draw(recept3Frames!![2], (medidaFlechas * 4) - posX + luaReceptOffsetX, topPos, sizeScale, sizeScale); drawPadC(); drawPadD() }
-            4 -> { batch.draw(recept4Frames!![2], (medidaFlechas * 5) - posX + luaReceptOffsetX, topPos, sizeScale, sizeScale); drawPadC(); drawPadD() }
+            0 -> {
+                batch.draw(
+                    recept0Frames!![2],
+                    (medidaFlechas) - posX + luaReceptOffsetX,
+                    topPos,
+                    sizeScale,
+                    sizeScale
+                )
+                drawPadC(); drawPadD()
+            }
+            1 -> {
+                batch.draw(
+                    recept1Frames!![2],
+                    (medidaFlechas * 2) - posX + luaReceptOffsetX,
+                    topPos,
+                    sizeScale,
+                    sizeScale
+                )
+                drawPadC(); drawPadD()
+            }
+            2 -> {
+                batch.draw(
+                    recept2Frames!![2],
+                    (medidaFlechas * 3) - posX + luaReceptOffsetX,
+                    topPos,
+                    sizeScale,
+                    sizeScale
+                )
+                drawPadC(); drawPadD()
+            }
+            3 -> {
+                batch.draw(
+                    recept3Frames!![2],
+                    (medidaFlechas * 4) - posX + luaReceptOffsetX,
+                    topPos,
+                    sizeScale,
+                    sizeScale
+                )
+                drawPadC(); drawPadD()
+            }
+            4 -> {
+                batch.draw(
+                    recept4Frames!![2],
+                    (medidaFlechas * 5) - posX + luaReceptOffsetX,
+                    topPos,
+                    sizeScale,
+                    sizeScale
+                )
+                drawPadC(); drawPadD()
+            }
         }
 
         batch.setColor(1f, 1f, 1f, 1f)
@@ -252,8 +319,6 @@ class RenderSteps(
         scroll: ScrollEngine,
         currentTimeMs: Long = 0,
         arrowFrame: Int = 0,
-
-        // Pump: saber si se está “cachando”
         isHeld: (Int) -> Boolean
     ) {
 
@@ -269,7 +334,12 @@ class RenderSteps(
         }
 
         // =========================================================
-        // 3) RECEPTORS
+        // 0) PADS DE FONDO (como en Player, al inicio del render)
+        // =========================================================
+        drawBgPads()
+
+        // =========================================================
+        // 1) RECEPTORS
         // =========================================================
         for (i in 0..4) {
             batch.draw(
@@ -286,7 +356,7 @@ class RenderSteps(
         val tailOffsetY = 0f
 
         // =========================================================
-        // 1) HOLD BODY + TAIL (Pump)
+        // 2) HOLD BODY + TAIL
         // =========================================================
         for (note in notes) {
 
@@ -298,7 +368,7 @@ class RenderSteps(
 
             val inWindow = currentBeat >= note.beat && currentBeat <= endBeat
             if (inWindow && isHeld(note.column)) {
-                // refresca el flare continuamente (lo extiende)
+                // En Player refrescas flare continuamente; aquí podemos dejarlo o quitarlo
                 flareStartMs[note.column] = currentTimeMs
             }
 
@@ -325,7 +395,11 @@ class RenderSteps(
 
                 val newLo = max(lo, receptorY.toFloat())
 
-                if (a <= b) { a = newLo; b = hi } else { a = hi; b = newLo }
+                if (a <= b) {
+                    a = newLo; b = hi
+                } else {
+                    a = hi; b = newLo
+                }
             }
 
             val top = min(a, b)
@@ -343,7 +417,8 @@ class RenderSteps(
             }
 
             // tail cap visible
-            val tailVisible = tailDrawY <= screenHeight + medidaFlechas && tailDrawY >= -medidaFlechas * 2
+            val tailVisible =
+                tailDrawY <= screenHeight + medidaFlechas && tailDrawY >= -medidaFlechas * 2
             if (tailVisible) {
                 val cx = columnX[note.column] + luaNoteOffsetX
                 val tail = textures.arrowsBottom[note.column][frame]
@@ -352,7 +427,7 @@ class RenderSteps(
         }
 
         // =========================================================
-        // 2) NOTES (TAP + HEAD de HOLD)
+        // 3) NOTES (TAP + HEAD de HOLD + MINE)
         // =========================================================
         for (note in notes) {
             if (note.missed) continue
@@ -398,35 +473,37 @@ class RenderSteps(
         }
 
         // =========================================================
-        // 3.5) FLARE (FIX: por evento, en receptor)
+        // 4) FLARE (sincronizado como en Player: 6 frames / 64ms)
         // =========================================================
         for (col in 0..4) {
             val start = flareStartMs[col]
             if (start == 0L) continue
 
             val dt = currentTimeMs - start
-            if (dt < 0 || dt > flareDurationMs) continue
+            if (dt < 0) continue
 
-            val flare = textures.flare[frame]
+            val frameIdx = (dt / flareStepMs).toInt()
+            if (frameIdx >= flareMaxFrames) {
+                flareStartMs[col] = 0L
+                continue
+            }
 
-            // centrar flare en la columna/receptor
+            val flareRegion = textures.flare[frameIdx]
+
+            // centrar flare en la columna/receptor (similar a Player, pero centrado)
             val cx = columnX[col] + luaNoteOffsetX
             val x = cx + (medidaFlechas * 0.5f) - (flareSize * 0.5f)
             val yFlare = receptorY.toFloat() + (medidaFlechas * 0.5f) - (flareSize * 0.5f)
+
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(flare, x, yFlare, flareSize, flareSize)
+            batch.draw(flareRegion, x, yFlare, flareSize, flareSize)
             batch.setBlendFunction(aBatch, bBatch)
         }
 
         // =========================================================
-        // 4) PADS
-        // =========================================================
-        drawBgPads()
-
-        // =========================================================
-        // 5) SHOW EXPAND
+        // 5) SHOW EXPAND (receptor + pad activo encima de todo)
         // =========================================================
         for (i in 0..4) {
             showExpand(i, arrowFrame, currentTimeMs)

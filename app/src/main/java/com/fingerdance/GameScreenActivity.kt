@@ -119,7 +119,9 @@ open class GameScreenActivity : AndroidApplication() {
                     linearBGADark.visibility = View.GONE
                 }
             }
-            //mediaPlayer.start()
+            if(!isSsc){
+                mediaPlayer.start()
+            }
 
         }, timeToPlay)
         if(!isOnline){
@@ -521,14 +523,18 @@ open class GameScreenActivity : AndroidApplication() {
         if (!hasWaitedForDelay) {
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!mediaPlayer.isPlaying) {
-                    //mediaPlayer.start()
+                    if(!isSsc){
+                        mediaPlayer.start()
+                    }
                 }
                 startVideoFromPosition()
                 hasWaitedForDelay = true
             }, 2000)
         } else {
             if (!mediaPlayer.isPlaying) {
-                //mediaPlayer.start()
+                if(!isSsc){
+                    mediaPlayer.start()
+                }
             }
             startVideoFromPosition()
         }

@@ -210,7 +210,7 @@ class GameScreenSsc(
         batch.projectionMatrix = camera.combined
 
         parser = Parser()
-        val chart = parser.parseSSC(sscSong.listLvs[3].steps)
+        val chart = parser.parseSSC(sscSong.listLvs[5].steps)
 
         timing = TimingEngine(chart.bpms, chart.stops, chart.warps)
         scroll = ScrollEngine(chart.speeds, chart.scrolls, timing)

@@ -68,7 +68,7 @@ class Parser {
     }
 
     // =========================
-    // NOTES (FIXED)
+    // NOTES (con soporte correcto de FAKE)
     // =========================
 
     private fun parseNotes(
@@ -96,48 +96,59 @@ class Parser {
 
                 val row = tokenize(rowRaw)
                 val beat = currentBeat + i * step
-                val isFake = isFake(beat, fakes)
 
                 for (col in 0 until row.size) {
 
                     when (row[col]) {
 
-                        '1' -> if (!isFake) {
+                        // TAP
+                        '1' -> {
+                            val fake = isFake(beat, fakes)
                             notes.add(
                                 Note(
                                     column = col,
                                     beat = beat,
+                                    isFake = fake,
                                     type = NoteType.TAP
                                 )
                             )
                         }
 
+                        // HOLD START
                         '2' -> {
+                            // guardamos sólo el beat de inicio; el flag fake se decide con el rango completo
                             holds[col] = beat
                         }
 
+                        // HOLD END
                         '3' -> {
                             val startBeat = holds[col] ?: continue
+                            // fake si cualquier parte del rango está en FAKE
+                            val isStartFake = isFake(startBeat, fakes)
+                            val isEndFake = isFake(beat, fakes)
+                            val fake = isStartFake || isEndFake
 
-                            if (!isFake) {
-                                notes.add(
-                                    Note(
-                                        column = col,
-                                        beat = startBeat,
-                                        endBeat = beat,
-                                        type = NoteType.HOLD
-                                    )
+                            notes.add(
+                                Note(
+                                    column = col,
+                                    beat = startBeat,
+                                    endBeat = beat,
+                                    isFake = fake,
+                                    type = NoteType.HOLD
                                 )
-                            }
+                            )
 
                             holds.remove(col)
                         }
 
-                        'M', 'm' -> if (!isFake) {
+                        // MINE
+                        'M', 'm' -> {
+                            val fake = isFake(beat, fakes)
                             notes.add(
                                 Note(
                                     column = col,
                                     beat = beat,
+                                    isFake = fake,
                                     type = NoteType.MINE
                                 )
                             )
@@ -146,7 +157,7 @@ class Parser {
                 }
             }
 
-            // ❗ FIX CRÍTICO: NO limpiar holds aquí
+            // IMPORTANTE: NO limpiamos holds aquí para no romper holds que cruzan medidas
             currentBeat += 4.0
         }
 
@@ -184,7 +195,7 @@ class Parser {
         val raw = extractTag(text, "SPEEDS") ?: return emptyList()
 
         return raw
-            .replace(";", "") // ← quitar terminador
+            .replace(";", "") // quitar terminador
             .split(",")
             .mapNotNull { entry ->
                 val clean = entry.trim()
@@ -195,13 +206,13 @@ class Parser {
 
                 try {
                     Speed(
-                        p[0].trim().toDouble(),
-                        p[1].trim().toDouble(),
-                        p[2].trim().toDouble(),
-                        p.getOrNull(3)?.trim()?.toIntOrNull() ?: 0
+                        p[0].trim().toDouble(),  // beat
+                        p[1].trim().toDouble(),  // ratio
+                        p[2].trim().toDouble(),  // duration
+                        p.getOrNull(3)?.trim()?.toIntOrNull() ?: 0  // mode
                     )
                 } catch (e: NumberFormatException) {
-                    null // o log si quieres debug
+                    null
                 }
             }
     }
@@ -234,6 +245,7 @@ class Parser {
         return regex.find(text)?.groupValues?.get(1)
     }
 
+    // Un beat está en FAKE si cae dentro de alguno de los rangos beat..beat+duration
     private fun isFake(beat: Double, fakes: List<Fake>): Boolean {
         return fakes.any { beat >= it.beat && beat < it.beat + it.duration }
     }
