@@ -190,12 +190,13 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
+            val songTimeMs = a.getSongTimeMs()
             elapsedTime += delta
-            val currentTime = (elapsedTime * 1000).toLong() - 500
+            val currentTime = (elapsedTime * 1000).toLong() - 1000
 
             batch.begin()
             showBgPads()
-            player.updateStepData(currentTime)
+            player.updateStepData(songTimeMs)
             //batch.color = Color(0f, 0f, 0f, 0f)
 
             if(!playerSong.fd){
@@ -209,7 +210,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 drawRecepts(player.luaReceptOffsetX)
             }
 
-            player.render(currentTime)
+            player.render(songTimeMs)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechas, 0f)

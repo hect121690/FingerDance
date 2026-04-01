@@ -32,7 +32,12 @@ var sscSong = Song()
 var isSsc = false
 var chart = Chart(0.0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
 
+var indexCanalSsc = -1
+var indexCancionSsc = -1
+var indexNivelSsc = -1
 
+var listChannelsSsc: ArrayList<Channels> = arrayListOf()
+var listCancionesSsc: ArrayList<Song> = arrayListOf()
 
 var aBatch = 0
 var bBatch = 0

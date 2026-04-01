@@ -187,6 +187,14 @@ open class GameScreenActivity : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
+    fun getSongTimeMs(): Long {
+        return try {
+            mediaPlayer.currentPosition.toLong()
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
     private fun addVideoBackground() {
         videoViewBgaoff = findViewById(R.id.videoViewBgaoff)
         videoViewBgaoff.isVisible = false

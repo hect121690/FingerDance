@@ -1379,12 +1379,18 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnExit.setOnClickListener {
 
             val ls = LoadingSongs(this@MainActivity)
-            val listChannelsSsc = ls.getChannels(this@MainActivity)
-            sscSong = listChannelsSsc[0].listCanciones[3]
+            if(listChannelsSsc.isEmpty()){
+                listChannelsSsc = ls.getChannels(this@MainActivity)
+            }
             //val sscCharData = parser.parseSSC(sscSong.listLvs[2].steps)
             isSsc = true
-            btnPlay.performClick()
 
+            // Ejemplo: primer canal
+            //val listCanciones = listChannelsSsc[0].listCanciones
+
+            showCanalesDialog(listChannelsSsc, this@MainActivity)
+
+            /*
             builder.setTitle("Aviso")
             builder.setMessage("Deseas salir del juego?")
             builder.setPositiveButton(android.R.string.yes) { dialog, which ->
@@ -1398,6 +1404,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             }
             builder.show()
+            */
         }
 
         btnExit.setOnLongClickListener {
@@ -1431,6 +1438,50 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
+    fun showCanalesDialog(listChannels: ArrayList<Channels>, context: Context) {
+        val nombres = listChannels.map { it.nombre }.toTypedArray()
+
+        var selectedIndex = indexCanalSsc
+
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("Canales")
+            .setSingleChoiceItems(nombres, selectedIndex) { _, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton("Aceptar") { dialogInterface, _ ->
+                if (selectedIndex != -1) {
+                    indexCanalSsc = selectedIndex
+                    indexCancionSsc = -1 // reset dependientes
+                    indexNivelSsc = -1
+
+                    dialogInterface.dismiss()
+
+                    listCancionesSsc = listChannels[indexCanalSsc].listCanciones
+                    isSsc = true
+                    isOffline = true
+                    btnPlay.performClick()
+                    //showCancionesDialog(listCanciones, context, listChannels)
+                }
+            }
+            .setNegativeButton("Cancelar") { dialogInterface, _ ->
+                dialogInterface.dismiss()
+            }
+            .create()
+
+        showDialogWithMaxHeight(dialog)
+    }
+
+    fun showDialogWithMaxHeight(dialog: AlertDialog) {
+        dialog.show()
+
+        val window = dialog.window ?: return
+        val metrics = dialog.context.resources.displayMetrics
+
+        val maxHeight = (metrics.heightPixels * 0.75).toInt()
+        val maxWidth = (metrics.widthPixels * 0.9).toInt()
+
+        window.setLayout(maxWidth, maxHeight)
+    }
 
     private fun goPlay(goSound: MediaPlayer, animation: Animation){
         isOnline = false

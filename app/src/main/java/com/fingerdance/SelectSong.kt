@@ -43,6 +43,7 @@ import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.WindowCompat
@@ -878,6 +879,7 @@ class SelectSong : AppCompatActivity() {
         imgAceptar.setOnClickListener() {
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 goSelectLevel()
+                showCancionesDialog(this)
             }
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
                 if(ready == 1){
@@ -973,9 +975,11 @@ class SelectSong : AppCompatActivity() {
                         }
                     }
 
+                    chart = Parser().parseSSC(sscSong.listLvs[indexNivelSsc].steps)
                     handler.postDelayed({
                         if(isSsc){
                             playerSong.rutaCancion = sscSong.rutaCancion
+                            playerSong.rutaBanner = sscSong.rutaBanner
                             mediaPlayer = MediaPlayer().apply {
                                 setAudioAttributes(
                                     AudioAttributes.Builder()
@@ -986,7 +990,7 @@ class SelectSong : AppCompatActivity() {
                                 setDataSource(File(playerSong.rutaCancion!!).absolutePath)
                                 prepare()
                             }
-                            chart = Parser().parseSSC(sscSong.listLvs[3].steps)
+
                             val intent = Intent(this, GameScreenActivity()::class.java)
                             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
                             startActivity(intent)
@@ -1268,6 +1272,86 @@ class SelectSong : AppCompatActivity() {
             video_preview.start()
         }
         mediPlayer.start()
+    }
+
+    fun showCancionesDialog(context: Context) {
+        val nombres = listCancionesSsc.map { it.name }.toTypedArray()
+
+        var selectedIndex = indexCancionSsc
+
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("Canciones")
+            .setSingleChoiceItems(nombres, selectedIndex) { _, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton("Aceptar") { dialogInterface, _ ->
+                if (selectedIndex != -1) {
+                    indexCancionSsc = selectedIndex
+                    indexNivelSsc = -1
+
+                    dialogInterface.dismiss()
+
+                    val niveles = listCancionesSsc[indexCancionSsc].listLvs
+                    showNivelesDialog(niveles, context)
+                }
+            }
+            .setNeutralButton("Regresar") { dialogInterface, _ ->
+                dialogInterface.dismiss()
+            }
+            .setNegativeButton("Cancelar") { dialogInterface, _ ->
+                dialogInterface.dismiss()
+            }
+            .create()
+
+        showDialogWithMaxHeight(dialog)
+    }
+
+    fun showNivelesDialog(listNiveles: MutableList<Lvs>, context: Context) {
+        val nombres = listNiveles.map { "Nivel ${it.lvl}" }.toTypedArray()
+
+        var selectedIndex = indexNivelSsc
+
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("Niveles")
+            .setSingleChoiceItems(nombres, selectedIndex) { _, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton("Aceptar") { dialogInterface, _ ->
+                if (selectedIndex != -1) {
+                    indexNivelSsc = selectedIndex
+                    dialogInterface.dismiss()
+
+                    val cancion = listCancionesSsc[indexCancionSsc]
+                    val nivel = cancion.listLvs[indexNivelSsc]
+
+                    sscSong = cancion
+
+
+                    //btnPlay.performClick()
+                }
+            }
+            .setNeutralButton("Regresar") { dialogInterface, _ ->
+                dialogInterface.dismiss()
+
+                // 👈 regresar a canciones del canal actual
+                val canciones = listChannels[indexCanalSsc].listCanciones
+                showCancionesDialog(context)
+            }
+            .create()
+
+        showDialogWithMaxHeight(dialog)
+    }
+
+    fun showDialogWithMaxHeight(dialog: AlertDialog) {
+        dialog.show()
+
+        val window = dialog.window ?: return
+        val metrics = dialog.context.resources.displayMetrics
+
+        val maxHeight = (metrics.heightPixels * 0.75).toInt()
+        val maxWidth = (metrics.widthPixels * 0.9).toInt()
+
+        window.setLayout(maxWidth, maxHeight)
     }
 
     private fun updateRecycler() {
