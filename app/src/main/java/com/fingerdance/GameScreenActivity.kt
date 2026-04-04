@@ -562,13 +562,15 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
     val gsa = gameScreenActivity
     private var gameScreen: GameScreenKsf? = null
     private var gameScreenHD: GameScreenKsfHD? = null
+    private var gameScreenSsc: GameScreenSsc? = null
     override fun create() {
         if(halfDouble){
             gameScreenHD = GameScreenKsfHD(gsa)
             setScreen(gameScreenHD)
         }else {
             if(isSsc){
-                setScreen(GameScreenSsc(gsa))
+                gameScreenSsc = GameScreenSsc(gsa)
+                setScreen(gameScreenSsc)
             }else{
                 gameScreen = GameScreenKsf(gsa)
                 setScreen(gameScreen)
@@ -578,8 +580,15 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
 
     override fun dispose() {
         super.dispose()
-        gameScreen?.dispose()
-        gameScreenHD?.dispose()
+        if(halfDouble){
+            gameScreenHD?.dispose()
+        }else {
+            if(isSsc){
+                gameScreenSsc?.dispose()
+            }else{
+                gameScreen?.dispose()
+            }
+        }
     }
 }
 

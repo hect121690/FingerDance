@@ -6,7 +6,6 @@ import com.fingerdance.ssc.Parser.Stop
 import com.fingerdance.ssc.Parser.Warp
 import com.fingerdance.ssc.Parser.Speed
 import com.fingerdance.ssc.Parser.Scroll
-import kotlin.math.max
 import kotlin.math.min
 
 class TimmingData(
@@ -133,77 +132,127 @@ class TimmingData(
         return seg.beatStart + (deltaMs / 60000.0) * seg.bpm
     }
 
-    /** Beat mostrado (aplica SCROLL tipo ratio acumulado, como StepMania). */
-    fun getDisplayedBeat(rawBeat: Double): Double {
-        // scrollSegments: cada uno tiene beat y ratio. Ratio multiplica la "velocidad visual" del beat.
-        if (scrolls.isEmpty()) return rawBeat
+    data class ScrollSegmentInternal(
+        val beatStart: Double,
+        val beatEnd: Double,
+        val ratio: Double
+    )
 
-        var lastBeat = 0.0
-        var displayed = 0.0
-        var lastRatio = 1.0
+    private val scrollSegments: List<ScrollSegmentInternal> = buildScrollSegments()
 
-        // Recorremos todos los scrolls <= rawBeat
-        val sortedScrolls = scrolls.sortedBy { it.beat }
-        for (s in sortedScrolls) {
-            if (s.beat >= rawBeat) break
-            val segmentStart = lastBeat
-            val segmentEnd = min(rawBeat, s.beat)
-            val delta = segmentEnd - segmentStart
-            displayed += delta * lastRatio
-
-            lastBeat = s.beat
-            lastRatio = s.ratio
+    private fun buildScrollSegments(): List<ScrollSegmentInternal> {
+        if (scrolls.isEmpty()) {
+            // un único segmento [0, ∞) con ratio 1
+            return listOf(ScrollSegmentInternal(0.0, Double.POSITIVE_INFINITY, 1.0))
         }
 
-        // Último tramo hasta rawBeat
-        if (rawBeat > lastBeat) {
-            val delta = rawBeat - lastBeat
-            displayed += delta * lastRatio
+        val sorted = scrolls.sortedBy { it.beat }
+        val result = mutableListOf<ScrollSegmentInternal>()
+
+        var prevBeat = 0.0
+        var prevRatio = 1.0
+
+        for (s in sorted) {
+            val beat = s.beat
+            if (beat > prevBeat) {
+                result.add(
+                    ScrollSegmentInternal(
+                        beatStart = prevBeat,
+                        beatEnd = beat,
+                        ratio = prevRatio
+                    )
+                )
+            }
+            prevBeat = beat
+            prevRatio = s.ratio
+        }
+
+        result.add(
+            ScrollSegmentInternal(
+                beatStart = prevBeat,
+                beatEnd = Double.POSITIVE_INFINITY,
+                ratio = prevRatio
+            )
+        )
+
+        return result
+    }
+
+    /** Beat mostrado (aplica SCROLL tipo ratio acumulado, como StepMania). */
+    fun getDisplayedBeat(rawBeat: Double): Double {
+        var displayed = 0.0
+        val b = rawBeat
+
+        for (seg in scrollSegments) {
+            if (b <= seg.beatStart) break
+
+            val segEnd = min(b, seg.beatEnd)
+            if (segEnd > seg.beatStart) {
+                val delta = segEnd - seg.beatStart
+                displayed += delta * seg.ratio
+            }
+
+            if (b <= seg.beatEnd) break
         }
 
         return displayed
     }
 
-    /**
-     * Velocidad visible (XMod variable) en forma de porcentaje:
-     *   - visibleBeat: beat ya transformado por scroll
-     *   - visibleTimeMs: tiempo real en ms visible
-     *   Retorna multiplicador de velocidad (1.0 = normal).
-     */
-    fun getDisplayedSpeedPercent(visibleBeat: Double, visibleTimeMs: Double): Double {
+    fun getDisplayedSpeedPercent(rawBeat: Double, rawTimeMs: Double): Double {
         if (speeds.isEmpty()) return 1.0
 
-        // Similar a TimingData::GetDisplayedSpeedPercent en StepMania:
-        // baseRate se acumula multiplicando rate según beat.
-        var result = 1.0
-        var lastBeat = 0.0
-        var lastRate = 1.0
+        val sorted = speeds.sortedBy { it.beat }
 
-        val sortedSpeeds = speeds.sortedBy { it.beat }
+        // encontrar el último SPEED cuyo beat <= rawBeat
+        var idx = -1
+        for (i in sorted.indices) {
+            if (sorted[i].beat <= rawBeat) idx = i else break
+        }
+        if (idx == -1) return 1.0
 
-        for (seg in sortedSpeeds) {
-            if (seg.beat > visibleBeat) break
+        val seg = sorted[idx]
+        val length = seg.duration
+        val mode = seg.mode
 
-            lastBeat = seg.beat
-            lastRate = seg.ratio
+        // valor "anterior" (lo que había justo antes de este segmento)
+        val prevRatio = if (idx > 0) sorted[idx - 1].ratio else 1.0
+        val targetRatio = seg.ratio
+
+        // cambios instantáneos (length == 0): salto directo al targetRatio
+        if (length <= 0.0) {
+            return targetRatio
         }
 
-        // En esta versión simple, devolvemos el último rate aplicable.
-        // Si quieres algo más complejo (unit=SECOND vs BEAT), puedes extender:
-        result = lastRate
+        // rampas: desde prevRatio hacia targetRatio durante 'length'
+        val t = when (mode) {
+            0 -> {
+                val startBeat = seg.beat
+                val endBeat = startBeat + length
+                when {
+                    rawBeat <= startBeat -> 0.0
+                    rawBeat >= endBeat   -> 1.0
+                    else                 -> (rawBeat - startBeat) / length
+                }
+            }
+            1 -> {
+                val startTime = beatToTime(seg.beat)
+                val endTime = startTime + length * 1000.0
+                when {
+                    rawTimeMs <= startTime -> 0.0
+                    rawTimeMs >= endTime   -> 1.0
+                    else                   -> (rawTimeMs - startTime) / (length * 1000.0)
+                }
+            }
+            else -> 1.0
+        }.coerceIn(0.0, 1.0)
 
-        return result
+        return prevRatio + (targetRatio - prevRatio) * t
     }
 
     /**
-     * Helper principal para render:
-     *   - noteBeat: beat de la nota (real)
-     *   - songVisibleBeat: beat real actual de la canción
-     *   - songVisibleTimeMs: tiempo actual de la canción en ms
-     *   - stepSize: tamaño base por beat (ej: medidaFlechas)
-     *
-     * Devuelve el Y-offset (distancia vertical desde la línea objetivo,
-     * sin sumar todavía la coordenada Y de los receptores).
+     * YOffset base en unidades de stepSize:
+     * (DisplayedBeat(note) - DisplayedBeat(song)) * DisplayedSpeedPercent(song).
+     * NO mete aquí baseSpeed (XMod), eso se hace fuera.
      */
     fun getYOffsetForBeat(
         noteBeat: Double,
@@ -211,17 +260,13 @@ class TimmingData(
         songVisibleTimeMs: Double,
         stepSize: Float
     ): Float {
-        // 1) Convertimos beat reales a beats "mostrados" (aplica scroll)
         val noteDispBeat = getDisplayedBeat(noteBeat)
         val songDispBeat = getDisplayedBeat(songVisibleBeat)
-
-        // 2) Diferencia de beats mostrados
         val deltaBeatDisp = noteDispBeat - songDispBeat
 
-        // 3) Velocidad visible actual (aplica speed mods)
-        val speedPercent = getDisplayedSpeedPercent(songDispBeat, songVisibleTimeMs)
-        val gapPerBeat = stepSize * speedPercent.toFloat()
+        val speedPercent = getDisplayedSpeedPercent(songVisibleBeat, songVisibleTimeMs)
 
+        val gapPerBeat = stepSize * speedPercent.toFloat()
         return (deltaBeatDisp * gapPerBeat).toFloat()
     }
 }

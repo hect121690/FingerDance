@@ -107,7 +107,7 @@ class Parser {
 
                     when (row[col]) {
 
-                        // TAP
+                        // TAP normal
                         '1' -> {
                             val fake = isFake(beat, fakes)
                             notes.add(
@@ -122,14 +122,12 @@ class Parser {
 
                         // HOLD START
                         '2' -> {
-                            // guardamos sólo el beat de inicio; el flag fake se decide con el rango completo
                             holds[col] = beat
                         }
 
                         // HOLD END
                         '3' -> {
                             val startBeat = holds[col] ?: continue
-                            // fake si cualquier parte del rango está en FAKE
                             val isStartFake = isFake(startBeat, fakes)
                             val isEndFake = isFake(beat, fakes)
                             val fake = isStartFake || isEndFake
@@ -147,7 +145,7 @@ class Parser {
                             holds.remove(col)
                         }
 
-                        // MINE
+                        // MINE normal
                         'M', 'm' -> {
                             val fake = isFake(beat, fakes)
                             notes.add(
@@ -158,6 +156,50 @@ class Parser {
                                     type = NoteType.MINE
                                 )
                             )
+                        }
+
+                        // TOKEN {108} → 'X'
+                        'X' -> {
+                            val fakeSeg = findFakeForBeat(beat, fakes)
+
+                            if (fakeSeg == null) {
+                                // Fuera de rango FAKE: tratar como mina normal
+                                notes.add(
+                                    Note(
+                                        column = col,
+                                        beat = beat,
+                                        isFake = false,
+                                        type = NoteType.MINE
+                                    )
+                                )
+                            } else {
+                                val dur = fakeSeg.duration
+                                if (dur <= 1.0) {
+                                    // Dentro de FAKE y dura <= 1 beat → TAP FAKE
+                                    notes.add(
+                                        Note(
+                                            column = col,
+                                            beat = beat,        // o fakeSeg.beat, depende de cómo lo quieras, pero tu regla decía “nota tap”
+                                            isFake = true,
+                                            type = NoteType.TAP
+                                        )
+                                    )
+                                } else {
+                                    // Dentro de FAKE y dura > 1 beat → HOLD FAKE (larga)
+                                    val startBeat = fakeSeg.beat
+                                    val endBeat = fakeSeg.beat + fakeSeg.duration
+
+                                    notes.add(
+                                        Note(
+                                            column = col,
+                                            beat = startBeat,
+                                            endBeat = endBeat,
+                                            isFake = true,
+                                            type = NoteType.HOLD
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -182,6 +224,11 @@ class Parser {
             if (row[i] == '{') {
                 val end = row.indexOf('}', i)
                 if (end != -1) {
+                    val code = row.substring(i + 1, end)
+                    // {108} → lo tratamos como un símbolo 'X'
+                    if (code == "108") {
+                        result.add('X')
+                    }
                     i = end + 1
                     continue
                 }
@@ -254,5 +301,10 @@ class Parser {
     // Un beat está en FAKE si cae dentro de alguno de los rangos beat..beat+duration
     private fun isFake(beat: Double, fakes: List<Fake>): Boolean {
         return fakes.any { beat >= it.beat && beat < it.beat + it.duration }
+    }
+
+    // Devuelve el fake que contiene este beat (o null si no está en ningún fake)
+    private fun findFakeForBeat(beat: Double, fakes: List<Fake>): Fake? {
+        return fakes.firstOrNull { beat >= it.beat && beat < it.beat + it.duration }
     }
 }

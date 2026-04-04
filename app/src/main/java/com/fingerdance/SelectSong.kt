@@ -976,6 +976,10 @@ class SelectSong : AppCompatActivity() {
                     }
 
                     chart = Parser().parseSSC(sscSong.listLvs[indexNivelSsc].steps)
+                    if(isSsc){
+                        val bit = BitmapFactory.decodeFile(sscSong.rutaBanner)
+                        imgLoading.setImageBitmap(bit)
+                    }
                     handler.postDelayed({
                         if(isSsc){
                             playerSong.rutaCancion = sscSong.rutaCancion
