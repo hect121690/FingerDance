@@ -1,5 +1,6 @@
 package com.fingerdance.ssc
 
+import android.util.Log
 import kotlin.math.max
 import kotlin.math.min
 
@@ -157,11 +158,10 @@ class Parser {
                                 )
                             )
                         }
-
+                        /*
                         // TOKEN {108} → 'X'
                         'X' -> {
                             val fakeSeg = findFakeForBeat(beat, fakes)
-
                             if (fakeSeg == null) {
                                 // Fuera de rango FAKE: tratar como mina normal
                                 notes.add(
@@ -201,6 +201,7 @@ class Parser {
                                 }
                             }
                         }
+                        */
                     }
                 }
             }

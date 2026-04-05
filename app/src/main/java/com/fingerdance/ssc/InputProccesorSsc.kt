@@ -65,20 +65,10 @@ class InputProcessorSsc : InputAdapter() {
     }
 
     override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        // Importante: al levantar, liberamos el pad que este pointer estaba presionando,
-        // no el pad según coordenadas actuales (puede ser null o distinto tras drag).
-        val mappedPad = pointerToPadMap[pointer]
-        if (mappedPad != null) {
-            getKeyBoard[mappedPad] = KEY_UP
-            pointerToPadMap.remove(pointer)
-            hasStateChanged = true
-            return true
-        }
-
-        // Fallback por compatibilidad
         val padIndex = getPadIndex(screenX.toFloat(), screenY.toFloat())
         padIndex?.let {
             getKeyBoard[it] = KEY_UP
+            pointerToPadMap.remove(pointer)
             hasStateChanged = true
         }
         return true
@@ -90,10 +80,7 @@ class InputProcessorSsc : InputAdapter() {
         if (pointerToPadMap[pointer] == padIndex) return true
 
         pointerToPadMap[pointer]?.let { previousPad ->
-            // Antes: KEY_NONE (no genera KEY_UP)
-            // Ahora: KEY_UP para que el juego registre releases (importante para holds)
-            getKeyBoard[previousPad] = KEY_UP
-            hasStateChanged = true
+            getKeyBoard[previousPad] = KEY_NONE
         }
 
         padIndex?.let {
@@ -161,3 +148,4 @@ class InputProcessorSsc : InputAdapter() {
         btnOnPress.dispose()
     }
 }
+

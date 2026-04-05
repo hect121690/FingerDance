@@ -192,7 +192,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         if (!isPaused) {
             val songTimeMs = a.getSongTimeMs()
             elapsedTime += delta
-            val currentTime = (elapsedTime * 1000).toLong() - 1000
 
             batch.begin()
             showBgPads()

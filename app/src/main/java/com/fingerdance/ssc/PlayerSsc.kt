@@ -130,7 +130,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         warps = warps,
         speeds = speeds,
         scrolls = scrolls,
-        offsetMs = 0.0,
+        offsetMs = chart.offset * 1000.0,
         userOffsetMs = valueOffset * 10.0
     )
 
@@ -299,14 +299,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
 
-        if (currentBeat in 5860.0..5880.0) {
-            val fakeOnScreen = notes.filter { it.isFake }.take(5)
-            fakeOnScreen.forEach { n ->
-                val y = yForBeat(n.beat, currentBeat, nowMs)
-                Gdx.app.log("FAKE_DEBUG", "beat=${n.beat} type=${n.type} isFake=${n.isFake} y=$y")
-            }
-        }
-
         if (showPadB == 0) {
             inputProcessor.render(batch)
         }
@@ -343,11 +335,8 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                         val startBeat = n.beat
                         val nowBeat = currentBeat
 
-                        // Solo “clavar” el head al receptor cuando la hold está ACTIVAMENTE presionada.
-                        // Si está dropeada, debe seguir scrolleando normal.
                         val locked = (LONGNOTE[col].pressed) &&
-                                nowBeat in startBeat..endBeat &&
-                                LONGNOTE[col].ptn == (startBeat * 1000).toInt()
+                                nowBeat in startBeat..endBeat
                         if (locked) {
                             yHead = medidaFlechas.toInt()
                         }
@@ -700,6 +689,16 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
             while (idx < list.size) {
                 val n = list[idx]
+                if (LONGNOTE[col].pressed) {
+                    val activeStartBeat = LONGNOTE[col].ptn / 1000.0
+                    val activeEndBeat = LONGNOTE[col].line / 1000.0
+                    val insideActiveBody = nowBeat in activeStartBeat..activeEndBeat
+                    if (insideActiveBody) {
+                        // No avanzar idx ni aplicar MISS, dejamos que el jugador termine el hold.
+                        break
+                    }
+                }
+
                 if (n.isFake) {
                     idx++
                     columnIndex[col] = idx
@@ -715,6 +714,13 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                         continue
                     }
                     break
+                }
+
+                val beatDiff = nowBeat - n.beat
+                if (beatDiff > 8.0) { // umbral configurable, ej. 8 beats
+                    idx++
+                    columnIndex[col] = idx
+                    continue
                 }
 
                 // Si hay un hold dropeado en este column, no consumas notas por el lock; deja que el jugador recachee.
@@ -738,6 +744,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                 }
 
                 if (deltaMs > ZONE_BAD) {
+                    Gdx.app.log("SSC_DEBUG", "MISS auto col=$col beat=${n.beat} type=${n.type} deltaMs=$deltaMs nowBeat=${timeToBeat(timeMs.toDouble())}")
                     applyJudge(col, JUDGE_MISS, timeMs, isFromInput = false)
                     idx++
                     columnIndex[col] = idx
@@ -945,6 +952,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
     private fun drawLongNote(x: Int, y: Int, y2: Int) {
         val baseX = medidaFlechas * (x + 1)
+
         if (playerSong.snake) {
             offsetX = (sin(y * frequency) * amplitude)
             if (y <= medidaFlechas + fadeDistance) {

@@ -41,7 +41,7 @@ class TimmingData(
         val result = mutableListOf<TimeSegment>()
 
         var currentBeat = 0.0
-        var currentTimeMs = (chart.offset * 1000.0) + offsetMs + userOffsetMs
+        var currentTimeMs = offsetMs + userOffsetMs
         var currentBpm = bpms.firstOrNull()?.bpm ?: 120.0
 
         fun addSegment(nextBeat: Double) {
