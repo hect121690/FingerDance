@@ -30,7 +30,18 @@ var listChannelsDrive = mutableListOf<MainActivity.ChannelsDrive>()
 
 var sscSong = Song()
 var isSsc = false
-var chart = Chart(0.0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+var chart = Chart(
+    offset = 0.0,
+    bpms = emptyList(),
+    tickcounts = emptyList(),
+    stops = emptyList(),
+    warps = emptyList(),
+    fakes = emptyList(),
+    speeds = emptyList(),
+    scrolls = emptyList(),
+    notes = emptyList(),
+    extendedNotes = emptyList()
+)
 
 var indexCanalSsc = -1
 var indexCancionSsc = -1

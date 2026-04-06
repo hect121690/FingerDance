@@ -1,8 +1,6 @@
 package com.fingerdance.ssc
 
-import android.util.Log
 import kotlin.math.max
-import kotlin.math.min
 
 class Parser {
 
@@ -38,7 +36,8 @@ class Parser {
         val fakes: List<Fake>,
         val speeds: List<Speed>,
         val scrolls: List<Scroll>,
-        val notes: List<Note>
+        val notes: List<Note>,
+        val extendedNotes: List<Note>
     )
 
     // =========================
@@ -59,7 +58,7 @@ class Parser {
 
         val allStops = (stops + delays).sortedBy { it.beat }
 
-        val notes = parseNotes(text, fakes)
+        val (notes, extendedNotes) = parseNotes(text, fakes)
 
         return Chart(
             offset = offset,
@@ -70,7 +69,8 @@ class Parser {
             fakes = fakes,
             speeds = speeds,
             scrolls = scrolls,
-            notes = notes
+            notes = notes,
+            extendedNotes = extendedNotes
         )
     }
 
@@ -78,15 +78,15 @@ class Parser {
     // NOTES (con soporte correcto de FAKE)
     // =========================
 
-    private fun parseNotes(
-        text: String,
-        fakes: List<Fake>
-    ): List<Note> {
+    private fun parseNotes(text: String, fakes: List<Fake>): Pair<List<Note>, List<Note>> {
 
-        val notes = mutableListOf<Note>()
-        val holds = mutableMapOf<Int, Double>() // column -> startBeat
+        val notes = mutableListOf<Note>()          // jugables normales
+        val extendedNotes = mutableListOf<Note>()  // de tokens extendidos
 
-        val block = extractNotesBlock(text) ?: return notes
+        val holds = mutableMapOf<Int, Double>()    // holds normales 2/3 planos
+        val extHolds = mutableMapOf<Int, Double>() // holds de tokens extendidos 2/3
+
+        val block = extractNotesBlock(text) ?: return notes to extendedNotes
         val measures = block.split(",")
 
         var currentBeat = 0.0
@@ -101,14 +101,57 @@ class Parser {
 
             for ((i, rowRaw) in rows.withIndex()) {
 
-                val row = tokenize(rowRaw)
+                val (row, extTokens) = tokenize(rowRaw)
                 val beat = currentBeat + i * step
 
+                // 1) Procesar tokens extendidos ({...} excepto 108)
+                for ((col, code) in extTokens) {
+                    when (code) {
+                        'M', 'm' -> {
+                            // Mina extendida -> la metemos a notes (jugable)
+                            val fake = isFake(beat, fakes)
+                            notes.add(
+                                Note(
+                                    column = col,
+                                    beat = beat,
+                                    isFake = fake,
+                                    type = NoteType.MINE
+                                )
+                            )
+                        }
+                        '2' -> {
+                            // inicio de hold extendida -> armamos hold en extendedNotes
+                            extHolds[col] = beat
+                        }
+                        '3' -> {
+                            val startBeat = extHolds[col] ?: continue
+                            val isStartFake = isFake(startBeat, fakes)
+                            val isEndFake = isFake(beat, fakes)
+                            val fake = isStartFake || isEndFake
+
+                            extendedNotes.add(
+                                Note(
+                                    column = col,
+                                    beat = startBeat,
+                                    endBeat = beat,
+                                    isFake = fake,
+                                    type = NoteType.HOLD
+                                )
+                            )
+                            extHolds.remove(col)
+                        }
+                        else -> {
+                            // otros códigos extendidos -> si luego quieres, los asignas aquí
+                            // por ahora, nada
+                        }
+                    }
+                }
+
+                // 2) Procesar tokens planos (0,1,2,3,M,m, etc.)
                 for (col in 0 until row.size) {
 
                     when (row[col]) {
 
-                        // TAP normal
                         '1' -> {
                             val fake = isFake(beat, fakes)
                             notes.add(
@@ -121,12 +164,10 @@ class Parser {
                             )
                         }
 
-                        // HOLD START
                         '2' -> {
                             holds[col] = beat
                         }
 
-                        // HOLD END
                         '3' -> {
                             val startBeat = holds[col] ?: continue
                             val isStartFake = isFake(startBeat, fakes)
@@ -146,7 +187,6 @@ class Parser {
                             holds.remove(col)
                         }
 
-                        // MINE normal
                         'M', 'm' -> {
                             val fake = isFake(beat, fakes)
                             notes.add(
@@ -158,87 +198,83 @@ class Parser {
                                 )
                             )
                         }
-                        /*
-                        // TOKEN {108} → 'X'
-                        'X' -> {
-                            val fakeSeg = findFakeForBeat(beat, fakes)
-                            if (fakeSeg == null) {
-                                // Fuera de rango FAKE: tratar como mina normal
-                                notes.add(
-                                    Note(
-                                        column = col,
-                                        beat = beat,
-                                        isFake = false,
-                                        type = NoteType.MINE
-                                    )
-                                )
-                            } else {
-                                val dur = fakeSeg.duration
-                                if (dur <= 1.0) {
-                                    // Dentro de FAKE y dura <= 1 beat → TAP FAKE
-                                    notes.add(
-                                        Note(
-                                            column = col,
-                                            beat = beat,        // o fakeSeg.beat, depende de cómo lo quieras, pero tu regla decía “nota tap”
-                                            isFake = true,
-                                            type = NoteType.TAP
-                                        )
-                                    )
-                                } else {
-                                    // Dentro de FAKE y dura > 1 beat → HOLD FAKE (larga)
-                                    val startBeat = fakeSeg.beat
-                                    val endBeat = fakeSeg.beat + fakeSeg.duration
 
-                                    notes.add(
-                                        Note(
-                                            column = col,
-                                            beat = startBeat,
-                                            endBeat = endBeat,
-                                            isFake = true,
-                                            type = NoteType.HOLD
-                                        )
-                                    )
-                                }
-                            }
+                        'X' -> {
+                            // Si sigues usando {108}->'X', aquí podrías tratarlos
+                            // ahora los ignoramos
                         }
-                        */
+
+                        else -> {
+                            // '0' u otros -> nada
+                        }
                     }
                 }
             }
 
-            // IMPORTANTE: NO limpiamos holds aquí para no romper holds que cruzan medidas
             currentBeat += 4.0
         }
 
-        return notes.sortedBy { it.beat }
+        return notes to extendedNotes
     }
 
     // =========================
     // TOKENIZER
     // =========================
 
-    private fun tokenize(row: String): List<Char> {
+    /**
+     * Devuelve:
+     *  - tokens planos (List<Char>) para la lógica normal de notas
+     *  - meta extendido por columna (Map<col, codeChar>) para tokens {code|...}
+     */
+    private fun tokenize(row: String): Pair<List<Char>, Map<Int, Char>> {
         val result = mutableListOf<Char>()
+        val extTokens = mutableMapOf<Int, Char>()
+
         var i = 0
+        var colIndex = 0
 
         while (i < row.length) {
-            if (row[i] == '{') {
+            val ch = row[i]
+
+            if (ch == '{') {
                 val end = row.indexOf('}', i)
                 if (end != -1) {
-                    val code = row.substring(i + 1, end)
-                    // {108} → lo tratamos como un símbolo 'X'
-                    if (code == "108") {
-                        result.add('X')
+                    val inside = row.substring(i + 1, end) // "2|n|1|0" o "M|n|1|0" o "108"
+                    val parts = inside.split("|")
+
+                    if (parts.size == 1) {
+                        // Caso {108} u otros códigos simples sin '|'
+                        val code = parts[0]
+                        if (code == "108") {
+                            // Ignoramos completamente este token, NO ocupa columna
+                            // (no incrementamos colIndex ni añadimos a result)
+                        } else {
+                            // Otro {algo} simple: si quieres que ocupe columna, descomenta:
+                            // extTokens[colIndex] = code.firstOrNull() ?: ' '
+                            // colIndex++
+                        }
+                    } else if (parts.size >= 1) {
+                        // Formato extendido normal: "2|n|1|0", "M|n|1|0", etc.
+                        val codeChar = parts[0].firstOrNull() ?: ' '
+
+                        // Guardamos el código extendido para esa columna
+                        extTokens[colIndex] = codeChar
+                        // NO añadimos char plano al result, pero SÍ consumimos una columna
+                        colIndex++
                     }
+
                     i = end + 1
                     continue
                 }
             }
-            result.add(row[i])
+
+            // Carácter plano normal
+            result.add(ch)
+            colIndex++
             i++
         }
 
-        return result
+        return result to extTokens
     }
 
     // =========================

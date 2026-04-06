@@ -41,6 +41,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     private val stops = chart.stops
     private val warps = chart.warps
     private val notes = chart.notes
+    private val extendedNotes = chart.extendedNotes
     private val speeds = chart.speeds
     private val scrolls = chart.scrolls
 
@@ -270,6 +271,12 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         var releasedAtTimeMs: Long = 0L
     )
 
+    data class RenderHold(
+        val column: Int,
+        val startBeat: Double,
+        val endBeat: Double
+    )
+
     private var holdTickBeats = 0.25
     private val HOLD_CATCH_MIN_REMAINING_BEATS = 0.10
     private val HOLD_EARLY_RELEASE_GRACE_BEATS = 0.12
@@ -293,11 +300,18 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
     var luaReceptOffsetX = 0f
     private var luaNoteOffsetX = 0f
+
+    val beatWindowBack = 16.0
+    val beatWindowForward = 16.0
+    var activeExtendedNOtes = false
     fun render(songTimeMs: Long) {
         val timeCom = timeGetTime()
         val iLongTop = LongArray(5) { 0 }
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
+
+        val minBeat = currentBeat - beatWindowBack
+        val maxBeat = currentBeat + beatWindowForward
 
         if (showPadB == 0) {
             inputProcessor.render(batch)
@@ -308,44 +322,80 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val msPorBeat = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
         val msPorFrame = msPorBeat / 5f
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
-
-        for (n in notes) {
-            when (n.type) {
-                Parser.NoteType.MINE -> {
-                    val y = yForBeat(n.beat, currentBeat, nowMs)
-                    if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                        drawMines(n.column, y)
-                    }
-                }
-                Parser.NoteType.TAP -> {
-                    if (hitNotes.contains(n)) continue
-                    val y = yForBeat(n.beat, currentBeat, nowMs)
-                    if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                        drawNote(n.column, y)
-                    }
-                }
-                Parser.NoteType.HOLD -> {
-                    if (finishedHolds.contains(n)) continue
-                    val endBeat = n.endBeat ?: continue
-                    var yHead = yForBeat(n.beat, currentBeat, nowMs)
-                    val yTail = yForBeat(endBeat, currentBeat, nowMs)
-
-                    if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
-                        val col = n.column
-                        val startBeat = n.beat
-                        val nowBeat = currentBeat
-
-                        val locked = (LONGNOTE[col].pressed) &&
-                                nowBeat in startBeat..endBeat
-                        if (locked) {
-                            yHead = medidaFlechas.toInt()
+        val overlap = 8
+        if(!activeExtendedNOtes){
+            for (n in notes) {
+                if (n.beat < minBeat || n.beat > maxBeat) continue
+                when (n.type) {
+                    Parser.NoteType.MINE -> {
+                        val y = yForBeat(n.beat, currentBeat, nowMs)
+                        if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
+                            drawMines(n.column, y)
                         }
+                    }
+                    Parser.NoteType.TAP -> {
+                        if (hitNotes.contains(n)) continue
+                        val y = yForBeat(n.beat, currentBeat, nowMs)
+                        if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
+                            drawNote(n.column, y)
+                        }
+                    }
+                    Parser.NoteType.HOLD -> {
+                        if (finishedHolds.contains(n)) continue
+                        val endBeat = n.endBeat ?: continue
+                        var yHead = yForBeat(n.beat, currentBeat, nowMs)
+                        val yTail = yForBeat(endBeat, currentBeat, nowMs)
 
-                        drawLongNote(col, yHead, yTail)
+                        if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
+                            val col = n.column
+                            val startBeat = n.beat
+                            val nowBeat = currentBeat
+
+                            val locked = (LONGNOTE[col].pressed) &&
+                                    nowBeat in startBeat..endBeat
+                            if (locked) {
+                                yHead = medidaFlechas.toInt()
+                            }
+
+                            drawLongNote(col, yHead, yTail)
+                        }
                     }
                 }
             }
         }
+
+        /*
+        if(extendedNotes.isNotEmpty()){
+            if(currentBeat > extendedNotes.first().beat && currentBeat < extendedNotes.last().beat){
+                activeExtendedNOtes = true
+                for (n in extendedNotes) {
+                    //if (n.beat < minBeat || n.beat > maxBeat) continue
+                    when (n.type) {
+                        Parser.NoteType.TAP -> {
+                            if (hitNotes.contains(n)) continue
+                            val y = yForBeat(n.beat, currentBeat, nowMs)
+                            if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
+                                drawNote(n.column, y)
+                            }
+                        }
+                        Parser.NoteType.HOLD -> {
+                            if (finishedHolds.contains(n)) continue
+                            val endBeat = n.endBeat ?: continue
+                            var yHead = yForBeat(n.beat, currentBeat, nowMs)
+                            val yTail = yForBeat(endBeat, currentBeat, nowMs)
+
+                            if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
+                                drawLongNote(n.column, yHead, yTail)
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            }else{
+                activeExtendedNOtes = false
+            }
+        }
+        */
 
         if (m_fGauge > 1.0f) m_fGauge = 1.0f
         if (m_fGauge < -0.5f) m_fGauge = 0.0f
@@ -689,21 +739,13 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
             while (idx < list.size) {
                 val n = list[idx]
-                if (LONGNOTE[col].pressed) {
-                    val activeStartBeat = LONGNOTE[col].ptn / 1000.0
-                    val activeEndBeat = LONGNOTE[col].line / 1000.0
-                    val insideActiveBody = nowBeat in activeStartBeat..activeEndBeat
-                    if (insideActiveBody) {
-                        // No avanzar idx ni aplicar MISS, dejamos que el jugador termine el hold.
-                        break
-                    }
-                }
-
                 if (n.isFake) {
                     idx++
                     columnIndex[col] = idx
                     continue
                 }
+
+
 
                 val deltaMs = getDeltaMsForNote(n.beat, timeMs)
 
@@ -714,13 +756,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                         continue
                     }
                     break
-                }
-
-                val beatDiff = nowBeat - n.beat
-                if (beatDiff > 8.0) { // umbral configurable, ej. 8 beats
-                    idx++
-                    columnIndex[col] = idx
-                    continue
                 }
 
                 // Si hay un hold dropeado en este column, no consumas notas por el lock; deja que el jugador recachee.
@@ -744,7 +779,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                 }
 
                 if (deltaMs > ZONE_BAD) {
-                    Gdx.app.log("SSC_DEBUG", "MISS auto col=$col beat=${n.beat} type=${n.type} deltaMs=$deltaMs nowBeat=${timeToBeat(timeMs.toDouble())}")
                     applyJudge(col, JUDGE_MISS, timeMs, isFromInput = false)
                     idx++
                     columnIndex[col] = idx
@@ -840,11 +874,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         }
     }
 
-    private fun yForBeat(
-        beat: Double,
-        currentBeat: Double,
-        songTimeMs: Double
-    ): Int {
+    private fun yForBeat(beat: Double, currentBeat: Double, songTimeMs: Double): Int {
         val baseOffset = timingData.getYOffsetForBeat(
             noteBeat = beat,
             songVisibleBeat = currentBeat,
@@ -852,7 +882,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
             stepSize = medidaFlechas
         )
 
-        val totalOffset = baseOffset * baseSpeed   // XMod (m_fScrollSpeed)
+        val totalOffset = baseOffset * baseSpeed
         val y = medidaFlechas + totalOffset
         return y.toInt()
     }
