@@ -3,6 +3,7 @@ package com.fingerdance.ssc
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
+import android.util.Log
 import com.fingerdance.Channels
 import com.fingerdance.Lvs
 import com.fingerdance.Song
@@ -13,6 +14,7 @@ import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.text.Normalizer
 
 private lateinit var soundPoolSelectSong: SoundPool
 private var selectSong_mov : Int = 0
@@ -167,6 +169,9 @@ class LoadingSongs (context: Context) {
                         ssc = readFile(it.toString())
                         val seccions = ssc.split("#NOTEDATA:;").toTypedArray()
                         val arr  = seccions[0].split("\r\n").toTypedArray()
+                        val file = File(listRutas[index])
+
+
                         for (e in 0 until arr.size -1) {
                             when {
                                 arr[e].startsWith("#TITLE:") -> {
@@ -185,7 +190,7 @@ class LoadingSongs (context: Context) {
                                 }
                                 arr[e].startsWith("#MUSIC:") -> {
                                     val song = getValue(arr[e])
-                                    rutaCancion = listRutas[index] + "/" + song
+                                    rutaCancion = resolveRealFile(File(listRutas[index]), song)
                                     if(song.endsWith(".mp3", true)){
                                         rutaBga = listRutas[index] + "/" + song.replace(".mp3", ".mp4", true)
                                     }
@@ -295,7 +300,52 @@ class LoadingSongs (context: Context) {
     }
 
     private fun getValue(line: String): String {
-        return line.substringAfter(":").substringBefore(";")
+        return line
+            .substringAfter(":")
+            .substringBefore(";")
+            .replace("\uFEFF", "") // BOM
+            .replace("\r", "")
+            .replace("\n", "")
+            .trim()
+    }
+
+    fun resolveRealFile(dir: File, targetName: String): String {
+        val files = dir.listFiles()
+        Log.d("FILE:","[$targetName] (${targetName.length})")
+        // 1. Intento exacto primero (rápido)
+        files?.forEach {
+            if (it.name == targetName) {
+                return it.absolutePath
+            }
+        }
+
+        // 2. Intento normalizado (acentos, ñ, etc.)
+        val normalizedTarget = normalize(targetName)
+
+        files?.forEach {
+            if (normalize(it.name) == normalizedTarget) {
+                return it.absolutePath
+            }
+        }
+
+        // 3. Intento contains (fallback tolerante)
+        files?.forEach {
+            if (normalize(it.name).contains(normalizedTarget)) {
+                return it.absolutePath
+            }
+        }
+        return ""
+    }
+
+    fun normalize(input: String): String {
+        return Normalizer.normalize(input, Normalizer.Form.NFD)
+            .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+            .replace("ñ", "n")
+            .replace("Ñ", "N")
+            .lowercase()
+            .trim()
+            .replace("\\s+".toRegex(), " ")
+            .replace("[^a-z0-9. ]".toRegex(), "")
     }
 
     private fun getRutasSongs(rutaChannel: String): MutableList<String> {
@@ -316,8 +366,17 @@ class LoadingSongs (context: Context) {
     }
 
     private fun readFile(path: String): String {
-        val encoded = Files.readAllBytes(Paths.get(path))
-        return String(encoded, StandardCharsets.UTF_8)
+        val bytes = Files.readAllBytes(Paths.get(path))
+
+        // Intento 1: UTF-8
+        val utf8 = String(bytes, Charsets.UTF_8)
+
+        // Si hay caracteres corruptos, fallback
+        return if (utf8.contains("�")) {
+            String(bytes, Charsets.ISO_8859_1)
+        } else {
+            utf8
+        }
     }
 
     fun deleteTrash(directorio: File): Boolean {

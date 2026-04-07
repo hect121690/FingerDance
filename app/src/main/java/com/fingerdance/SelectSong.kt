@@ -979,22 +979,21 @@ class SelectSong : AppCompatActivity() {
                     if(isSsc){
                         val bit = BitmapFactory.decodeFile(sscSong.rutaBanner)
                         imgLoading.setImageBitmap(bit)
+                        playerSong.rutaCancion = sscSong.rutaCancion
+                        playerSong.rutaBanner = sscSong.rutaBanner
+                        mediaPlayer = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_GAME)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                    .build()
+                            )
+                            setDataSource(File(playerSong.rutaCancion!!).absolutePath)
+                            prepare()
+                        }
                     }
                     handler.postDelayed({
                         if(isSsc){
-                            playerSong.rutaCancion = sscSong.rutaCancion
-                            playerSong.rutaBanner = sscSong.rutaBanner
-                            mediaPlayer = MediaPlayer().apply {
-                                setAudioAttributes(
-                                    AudioAttributes.Builder()
-                                        .setUsage(AudioAttributes.USAGE_GAME)
-                                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                        .build()
-                                )
-                                setDataSource(File(playerSong.rutaCancion!!).absolutePath)
-                                prepare()
-                            }
-
                             val intent = Intent(this, GameScreenActivity()::class.java)
                             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
                             startActivity(intent)
