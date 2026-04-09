@@ -165,8 +165,8 @@ class SelectChannelHorizontal : AppCompatActivity() {
             }
 
         } else {
-            var n = Random.nextInt(listChannels[0].listCancionesKsf.size)
-            bgMain.setImageDrawable(Drawable.createFromPath(listChannels[0].listCancionesKsf[n].rutaDisc))
+            var n = Random.nextInt(listChannels[0].listCanciones.size)
+            bgMain.setImageDrawable(Drawable.createFromPath(listChannels[0].listCanciones[n].rutaDisc))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 bgMain.setRenderEffect(RenderEffect.createBlurEffect(20f, 20f, Shader.TileMode.CLAMP))
             }
@@ -232,8 +232,8 @@ class SelectChannelHorizontal : AppCompatActivity() {
 
         imgFlipChannel.setOnClickListener {
             AppResources.soundPool?.play(AppResources.pressStart, 1f, 1f, 1, 0, 1f)
-            if (listChannels[currentPosition].listCancionesKsf.isNotEmpty()) {
-                AppResources.listSongsChannelKsf = listChannels[currentPosition].listCancionesKsf
+            if (listChannels[currentPosition].listCanciones.isNotEmpty()) {
+                AppResources.listSongsChannelKsf = listChannels[currentPosition].listCanciones
                 currentChannel = listChannels[currentPosition].nombre
                 Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
 

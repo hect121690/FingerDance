@@ -96,7 +96,7 @@ private lateinit var recyclerLvsVacios: RecyclerView
 private lateinit var recyclerCommands: ViewPager2
 private lateinit var recyclerCommandsValues: ViewPager2
 
-private lateinit var listItemsKsf: ArrayList<SongKsf>
+private lateinit var listItemsKsf: ArrayList<Song>
 
 private var middle: Int = 0
 
@@ -545,7 +545,7 @@ class SelectSong : AppCompatActivity() {
         val rutaLvSelected = "$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png"
 
         repeat(20) {
-            listVacios.add(Ksf("", "", rutaLvSelected))
+            listVacios.add(Ksf(steps = "", rutaBitActive = rutaLvSelected))
         }
         llenaLvsVacios(listVacios)
 
@@ -647,7 +647,7 @@ class SelectSong : AppCompatActivity() {
                 val fav = listFavorites.find { it.title == song.title }
                 if (fav != null) listFavorites.remove(fav)
 
-                favChannel?.listCancionesKsf = listFavorites
+                favChannel?.listCanciones = listFavorites
 
             } else {
                 // Agregar a favoritos
@@ -658,7 +658,7 @@ class SelectSong : AppCompatActivity() {
                 listFavorites.add(song)  // se agrega la MISMA referencia del objeto
                 listFavorites.sortBy { it.channel }
 
-                favChannel?.listCancionesKsf = listFavorites
+                favChannel?.listCanciones = listFavorites
             }
         }
 
@@ -666,7 +666,7 @@ class SelectSong : AppCompatActivity() {
         imgBestScore.setOnClickListener{
             if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
                 if(!commandWindow.isVisible){
-                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     rankingView.visibility = View.VISIBLE
                     rankingView.startAnimation(animOn)
                     rankingView.setIconDrawable(imgLvSelected.drawable)
@@ -731,24 +731,24 @@ class SelectSong : AppCompatActivity() {
             imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideSelectLv(anim)
             }
             if(rankingView.isVisible){
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 rankingView.visibility = View.INVISIBLE
                 rankingView.startAnimation(animOff)
                 constraintMain.removeView(linearRanking)
             }
             if (commandWindow.isVisible && !linearValues.isVisible ) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
             }
             if (linearValues.isVisible) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearCurrent.isVisible = false
                 linearValues.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
@@ -760,24 +760,24 @@ class SelectSong : AppCompatActivity() {
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 //goSelectChannel()
                 Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
-                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible) {
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideSelectLv(anim)
             }
             if(rankingView.isVisible){
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 rankingView.visibility = View.INVISIBLE
                 rankingView.startAnimation(animOff)
                 constraintMain.removeView(linearRanking)
             }
             if (commandWindow.isVisible && !linearValues.isVisible) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
             }
             if (linearValues.isVisible) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearValues.isVisible = false
                 linearCurrent.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
@@ -797,7 +797,7 @@ class SelectSong : AppCompatActivity() {
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(false)) return@setOnClickListener
-                soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 if (selectedIndex > 0) {
                     selectedIndex--
                     positionActualLvs = selectedIndex
@@ -840,7 +840,7 @@ class SelectSong : AppCompatActivity() {
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(true)) return@setOnClickListener
-                soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
 
                 val total = recyclerLvs.adapter!!.itemCount
                 if (selectedIndex < total - 1) {
@@ -879,11 +879,11 @@ class SelectSong : AppCompatActivity() {
         imgAceptar.setOnClickListener() {
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 goSelectLevel()
-                showCancionesDialog(this)
+                //showCancionesDialog(this)
             }
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
                 if(ready == 1){
-                    soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     imgAceptar.isEnabled = false
 
                     val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaDisc)
@@ -928,8 +928,6 @@ class SelectSong : AppCompatActivity() {
                         playerSong.rutaCancion = playerSong.rutaCancion!!.replace(sf, rs, ignoreCase = true)
                     }
 
-                    playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
-
                     mediaPlayer = MediaPlayer().apply {
                         setAudioAttributes(
                             AudioAttributes.Builder()
@@ -943,23 +941,45 @@ class SelectSong : AppCompatActivity() {
                         //start()
                     }
                     val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
-                    load(playerSong.rutaKsf, isHalfDouble)
 
-                    if(playerSong.mirror){
-                        if(!isHalfDouble){
-                            ksf.makeMirror()
-                        }else{
-                            ksfHD.makeMirror()
+                    if(listItemsKsf[oldValue].isSSC){
+                        chart = Parser().parseSSC(listItemsKsf[oldValue].listKsf[positionActualLvs].steps)
+                        playerSong.isSSC = true
+                        if(playerSong.mirror){
+                            if(!isHalfDouble){
+                                chart.notes = Parser().makeMirror(chart.notes)
+                            }else{
+                                chart.notes = Parser().makeRandom(chart.notes)
+                            }
+                            if(playerSong.rs){
+                                if(!isHalfDouble){
+                                    chart.notes = Parser().makeMirror(chart.notes)
+                                }else{
+                                    chart.notes = Parser().makeRandom(chart.notes)
+                                }
+                            }
                         }
+                    }else{
+                        playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
+                        playerSong.isSSC = false
+                        load(playerSong.rutaKsf, isHalfDouble)
+                        if(playerSong.mirror){
+                            if(!isHalfDouble){
+                                ksf.makeMirror()
+                            }else{
+                                ksfHD.makeMirror()
+                            }
 
-                    }
-                    if(playerSong.rs){
-                        if(!isHalfDouble){
-                            ksf.makeRandom()
-                        }else{
-                            ksfHD.makeRandom()
+                        }
+                        if(playerSong.rs){
+                            if(!isHalfDouble){
+                                ksf.makeRandom()
+                            }else{
+                                ksfHD.makeRandom()
+                            }
                         }
                     }
+
                     if(!isOnline){
                         if(!isOffline){
                             if(currentChannel == "06-FAVORITES"){
@@ -975,33 +995,10 @@ class SelectSong : AppCompatActivity() {
                         }
                     }
 
-                    chart = Parser().parseSSC(sscSong.listLvs[indexNivelSsc].steps)
-                    if(isSsc){
-                        val bit = BitmapFactory.decodeFile(sscSong.rutaBanner)
-                        imgLoading.setImageBitmap(bit)
-                        playerSong.rutaCancion = sscSong.rutaCancion
-                        playerSong.rutaBanner = sscSong.rutaBanner
-                        mediaPlayer = MediaPlayer().apply {
-                            setAudioAttributes(
-                                AudioAttributes.Builder()
-                                    .setUsage(AudioAttributes.USAGE_GAME)
-                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                    .build()
-                            )
-                            setDataSource(File(playerSong.rutaCancion!!).absolutePath)
-                            prepare()
-                        }
-                    }
                     handler.postDelayed({
-                        if(isSsc){
-                            val intent = Intent(this, GameScreenActivity()::class.java)
-                            intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
-                            startActivity(intent)
-                        }else{
-                            val intent = Intent(this, GameScreenActivity()::class.java)
-                            intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
-                            startActivity(intent)
-                        }
+                        val intent = Intent(this, GameScreenActivity()::class.java)
+                        intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
+                        startActivity(intent)
                         handler.postDelayed({
                             linearLoading.isVisible = false
                             imgLoading.isVisible = false
@@ -1014,12 +1011,12 @@ class SelectSong : AppCompatActivity() {
                 if(ready == 0){
                     ready = 1
                     imgFloor.setImageBitmap(AppResources.bmFloor2)
-                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
             }
             val itemCommand = listCommands[oldValueCommand]
             if(linearValues.isVisible){
-                soundPoolSelectSongKsf.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 val itemValues = listCommands[oldValueCommand].listCommandValues[oldValueCommandValues]
                 if(itemCommand.value.contains("Speed", ignoreCase = true)){
                     if(itemValues.value == "0"){
@@ -1276,7 +1273,7 @@ class SelectSong : AppCompatActivity() {
         }
         mediPlayer.start()
     }
-
+    /*
     fun showCancionesDialog(context: Context) {
         val nombres = listCancionesSsc.map { it.name }.toTypedArray()
 
@@ -1356,7 +1353,7 @@ class SelectSong : AppCompatActivity() {
 
         window.setLayout(maxWidth, maxHeight)
     }
-
+    */
     private fun updateRecycler() {
         val lm = recyclerLvs.layoutManager as LinearLayoutManager
         recyclerLvs.post {
@@ -2164,7 +2161,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun goSelectLevel() {
-        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         recyclerView.startAnimation(animOff)
         recyclerView.isVisible = false
         imgSelected.clearAnimation()
@@ -2338,7 +2335,7 @@ class SelectSong : AppCompatActivity() {
             commandWindowBG.startAnimation(animOn)
             linearCommands.startAnimation(animOn)
             linearInfo.startAnimation(animOn)
-            soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            soundPoolSelectSong.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             isFocusCommandWindow(1)
         }else{
             commandWindow.visibility = View.GONE
@@ -2364,7 +2361,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun goSelectChannel(){
-        soundPoolSelectSongKsf.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         if(saveFavorites){
             listChannels.remove(channelFavorites)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
@@ -2475,7 +2472,7 @@ class SelectSong : AppCompatActivity() {
 
     private fun moverCanciones(flecha : ImageView, isNext: Boolean = false) {
         resetIndicatorPosition()
-        soundPoolSelectSongKsf.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
         flecha.startAnimation(AppResources.animPressNav)
         recyclerView.scrollToPosition(oldValue)
         isFocus(oldValue)
@@ -2494,25 +2491,25 @@ class SelectSong : AppCompatActivity() {
                 numberChannel = currentNumberChannel
                 when(currentNumberChannel){
                     "12" ->{
-                        soundPoolSelectSongSound.play(st_zero, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(st_zero, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                     "13" ->{
-                        soundPoolSelectSongSound.play(nx_nxAbs, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(nx_nxAbs, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                     "14" ->{
-                        soundPoolSelectSongSound.play(fiesta_fiesta2, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(fiesta_fiesta2, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                     "17" ->{
-                        soundPoolSelectSongSound.play(prime, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(prime, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                     "18" ->{
-                        soundPoolSelectSongSound.play(prime2, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(prime2, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                     "19" ->{
-                        soundPoolSelectSongSound.play(aniversary_xx, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(aniversary_xx, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                     "21" ->{
-                        soundPoolSelectSongSound.play(phoenix, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(phoenix, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                 }
             }
@@ -2749,7 +2746,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun isFocusCommandWindow (position: Int){
-        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         val item = listCommands[position]
         recyclerCommands.currentItem = position
         if(item.value.contains("Speed", ignoreCase = true)){
@@ -2772,7 +2769,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun isFocusCommandWindowValues (position: Int){
-        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         //listCommands[oldValueCommand].listCommandValues.sortedWith(compareBy { it.rutaCommandImg })
         val item = listCommands[oldValueCommand].listCommandValues[position]
         recyclerCommandsValues.setCurrentItem(position)
@@ -2856,8 +2853,8 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private fun createSongListKsf(): ArrayList<SongKsf> {
-        val arraylist=ArrayList<SongKsf>()
+    private fun createSongListKsf(): ArrayList<Song> {
+        val arraylist=ArrayList<Song>()
         for(index in 0 until AppResources.listSongsChannelKsf.size) {
             arraylist.add(AppResources.listSongsChannelKsf[index])
         }

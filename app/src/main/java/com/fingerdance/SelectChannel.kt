@@ -195,10 +195,13 @@ class SelectChannel : AppCompatActivity() {
         imgAceptar.setOnClickListener {
             imgAceptar.isEnabled = false
             AppResources.soundPool?.play(AppResources.pressStart, 1f,1f,1,0,1f)
-            if (listChannels[position].listCancionesKsf.isNotEmpty()) {
-                AppResources.listSongsChannelKsf = listChannels[position].listCancionesKsf
+            if (listChannels[position].listCanciones.isNotEmpty()) {
+                AppResources.listSongsChannelKsf = listChannels[position].listCanciones
                 currentChannel = listChannels[position].nombre
                 Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
+                if(listChannels[position].listCanciones.first().isSSC){
+                    isOffline = true
+                }
 
 
                 /*

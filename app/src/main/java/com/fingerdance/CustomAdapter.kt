@@ -9,7 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ItemBinding
 
 class CustomAdapter(
-    private val songListKsf: ArrayList<SongKsf>,
+    private val songListKsf: ArrayList<Song>,
     private val heightBanners: Int,
     private val widthBanners: Int
 ) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
@@ -46,7 +46,7 @@ class CustomAdapter(
         private val heightB = heightBanners
         private val widthB = widthBanners
 
-        fun bindItem(songKsf: SongKsf, cache: LruCache<String, Bitmap>) {
+        fun bindItem(songKsf: Song, cache: LruCache<String, Bitmap>) {
             itemBinding.image.layoutParams.apply {
                 height = heightB
                 width = widthB

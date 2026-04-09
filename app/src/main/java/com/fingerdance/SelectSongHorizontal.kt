@@ -585,34 +585,34 @@ class SelectSongHorizontal : AppCompatActivity() {
             it.startAnimation(animPressNav)
             if(songCarouselSongs.carouselVisible && !commandWindow.isVisible){
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !linearPressStart.isVisible) {
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideLvs()
                 if (!songCarouselSongs.carouselVisible) {
                     showCarouselSongs()
                 }
             }
             if(rankingView.isVisible){
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 rankingView.visibility = View.INVISIBLE
                 rankingView.startAnimation(animOff)
                 constraintMain.removeView(linearRanking)
             }
 
             if (commandWindow.isVisible && !linearValues.isVisible ) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
             }
             if (linearValues.isVisible) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearCurrent.isVisible = false
                 linearValues.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
             }
             if(linearPressStart.isVisible){
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearPressStart.visibility = View.GONE
             }
         }
@@ -621,37 +621,37 @@ class SelectSongHorizontal : AppCompatActivity() {
             it.startAnimation(animPressNav)
             if(songCarouselSongs.carouselVisible && !commandWindow.isVisible){
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
             if(songCarouselSongs.carouselVisible && !commandWindow.isVisible){
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !linearPressStart.isVisible) {
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideLvs()
                 if(!songCarouselSongs.carouselVisible){
                     showCarouselSongs()
                 }
             }
             if(rankingView.isVisible){
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 rankingView.visibility = View.INVISIBLE
                 rankingView.startAnimation(animOff)
                 constraintMain.removeView(linearRanking)
             }
             if (commandWindow.isVisible && !linearValues.isVisible ) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
             }
             if (linearValues.isVisible) {
-                soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearCurrent.isVisible = false
                 linearValues.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
             }
             if(linearPressStart.isVisible){
-                soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearPressStart.visibility = View.GONE
             }
         }
@@ -663,7 +663,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                 moveSongs(btnMoveLeft)
             }
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
-                soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 if (handleButtonPress(false)) return@setOnClickListener
                 if (selectedIndex > 0) {
                     selectedIndex--
@@ -700,7 +700,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                 moveSongs(btnMoveRight)
             }
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
-                soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 if (handleButtonPress(true)) return@setOnClickListener
                 val total = recyclerLvs.adapter!!.itemCount
                 if (selectedIndex < total - 1) {
@@ -740,7 +740,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         commandWindow.setOnClickListener {
             val itemCommand = listCommands[oldValueCommand]
             if(linearValues.isVisible){
-                soundPoolSelectSongKsf.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPoolSelectSong.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 val itemValues = listCommands[oldValueCommand].listCommandValues[oldValueCommandValues]
                 if(itemCommand.value.contains("Speed", ignoreCase = true)){
                     if(itemValues.value == "0"){
@@ -986,7 +986,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         imgBestScore.setOnClickListener{
             if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
                 if(!commandWindow.isVisible){
-                    soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     rankingView.visibility = View.VISIBLE
                     rankingView.startAnimation(animOn)
                     rankingView.setIconDrawable(imgLvSelected.drawable)
@@ -1516,7 +1516,7 @@ class SelectSongHorizontal : AppCompatActivity() {
     }
 
     private fun goGameScreenActivity(){
-        soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
 
         val bit = BitmapFactory.decodeFile(AppResources.listSongsChannelKsf[oldValue].rutaDisc)
         imgLoading.setImageBitmap(bit)
@@ -1624,7 +1624,7 @@ class SelectSongHorizontal : AppCompatActivity() {
     private fun showPressStart(){
         linearPressStart.visibility = View.VISIBLE
         imgPressStart.startAnimation(animationPressStart)
-        soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         imgPressStart.bringToFront()
         btnBackLeft.bringToFront()
         btnBackRight.bringToFront()
@@ -1666,7 +1666,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             commandWindow.startAnimation(animOn)
             linearCommands.startAnimation(animOn)
             linearInfo.startAnimation(animOn)
-            soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            soundPoolSelectSong.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             isFocusCommandWindow(1)
         } else {
             commandWindow.visibility = View.GONE
@@ -1690,7 +1690,7 @@ class SelectSongHorizontal : AppCompatActivity() {
     }
 
     private fun isFocusCommandWindow (position: Int){
-        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         val item = listCommands[position]
         recyclerCommands.currentItem = position
         if(item.value.contains("Speed", ignoreCase = true)){
@@ -1713,7 +1713,7 @@ class SelectSongHorizontal : AppCompatActivity() {
     }
 
     private fun isFocusCommandWindowValues (position: Int){
-        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         val item = listCommands[oldValueCommand].listCommandValues[position]
         recyclerCommandsValues.setCurrentItem(position)
         val reset = "por defecto"
@@ -1933,7 +1933,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         arrow.startAnimation(AppResources.animPressNav)
         resetIndicatorPosition()
         focusOnSong()
-        soundPoolSelectSongKsf.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
     }
 
     private fun moveLvs(){
@@ -1979,7 +1979,7 @@ class SelectSongHorizontal : AppCompatActivity() {
     }
 
     private fun showLvs() {
-        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         indicatorLayout.visibility = View.VISIBLE
         linearLvAndRanking.visibility = View.VISIBLE
         if(!levelsShowing){

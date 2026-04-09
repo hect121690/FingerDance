@@ -19,7 +19,7 @@ class SongsCarouselView @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     private val views = mutableListOf<View>()
-    private var songs: ArrayList<SongKsf> = arrayListOf()
+    private var songs: ArrayList<Song> = arrayListOf()
 
     // 9 visibles
     private val offsets = listOf(-4,-3,-2,-1,0,1,2,3,4)
@@ -64,7 +64,7 @@ class SongsCarouselView @JvmOverloads constructor(
         }
     }
 
-    fun setSongs(list: ArrayList<SongKsf>) {
+    fun setSongs(list: ArrayList<Song>) {
 
         songs = list
 
@@ -83,7 +83,7 @@ class SongsCarouselView @JvmOverloads constructor(
         return ((index % size) + size) % size
     }
 
-    private fun bind(view: View, song: SongKsf) {
+    private fun bind(view: View, song: Song) {
         view.rotationY = 0f
         view.animate().cancel()
         val banner = view.findViewById<ImageView>(R.id.banner)

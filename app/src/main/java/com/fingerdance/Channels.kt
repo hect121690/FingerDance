@@ -6,6 +6,5 @@ class Channels(
     var nombre: String,
     var descripcion: String,
     var banner: String,
-    var listCanciones: ArrayList<Song> = arrayListOf(),
-    var listCancionesKsf: ArrayList<SongKsf> = arrayListOf()
+    var listCanciones: ArrayList<Song> = arrayListOf()
 ) : Serializable

@@ -50,7 +50,7 @@ object AppResources {
     var hasBackgroundVideo = false
     var isLoaded = false
 
-    var listSongsChannelKsf: ArrayList<SongKsf> = ArrayList()
+    var listSongsChannelKsf: ArrayList<Song> = ArrayList()
     var frameDisc: Bitmap? = null
 
     lateinit var animPressNav: Animation

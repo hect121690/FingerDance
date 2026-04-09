@@ -27,5 +27,6 @@ class PlayerSong(
     var isBAGDark: Boolean = false,
     var player: String = "",
     var type: String = "",
-    var snake: Boolean = false
+    var snake: Boolean = false,
+    var isSSC: Boolean = false
 ) : Serializable

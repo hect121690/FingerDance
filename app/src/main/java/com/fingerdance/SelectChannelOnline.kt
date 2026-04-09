@@ -68,7 +68,7 @@ private lateinit var indicatorDer: ImageView
 private lateinit var imageCircle : ImageView
 
 //var listSongsChannel: ArrayList<Song> = ArrayList()
-var listSongsChannelKsfOnline: ArrayList<SongKsf> = ArrayList()
+var listSongsChannelKsfOnline: ArrayList<Song> = ArrayList()
 
 private lateinit var recyclerChannels: ViewPager2
 
@@ -364,8 +364,8 @@ class SelectChannelOnline : AppCompatActivity() {
             imgAceptar.isEnabled=false
             soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
 
-            if(listChannelsOnline[position].listCancionesKsf.size > 0){
-                AppResources.listSongsChannelKsf = listChannelsOnline[position].listCancionesKsf
+            if(listChannelsOnline[position].listCanciones.size > 0){
+                AppResources.listSongsChannelKsf = listChannelsOnline[position].listCanciones
                 currentChannel = listChannelsOnline[position].nombre
 
                 handlerChannelOnline.postDelayed({

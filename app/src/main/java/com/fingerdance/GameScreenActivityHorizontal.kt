@@ -331,18 +331,18 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 imgEndSong.setImageBitmap(bitPerfectGame)
                 imgEndSong.visibility = View.VISIBLE
                 imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-                isPlayingEndSong = soundPoolSelectSongKsf.play(perfect_game, 1.0f, 1.0f, 1, 0, 1.0f)
+                isPlayingEndSong = soundPoolSelectSong.play(perfect_game, 1.0f, 1.0f, 1, 0, 1.0f)
             } else {
                 imgEndSong.setImageBitmap(bitFullcombo)
                 imgEndSong.visibility = View.VISIBLE
                 imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-                isPlayingEndSong = soundPoolSelectSongKsf.play(full_combo, 1.0f, 1.0f, 1, 0, 1.0f)
+                isPlayingEndSong = soundPoolSelectSong.play(full_combo, 1.0f, 1.0f, 1, 0, 1.0f)
             }
         }else if(resultSong.miss == 0){
             imgEndSong.setImageBitmap(bitNoMiss)
             imgEndSong.visibility = View.VISIBLE
             imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-            isPlayingEndSong = soundPoolSelectSongKsf.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
+            isPlayingEndSong = soundPoolSelectSong.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
         }
         imgEndSong.bringToFront()
     }

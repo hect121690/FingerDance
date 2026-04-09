@@ -700,8 +700,6 @@ class KsfProccess {
         }
     }
 
-
-
     fun generateSafeRandomMap(): IntArray {
 
         val base = intArrayOf(0,1,2,3,4)
@@ -729,6 +727,5 @@ class KsfProccess {
             return map
         }
     }
-
 
 }

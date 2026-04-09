@@ -129,7 +129,7 @@ class DanceGrade : AppCompatActivity() {
         val numberWait = Random.nextInt(1, 10)
         imgWait.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/img_dance_grade ($numberWait).png")!!.absolutePath))
 
-        soundPoolSelectSongKsf.setOnLoadCompleteListener { _, _, _ ->
+        soundPoolSelectSong.setOnLoadCompleteListener { _, _, _ ->
             isPoolLoaded = true
         }
 
@@ -696,11 +696,11 @@ class DanceGrade : AppCompatActivity() {
         imgGrade.setImageBitmap(bitmapGrade)
         imgGradeDescription.setImageBitmap(bitmapGradeDescription)
         animateImageView(imgGrade)
-        soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
         rankA = getRankSound(soundGrade)
         rankB = getRankSoundB(soundGrade)
-        isPlayingRankA = soundPoolSelectSongKsf.play(rankA, 1.0f, 1.0f, 1, 0, 1.0f)
-        isPlayingRankB = soundPoolSelectSongKsf.play(rankB, 1.0f, 1.0f, 1, 0, 1.0f)
+        isPlayingRankA = soundPoolSelectSong.play(rankA, 1.0f, 1.0f, 1, 0, 1.0f)
+        isPlayingRankB = soundPoolSelectSong.play(rankB, 1.0f, 1.0f, 1, 0, 1.0f)
     }
 
     private fun listenForBothPlayersReady(
@@ -802,7 +802,7 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun handleAcceptClick(bgWait: ConstraintLayout, imgWait: ImageView) {
-        soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
 
         if (!isOnline && !isOffline) {
             if (currentChannel != "06-FAVORITES") {
@@ -815,9 +815,9 @@ class DanceGrade : AppCompatActivity() {
         }
 
         mediaPlayerEvaluation.stop()
-        soundPoolSelectSongKsf.stop(isPlayingRankA)
-        soundPoolSelectSongKsf.stop(isPlayingRankB)
-        soundPoolSelectSongKsf.stop(isPlayingNewRecord)
+        soundPoolSelectSong.stop(isPlayingRankA)
+        soundPoolSelectSong.stop(isPlayingRankB)
+        soundPoolSelectSong.stop(isPlayingNewRecord)
 
         imgWait.isVisible = true
         bgWait.isVisible = true
@@ -850,7 +850,7 @@ class DanceGrade : AppCompatActivity() {
                 if (winP2) imgWinP2.setImageBitmap(BitmapFactory.decodeFile(rutaWin))
                 if (draw) imgDraw.setImageBitmap(BitmapFactory.decodeFile(rutaDraw))
             }, 250)
-            soundPoolSelectSongKsf.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
+            soundPoolSelectSong.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
         }, 500L)
     }
 
@@ -1179,7 +1179,7 @@ class DanceGrade : AppCompatActivity() {
         handlerDG.postDelayed({
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
-            isPlayingNewRecord = soundPoolSelectSongKsf.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
+            isPlayingNewRecord = soundPoolSelectSong.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
             getBtnAceptar()
         }, 3500)
     }
@@ -1372,7 +1372,7 @@ class DanceGrade : AppCompatActivity() {
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastSoundTime > tickInterval && isPoolLoaded()) {
                         launch(Dispatchers.IO) {
-                            soundPoolSelectSongKsf.play(tick, 1f, 1f, 1, 0, 1.0f)
+                            soundPoolSelectSong.play(tick, 1f, 1f, 1, 0, 1.0f)
                         }
                         lastSoundTime = currentTime
                     }

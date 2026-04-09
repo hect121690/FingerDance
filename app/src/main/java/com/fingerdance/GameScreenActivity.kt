@@ -342,18 +342,18 @@ open class GameScreenActivity : AndroidApplication() {
                 imgEndSong.setImageBitmap(bitPerfectGame)
                 imgEndSong.visibility = View.VISIBLE
                 imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-                isPlayingEndSong = soundPoolSelectSongKsf.play(perfect_game, 1.0f, 1.0f, 1, 0, 1.0f)
+                isPlayingEndSong = soundPoolSelectSong.play(perfect_game, 1.0f, 1.0f, 1, 0, 1.0f)
             } else {
                 imgEndSong.setImageBitmap(bitFullcombo)
                 imgEndSong.visibility = View.VISIBLE
                 imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-                isPlayingEndSong = soundPoolSelectSongKsf.play(full_combo, 1.0f, 1.0f, 1, 0, 1.0f)
+                isPlayingEndSong = soundPoolSelectSong.play(full_combo, 1.0f, 1.0f, 1, 0, 1.0f)
             }
         }else if(resultSong.miss == 0){
             imgEndSong.setImageBitmap(bitNoMiss)
             imgEndSong.visibility = View.VISIBLE
             imgEndSong.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-            isPlayingEndSong = soundPoolSelectSongKsf.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
+            isPlayingEndSong = soundPoolSelectSong.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
         }
         imgEndSong.bringToFront()
     }
@@ -568,7 +568,7 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
             gameScreenHD = GameScreenKsfHD(gsa)
             setScreen(gameScreenHD)
         }else {
-            if(isSsc){
+            if(playerSong.isSSC){
                 gameScreenSsc = GameScreenSsc(gsa)
                 setScreen(gameScreenSsc)
             }else{
@@ -583,7 +583,7 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
         if(halfDouble){
             gameScreenHD?.dispose()
         }else {
-            if(isSsc){
+            if(playerSong.isSSC){
                 gameScreenSsc?.dispose()
             }else{
                 gameScreen?.dispose()

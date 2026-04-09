@@ -36,7 +36,7 @@ class Parser {
         val fakes: List<Fake>,
         val speeds: List<Speed>,
         val scrolls: List<Scroll>,
-        val notes: List<Note>,
+        var notes: List<Note>,
         val extendedNotes: List<Note>
     )
 
@@ -335,13 +335,68 @@ class Parser {
         return regex.find(text)?.groupValues?.get(1)
     }
 
-    // Un beat está en FAKE si cae dentro de alguno de los rangos beat..beat+duration
     private fun isFake(beat: Double, fakes: List<Fake>): Boolean {
         return fakes.any { beat >= it.beat && beat < it.beat + it.duration }
     }
 
-    // Devuelve el fake que contiene este beat (o null si no está en ningún fake)
-    private fun findFakeForBeat(beat: Double, fakes: List<Fake>): Fake? {
-        return fakes.firstOrNull { beat >= it.beat && beat < it.beat + it.duration }
+    fun makeMirror(notes: List<Note>): List<Note> {
+        val mirrorMap = intArrayOf(1, 0, 2, 4, 3)
+        return remapColumns(notes, mirrorMap)
+    }
+
+    fun makeRandom(notes: List<Note>): List<Note> {
+        val map = generateSafeRandomMap(5)
+        return remapColumns(notes, map)
+    }
+
+    private fun remapColumns(notes: List<Note>, map: IntArray): List<Note> {
+
+        fun transform(notes: List<Note>): List<Note> {
+            return notes.map { note ->
+
+                if (note.type == NoteType.MINE) {
+                    note
+                } else {
+                    note.copy(
+                        column = map.getOrElse(note.column) { note.column }
+                    )
+                }
+            }
+        }
+
+        return transform(notes)
+
+    }
+
+    private fun generateSafeRandomMap(size: Int = 5): IntArray {
+
+        val base = IntArray(size) { it }
+
+        while (true) {
+
+            val map = base.clone()
+            map.shuffle()
+
+            // centro no fijo (para 5K)
+            if (size >= 3 && map[2] == 2) continue
+
+            // evitar demasiados iguales
+            var same = 0
+            for (i in map.indices) {
+                if (map[i] == i) same++
+            }
+            if (same > size / 2) continue
+
+            // evitar colapso lateral (solo 5K)
+            if (size == 5) {
+                val leftSide = setOf(0, 1)
+                val mapped0Left = map[0] in leftSide
+                val mapped4Left = map[4] in leftSide
+
+                if (mapped0Left && mapped4Left) continue
+            }
+
+            return map
+        }
     }
 }

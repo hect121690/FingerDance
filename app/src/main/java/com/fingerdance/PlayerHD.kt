@@ -1481,7 +1481,7 @@ class PlayerHD(private val batch: SpriteBatch, activity: GameScreenActivity) : G
 
     fun onMineHit(timeCom: Long) {
         mineFlashStartTime = timeCom
-        soundPoolSelectSongKsf.play(sound_mine, 1f, 1f, 1, 0, 1f)
+        soundPoolSelectSong.play(sound_mine, 1f, 1f, 1, 0, 1f)
     }
 
     private fun newJudge(judgeType: Int, time: Long){

@@ -102,7 +102,7 @@ private lateinit var recyclerLvsVacios: RecyclerView
 private lateinit var recyclerCommands: ViewPager2
 private lateinit var recyclerCommandsValues: ViewPager2
 
-private lateinit var listItemsKsf: ArrayList<SongKsf>
+private lateinit var listItemsKsf: ArrayList<Song>
 
 private var middle: Int = 0
 private var ultimoLv: Int = 0
@@ -489,18 +489,18 @@ class SelectSongOnline : AppCompatActivity() {
                 imgFloor.setImageBitmap(bmFloor)
                 if (recyclerView.isVisible && !commandWindow.isVisible) {
                     Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                    soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
-                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     hideSelectLv(anim)
                 }
                 if (commandWindow.isVisible && !linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     showCommandWindow(false)
                 }
                 if (linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     linearCurrent.isVisible = false
                     linearValues.isVisible = false
                     isFocusCommandWindow(oldValueCommand)
@@ -512,18 +512,18 @@ class SelectSongOnline : AppCompatActivity() {
                 if (recyclerView.isVisible && !commandWindow.isVisible) {
                     //goSelectChannel()
                     Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
-                    soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
-                    soundPoolSelectSongKsf.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     hideSelectLv(anim)
                 }
                 if (commandWindow.isVisible && !linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     showCommandWindow(false)
                 }
                 if (linearValues.isVisible) {
-                    soundPoolSelectSongKsf.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     linearValues.isVisible = false
                     linearCurrent.isVisible = false
                     isFocusCommandWindow(oldValueCommand)
@@ -546,7 +546,7 @@ class SelectSongOnline : AppCompatActivity() {
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                     handleButtonPress(false)
-                    soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     if (positionActualLvs != 0) {
                         positionActualLvs -= 1
                         moverLvs(positionActualLvs)
@@ -585,7 +585,7 @@ class SelectSongOnline : AppCompatActivity() {
                 }
                 if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                     handleButtonPress(true)
-                    soundPoolSelectSongKsf.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(move_lvsKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     ultimoLv = (recyclerLvs.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
                     if (positionActualLvs < ultimoLv) {
                         positionActualLvs += 1
@@ -620,7 +620,7 @@ class SelectSongOnline : AppCompatActivity() {
                 }
                 if(imgLvSelected.isVisible && !commandWindow.isVisible){
                     if(ready == 1){
-                        soundPoolSelectSongKsf.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                         imgAceptar.isEnabled = false
 
                         val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaTitle)
@@ -699,12 +699,12 @@ class SelectSongOnline : AppCompatActivity() {
                     if(ready == 0){
                         ready = 1
                         imgFloor.setImageBitmap(bmFloor2)
-                        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                        soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     }
                 }
                 val itemCommand = listCommands[oldValueCommand]
                 if(linearValues.isVisible){
-                    soundPoolSelectSongKsf.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    soundPoolSelectSong.play(command_modKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     val itemValues = listCommands[oldValueCommand].listCommandValues[oldValueCommandValues]
                     if(itemCommand.value.contains("Speed", ignoreCase = true)){
                         if(itemValues.value == "0"){
@@ -1019,7 +1019,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun goSelectLevel() {
-        soundPoolSelectSongKsf.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         recyclerView.startAnimation(animOff)
         recyclerView.isVisible = false
         imgSelected.clearAnimation()
@@ -1054,7 +1054,7 @@ class SelectSongOnline : AppCompatActivity() {
             commandWindowBG.startAnimation(animOn)
             linearCommands.startAnimation(animOn)
             linearInfo.startAnimation(animOn)
-            soundPoolSelectSongKsf.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+            soundPoolSelectSong.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             oldValueCommand = 0
             isFocusCommandWindow(oldValueCommand)
         }else{
@@ -1081,7 +1081,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun goSelectChannel(){
-        soundPoolSelectSongKsf.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         nav_back_der.startAnimation(animOn)
         if (mediPlayer.isPlaying){
             mediPlayer.pause()
@@ -1121,7 +1121,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun moverCanciones(flecha : ImageView, animation: Animation?, oldValue: Int) {
-        soundPoolSelectSongKsf.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         flecha.startAnimation(animation)
         recyclerView.scrollToPosition(oldValue)
         isFocus(oldValue)
@@ -1295,7 +1295,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun isFocusCommandWindow (position: Int){
-        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         val item = listCommands[position]
         recyclerCommands.currentItem = position
         if(item.value.contains("Speed", ignoreCase = true)){
@@ -1316,7 +1316,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun isFocusCommandWindowValues (position: Int){
-        soundPoolSelectSongKsf.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+        soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         //listCommands[oldValueCommand].listCommandValues.sortedWith(compareBy { it.rutaCommandImg })
         val item = listCommands[oldValueCommand].listCommandValues[position]
         recyclerCommandsValues.setCurrentItem(position)
@@ -1394,8 +1394,8 @@ class SelectSongOnline : AppCompatActivity() {
         }
     }
 
-    private fun createSongListKsf(): ArrayList<SongKsf> {
-        val arraylist=ArrayList<SongKsf>()
+    private fun createSongListKsf(): ArrayList<Song> {
+        val arraylist=ArrayList<Song>()
         for(index in 0 until AppResources.listSongsChannelKsf.size) {
             arraylist.add(AppResources.listSongsChannelKsf[index])
         }

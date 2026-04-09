@@ -127,7 +127,7 @@ lateinit var arrayGrades : ArrayList<Bitmap>
 lateinit var arrGradesDesc : ArrayList<Bitmap>
 lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
 lateinit var channelFavorites : Channels
-lateinit var listFavorites : ArrayList<SongKsf>
+lateinit var listFavorites : ArrayList<Song>
 lateinit var mockListChannels : ArrayList<Canal>
 
 private var bmLogo : Bitmap? = null
@@ -1328,7 +1328,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val goOptionMP = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
         btnOptions.setOnClickListener {
-            isSsc = false
             if(flagActiveAllows){
                 if(idWithRegister == ""){
                     showLoadingOverlay("Espere por favor...")
@@ -1377,20 +1376,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val builder = AlertDialog.Builder(this@MainActivity)
         btnExit.setOnClickListener {
-
-            val ls = LoadingSongs(this@MainActivity)
-            if(listChannelsSsc.isEmpty()){
-                listChannelsSsc = ls.getChannels(this@MainActivity)
-            }
-            //val sscCharData = parser.parseSSC(sscSong.listLvs[2].steps)
-            isSsc = true
-
-            // Ejemplo: primer canal
-            //val listCanciones = listChannelsSsc[0].listCanciones
-
-            showCanalesDialog(listChannelsSsc, this@MainActivity)
-
-            /*
             builder.setTitle("Aviso")
             builder.setMessage("Deseas salir del juego?")
             builder.setPositiveButton(android.R.string.yes) { dialog, which ->
@@ -1404,7 +1389,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             }
             builder.show()
-            */
         }
 
         btnExit.setOnLongClickListener {
@@ -1438,51 +1422,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    fun showCanalesDialog(listChannels: ArrayList<Channels>, context: Context) {
-        val nombres = listChannels.map { it.nombre }.toTypedArray()
-
-        var selectedIndex = indexCanalSsc
-
-        val dialog = AlertDialog.Builder(context)
-            .setTitle("Canales")
-            .setSingleChoiceItems(nombres, selectedIndex) { _, which ->
-                selectedIndex = which
-            }
-            .setPositiveButton("Aceptar") { dialogInterface, _ ->
-                if (selectedIndex != -1) {
-                    indexCanalSsc = selectedIndex
-                    indexCancionSsc = -1 // reset dependientes
-                    indexNivelSsc = -1
-
-                    dialogInterface.dismiss()
-
-                    listCancionesSsc = listChannels[indexCanalSsc].listCanciones
-                    isSsc = true
-                    isOffline = true
-                    btnPlay.performClick()
-                    //showCancionesDialog(listCanciones, context, listChannels)
-                }
-            }
-            .setNegativeButton("Cancelar") { dialogInterface, _ ->
-                dialogInterface.dismiss()
-            }
-            .create()
-
-        showDialogWithMaxHeight(dialog)
-    }
-
-    fun showDialogWithMaxHeight(dialog: AlertDialog) {
-        dialog.show()
-
-        val window = dialog.window ?: return
-        val metrics = dialog.context.resources.displayMetrics
-
-        val maxHeight = (metrics.heightPixels * 0.75).toInt()
-        val maxWidth = (metrics.widthPixels * 0.9).toInt()
-
-        window.setLayout(maxWidth, maxHeight)
-    }
-
     private fun goPlay(goSound: MediaPlayer, animation: Animation){
         isOnline = false
         goSound.start()
@@ -1492,17 +1431,23 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
-            listCommands = ls.getFilesCW(this@MainActivity)
+            listCommands = getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
             listChannels = ls.getChannels(this@MainActivity)
+            val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
+            if(listSongsSsc.isNotEmpty()){
+                for(i in listSongsSsc){
+                    listChannels.add(i)
+                }
+            }
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
         }
         if(themes.getString("efects", "").toString() == ""){
             showLoadingOverlay("Espere por favor...")
-            listCommands = ls.getFilesCW(this@MainActivity)
+            listCommands = getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
@@ -1511,12 +1456,12 @@ class MainActivity : AppCompatActivity(), Serializable {
             val jsonListCommands = themes.getString("efects", "")
             listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
         }
-        ls.loadSounds(this@MainActivity)
+        loadSounds(this@MainActivity)
         if(themes.getString("favorites", "").toString() != ""){
             val jsonListFavoites = themes.getString("favorites", "")
-            listFavorites = gson.fromJson(jsonListFavoites, object : TypeToken<ArrayList<SongKsf>>() {}.type)
+            listFavorites = gson.fromJson(jsonListFavoites, object : TypeToken<ArrayList<Song>>() {}.type)
             val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
-            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCancionesKsf = listFavorites)
+            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCanciones = listFavorites)
             if(listFavorites.isNotEmpty()){
                 listChannels.add(channelFavorites)
                 listChannels.sortBy { it.nombre.substringBefore("-").trim() }
@@ -1524,7 +1469,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }else{
             listFavorites = arrayListOf()
             val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
-            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCancionesKsf = listFavorites)
+            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCanciones = listFavorites)
             if(listFavorites.isNotEmpty()){
                 listChannels.add(channelFavorites)
                 listChannels.sortBy { it.nombre.substringBefore("-").trim() }
@@ -1547,7 +1492,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
         }else{
             showLoadingOverlay("Espere por favor...")
-            listCommands = ls.getFilesCW(this@MainActivity)
+            listCommands = getFilesCW(this@MainActivity)
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
@@ -1708,7 +1653,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     })
                     listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
                     if(themes.getString("efects", "").toString() == ""){
-                        listCommands = ls.getFilesCW(this@MainActivity)
+                        listCommands = getFilesCW(this@MainActivity)
                         val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
                         val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
                         listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
@@ -1717,7 +1662,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                         val jsonListCommands = themes.getString("efects", "")
                         listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
                     }
-                    ls.loadSounds(this@MainActivity)
+                    loadSounds(this@MainActivity)
                     val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     startActivity(intent)
@@ -2038,7 +1983,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                 listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
                 if(themes.getString("efects", "").toString() == ""){
-                    listCommands = ls.getFilesCW(this@MainActivity)
+                    listCommands = getFilesCW(this@MainActivity)
                     val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
                     val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
                     listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
@@ -2047,7 +1992,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     val jsonListCommands = themes.getString("efects", "")
                     listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
                 }
-                ls.loadSounds(this@MainActivity)
+                loadSounds(this@MainActivity)
                 val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 startActivity(intent)

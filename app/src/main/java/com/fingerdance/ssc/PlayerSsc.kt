@@ -10,8 +10,6 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.GameScreenActivity
-import com.fingerdance.KsfProccess.TypeNote
-import com.fingerdance.Player
 import com.fingerdance.aBatch
 import com.fingerdance.bBatch
 import com.fingerdance.breakSong
@@ -27,7 +25,7 @@ import com.fingerdance.playerSong
 import com.fingerdance.resultSong
 import com.fingerdance.ruta
 import com.fingerdance.showPadB
-import com.fingerdance.soundPoolSelectSongKsf
+import com.fingerdance.soundPoolSelectSong
 import com.fingerdance.sound_mine
 import com.fingerdance.valueOffset
 import com.fingerdance.widthBtns
@@ -1300,7 +1298,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
     fun onMineHit(timeCom: Long) {
         mineFlashStartTime = timeCom
-        soundPoolSelectSongKsf.play(sound_mine, 1f, 1f, 1, 0, 1f)
+        soundPoolSelectSong.play(sound_mine, 1f, 1f, 1, 0, 1f)
     }
 
     private fun getArrows3x2(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
