@@ -1,6 +1,5 @@
 package com.fingerdance.ssc
 
-import com.fingerdance.chart
 import com.fingerdance.ssc.Parser.BpmSegment
 import com.fingerdance.ssc.Parser.Stop
 import com.fingerdance.ssc.Parser.Warp
@@ -96,6 +95,11 @@ class TimmingData(
         )
 
         return result
+    }
+
+    fun isBeatInWarp(beat: Double): Boolean {
+        val seg = timeSegments.lastOrNull { beat >= it.beatStart }
+        return seg?.isWarp == true && beat < seg.beatEnd
     }
 
     private fun findSegmentByBeat(beat: Double): TimeSegment {

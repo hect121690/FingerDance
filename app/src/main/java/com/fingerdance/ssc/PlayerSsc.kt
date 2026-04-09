@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.GameScreenActivity
 import com.fingerdance.KsfProccess.TypeNote
+import com.fingerdance.Player
 import com.fingerdance.aBatch
 import com.fingerdance.bBatch
 import com.fingerdance.breakSong
@@ -32,6 +33,7 @@ import com.fingerdance.valueOffset
 import com.fingerdance.widthBtns
 import com.fingerdance.widthJudges
 import java.io.File
+import kotlin.math.abs
 import kotlin.math.min
 
 class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : GameScreenSsc(activity) {
@@ -138,21 +140,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     private val hitNotes = mutableSetOf<Parser.Note>()
     private val finishedHolds = mutableSetOf<Parser.Note>()
 
-    private val columnNotes = Array(5) { mutableListOf<Parser.Note>() }
-    private val columnIndex = IntArray(5)
-
-    private fun initColumnNotes() {
-        for (n in notes) {
-            if (n.column in 0..4) {
-                columnNotes[n.column].add(n)
-            }
-        }
-        for (c in 0 until 5) {
-            columnNotes[c].sortBy { it.beat }
-            columnIndex[c] = 0
-        }
-    }
-
     private var m_fGauge = 0.35f
     var m_fCurBPM = 0f
     private var arrowFrame = 0
@@ -179,18 +166,18 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     private var digitWidth = medidaFlechas * 0.7f
     private var digitHeight = heightJudges * 1.3f
 
-    private val GaugeInc = if (playerSong.hj) gaugeIncHJ else gaugeIncNormal
+    private val gaugeInc = if (playerSong.hj) gaugeIncHJ else gaugeIncNormal
     val tipWidth = (medidaFlechas / 4f)
     val tipHeight = medidaFlechas / 1.5f
     val tipY = 0f - (medidaFlechas * 0.05f)
 
-    private val userOffsetUnits: Long = valueOffset
-    private val userOffsetMs: Double
-        get() = userOffsetUnits * 10.0
-
+    private val columnNotes = Array(5) { mutableListOf<Parser.Note>() }
+    private val columnIndex = IntArray(5) { 0 }
+    private var lastStepSongTimeMs: Long = 0L
     init {
         currentTimeToExpands = timeGetTime()
         initCommonInfo()
+
         Gdx.input.inputProcessor = inputProcessor
 
         for (x in 0 until 5) {
@@ -199,7 +186,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         if (playerSong.ap || playerSong.vanish) {
             noEffects = true
         }
-        initColumnNotes()
     }
 
     private fun initCommonInfo() {
@@ -251,51 +237,29 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
         arrMines = getArrows3x2(mine)
         createWhiteTexture()
-
+        initColumnNotes()
         inputProcessor.resetState()
     }
 
     private data class LongNotePress(
         var pressed: Boolean = false,
-        var time: Long = 0,
-        var ptn: Int = 0,
-        var line: Int = 0,
-        var typeNote: TypeNote = TypeNote.NORMAL,
-        var dropped: Boolean = false,
+        var lastTickBeat: Double = 0.0,
         var lastTickIndex: Int = -1,
-        var lastTickBeat: Double = Double.NaN,
-        var droppedAtTimeMs: Long = 0L,
-        var droppedHoldPtn: Int = 0,
-        var dropJudged: Boolean = false,
-        var releasedEarly: Boolean = false,
-        var releasedAtTimeMs: Long = 0L
+        var note: Parser.Note? = null,
+        var timeStarted: Long = 0L,
     )
 
-    data class RenderHold(
-        val column: Int,
-        val startBeat: Double,
-        val endBeat: Double
-    )
-
-    private var holdTickBeats = 0.25
-    private val HOLD_CATCH_MIN_REMAINING_BEATS = 0.10
-    private val HOLD_EARLY_RELEASE_GRACE_BEATS = 0.12
-    private val HOLD_PREPRESS_GRACE_BEATS = 0.08
-
-    private fun clearLongNote(col: Int) {
-        LONGNOTE[col].pressed = false
-        LONGNOTE[col].dropped = false
-        LONGNOTE[col].time = 0
-        LONGNOTE[col].ptn = 0
-        LONGNOTE[col].line = 0
-        LONGNOTE[col].lastTickBeat = Double.NaN
-        LONGNOTE[col].lastTickIndex = -1
-        LONGNOTE[col].typeNote = TypeNote.NORMAL
-        LONGNOTE[col].droppedAtTimeMs = 0L
-        LONGNOTE[col].droppedHoldPtn = 0
-        LONGNOTE[col].dropJudged = false
-        LONGNOTE[col].releasedEarly = false
-        LONGNOTE[col].releasedAtTimeMs = 0L
+    private fun initColumnNotes() {
+        for (col in 0 until columnNotes.size) columnNotes[col].clear()
+        for (n in notes) {
+            if (n.column in 0 until columnNotes.size) {
+                columnNotes[n.column].add(n)
+            }
+        }
+        for (c in 0 until 5) {
+            columnNotes[c].sortBy { it.beat }
+            columnIndex[c] = 0
+        }
     }
 
     var luaReceptOffsetX = 0f
@@ -304,6 +268,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     val beatWindowBack = 16.0
     val beatWindowForward = 16.0
     var activeExtendedNOtes = false
+
     fun render(songTimeMs: Long) {
         val timeCom = timeGetTime()
         val iLongTop = LongArray(5) { 0 }
@@ -322,7 +287,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val msPorBeat = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
         val msPorFrame = msPorBeat / 5f
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
-        val overlap = 8
+
         if(!activeExtendedNOtes){
             for (n in notes) {
                 if (n.beat < minBeat || n.beat > maxBeat) continue
@@ -341,7 +306,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                         }
                     }
                     Parser.NoteType.HOLD -> {
-                        if (finishedHolds.contains(n)) continue
                         val endBeat = n.endBeat ?: continue
                         var yHead = yForBeat(n.beat, currentBeat, nowMs)
                         val yTail = yForBeat(endBeat, currentBeat, nowMs)
@@ -356,7 +320,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                             if (locked) {
                                 yHead = medidaFlechas.toInt()
                             }
-
+                            if (finishedHolds.contains(n)) continue
                             drawLongNote(col, yHead, yTail)
                         }
                     }
@@ -446,43 +410,23 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         for (x in 0 until m_iStepWidth) {
             key[x] = keyBoard[x]
         }
+        val prevSongTimeMs = lastStepSongTimeMs
+        lastStepSongTimeMs = songTimeMs
 
+        val prevBeat = timeToBeat(prevSongTimeMs.toDouble())
+        val nowBeat  = timeToBeat(songTimeMs.toDouble())
         for (col in 0 until m_iStepWidth) {
             when (key[col]) {
                 KEY_DOWN -> {
                     showExpand(col)
                     processTapAndHeadOnColumn(col, songTimeMs)
-                    if (!LONGNOTE[col].pressed) {
-                        tryAutoStartHoldOnPress(col, songTimeMs)
-                    }
-                    if (LONGNOTE[col].pressed) {
-                        processLongNoteTick(col, songTimeMs)
-                    }
+                    tryAutoStartHoldOnPress(col, songTimeMs)
                 }
-
                 KEY_PRESS -> {
                     showExpand(col)
-
-                    // Si estamos sosteniendo una hold y ya pasamos su tail, completar y encadenar a la siguiente sin soltar.
-                    if (LONGNOTE[col].pressed) {
-                        val endBeat = LONGNOTE[col].line / 1000.0
-                        val nowBeat = timeToBeat(songTimeMs.toDouble())
-                        if (nowBeat >= endBeat) {
-                            val list = columnNotes[col]
-                            val holdNote = list.firstOrNull { isHold(it) && it.beat * 1000.0 == LONGNOTE[col].ptn.toDouble() }
-                            if (holdNote != null) finishedHolds.add(holdNote)
-                            clearLongNote(col)
-                        }
-                    }
-
-                    if (!LONGNOTE[col].pressed) {
-                        tryAutoStartHoldOnPress(col, songTimeMs)
-                    }
-                    if (LONGNOTE[col].pressed) {
-                        processLongNoteTick(col, songTimeMs)
-                    }
+                    tryAutoStartHoldOnPress(col, songTimeMs)
+                    processLongNoteTick(col, songTimeMs)
                 }
-
                 KEY_UP -> {
                     if (LONGNOTE[col].pressed) {
                         endLongNote(col, songTimeMs)
@@ -490,7 +434,35 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                 }
             }
         }
+        for (col in 0 until m_iStepWidth) {
+            val notesInCol = columnNotes[col]
 
+            // Si NO hay hold activa y hay pad presionado actualmente
+            if (!LONGNOTE[col].pressed && (key[col] == KEY_PRESS || key[col] == KEY_DOWN)) {
+                for (i in columnIndex[col] until notesInCol.size) {
+                    val n = notesInCol[i]
+                    if (n.type != Parser.NoteType.HOLD) continue
+                    if (finishedHolds.contains(n)) continue
+                    val headBeat = n.beat
+
+                    // ¿El head fue "cruzado" entre frames?
+                    if (
+                        (prevBeat <= headBeat && headBeat < nowBeat) ||
+                        (nowBeat <= headBeat && headBeat < prevBeat) ||
+                        (Math.abs(nowBeat - headBeat) < 0.001) // por si cae justo
+                    ) {
+                        // Engancha el hold automáticamente
+                        applyJudge(col, JUDGE_PERFECT, songTimeMs, isFromInput = true)
+                        startLongNote(col, n, songTimeMs)
+                        LONGNOTE[col].lastTickBeat = nowBeat
+                        columnIndex[col] = i + 1
+                        break // solo uno por frame
+                    }
+                    // Si el head está adelante del receptor, ya no busques más
+                    if (headBeat > nowBeat && headBeat > prevBeat) break
+                }
+            }
+        }
         updateAutoMisses(songTimeMs)
         inputProcessor.update()
 
@@ -503,300 +475,194 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         }
     }
 
-    private fun isHold(note: Parser.Note) =
-        note.type == Parser.NoteType.HOLD && note.endBeat != null
+    private fun updateAutoMisses(songTimeMs: Long) {
+        for (col in 0 until m_iStepWidth) {
+            val notesInCol = columnNotes[col]
+            var idx = columnIndex[col]
+            // No missear si hay un hold activo
+            if (LONGNOTE[col].pressed) continue
 
-    private fun tryAutoStartHoldOnPress(col: Int, timeMs: Long) {
-        if (LONGNOTE[col].pressed) return
-
-        val list = columnNotes[col]
-        if (list.isEmpty()) return
-
-        val nowBeat = timeToBeat(timeMs.toDouble())
-
-        // Si venimos de un drop, necesitamos poder re-catch sin depender de columnIndex (puede haber avanzado).
-        // En dropped, buscamos explícitamente el HOLD que estamos siguiendo.
-        val startIdx = if (LONGNOTE[col].dropped && LONGNOTE[col].droppedHoldPtn != 0) {
-            list.indexOfFirst { isHold(it) && (it.beat * 1000).toInt() == LONGNOTE[col].droppedHoldPtn }.let { if (it >= 0) it else 0 }
-        } else {
-            columnIndex[col]
-        }
-        if (startIdx >= list.size) return
-
-        // Reglas estilo PIU simplificadas:
-        // - En PRESS (y también DOWN cuando se llame aquí), permite enganchar:
-        //   a) HEAD por prepress alrededor del head => PERFECT forzado
-        //   b) BODY catch / re-catch dentro del cuerpo => PERFECT forzado
-        // - Si venimos de soltar temprano, permitir re-catch del mismo hold.
-
-        val scanLimit = min(list.size, startIdx + 10)
-        for (i in startIdx until scanLimit) {
-            val n = list[i]
-            if (n.isFake) continue
-            if (!isHold(n)) continue
-            val endBeat = n.endBeat ?: continue
-
-            // Si estamos en dropped, solo re-catch del mismo hold.
-            if (LONGNOTE[col].dropped && LONGNOTE[col].droppedHoldPtn != 0 && LONGNOTE[col].droppedHoldPtn != (n.beat * 1000).toInt()) {
-                continue
-            }
-
-            // (A) HEAD prepress alrededor del head
-            if (!LONGNOTE[col].dropped && nowBeat >= n.beat - HOLD_PREPRESS_GRACE_BEATS && nowBeat <= n.beat + HOLD_PREPRESS_GRACE_BEATS) {
-                applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
-                startLongNote(col, n, timeMs)
-                LONGNOTE[col].lastTickBeat = nowBeat
-                columnIndex[col] = i + 1
-                return
-            }
-
-            // (B) BODY catch / re-catch dentro del cuerpo
-            if (nowBeat >= n.beat && nowBeat <= endBeat) {
-                val remaining = endBeat - nowBeat
-                if (remaining >= HOLD_CATCH_MIN_REMAINING_BEATS) {
-                    applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
-                    startLongNote(col, n, timeMs)
-                    LONGNOTE[col].lastTickBeat = nowBeat
-                    if (columnIndex[col] <= i) {
-                        columnIndex[col] = i + 1
-                    }
-                    return
+            while (idx < notesInCol.size) {
+                val n = notesInCol[idx]
+                if (n.isFake) { idx++; continue }
+                if (timingData.isBeatInWarp(n.beat)) {
+                    // Este beat está dentro de un warp, ignora totalmente la nota
+                    idx++
+                    continue
                 }
+                // Si es hold y estamos activos la ignoramos (ya lo hace el check anterior)
+                val deltaMs = getDeltaMsForNote(n.beat, songTimeMs)
+                // Si se pasó de la zona BAD por mucho, marcamos miss y saltamos a la siguiente
+                if (deltaMs > ZONE_BAD) {
+                    Gdx.app.log("SCC_LOG", "Auto-miss en columna $col para nota en beat ${n.beat} (delta ${deltaMs}ms) LONGNOTE ACTIVO: ${LONGNOTE[col].note?.beat}, ${LONGNOTE[col].note?.endBeat})")
+                    applyJudge(col, JUDGE_MISS, songTimeMs, isFromInput = false)
+                    columnIndex[col] = idx + 1
+                    idx++
+                    continue
+                }
+                break // No hay más que auto-missear
             }
-
-            if (n.beat - nowBeat > 2.0) break
         }
     }
 
     private fun processTapAndHeadOnColumn(col: Int, timeMs: Long) {
-        val list = columnNotes[col]
-        val startIdx = columnIndex[col]
-        if (startIdx >= list.size) return
-
-        val scanLimit = min(list.size, startIdx + 6)
+        val notesInCol = columnNotes[col]
+        val idxStart = columnIndex[col]
         var bestIdx = -1
         var bestJudge = -1
-        var bestAbsDelta = Long.MAX_VALUE
+        var minAbsDelta = Long.MAX_VALUE
 
-        var i = startIdx
-        while (i < scanLimit) {
-            val n = list[i]
+        val nowBeat = timeToBeat(timeMs.toDouble())
+        var foundHold = false
 
-            if (n.isFake) {
-                i++
+        // Busca la mejor nota (TAP o HEAD de HOLD) cercana para juzgar instantáneamente
+        for (i in idxStart until min(idxStart + 8, notesInCol.size)) {
+            val note = notesInCol[i]
+            if (note.isFake) continue
+            if (timingData.isBeatInWarp(note.beat)) {
+                // Este beat está dentro de un warp, ignora totalmente la nota
                 continue
             }
 
-            if (n.type == Parser.NoteType.MINE) {
-                val deltaMsMine = getDeltaMsForNote(n.beat, timeMs)
-                if (kotlin.math.abs(deltaMsMine) <= ZONE_BAD) {
-                    m_fGauge -= MINE_PENALTY
-                    if (m_fGauge < 0f) m_fGauge = 0f
-                    applyJudge(col, JUDGE_MISS, timeMs, isFromInput = false)
-                    onMineHit(timeGetTime())
-                    columnIndex[col] = i + 1
-                    return
-                }
-                i++
-                continue
-            }
+            // Solo juzga TAP y HEAD de HOLD aquí (el HEAD es solo el .beat del hold)
+            if (note.type != Parser.NoteType.TAP && note.type != Parser.NoteType.HOLD) continue
 
-            // Para HEAD_HOLD en KEY_DOWN: igual que TAP (delta real)
-            val deltaMs = getDeltaMsForNote(n.beat, timeMs)
-            if (deltaMs < -ZONE_BAD) break
+            // Para HEAD de HOLD, asegúrate de no estar ya en un HOLD activo
+            if (note.type == Parser.NoteType.HOLD && LONGNOTE[col].pressed)
+                continue
+
+            val deltaMs = getDeltaMsForNote(note.beat, timeMs)
+            if (deltaMs < -ZONE_BAD) break // Nos pasamos, ya no considerar más
 
             val judge = getJudgeFromDelta(deltaMs)
-            if (judge != -1) {
-                val absDelta = kotlin.math.abs(deltaMs)
-                if (absDelta < bestAbsDelta) {
-                    bestAbsDelta = absDelta
-                    bestIdx = i
-                    bestJudge = judge
-                }
+            if (judge >= 0 && abs(deltaMs) < minAbsDelta) {
+                bestIdx = i
+                bestJudge = judge
+                minAbsDelta = abs(deltaMs)
+                foundHold = note.type == Parser.NoteType.HOLD
             }
-            i++
         }
 
-        if (bestIdx == -1) return
+        if (bestIdx == -1) return // Nada que juzgar
 
-        val n = list[bestIdx]
-        if (!isHold(n)) {
+        val n = notesInCol[bestIdx]
+        if (n.type == Parser.NoteType.HOLD) {
+            applyJudge(col, bestJudge, timeMs, isFromInput = true)
+            startLongNote(col, n, timeMs)
+            LONGNOTE[col].lastTickBeat = nowBeat
+            columnIndex[col] = bestIdx + 1
+        } else {
+            // TAP normal
             applyJudge(col, bestJudge, timeMs, isFromInput = true)
             hitNotes.add(n)
             columnIndex[col] = bestIdx + 1
-            return
         }
-
-        // HOLD HEAD en DOWN: como TAP
-        applyJudge(col, bestJudge, timeMs, isFromInput = true)
-        startLongNote(col, n, timeMs)
-        LONGNOTE[col].lastTickBeat = timeToBeat(timeMs.toDouble())
-        columnIndex[col] = bestIdx + 1
     }
 
     private fun startLongNote(col: Int, note: Parser.Note, timeMs: Long) {
-        LONGNOTE[col].pressed = true
-        LONGNOTE[col].dropped = false
-        LONGNOTE[col].dropJudged = false
-        LONGNOTE[col].droppedAtTimeMs = 0L
-        LONGNOTE[col].droppedHoldPtn = 0
-        LONGNOTE[col].releasedEarly = false
-        LONGNOTE[col].releasedAtTimeMs = 0L
-        LONGNOTE[col].time = timeMs
-        LONGNOTE[col].ptn = (note.beat * 1000).toInt()
-        LONGNOTE[col].line = ((note.endBeat ?: note.beat) * 1000).toInt()
-        LONGNOTE[col].typeNote = TypeNote.NORMAL
-        LONGNOTE[col].lastTickIndex = -1
-        LONGNOTE[col].lastTickBeat = Double.NaN
-    }
-
-    private fun processLongNoteTick(col: Int, timeMs: Long) {
-        val startBeat = LONGNOTE[col].ptn / 1000.0
-        val endBeat = LONGNOTE[col].line / 1000.0
-
-        val nowBeat = timeToBeat(timeMs.toDouble())
-
-        if (nowBeat > endBeat) {
-            val list = columnNotes[col]
-            val holdNote = list.firstOrNull { isHold(it) && it.beat * 1000.0 == LONGNOTE[col].ptn.toDouble() }
-            if (holdNote != null) finishedHolds.add(holdNote)
-            clearLongNote(col)
-            return
-        }
-
-        if (nowBeat < startBeat || nowBeat > endBeat) return
-
-        updateHoldTickBeats(nowBeat)
-
-        val tickBeats = holdTickBeats.coerceAtLeast(1e-6)
-        val localBeat = (nowBeat - startBeat).coerceAtLeast(0.0)
-        val currentTickIndex = kotlin.math.floor(localBeat / tickBeats).toInt()
-
-        if (LONGNOTE[col].lastTickIndex < 0) {
-            LONGNOTE[col].lastTickIndex = currentTickIndex
-            LONGNOTE[col].lastTickBeat = nowBeat
-            LONGNOTE[col].time = timeMs
-            return
-        }
-
-        if (currentTickIndex > LONGNOTE[col].lastTickIndex) {
-            // Regla PIU: tick siempre PERFECT y suma combo
-            applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
-            LONGNOTE[col].lastTickIndex += 1
-            LONGNOTE[col].lastTickBeat = nowBeat
-            LONGNOTE[col].time = timeMs
-        }
+        val ln = LONGNOTE[col]
+        ln.pressed = true
+        ln.note = note
+        ln.lastTickIndex = -1
+        ln.timeStarted = timeMs
     }
 
     private fun endLongNote(col: Int, timeMs: Long) {
-        val endBeat = LONGNOTE[col].line / 1000.0
-        val startBeat = LONGNOTE[col].ptn / 1000.0
+        val ln = LONGNOTE[col]
+        val note = ln.note ?: return
+        val endBeat = note.endBeat ?: return
+        val nowBeat = timeToBeat(timeMs.toDouble())
+        val tailTolBeats = ((endBeat - note.beat) * 0.1).coerceAtLeast(0.12) // 10% o mínimo
+        val remaining = endBeat - nowBeat
+
+        if (remaining <= tailTolBeats) {
+            // Bien
+            applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
+            finishedHolds.add(note)
+            ln.pressed = false
+            ln.note = null
+        } else {
+            // Muy temprano (MISS)
+            applyJudge(col, JUDGE_MISS, timeMs, isFromInput = true)
+            ln.pressed = false
+            ln.note = null
+        }
+    }
+
+    private fun tryAutoStartHoldOnPress(col: Int, timeMs: Long) {
+        if (LONGNOTE[col].pressed) return // ya hay una nota larga activa
+
+        val nowBeat = timeToBeat(timeMs.toDouble())
+        val notesInCol = columnNotes[col]
+
+        // buscar cualquier HOLD 'viva' bajo el receptor
+        for (i in notesInCol.indices) {
+            val n = notesInCol[i]
+            if (n.isFake) continue
+            if (n.type != Parser.NoteType.HOLD) continue
+            if (finishedHolds.contains(n)) continue
+
+            val endBeat = n.endBeat ?: continue
+
+            if (nowBeat in n.beat..endBeat) {
+                // Recaptura (desde el head o cuerpo)
+                applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
+                startLongNote(col, n, timeMs)
+                LONGNOTE[col].lastTickBeat = nowBeat
+                // (Sólo avanza el índice si el head nunca fue juzgado)
+                if (columnIndex[col] <= i) {
+                    columnIndex[col] = i + 1
+                }
+                return
+            }
+            // Si la siguiente nota ya está lejos, salimos
+            if (n.beat - nowBeat > 2.0) break
+        }
+    }
+
+    private fun processLongNoteTick(col: Int, timeMs: Long) {
+        if (!LONGNOTE[col].pressed) return
+        val ln = LONGNOTE[col]
+        val note = ln.note ?: return
         val nowBeat = timeToBeat(timeMs.toDouble())
 
-        val list = columnNotes[col]
-        val holdNote = list.firstOrNull { isHold(it) && it.beat * 1000.0 == LONGNOTE[col].ptn.toDouble() }
+        val startBeat = note.beat
+        val endBeat = note.endBeat ?: return
 
-        val totalBeats = (endBeat - startBeat).coerceAtLeast(1e-6)
-        val remainingBeats = endBeat - nowBeat
-        val tailTolBeats = (totalBeats * 0.10).coerceAtLeast(HOLD_EARLY_RELEASE_GRACE_BEATS)
-
-        if (remainingBeats <= tailTolBeats) {
-            val judge = if (remainingBeats <= HOLD_EARLY_RELEASE_GRACE_BEATS) JUDGE_PERFECT else JUDGE_BAD
-            applyJudge(col, judge, timeMs, isFromInput = true)
-            if (holdNote != null) finishedHolds.add(holdNote)
-            clearLongNote(col)
+        if (nowBeat > endBeat) {
+            // Termina el hold, sumar puntos como corresponda
+            // Marcar como completado
+            finishedHolds.add(note)
+            ln.pressed = false
+            ln.note = null
             return
         }
 
-        applyJudge(col, JUDGE_MISS, timeMs, isFromInput = true)
+        // --- Manejo de ticks para sumar puntos extra/combo ---
+        // Ejemplo: cada 1/4 de beat (ajustable con tickcount si quieres)
+        val ticksPerBeat = findCurrentTick(nowBeat) // o usa tickcount
+        val tickSeparation = 1.0 / ticksPerBeat
+        val localBeat = (nowBeat - startBeat).coerceAtLeast(0.0)
+        val currentTickIndex = (localBeat / tickSeparation).toInt()
 
-        // Mantener ptn/line para que el render y limpieza por tail funcionen, pero marcar dropped.
-        LONGNOTE[col].pressed = false
-        LONGNOTE[col].dropped = true
-        LONGNOTE[col].dropJudged = true
-        LONGNOTE[col].releasedEarly = true
-        LONGNOTE[col].releasedAtTimeMs = timeMs
-        LONGNOTE[col].droppedAtTimeMs = timeMs
-        LONGNOTE[col].droppedHoldPtn = LONGNOTE[col].ptn
+        if (ln.lastTickIndex < 0) {
+            ln.lastTickIndex = currentTickIndex
+            ln.timeStarted = timeMs
+            return
+        }
+        if (currentTickIndex > ln.lastTickIndex) {
+            // Sumar combo/gauge (tick perfecto)
+            applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
+            ln.lastTickIndex = currentTickIndex
+            ln.timeStarted = timeMs
+        }
     }
 
-    private fun getTickcountAt(beat: Double): Int {
-        val tc = tickcounts.lastOrNull { it.beat <= beat } ?: return 2
-        return tc.tickcount
-    }
-
-    private fun updateHoldTickBeats(nowBeat: Double) {
-        val tickcount = getTickcountAt(nowBeat).coerceAtLeast(1)
-        holdTickBeats = 1.0 / tickcount
-    }
-
-    private fun updateAutoMisses(timeMs: Long) {
-        for (col in 0 until m_iStepWidth) {
-            val list = columnNotes[col]
-            var idx = columnIndex[col]
-
-            val nowBeat = timeToBeat(timeMs.toDouble())
-
-            while (idx < list.size) {
-                val n = list[idx]
-                if (n.isFake) {
-                    idx++
-                    columnIndex[col] = idx
-                    continue
-                }
-
-
-
-                val deltaMs = getDeltaMsForNote(n.beat, timeMs)
-
-                if (n.type == Parser.NoteType.MINE) {
-                    if (deltaMs > ZONE_BAD) {
-                        idx++
-                        columnIndex[col] = idx
-                        continue
-                    }
-                    break
-                }
-
-                // Si hay un hold dropeado en este column, no consumas notas por el lock; deja que el jugador recachee.
-                if (LONGNOTE[col].dropped) {
-                    break
-                }
-
-                // HOLD pending: si está activo (pressed) y estamos dentro del cuerpo, NO missear el head.
-                if (isHold(n)) {
-                    val endBeat = n.endBeat ?: n.beat
-                    val insideBody = nowBeat in n.beat..endBeat
-                    val lockedByThisHold = (LONGNOTE[col].pressed) && (LONGNOTE[col].ptn == (n.beat * 1000).toInt())
-
-                    if (insideBody || lockedByThisHold) {
-                        if (deltaMs > ZONE_BAD) {
-                            idx++
-                            columnIndex[col] = idx
-                        }
-                        break
-                    }
-                }
-
-                if (deltaMs > ZONE_BAD) {
-                    applyJudge(col, JUDGE_MISS, timeMs, isFromInput = false)
-                    idx++
-                    columnIndex[col] = idx
-                    continue
-                }
-                break
-            }
-
-            // Cuando ya pasó el tail, limpia el lock (aunque haya sido dropeado)
-            if (LONGNOTE[col].dropped) {
-                val endBeat = LONGNOTE[col].line / 1000.0
-                val nowBeat2 = timeToBeat(timeMs.toDouble())
-                if (nowBeat2 > endBeat) {
-                    val holdNote = list.firstOrNull { isHold(it) && it.beat * 1000.0 == LONGNOTE[col].ptn.toDouble() }
-                    if (holdNote != null) finishedHolds.add(holdNote)
-                    clearLongNote(col)
-                }
-            }
+    private fun findCurrentTick(nowBeat: Double): Double{
+        return if (tickcounts.isEmpty()) {
+            4.0 // default a 1/4
+        } else {
+            tickcounts.lastOrNull { it.beat <= nowBeat }?.tickcount?.toDouble() ?: 4.0
         }
     }
 
@@ -805,14 +671,15 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         return (timeMs - noteTimeMs).toLong()
     }
 
-    private fun getJudgeFromDelta(deltaMs: Long): Int {
-        val a = kotlin.math.abs(deltaMs)
-        return when {
-            a <= ZONE_PERFECT -> JUDGE_PERFECT
-            a <= ZONE_GREAT -> JUDGE_GREAT
-            a <= ZONE_GOOD -> JUDGE_GOOD
-            a <= ZONE_BAD -> JUDGE_BAD
-            else -> -1
+    private fun getJudgeFromDelta(judgeTime: Long): Int {
+        return if(judgeTime <= ZONE_PERFECT){
+            JUDGE_PERFECT
+        }else if(judgeTime <= ZONE_GREAT){
+            JUDGE_GREAT
+        }else if(judgeTime <= ZONE_GOOD){
+            JUDGE_GOOD
+        }else {
+            JUDGE_BAD
         }
     }
 
@@ -854,11 +721,11 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
         when (judge) {
             JUDGE_PERFECT, JUDGE_GREAT, JUDGE_GOOD -> {
-                m_fGauge += GaugeInc[judge]
+                m_fGauge += gaugeInc[judge]
             }
 
             JUDGE_BAD, JUDGE_MISS -> {
-                m_fGauge += GaugeInc[judge]
+                m_fGauge += gaugeInc[judge]
                 if (m_fGauge < 0f) m_fGauge = 0f
             }
         }
