@@ -10,6 +10,11 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.GameScreenActivity
+import com.fingerdance.KsfProccess
+import com.fingerdance.KsfProccess.LuaVisualEvent
+import com.fingerdance.KsfProccess.Pattern
+import com.fingerdance.Player
+import com.fingerdance.VisualTarget
 import com.fingerdance.aBatch
 import com.fingerdance.bBatch
 import com.fingerdance.breakSong
@@ -19,6 +24,7 @@ import com.fingerdance.heightBtns
 import com.fingerdance.heightJudges
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
+import com.fingerdance.ksf
 import com.fingerdance.medidaFlechas
 import com.fingerdance.padPositions
 import com.fingerdance.playerSong
@@ -32,6 +38,7 @@ import com.fingerdance.widthBtns
 import com.fingerdance.widthJudges
 import java.io.File
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 
 class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : GameScreenSsc(activity) {
@@ -39,6 +46,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     private val bpms = chart.bpms
     private val tickcounts = chart.tickcounts
     private val stops = chart.stops
+    private val delays = chart.delays
     private val warps = chart.warps
     private val notes = chart.notes
     private val extendedNotes = chart.extendedNotes
@@ -81,6 +89,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         const val KEY_UP = 3
 
         const val MINE_PENALTY = 0.025f
+        const val windowBeatAllow = 24.0
 
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
@@ -123,11 +132,13 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val y: Int = Gdx.graphics.height / 2 - heightJudges * 6
     )
 
-    private val baseSpeed = playerSong.speed.replace("X", "").toFloat()
+    private val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
+    private var activeLuaEvents = mutableListOf<LuaVisualEvent>()
 
     private val timingData = TimmingData(
         bpms = bpms,
         stops = stops,
+        delays = delays,
         warps = warps,
         speeds = speeds,
         scrolls = scrolls,
@@ -260,21 +271,16 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         }
     }
 
-    var luaReceptOffsetX = 0f
-    private var luaNoteOffsetX = 0f
+    var luaReceptOffsetX = 0.0
+    private var luaNoteOffsetX = 0.0
 
-    val beatWindowBack = 16.0
-    val beatWindowForward = 16.0
-    var activeExtendedNOtes = false
-
+    private var beatWindow = windowBeatAllow
+    private val iLongTop = LongArray(5)
     fun render(songTimeMs: Long) {
         val timeCom = timeGetTime()
-        val iLongTop = LongArray(5) { 0 }
+        //val iLongTop = LongArray(5) { 0 }
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
-
-        val minBeat = currentBeat - beatWindowBack
-        val maxBeat = currentBeat + beatWindowForward
 
         if (showPadB == 0) {
             inputProcessor.render(batch)
@@ -286,78 +292,64 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val msPorFrame = msPorBeat / 5f
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
 
-        if(!activeExtendedNOtes){
-            for (n in notes) {
-                if (n.beat < minBeat || n.beat > maxBeat) continue
-                when (n.type) {
-                    Parser.NoteType.MINE -> {
-                        val y = yForBeat(n.beat, currentBeat, nowMs)
-                        if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                            drawMines(n.column, y)
-                        }
-                    }
-                    Parser.NoteType.TAP -> {
-                        if (hitNotes.contains(n)) continue
-                        val y = yForBeat(n.beat, currentBeat, nowMs)
-                        if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                            drawNote(n.column, y)
-                        }
-                    }
-                    Parser.NoteType.HOLD -> {
-                        val endBeat = n.endBeat ?: continue
-                        var yHead = yForBeat(n.beat, currentBeat, nowMs)
-                        val yTail = yForBeat(endBeat, currentBeat, nowMs)
+        updateLuaEvents(currentBeat)
 
-                        if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
-                            val col = n.column
-                            val startBeat = n.beat
-                            val nowBeat = currentBeat
+        val minBeat = currentBeat - beatWindow
+        val maxBeat = currentBeat + beatWindow
 
-                            val locked = (LONGNOTE[col].pressed) &&
-                                    nowBeat in startBeat..endBeat
-                            if (locked) {
-                                yHead = medidaFlechas.toInt()
-                            }
-                            if (finishedHolds.contains(n)) continue
-                            drawLongNote(col, yHead, yTail)
-                        }
+        val firstIdx = notes.binarySearchIndexFrom(
+            selector = { it.beat },
+            value = minBeat
+        )
+        var dynamicWindow = windowBeatAllow
+        for (i in firstIdx until notes.size) {
+            val n = notes[i]
+            if (n.beat > maxBeat) break
+
+            when (n.type) {
+                Parser.NoteType.TAP -> {
+                    if (hitNotes.contains(n)) continue
+
+                    val y = yForBeat(n.beat, currentBeat, nowMs)
+                    if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
+                        drawNote(n.column, y)
+                    }
+                }
+
+                Parser.NoteType.MINE -> {
+                    val y = yForBeat(n.beat, currentBeat, nowMs)
+                    if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
+                        drawMines(n.column, y)
+                    }
+                }
+
+                Parser.NoteType.HOLD -> {
+                    val endBeat = n.endBeat ?: continue
+                    if (currentBeat >= n.beat && currentBeat <= endBeat + 4.0) {
+                        val duration = endBeat - n.beat
+                        dynamicWindow = max(dynamicWindow, duration)
+                    }
+
+                    if (endBeat < minBeat) continue
+
+                    var yHead = yForBeat(n.beat, currentBeat, nowMs)
+                    val yTail = yForBeat(endBeat, currentBeat, nowMs)
+
+                    if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
+                        val col = n.column
+                        val locked = LONGNOTE[col].pressed && currentBeat in n.beat..endBeat
+
+                        if (locked) yHead = medidaFlechas.toInt()
+                        if (finishedHolds.contains(n)) continue
+                        drawLongNote(col, yHead, yTail)
                     }
                 }
             }
         }
-
-        /*
-        if(extendedNotes.isNotEmpty()){
-            if(currentBeat > extendedNotes.first().beat && currentBeat < extendedNotes.last().beat){
-                activeExtendedNOtes = true
-                for (n in extendedNotes) {
-                    //if (n.beat < minBeat || n.beat > maxBeat) continue
-                    when (n.type) {
-                        Parser.NoteType.TAP -> {
-                            if (hitNotes.contains(n)) continue
-                            val y = yForBeat(n.beat, currentBeat, nowMs)
-                            if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                                drawNote(n.column, y)
-                            }
-                        }
-                        Parser.NoteType.HOLD -> {
-                            if (finishedHolds.contains(n)) continue
-                            val endBeat = n.endBeat ?: continue
-                            var yHead = yForBeat(n.beat, currentBeat, nowMs)
-                            val yTail = yForBeat(endBeat, currentBeat, nowMs)
-
-                            if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
-                                drawLongNote(n.column, yHead, yTail)
-                            }
-                        }
-                        else -> {}
-                    }
-                }
-            }else{
-                activeExtendedNOtes = false
-            }
+        beatWindow = dynamicWindow
+        if(beatWindow > windowBeatAllow){
+            Gdx.app.log("NOTE_DEBUG", "currentBeat: $currentBeat beatWindow: $beatWindow")
         }
-        */
 
         if (m_fGauge > 1.0f) m_fGauge = 1.0f
         if (m_fGauge < -0.5f) m_fGauge = 0.0f
@@ -402,9 +394,27 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         drawJudge(timeCom - m_judge.startTime)
     }
 
+    inline fun <T> List<T>.binarySearchIndexFrom(
+        from: Int = 0, to: Int = size,
+        crossinline selector: (T) -> Double, value: Double
+    ): Int {
+        var low = from
+        var high = to - 1
+        while (low <= high) {
+            val mid = (low + high).ushr(1)
+            val cmp = selector(this[mid]).compareTo(value)
+            when {
+                cmp < 0 -> low = mid + 1
+                cmp > 0 -> high = mid - 1
+                else -> return mid
+            }
+        }
+        return low
+    }
+    private val key = IntArray(m_iStepWidth)
     fun updateStepData(songTimeMs: Long) {
         val keyBoard = inputProcessor.getKeyBoard
-        val key = IntArray(m_iStepWidth)
+        //val key = IntArray(m_iStepWidth)
         for (x in 0 until m_iStepWidth) {
             key[x] = keyBoard[x]
         }
@@ -414,6 +424,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val prevBeat = timeToBeat(prevSongTimeMs.toDouble())
         val nowBeat  = timeToBeat(songTimeMs.toDouble())
         for (col in 0 until m_iStepWidth) {
+
             when (key[col]) {
                 KEY_DOWN -> {
                     showExpand(col)
@@ -439,6 +450,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
             if (!LONGNOTE[col].pressed && (key[col] == KEY_PRESS || key[col] == KEY_DOWN)) {
                 for (i in columnIndex[col] until notesInCol.size) {
                     val n = notesInCol[i]
+
                     if (n.type != Parser.NoteType.HOLD) continue
                     if (finishedHolds.contains(n)) continue
                     val headBeat = n.beat
@@ -450,7 +462,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                         (Math.abs(nowBeat - headBeat) < 0.001) // por si cae justo
                     ) {
                         // Engancha el hold automáticamente
-                        applyJudge(col, JUDGE_PERFECT, songTimeMs, isFromInput = true)
+                        applyJudge(col, JUDGE_PERFECT, isFromInput = true, note = n)
                         startLongNote(col, n, songTimeMs)
                         LONGNOTE[col].lastTickBeat = nowBeat
                         columnIndex[col] = i + 1
@@ -482,18 +494,33 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
             while (idx < notesInCol.size) {
                 val n = notesInCol[idx]
-                if (n.isFake) { idx++; continue }
-                if (timingData.isBeatInWarp(n.beat)) {
-                    // Este beat está dentro de un warp, ignora totalmente la nota
+
+                if (hitNotes.contains(n)) {
                     idx++
+                    columnIndex[col] = idx
+                    continue
+                }
+
+                val noteTime = beatToTime(n.beat)
+
+                if (timingData.isBeatInWarp(n.beat) ||
+                    timingData.isBeatInStop(noteTime) ||
+                    timingData.isBeatInDelay(noteTime)) {
+
+                    idx++
+                    columnIndex[col] = idx
                     continue
                 }
                 // Si es hold y estamos activos la ignoramos (ya lo hace el check anterior)
                 val deltaMs = getDeltaMsForNote(n.beat, songTimeMs)
                 // Si se pasó de la zona BAD por mucho, marcamos miss y saltamos a la siguiente
                 if (deltaMs > ZONE_BAD) {
-                    Gdx.app.log("SCC_LOG", "Auto-miss en columna $col para nota en beat ${n.beat} (delta ${deltaMs}ms) LONGNOTE ACTIVO: ${LONGNOTE[col].note?.beat}, ${LONGNOTE[col].note?.endBeat})")
-                    applyJudge(col, JUDGE_MISS, songTimeMs, isFromInput = false)
+                    val y = yForBeat(n.beat, timeToBeat(songTimeMs.toDouble()), songTimeMs.toDouble())
+                    if (y < gdxHeight + STEPSIZE) {
+                        hitNotes.add(n)
+                    }
+                    if(n.type == Parser.NoteType.MINE) continue
+                    applyJudge(col, JUDGE_MISS, isFromInput = false, note = n)
                     columnIndex[col] = idx + 1
                     idx++
                     continue
@@ -505,53 +532,58 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
     private fun processTapAndHeadOnColumn(col: Int, timeMs: Long) {
         val notesInCol = columnNotes[col]
-        val idxStart = columnIndex[col]
+        val nowBeat = timeToBeat(timeMs.toDouble())
+
+        var idxStart = columnIndex[col]
         var bestIdx = -1
         var bestJudge = -1
         var minAbsDelta = Long.MAX_VALUE
 
-        val nowBeat = timeToBeat(timeMs.toDouble())
-        var foundHold = false
-
-        // Busca la mejor nota (TAP o HEAD de HOLD) cercana para juzgar instantáneamente
         for (i in idxStart until min(idxStart + 8, notesInCol.size)) {
             val note = notesInCol[i]
-            if (note.isFake) continue
-            if (timingData.isBeatInWarp(note.beat)) {
-                // Este beat está dentro de un warp, ignora totalmente la nota
+
+            if (timingData.isBeatInWarp(note.beat) ||
+                timingData.isBeatInStop(timeMs.toDouble()) ||
+                timingData.isBeatInDelay(timeMs.toDouble())
+            ) {
                 continue
             }
 
-            // Solo juzga TAP y HEAD de HOLD aquí (el HEAD es solo el .beat del hold)
-            if (note.type != Parser.NoteType.TAP && note.type != Parser.NoteType.HOLD) continue
+            // 🔴 FIX 2: mines corregidas
+            if (note.type == Parser.NoteType.MINE) {
+                applyJudge(col, JUDGE_MISS, isFromInput = true, isMine = true, note = note)
+                hitNotes.add(note)
 
-            // Para HEAD de HOLD, asegúrate de no estar ya en un HOLD activo
-            if (note.type == Parser.NoteType.HOLD && LONGNOTE[col].pressed)
-                continue
+                columnIndex[col] = i + 1   // 🔥 FIX REAL
+                onMineHit(timeMs)
+                return
+            }
+
+            if (note.type != Parser.NoteType.TAP && note.type != Parser.NoteType.HOLD) continue
+            if (note.type == Parser.NoteType.HOLD && LONGNOTE[col].pressed) continue
 
             val deltaMs = getDeltaMsForNote(note.beat, timeMs)
-            if (deltaMs < -ZONE_BAD) break // Nos pasamos, ya no considerar más
+            if (deltaMs < -ZONE_BAD) break
 
             val judge = getJudgeFromDelta(deltaMs)
             if (judge >= 0 && abs(deltaMs) < minAbsDelta) {
                 bestIdx = i
                 bestJudge = judge
                 minAbsDelta = abs(deltaMs)
-                foundHold = note.type == Parser.NoteType.HOLD
             }
         }
 
-        if (bestIdx == -1) return // Nada que juzgar
+        if (bestIdx == -1) return
 
         val n = notesInCol[bestIdx]
+
         if (n.type == Parser.NoteType.HOLD) {
-            applyJudge(col, bestJudge, timeMs, isFromInput = true)
+            applyJudge(col, bestJudge, isFromInput = true, note = n)
             startLongNote(col, n, timeMs)
             LONGNOTE[col].lastTickBeat = nowBeat
             columnIndex[col] = bestIdx + 1
         } else {
-            // TAP normal
-            applyJudge(col, bestJudge, timeMs, isFromInput = true)
+            applyJudge(col, bestJudge, isFromInput = true, note = n)
             hitNotes.add(n)
             columnIndex[col] = bestIdx + 1
         }
@@ -575,13 +607,13 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
         if (remaining <= tailTolBeats) {
             // Bien
-            applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
+            applyJudge(col, JUDGE_PERFECT, isFromInput = true, isBodyLongNote = true, note = note)
             finishedHolds.add(note)
             ln.pressed = false
             ln.note = null
         } else {
             // Muy temprano (MISS)
-            applyJudge(col, JUDGE_MISS, timeMs, isFromInput = true)
+            applyJudge(col, JUDGE_MISS, isFromInput = true, note = note)
             ln.pressed = false
             ln.note = null
         }
@@ -596,7 +628,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         // buscar cualquier HOLD 'viva' bajo el receptor
         for (i in notesInCol.indices) {
             val n = notesInCol[i]
-            if (n.isFake) continue
             if (n.type != Parser.NoteType.HOLD) continue
             if (finishedHolds.contains(n)) continue
 
@@ -604,7 +635,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
             if (nowBeat in n.beat..endBeat) {
                 // Recaptura (desde el head o cuerpo)
-                applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
+                applyJudge(col, JUDGE_PERFECT, isFromInput = true, note = n)
                 startLongNote(col, n, timeMs)
                 LONGNOTE[col].lastTickBeat = nowBeat
                 // (Sólo avanza el índice si el head nunca fue juzgado)
@@ -626,7 +657,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
         val startBeat = note.beat
         val endBeat = note.endBeat ?: return
-
         if (nowBeat > endBeat) {
             // Termina el hold, sumar puntos como corresponda
             // Marcar como completado
@@ -650,7 +680,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         }
         if (currentTickIndex > ln.lastTickIndex) {
             // Sumar combo/gauge (tick perfecto)
-            applyJudge(col, JUDGE_PERFECT, timeMs, isFromInput = true)
+            applyJudge(col, JUDGE_PERFECT, isBodyLongNote = true, isFromInput = true, note = note)
             ln.lastTickIndex = currentTickIndex
             ln.timeStarted = timeMs
         }
@@ -670,18 +700,68 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     }
 
     private fun getJudgeFromDelta(judgeTime: Long): Int {
-        return if(judgeTime <= ZONE_PERFECT){
+        val absDelta = abs(judgeTime)
+        return if(absDelta <= ZONE_PERFECT){
             JUDGE_PERFECT
-        }else if(judgeTime <= ZONE_GREAT){
+        }else if(absDelta <= ZONE_GREAT){
             JUDGE_GREAT
-        }else if(judgeTime <= ZONE_GOOD){
+        }else if(absDelta <= ZONE_GOOD){
             JUDGE_GOOD
         }else {
             JUDGE_BAD
         }
     }
 
-    private fun applyJudge(col: Int, judge: Int, timeMs: Long, isFromInput: Boolean) {
+    private fun updateLuaEvents(currentBeat: Double) {
+
+        luaReceptOffsetX = 0.0
+        luaNoteOffsetX = 0.0
+
+        for (event in chart.luaEvents) {
+            if (!event.started && currentBeat >= event.startBeat) {
+                event.started = true
+                event.runtimeStartBeat = event.startBeat
+                activeLuaEvents.add(event)
+            }
+        }
+
+        val iterator = activeLuaEvents.iterator()
+
+        while (iterator.hasNext()) {
+
+            val event = iterator.next()
+            val elapsed = currentBeat - event.runtimeStartBeat
+
+            if (elapsed >= event.durationBeat) {
+
+                val xPercent = event.params["x"] ?: 0f
+                val finalOffset = gdxWidth * xPercent
+
+                when (event.target) {
+                    VisualTarget.RECEPTOR -> luaReceptOffsetX += finalOffset
+                    VisualTarget.NOTES -> luaNoteOffsetX += finalOffset
+                }
+
+                iterator.remove()
+                continue
+            }
+
+            val duration = maxOf(event.durationBeat, 0.0001f)
+            val t = (elapsed / duration).coerceIn(0.0, 1.0)
+
+            val xPercent = event.params["x"] ?: 0f
+            val targetOffset = gdxWidth * xPercent
+            val offset = targetOffset * t
+
+            when (event.target) {
+                VisualTarget.RECEPTOR -> luaReceptOffsetX += offset
+                VisualTarget.NOTES -> luaNoteOffsetX += offset
+            }
+        }
+    }
+
+    private fun applyJudge(col: Int, judge: Int, isBodyLongNote: Boolean = false, isFromInput: Boolean, isMine: Boolean = false, note: Parser.Note? = null) {
+        if (note != null && note.isFake) return
         when (judge) {
             JUDGE_PERFECT -> {
                 resultSong.perfect++
@@ -718,12 +798,27 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         }
 
         when (judge) {
-            JUDGE_PERFECT, JUDGE_GREAT, JUDGE_GOOD -> {
-                m_fGauge += gaugeInc[judge]
+            JUDGE_PERFECT -> {
+                m_fGauge += if(isBodyLongNote){
+                    (gaugeInc[judge] * 0.002f) // los ticks de hold dan muy poco
+                }else {
+                    gaugeInc[judge]
+                }
             }
 
-            JUDGE_BAD, JUDGE_MISS -> {
+            JUDGE_GREAT, JUDGE_GOOD -> {
                 m_fGauge += gaugeInc[judge]
+            }
+            JUDGE_BAD -> {
+                m_fGauge += gaugeInc[judge]
+                if (m_fGauge < 0f) m_fGauge = 0f
+            }
+            JUDGE_MISS -> {
+                m_fGauge += if(isMine){
+                    (gaugeInc[judge] + MINE_PENALTY)
+                }else{
+                    gaugeInc[judge]
+                }
                 if (m_fGauge < 0f) m_fGauge = 0f
             }
         }
@@ -735,7 +830,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         // Flare: siempre que no sea MISS. (incluye ticks)
         if (isFromInput && judge != JUDGE_MISS) {
             flare[col].startTime = now
-            showExpand(col)
+            //showExpand(col)
         }
     }
 
@@ -753,17 +848,153 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     }
 
     private fun timeToBeat(timeMs: Double): Double = timingData.timeToBeat(timeMs)
-
     private fun beatToTime(beat: Double): Double = timingData.beatToTime(beat)
 
     private val initArrow = (gdxHeight * 0.55)
     private var rangeAlpha = (gdxHeight * 0.1)
     private val segmentHeight = gdxHeight * 0.001f
-    private val heightBodyHead = medidaFlechas / 2
+    private var heightBodyHead = (medidaFlechas * 0.3f)
+    private var middleSizeFlechas = medidaFlechas * 0.5f
     private val amplitude = medidaFlechas / 3f
     private val frequency = 0.01f
     private val fadeDistance = medidaFlechas
     private var offsetX = 0f
+
+    private fun drawLongNote(x: Int, y: Int, y2: Int) {
+        val baseX = medidaFlechas * (x + 1)
+
+        if (playerSong.snake) {
+            offsetX = (sin(y * frequency) * amplitude)
+            if (y <= medidaFlechas + fadeDistance) {
+                val factor = (y - medidaFlechas) / fadeDistance
+                offsetX *= factor.coerceIn(0f, 1f)
+            }
+        }
+        val left = baseX + offsetX + luaNoteOffsetX.toFloat()
+
+        val posY = y.toFloat() + middleSizeFlechas
+        var heightBody = (y2 - y).toFloat() - middleSizeFlechas
+
+        if (!noEffects) {
+            if (isMidLine) {
+                if (posY < initArrow) {
+                    if (posY + heightBody > initArrow) {
+                        heightBody = (initArrow - posY).toFloat()
+                    }
+
+                    var currentY = posY
+                    while (currentY < posY + heightBody) {
+                        val alphaSegment = getAlpha(currentY, initArrow)
+                        val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
+                        batch.setColor(1f, 1f, 1f, alphaSegment)
+                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
+                        currentY += drawHeight
+                    }
+
+                    if (y2 < initArrow) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), initArrow))
+                        val shouldDrawBottom = (y2 - y) > (heightBodyHead)
+                        if (shouldDrawBottom) {
+                            batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                        }
+                    }
+
+                    if (y > 0) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), initArrow))
+                        //batch.draw(arrArrowsBody[x][arrowFrame], left, y + heightBodyHead, medidaFlechas, heightBodyHead)
+                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+
+                    batch.setColor(1f, 1f, 1f, 1f)
+                }
+            } else {
+                batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
+
+                val shouldDrawBottom = (y2 - y) > (heightBodyHead)
+                if (shouldDrawBottom) {
+                    batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                }
+                if (y > 0) {
+                    //batch.draw(arrArrowsBody[x][arrowFrame], left, y + heightBodyHead, medidaFlechas, heightBodyHead)
+                    batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                }
+            }
+        } else {
+            if (playerSong.vanish) {
+                var currentY = posY
+                while (currentY < posY + heightBody) {
+                    val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
+
+                    val alphaSegment = when {
+                        currentY > MEASUREVANISH + (medidaFlechas * 2) -> 1f
+                        currentY >= MEASUREVANISH + (medidaFlechas * 2) - rangeAlpha -> {
+                            ((currentY - (MEASUREVANISH + (medidaFlechas * 2) - rangeAlpha)) / rangeAlpha)
+                                .toFloat()
+                                .coerceIn(0f, 1f)
+                        }
+                        else -> 0f
+                    }
+
+                    if (alphaSegment > 0f) {
+                        batch.setColor(1f, 1f, 1f, alphaSegment)
+                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
+                    }
+
+                    currentY += drawHeight
+                }
+                batch.setColor(1f, 1f, 1f, 1f)
+
+                if (posY + heightBody > MEASUREVANISH) {
+                    batch.setColor(1f, 1f, 1f, getVanishAlpha(y2.toFloat()))
+
+                    val shouldDrawBottom = (y2 - y) > (heightBodyHead)
+                    if (shouldDrawBottom) {
+                        batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+                }
+                if (posY > MEASUREVANISH) {
+                    if (y > 0) {
+                        batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
+                        //batch.draw(arrArrowsBody[x][arrowFrame], left, y + heightBodyHead, medidaFlechas, heightBodyHead)
+                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+
+                    batch.setColor(1f, 1f, 1f, 1f)
+                }
+            }
+            if (playerSong.ap) {
+                if (posY < MEASURE) {
+                    if (posY + heightBody > MEASURE) {
+                        heightBody = (MEASURE - posY).toFloat()
+                    }
+                    var currentY = posY
+                    while (currentY < posY + heightBody) {
+                        val alphaSegment = getAlpha(currentY, MEASURE)
+                        val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
+                        batch.setColor(1f, 1f, 1f, alphaSegment)
+                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
+                        currentY += drawHeight
+                    }
+
+                    if (y2 < MEASURE) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), MEASURE))
+
+                        val shouldDrawBottom = (y2 - y) > (heightBodyHead)
+                        if (shouldDrawBottom) {
+                            batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
+                        }
+                    }
+
+                    if (y > 0) {
+                        batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
+                        //batch.draw(arrArrowsBody[x][arrowFrame], left, y + heightBodyHead, medidaFlechas, heightBodyHead)
+                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
+                    }
+                    batch.setColor(1f, 1f, 1f, 1f)
+                }
+            }
+        }
+    }
 
     private fun drawMines(x: Int, y: Int) {
         val baseX = medidaFlechas * (x + 1)
@@ -775,7 +1006,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
             }
         }
 
-        val left = baseX + offsetX + luaNoteOffsetX
+        val left = baseX + offsetX + luaNoteOffsetX.toFloat()
 
         if (!noEffects) {
             if (isMidLine) {
@@ -815,7 +1046,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
             }
         }
 
-        val left = baseX + offsetX + luaNoteOffsetX
+        val left = baseX + offsetX + luaNoteOffsetX.toFloat()
 
         if (!noEffects) {
             if (isMidLine) {
@@ -839,152 +1070,6 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
                 if (y < MEASURE) {
                     batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
                     batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-                    batch.setColor(1f, 1f, 1f, 1f)
-                }
-            }
-        }
-    }
-
-    private fun drawLongNote(x: Int, y: Int, y2: Int) {
-        val baseX = medidaFlechas * (x + 1)
-
-        if (playerSong.snake) {
-            offsetX = (sin(y * frequency) * amplitude)
-            if (y <= medidaFlechas + fadeDistance) {
-                val factor = (y - medidaFlechas) / fadeDistance
-                offsetX *= factor.coerceIn(0f, 1f)
-            }
-        }
-        val left = baseX + offsetX + luaNoteOffsetX
-
-        val posY = y.toFloat() + medidaFlechas
-        var heightBody = (y2 - y).toFloat() - medidaFlechas
-
-        if (!noEffects) {
-            if (isMidLine) {
-                if (posY < initArrow) {
-                    if (posY + heightBody > initArrow) {
-                        heightBody = (initArrow - posY).toFloat()
-                    }
-
-                    var currentY = posY
-                    while (currentY < posY + heightBody) {
-                        val alphaSegment = getAlpha(currentY, initArrow)
-                        val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
-                        batch.setColor(1f, 1f, 1f, alphaSegment)
-                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
-                        currentY += drawHeight
-                    }
-
-                    if (y2 < initArrow) {
-                        batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), initArrow))
-                        batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
-                    }
-
-                    if (y > 0) {
-                        batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), initArrow))
-                        batch.draw(
-                            arrArrowsBody[x][arrowFrame],
-                            left,
-                            y + heightBodyHead,
-                            medidaFlechas,
-                            heightBodyHead
-                        )
-                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-                    }
-
-                    batch.setColor(1f, 1f, 1f, 1f)
-                }
-            } else {
-                batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
-                batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
-
-                if (y > 0) {
-                    batch.draw(
-                        arrArrowsBody[x][arrowFrame],
-                        left,
-                        y + heightBodyHead,
-                        medidaFlechas,
-                        heightBodyHead
-                    )
-                    batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-                }
-            }
-        } else {
-            if (playerSong.vanish) {
-                var currentY = posY
-                while (currentY < posY + heightBody) {
-                    val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
-
-                    val alphaSegment = when {
-                        currentY > MEASUREVANISH + (medidaFlechas * 2) -> 1f
-                        currentY >= MEASUREVANISH + (medidaFlechas * 2) - rangeAlpha -> {
-                            ((currentY - (MEASUREVANISH + (medidaFlechas * 2) - rangeAlpha)) / rangeAlpha)
-                                .toFloat()
-                                .coerceIn(0f, 1f)
-                        }
-                        else -> 0f
-                    }
-
-                    if (alphaSegment > 0f) {
-                        batch.setColor(1f, 1f, 1f, alphaSegment)
-                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
-                    }
-
-                    currentY += drawHeight
-                }
-                batch.setColor(1f, 1f, 1f, 1f)
-
-                if (posY + heightBody > MEASUREVANISH) {
-                    batch.setColor(1f, 1f, 1f, getVanishAlpha(y2.toFloat()))
-                    batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
-                }
-                if (posY > MEASUREVANISH) {
-                    if (y > 0) {
-                        batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
-                        batch.draw(
-                            arrArrowsBody[x][arrowFrame],
-                            left,
-                            y + heightBodyHead,
-                            medidaFlechas,
-                            heightBodyHead
-                        )
-                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-                    }
-
-                    batch.setColor(1f, 1f, 1f, 1f)
-                }
-            }
-            if (playerSong.ap) {
-                if (posY < MEASURE) {
-                    if (posY + heightBody > MEASURE) {
-                        heightBody = (MEASURE - posY).toFloat()
-                    }
-                    var currentY = posY
-                    while (currentY < posY + heightBody) {
-                        val alphaSegment = getAlpha(currentY, MEASURE)
-                        val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
-                        batch.setColor(1f, 1f, 1f, alphaSegment)
-                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechas, drawHeight)
-                        currentY += drawHeight
-                    }
-
-                    if (y2 < MEASURE) {
-                        batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), MEASURE))
-                        batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
-                    }
-
-                    if (y > 0) {
-                        batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
-                        batch.draw(
-                            arrArrowsBody[x][arrowFrame],
-                            left,
-                            y + heightBodyHead,
-                            medidaFlechas,
-                            heightBodyHead
-                        )
-                        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
-                    }
                     batch.setColor(1f, 1f, 1f, 1f)
                 }
             }
@@ -1016,9 +1101,9 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         flareSprite.draw(batch)
         batch.setBlendFunction(aBatch, bBatch)
 
-        elapsedTimeToExpands = (timeGetTime() - currentTimeToExpands) % animationDuration
+        val elapsed = timeGetTime() - flare[x].startTime
 
-        val (alpha, zoom) = calculateAlphaAndZoom(elapsedTimeToExpands)
+        val (alpha, zoom) = calculateAlphaAndZoom(elapsed % animationDuration)
 
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.color.a = alpha
@@ -1179,6 +1264,9 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         batch.setColor(1f, 1f, 1f, 1f)
     }
 
+    private val judgeSprite = Sprite()
+    private val comboSprite = Sprite()
+    private val digitSprite = Sprite()
     private fun drawJudge(time: Long) {
         val ftX: Float
         val ftY: Float
@@ -1199,7 +1287,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
             alpha = 1.0f
         }
 
-        val judgeSprite = Sprite(imgsJudge[m_judge.judge])
+        judgeSprite.setRegion(imgsJudge[m_judge.judge])
         val judgeW = widthJudges * ftX
         val judgeH = heightJudges * ftY
 
@@ -1219,7 +1307,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
 
         if (curCombo >= 4 || curComboMiss >= 4) {
             val isMiss = curComboMiss >= 4
-            val comboSprite = if (isMiss) Sprite(imgsTypeCombo[1]) else Sprite(imgsTypeCombo[0])
+            comboSprite.setRegion(if (isMiss) imgsTypeCombo[1] else (imgsTypeCombo[0]))
             val count = if (isMiss) curComboMiss else curCombo
             val numberList = if (isMiss) listNumbersMiss else listNumbers
 
@@ -1235,12 +1323,12 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
             var startX = widthJudges - (totalWidth / 2)
             val digitY = comboY + comboHeight - 10f
 
-            val digitSprite = Sprite()
+            //digitSprite = Sprite()
+            digitSprite.setColor(1f, 1f, 1f, alpha)
             for (char in numStr) {
                 val digit = char.digitToInt()
                 digitSprite.setRegion(numberList[digit])
                 digitSprite.setBounds(startX, digitY, digitW, digitH)
-                digitSprite.setColor(1f, 1f, 1f, alpha)
                 digitSprite.draw(batch)
                 startX += digitW
             }

@@ -590,7 +590,8 @@ class DanceGrade : AppCompatActivity() {
             type = playerSong.type,
             player = playerSong.player,
             nuevoPuntaje = totalScore.toString(),
-            nuevoGrade = newGrade
+            nuevoGrade = newGrade,
+            chartName = playerSong.chartName
         )
 
         imgMyBestGrade.setImageBitmap(bitmapGrade)

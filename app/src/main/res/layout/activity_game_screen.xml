@@ -6,8 +6,8 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <VideoView
-        android:id="@+id/videoViewBgaoff"
+    <TextureView
+        android:id="@+id/videoViewBgaOff"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"

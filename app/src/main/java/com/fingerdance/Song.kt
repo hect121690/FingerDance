@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import com.google.firebase.annotations.concurrent.Background
 import java.io.Serializable
 
 class Song(var title:String = "",
@@ -26,5 +27,6 @@ data class Ksf(var rutaKsf: String = "",
                var typePlayer: String = "",
                var checkedValues: String = "",
                var typeSteps: String = "",
-               var songFile: String = "")
+               var songFile: String = "",
+               var chartName: String = "")
 

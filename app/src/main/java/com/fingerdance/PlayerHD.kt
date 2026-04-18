@@ -13,13 +13,10 @@ import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.KsfProccessHD.LuaVisualEvent
 import com.fingerdance.KsfProccessHD.Pattern
 import com.fingerdance.KsfProccessHD.TypeNote
-import com.fingerdance.KsfProccessHD.VisualTarget
 import java.io.File
 import java.lang.Math.abs
-import java.lang.Math.max
 import kotlin.experimental.and
 import kotlin.math.sqrt
-import kotlin.text.toInt
 
 private val chkPtnNum = IntArray(10)
 private val chkLineNum = IntArray(10)

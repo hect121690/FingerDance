@@ -65,11 +65,6 @@ class KsfProccess {
     data class LongNoteInfo(var bUsed: Boolean = false, var iPrevPtn: Int = 0, var iPrevPos: Int = 0)
     val patterns = mutableListOf<Pattern>()
 
-    enum class VisualTarget {
-        RECEPTOR,
-        NOTES
-    }
-
     data class LuaVisualEvent(
         val startBeat: Float,
         val durationBeat: Float,
@@ -81,7 +76,7 @@ class KsfProccess {
     )
 
 
-    var luaFileName: String? = null
+    private var luaFileName: String? = null
     val luaEvents = mutableListOf<LuaVisualEvent>()
 
     fun load(filePath: String): Boolean {

@@ -9,7 +9,8 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "game.db"
-        private const val DATABASE_VERSION = 8
+        private const val DATABASE_VERSION = 10
+
 
         const val TABLE_NIVELES = "niveles"
         const val COLUMN_CANAL = "canal"
@@ -19,6 +20,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         const val COLUMN_GRADE = "grade"
         const val COLUMN_TYPE = "type"
         const val COLUMN_PLAYER = "player"
+        const val COLUMN_CHARTNAME = "chartname"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -30,18 +32,31 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COLUMN_PUNTAJE TEXT,
                 $COLUMN_GRADE TEXT,
                 $COLUMN_TYPE TEXT,
-                $COLUMN_PLAYER TEXT
+                $COLUMN_PLAYER TEXT,
+                $COLUMN_CHARTNAME TEXT DEFAULT ''
             )
         """
         db.execSQL(createNivelesTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_NIVELES")
-        onCreate(db)
+
+        if (oldVersion < 10) {
+            db.execSQL("""
+            ALTER TABLE $TABLE_NIVELES 
+            ADD COLUMN $COLUMN_CHARTNAME TEXT DEFAULT ''
+        """)
+        }
     }
 
-    fun insertNivel(canal: String, cancion: String, nivel: String, puntaje: String, grade: String, type: String, player: String) {
+    fun insertNivel(canal: String,
+                    cancion: String,
+                    nivel: String,
+                    puntaje: String,
+                    grade: String,
+                    type: String,
+                    player: String,
+                    chartName: String) {
         val db = this.writableDatabase
         val cursor = db.rawQuery(
             """
@@ -52,8 +67,9 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 AND $COLUMN_GRADE = ?
                 AND $COLUMN_TYPE = ?
                 AND $COLUMN_PLAYER = ?
+                AND $COLUMN_CHARTNAME = ?
             """,
-            arrayOf(canal, cancion, nivel, grade, type, player)
+            arrayOf(canal, cancion, nivel, grade, type, player, chartName)
         )
 
         if (!cursor.moveToFirst()) {
@@ -65,6 +81,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 put(COLUMN_GRADE, grade)
                 put(COLUMN_TYPE, type)
                 put(COLUMN_PLAYER, player)
+                put(COLUMN_CHARTNAME, chartName)
             }
             db.insert(TABLE_NIVELES, null, values)
         }
@@ -73,7 +90,14 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.close()
     }
 
-    fun updatePuntaje( canal: String, cancion: String, nivel: String, type: String,player: String, nuevoPuntaje: String, nuevoGrade: String) {
+    fun updatePuntaje( canal: String,
+                       cancion: String,
+                       nivel: String,
+                       type: String,
+                       player: String,
+                       nuevoPuntaje: String,
+                       nuevoGrade: String,
+                       chartName: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
             put(COLUMN_PUNTAJE, nuevoPuntaje)
@@ -85,8 +109,8 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.update(
             TABLE_NIVELES,
             values,
-            "$COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ? AND $COLUMN_TYPE = ? AND $COLUMN_PLAYER = ?",
-            arrayOf(canal, cancion, nivel, type, player)
+            "$COLUMN_CANAL = ? AND $COLUMN_CANCION = ? AND $COLUMN_NIVEL = ? AND $COLUMN_TYPE = ? AND $COLUMN_PLAYER = ? AND $COLUMN_CHARTNAME = ?",
+            arrayOf(canal, cancion, nivel, type, player, chartName)
         )
 
         db.close()
@@ -98,7 +122,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         val cursor = db.rawQuery(
             """
-                SELECT cancion, puntaje, grade, type, player
+                SELECT cancion, puntaje, grade, type, player, chartname
                 FROM niveles 
                 WHERE canal = ? AND cancion = ?
             """,
@@ -112,6 +136,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 val grad = cursor.getString(cursor.getColumnIndexOrThrow("grade"))
                 val type = cursor.getString(cursor.getColumnIndexOrThrow("type"))
                 val player = cursor.getString(cursor.getColumnIndexOrThrow("player"))
+                val cn = cursor.getString(cursor.getColumnIndexOrThrow("chartname"))
 
                 puntajes.add(
                     ObjPuntaje(
@@ -119,7 +144,8 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                         puntaje = punt,
                         grade = grad,
                         type = type,
-                        player = player
+                        player = player,
+                        chartName = cn
                     )
                 )
             } while (cursor.moveToNext())

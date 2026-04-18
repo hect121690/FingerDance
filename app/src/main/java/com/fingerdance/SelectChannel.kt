@@ -28,6 +28,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.google.gson.GsonBuilder
 import java.io.File
@@ -49,7 +51,7 @@ class SelectChannel : AppCompatActivity() {
 
     private var handlerSelectChannel = Handler(Looper.getMainLooper())
     private var position = 0
-    private lateinit var recyclerChannels: ViewPager2
+    private lateinit var recyclerChannels: RecyclerView
     private var animIndicator: Animation? = null
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -145,7 +147,18 @@ class SelectChannel : AppCompatActivity() {
         nav_back_Izq.setImageDrawable(arrowBackIzq)
         nav_back_der.setImageDrawable(arrowBackDer)
 
-        recyclerChannels.adapter = CommandChannel(listChannels, (width * 0.6).toInt(), this)
+        val adapter = CommandChannel(listChannels, (width * 0.6).toInt(), this)
+
+        val layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+
+        recyclerChannels.layoutManager = layoutManager
+        recyclerChannels.adapter = adapter
+        val startPosition = Int.MAX_VALUE / 2
+        val mod = startPosition % listChannels.size
+        val finalStart = startPosition - mod
+
+        recyclerChannels.scrollToPosition(finalStart)
+        position = finalStart
 
         isFocusChannel(position)
     }
@@ -167,9 +180,6 @@ class SelectChannel : AppCompatActivity() {
             iluminaIndicador(indicatorIzq)
 
             position--
-
-            if (position < 0) position = listChannels.size - 1
-
             isFocusChannel(position)
         }
 
@@ -186,20 +196,22 @@ class SelectChannel : AppCompatActivity() {
             iluminaIndicador(indicatorDer)
 
             position++
-
-            if (position > listChannels.size - 1) position = 0
-
             isFocusChannel(position)
         }
 
         imgAceptar.setOnClickListener {
             imgAceptar.isEnabled = false
             AppResources.soundPool?.play(AppResources.pressStart, 1f,1f,1,0,1f)
-            if (listChannels[position].listCanciones.isNotEmpty()) {
-                AppResources.listSongsChannelKsf = listChannels[position].listCanciones
-                currentChannel = listChannels[position].nombre
+            val adapter = recyclerChannels.adapter as CommandChannel
+            val realPosition = adapter.getRealPosition(position)
+            val channelSelected = listChannels[realPosition]
+
+            if (channelSelected.listCanciones.isNotEmpty()) {
+
+                AppResources.listSongsChannelKsf = channelSelected.listCanciones
+                currentChannel = channelSelected.nombre
                 Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
-                if(listChannels[position].listCanciones.first().isSSC){
+                if(channelSelected.listCanciones.first().isSSC){
                     isOffline = true
                 }
 
@@ -233,7 +245,7 @@ class SelectChannel : AppCompatActivity() {
 
 
                 if(!isOffline){
-                    listenScoreChannel(listChannels[position].nombre) { listSongs ->
+                    listenScoreChannel(channelSelected.nombre) { listSongs ->
                         listGlobalRanking = listSongs
                         navigateToSelectSong()
                     }
@@ -293,11 +305,13 @@ class SelectChannel : AppCompatActivity() {
     }
 
     private fun isFocusChannel(position: Int) {
-        val item = listChannels[position]
-        recyclerChannels.setCurrentItem(position, false)
+        val adapter = recyclerChannels.adapter as CommandChannel
+        val realPosition = adapter.getRealPosition(position)
+        val item = listChannels[realPosition]
+        recyclerChannels.scrollToPosition(position)
         channel = item.nombre
         lbNombreChannel.text = item.descripcion
-        positionCurrentChannel = position
+        positionCurrentChannel = realPosition
     }
 
     private fun goMain(flecha: ImageView) {

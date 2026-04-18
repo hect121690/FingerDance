@@ -21,6 +21,7 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
     private var cyan = 0
     private var blue = 0
     private var pink = 0
+    private var red = 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemLvsBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -33,13 +34,14 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
             cyan = ContextCompat.getColor(parent.context, R.color.button_background)
             blue = ContextCompat.getColor(parent.context, R.color.borde_textview_elegante)
             pink = ContextCompat.getColor(parent.context, R.color.pink_custom)
+            red = ContextCompat.getColor(parent.context, R.color.negative_red)
         }
 
         return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bindItem(lvListKsf[position], purple, yellow, cyan, blue, pink)
+        holder.bindItem(lvListKsf[position], purple, yellow, cyan, blue, pink, red)
         val imageView = holder.itemView.findViewById<ImageView>(R.id.image_lvl)
         imageView.layoutParams.width = widthLevel
 
@@ -53,36 +55,41 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
 
     class ViewHolder(var itemLvsBinding: ItemLvsBinding) :
         RecyclerView.ViewHolder(itemLvsBinding.root) {
-        fun bindItem(lvKsf: Ksf, purple: Int, yellow: Int, cyan: Int, blue: Int, pink: Int) {
+        fun bindItem(lvKsf: Ksf, purple: Int, yellow: Int, cyan: Int, blue: Int, pink: Int, red: Int) {
             val bitmap = BitmapCache.getBitmap(lvKsf.rutaBitActive)
             itemLvsBinding.imageLvl.setImageBitmap(bitmap)
             itemLvsBinding.textLv.text = lvKsf.level
 
-            when (lvKsf.typeSteps) {
-                "UCS" -> {
+            when  {
+                lvKsf.typeSteps.contains("UCS", ignoreCase = true) -> {
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(purple)
-                    itemLvsBinding.textExtra.text = lvKsf.typeSteps
+                    itemLvsBinding.textExtra.text = "UCS"
                 }
-                "NEW" -> {
+                lvKsf.typeSteps.contains("NEW", ignoreCase = true) -> {
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(yellow)
-                    itemLvsBinding.textExtra.text = lvKsf.typeSteps
+                    itemLvsBinding.textExtra.text = "NEW"
                 }
-                "ANOTHER" -> {
+                lvKsf.typeSteps.contains("ANOTHER", ignoreCase = true) -> {
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(cyan)
-                    itemLvsBinding.textExtra.text = lvKsf.typeSteps
+                    itemLvsBinding.textExtra.text = "ANOTHER"
                 }
-                "QUEST" -> {
+                lvKsf.typeSteps.contains("QUEST", ignoreCase = true) -> {
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(blue)
-                    itemLvsBinding.textExtra.text = lvKsf.typeSteps
+                    itemLvsBinding.textExtra.text = "QUEST"
                 }
-                "RISE" -> {
+                lvKsf.typeSteps.contains("RISE", ignoreCase = true) -> {
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(pink)
-                    itemLvsBinding.textExtra.text = lvKsf.typeSteps
+                    itemLvsBinding.textExtra.text = "RISE"
+                }
+                lvKsf.typeSteps.contains("MISSION", ignoreCase = true) -> {
+                    itemLvsBinding.textExtra.visibility = View.VISIBLE
+                    itemLvsBinding.textExtra.setTextColor(pink)
+                    itemLvsBinding.textExtra.text = "MISSION"
                 }
                 //else -> itemLvsBinding.textLv.text = lvKsf.level
             }

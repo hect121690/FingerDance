@@ -449,7 +449,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         val rutaLvSelected = "${rutaBase}/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png"
 
         repeat(20) {
-            listVacios.add(Ksf("", "", rutaLvSelected))
+            listVacios.add(Ksf(steps = "", rutaBitActive = rutaLvSelected))
         }
         llenaLvsVacios(listVacios)
         llenaCommands(listCommands)
@@ -1869,7 +1869,8 @@ class SelectSongHorizontal : AppCompatActivity() {
                     puntaje = "0",
                     grade = "",
                     type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
-                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer
+                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
+                    chartName = nivel.chartName,
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)

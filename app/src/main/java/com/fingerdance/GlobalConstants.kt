@@ -40,20 +40,15 @@ var chart = Chart(
     bpms = emptyList(),
     tickcounts = emptyList(),
     stops = emptyList(),
+    delays = emptyList(),
     warps = emptyList(),
     fakes = emptyList(),
     speeds = emptyList(),
     scrolls = emptyList(),
     notes = emptyList(),
-    extendedNotes = emptyList()
+    extendedNotes = emptyList(),
+    luaEvents = emptyList()
 )
-
-var indexCanalSsc = -1
-var indexCancionSsc = -1
-var indexNivelSsc = -1
-
-var listChannelsSsc: ArrayList<Channels> = arrayListOf()
-var listCancionesSsc: ArrayList<Song> = arrayListOf()
 
 var aBatch = 0
 var bBatch = 0
@@ -700,4 +695,9 @@ enum class SaveResult {
     LOCAL,
     LOCAL_AND_FIREBASE,
     INVALID_LEVEL
+}
+
+enum class VisualTarget {
+    RECEPTOR,
+    NOTES
 }

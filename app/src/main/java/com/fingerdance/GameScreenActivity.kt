@@ -1,7 +1,6 @@
 package com.fingerdance
 
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
@@ -21,7 +20,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.Toast
-import android.widget.VideoView
 import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
@@ -41,8 +39,9 @@ open class GameScreenActivity : AndroidApplication() {
     private lateinit var gdxContainer : RelativeLayout
     private var currentVideoPositionScreen : Int = 0
 
-    lateinit var videoViewBgaoff : VideoView
-    //lateinit var videoViewBgaOn : VideoView
+    private lateinit var videoBgaOff: TextureView
+    private lateinit var videoBgaOffPlayer: MediaPlayer
+
     lateinit var videoBgaOn : TextureView
     lateinit var videoBgaOnPLayer: MediaPlayer
 
@@ -110,10 +109,7 @@ open class GameScreenActivity : AndroidApplication() {
                     linearBGADark.visibility = View.GONE
                 }
             } else {
-                videoViewBgaoff.start()
-                videoViewBgaoff.setOnCompletionListener {
-                    videoViewBgaoff.start()
-                }
+                videoBgaOffPlayer.start()
                 if(playerSong.isBAGDark){
                     linearBGADark.visibility = View.VISIBLE
                 }else {
@@ -196,11 +192,118 @@ open class GameScreenActivity : AndroidApplication() {
     }
 
     private fun addVideoBackground() {
-        videoViewBgaoff = findViewById(R.id.videoViewBgaoff)
+        videoBgaOn = findViewById(R.id.videoViewBgaOn)
+        videoBgaOff = findViewById(R.id.videoViewBgaOff)
+
+        videoBgaOnPLayer = MediaPlayer()
+        videoBgaOffPlayer = MediaPlayer()
+
+        // 🔹 Ajuste BGA ON (Configuración de dimensiones)
+        videoBgaOn.y = medidaFlechas * 2
+        val newWidth = (width * 1.25).toInt()
+        val newHeight = (newWidth * 9 / 16).toInt()
+
+        videoBgaOn.layoutParams = videoBgaOn.layoutParams.apply {
+            width = newWidth
+            height = newHeight
+        }
+
+        videoBgaOn.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                videoBgaOnPLayer.setSurface(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        }
+
+        videoBgaOff.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                videoBgaOffPlayer.setSurface(Surface(surface))
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        }
+
+        // 🔥 Lógica unificada de visibilidad y carga
+        val customVideo = playerSong.rutaVideo
+        val hasCustom = !customVideo.isNullOrEmpty() && isFileExists(File(customVideo))
+
+        if (hasCustom && !playerSong.isBGAOff) {
+            // 👉 VIDEO GRANDE
+            videoBgaOn.isVisible = true
+            videoBgaOff.isVisible = false
+            prepareVideo(videoBgaOnPLayer, customVideo)
+            isVideo = true
+        } else {
+            // 👉 VIDEO FULL SCREEN
+            videoBgaOn.isVisible = false
+            videoBgaOff.isVisible = true
+            prepareVideo(videoBgaOffPlayer, bgaOff, isBgaOff = true)
+            isVideo = false
+        }
+
+        mediaPlayer.isLooping = false
+        mediaPlayer.setOnPreparedListener {
+            isMediaPlayerPrepared = true
+        }
+
+        mediaPlayer.setOnCompletionListener {
+            resultSong.banner = playerSong.rutaBanner!!
+            if(currentChannel == "06-FAVORITES"){
+                val nameChannels = AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel
+                listenScoreChannel(nameChannels.toString()) { listaCanciones ->
+                    listGlobalRanking = listaCanciones
+                }
+                thisHandler.postDelayed({
+                    val rankingItem = listGlobalRanking.find { it.cancion == currentSong }
+                    if(rankingItem != null) {
+                        currentWorldScore = if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
+                            listOf(
+                                rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
+                                rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
+                                rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
+                            )
+                        }else{
+                            listOf("1000000", "1000000", "1000000")
+                        }
+                    }
+                }, 7000)
+            }
+            thisHandler.postDelayed({
+                getEndSong()
+            },1000)
+            thisHandler.postDelayed({
+                val intent = Intent(this, DanceGrade()::class.java)
+                startActivity(intent)
+                this.finish()
+            }, 4000)
+        }
+    }
+
+    private fun prepareVideo(player: MediaPlayer, path: String, isBgaOff: Boolean = false) {
+        Thread {
+            try {
+                player.reset()
+                player.setDataSource(path)
+                player.isLooping = isBgaOff
+                player.prepare()
+            } catch (e: Exception) {
+                Log.e("VIDEO", "Error al preparar video: ${e.message}")
+            }
+        }.start()
+    }
+
+    /*
+    private fun addVideoBackground() {
+        videoBgaOn = findViewById(R.id.videoViewBgaOn)
+        videoBgaOff = findViewById(R.id.videoViewBgaOff)
+
         videoViewBgaoff.isVisible = false
         videoBgaOnPLayer = MediaPlayer()
 
-        videoBgaOn = findViewById(R.id.videoViewBgaOn)
+
         videoBgaOn.y = medidaFlechas * 2
         val newWidth = (width * 1.25).toInt()
         val newHeight = (newWidth * 9 / 16).toInt()
@@ -290,6 +393,7 @@ open class GameScreenActivity : AndroidApplication() {
         }
 
     }
+    */
 
     private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
         val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
@@ -421,9 +525,9 @@ open class GameScreenActivity : AndroidApplication() {
             }
         } else {
             try {
-                if (::videoViewBgaoff.isInitialized) {
-                    videoViewBgaoff.seekTo(0)
-                    videoViewBgaoff.suspend()
+                if (::videoBgaOffPlayer.isInitialized) {
+                    videoBgaOffPlayer.seekTo(0)
+                    videoBgaOffPlayer.release()
                 }
             } catch (e: Exception) {
                 Log.e("GameScreenActivity", "Error al suspender videoViewBgaoff: ${e.message}")
@@ -511,7 +615,7 @@ open class GameScreenActivity : AndroidApplication() {
         if (isVideo) {
             videoBgaOnPLayer.pause()
         } else {
-            videoViewBgaoff.pause()
+            videoBgaOffPlayer.pause()
         }
     }
 
@@ -550,9 +654,9 @@ open class GameScreenActivity : AndroidApplication() {
                 videoBgaOnPLayer.start()
             }
         } else {
-            videoViewBgaoff.seekTo(currentVideoPositionScreen)
-            if (!videoViewBgaoff.isPlaying) {
-                videoViewBgaoff.start()
+            videoBgaOffPlayer.seekTo(currentVideoPositionScreen)
+            if (!videoBgaOffPlayer.isPlaying) {
+                videoBgaOffPlayer.start()
             }
         }
     }

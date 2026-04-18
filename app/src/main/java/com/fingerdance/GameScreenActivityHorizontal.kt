@@ -1,7 +1,6 @@
 package com.fingerdance
 
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
@@ -188,7 +187,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
     }
 
     private fun addVideoBackground() {
-        videoViewBgaoff = findViewById(R.id.videoViewBgaoff)
+        videoViewBgaoff = findViewById(R.id.videoViewBgaOff)
         videoViewBgaoff.isVisible = false
         videoBgaOnPLayer = MediaPlayer()
 

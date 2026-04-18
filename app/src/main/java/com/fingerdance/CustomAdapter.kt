@@ -1,18 +1,25 @@
 package com.fingerdance
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.graphics.drawable.Drawable
 import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import com.fingerdance.databinding.ItemBinding
+import java.util.concurrent.Executors
 
 class CustomAdapter(
     private val songListKsf: ArrayList<Song>,
     private val heightBanners: Int,
     private val widthBanners: Int
 ) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+
+    // 🔥 thread pool para trim (no bloquear UI)
+    private val executor = Executors.newFixedThreadPool(2)
 
     private val imageCache = object : LruCache<String, Bitmap>(
         (Runtime.getRuntime().maxMemory() / 8).toInt()
@@ -28,58 +35,82 @@ class CustomAdapter(
             parent,
             false
         )
-        return ViewHolder(binding, heightBanners, widthBanners)
+        return ViewHolder(binding, heightBanners, widthBanners, executor)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bindItem(songListKsf[position], imageCache)
+        val realPosition = getRealPosition(position)
+        holder.bindItem(songListKsf[realPosition], imageCache)
     }
 
-    override fun getItemCount(): Int = songListKsf.size
+    override fun getItemCount(): Int = Int.MAX_VALUE
+
+    fun getRealPosition(position: Int): Int {
+        val size = songListKsf.size
+        return ((position % size) + size) % size
+    }
 
     class ViewHolder(
-        private val itemBinding: ItemBinding,
-        heightBanners: Int,
-        widthBanners: Int
-    ) : RecyclerView.ViewHolder(itemBinding.root) {
+        private val binding: ItemBinding,
+        private val heightB: Int,
+        private val widthB: Int,
+        private val executor: java.util.concurrent.ExecutorService
+    ) : RecyclerView.ViewHolder(binding.root) {
 
-        private val heightB = heightBanners
-        private val widthB = widthBanners
+        fun bindItem(song: Song, cache: LruCache<String, Bitmap>) {
 
-        fun bindItem(songKsf: Song, cache: LruCache<String, Bitmap>) {
-            itemBinding.image.layoutParams.apply {
+            binding.image.layoutParams.apply {
                 height = heightB
                 width = widthB
             }
 
-            val path = songKsf.rutaDisc
-            itemBinding.image.tag = path
+            val path = song.rutaDisc
+            binding.image.tag = path
 
+            // 🔥 1. cache primero (instantáneo)
             val cached = cache.get(path)
             if (cached != null) {
-                itemBinding.image.setImageBitmap(cached)
+                binding.image.setImageBitmap(cached)
                 return
             }
 
-            itemBinding.image.setImageDrawable(null)
+            // 🔥 2. placeholder inmediato (evita pantalla vacía)
+            binding.image.setImageResource(R.drawable.placeholder)
 
-            itemBinding.image.post {
-                if (adapterPosition == RecyclerView.NO_POSITION) return@post
-                if (itemBinding.image.tag != path) return@post
+            // 🔥 3. Glide → decode + resize
+            Glide.with(binding.image)
+                .asBitmap()
+                .load(path)
+                .override(widthB, heightB)
+                .fitCenter()
+                .into(object : CustomTarget<Bitmap>() {
 
-                val original = BitmapFactory.decodeFile(path) ?: return@post
-                val trimmed = trimTransparent(original)
+                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
 
-                cache.put(path, trimmed)
+                        if (binding.image.tag != path) return
 
-                if (itemBinding.image.tag == path) {
-                    itemBinding.image.setImageBitmap(trimmed)
-                }
-            }
+                        // 🔥 mostrar rápido SIN trim
+                        binding.image.setImageBitmap(resource)
+
+                        // 🔥 trim en background (NO bloquea UI)
+                        executor.execute {
+                            val trimmed = trimTransparent(resource)
+                            cache.put(path, trimmed)
+
+                            binding.image.post {
+                                if (binding.image.tag == path) {
+                                    binding.image.setImageBitmap(trimmed)
+                                }
+                            }
+                        }
+                    }
+
+                    override fun onLoadCleared(placeholder: Drawable?) {}
+                })
         }
 
-
-        fun trimTransparent(src: Bitmap): Bitmap {
+        // 🔥 trim optimizado (ahora sobre imagen pequeña)
+        private fun trimTransparent(src: Bitmap): Bitmap {
             val width = src.width
             val height = src.height
 
@@ -105,9 +136,7 @@ class CustomAdapter(
                 }
             }
 
-            if (maxX < minX || maxY < minY) {
-                return src
-            }
+            if (maxX < minX || maxY < minY) return src
 
             return Bitmap.createBitmap(
                 src,

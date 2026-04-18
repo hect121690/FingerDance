@@ -2253,11 +2253,13 @@ class MainActivity : AppCompatActivity(), Serializable {
 }
 
 class ObjPuntaje(
+    var id: Int = 0,
     var cancion: String = "",
     var puntaje: String = "",
     var grade: String = "",
     var type: String,
     var player: String,
+    var chartName: String,
 )
 
 data class Resultado(

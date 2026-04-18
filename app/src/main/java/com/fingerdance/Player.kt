@@ -988,8 +988,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
                 val finalOffset = gdxWidth * xPercent
 
                 when (event.target) {
-                    KsfProccess.VisualTarget.RECEPTOR -> luaReceptOffsetX += finalOffset
-                    KsfProccess.VisualTarget.NOTES -> luaNoteOffsetX += finalOffset
+                    VisualTarget.RECEPTOR -> luaReceptOffsetX += finalOffset
+                    VisualTarget.NOTES -> luaNoteOffsetX += finalOffset
                 }
 
                 iterator.remove()
@@ -1004,8 +1004,8 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
             val offset = targetOffset * t
 
             when (event.target) {
-                KsfProccess.VisualTarget.RECEPTOR -> luaReceptOffsetX += offset
-                KsfProccess.VisualTarget.NOTES -> luaNoteOffsetX += offset
+                VisualTarget.RECEPTOR -> luaReceptOffsetX += offset
+                VisualTarget.NOTES -> luaNoteOffsetX += offset
             }
         }
     }
@@ -1563,11 +1563,12 @@ class Player(private val batch: SpriteBatch, activity: GameScreenActivity) : Gam
     }
 
     private fun getJudgement(judgeTime: Long): Int {
-        return if(judgeTime <= ZONE_PERFECT){
+        val absDelta = kotlin.math.abs(judgeTime)
+        return if(absDelta <= ZONE_PERFECT){
             JUDGE_PERFECT
-        }else if(judgeTime <= ZONE_GREAT){
+        }else if(absDelta <= ZONE_GREAT){
             JUDGE_GREAT
-        }else if(judgeTime <= ZONE_GOOD){
+        }else if(absDelta <= ZONE_GOOD){
             JUDGE_GOOD
         }else {
             JUDGE_BAD

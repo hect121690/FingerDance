@@ -84,7 +84,9 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import androidx.core.graphics.scale
 import androidx.core.net.toUri
+import com.bumptech.glide.Glide
 import com.fingerdance.ssc.Parser
+import com.google.android.datatransport.runtime.ExecutionModule_ExecutorFactory.executor
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -550,26 +552,33 @@ class SelectSong : AppCompatActivity() {
         llenaLvsVacios(listVacios)
 
         if (AppResources.listSongsChannelKsf.isNotEmpty()){
-            listItemsKsf = createSongListKsf()
+            listItemsKsf = AppResources.listSongsChannelKsf
         }
 
         setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
-        //var num = listItems.size / 2
-        var num = listItemsKsf.size / 2
-        if (num.toString().contains(".")) {
-            num = Math.round(num.toDouble()).toInt()
-            middle = num
-        } else {
-            middle = num
+        recyclerView.post {
+
+            val parentWidth = recyclerView.width
+            val itemWidth = (width * 0.2).toInt() // el mismo que usas
+
+            val padding = (parentWidth - itemWidth) / 2
+
+            recyclerView.setPadding(padding, 0, padding, 0)
+            recyclerView.clipToPadding = false
         }
+        middle = Int.MAX_VALUE / 2
+        middle -= middle % listItemsKsf.size
+
         oldValue = middle
         recyclerView.scrollToPosition(middle)
-        numberChannel = File(listItemsKsf[oldValue].rutaSong).parentFile?.name!!.substringBefore("-").trim()
+        numberChannel = File(listItemsKsf[oldValue % listItemsKsf.size].rutaSong).parentFile?.name!!.substringBefore("-").trim()
         isFocus(middle)
 
         smoothScroller = CenterSmoothScroller(recyclerView.context)
         smoothScroller.targetPosition = middle
         recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
+        recyclerView.itemAnimator = null
+        recyclerView.setItemViewCacheSize(10)
         recyclerView.setOnTouchListener { _, _ -> true }
         //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
         imageCircle.layoutParams.width = (width * 0.95).toInt()
@@ -788,11 +797,7 @@ class SelectSong : AppCompatActivity() {
             ready = 0
             imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
-                if (oldValue == 2) {
-                    oldValue = listItemsKsf.size - 3
-                } else {
-                    oldValue -= 1
-                }
+                oldValue --
                 moverCanciones(nav_izq)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
@@ -831,11 +836,7 @@ class SelectSong : AppCompatActivity() {
             imgFloor.setImageBitmap(AppResources.bmFloor)
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 //if (oldValue == listItems.size - 3) {
-                if (oldValue == listItemsKsf.size - 3) {
-                    oldValue = 2
-                } else {
-                    oldValue += 1
-                }
+                oldValue ++
                 moverCanciones(nav_der, true)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
@@ -877,6 +878,8 @@ class SelectSong : AppCompatActivity() {
         val txTip = findViewById<TextView>(R.id.txTip)
 
         imgAceptar.setOnClickListener() {
+            val real = getRealIndex(oldValue)
+            val song = listItemsKsf[real]
             if (recyclerView.isVisible && !commandWindow.isVisible) {
                 goSelectLevel()
                 //showCancionesDialog(this)
@@ -886,7 +889,7 @@ class SelectSong : AppCompatActivity() {
                     soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     imgAceptar.isEnabled = false
 
-                    val bit = BitmapFactory.decodeFile(listItemsKsf[oldValue].rutaDisc)
+                    val bit = BitmapFactory.decodeFile(song.rutaDisc)
                     imgLoading.setImageBitmap(bit)
                     linearLoading.isVisible = true
                     linearLoading.setOnClickListener(object : View.OnClickListener {
@@ -897,7 +900,7 @@ class SelectSong : AppCompatActivity() {
                     imgLoading.isVisible = true
                     showProgressBar(3000L)
                     mediPlayer.pause()
-                    playerSong.rutaBanner = listItemsKsf[oldValue].rutaTitle
+                    playerSong.rutaBanner = song.rutaTitle
 
                     txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
 
@@ -915,15 +918,15 @@ class SelectSong : AppCompatActivity() {
                         }
                     }
                     hideSelectLv(anim)
-                    playerSong.rutaVideo = listItemsKsf[oldValue].rutaBGA
-                    playerSong.rutaCancion = listItemsKsf[oldValue].rutaSong
+                    playerSong.rutaVideo = song.rutaBGA
+                    playerSong.rutaCancion = song.rutaSong
 
-                    if(listItemsKsf[oldValue].listKsf[positionActualLvs].songFile != ""){
-                        playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + listItemsKsf[oldValue].listKsf[positionActualLvs].songFile
+                    if(song.listKsf[positionActualLvs].songFile != ""){
+                        playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + song.listKsf[positionActualLvs].songFile
                     }
 
                     if(!isFileExists(File(playerSong.rutaCancion!!))) {
-                        val rs = File(listItemsKsf[oldValue].rutaSong).name
+                        val rs = File(song.rutaSong).name
                         val sf = File(playerSong.rutaCancion!!).name
                         playerSong.rutaCancion = playerSong.rutaCancion!!.replace(sf, rs, ignoreCase = true)
                     }
@@ -940,10 +943,10 @@ class SelectSong : AppCompatActivity() {
                         //seekTo(startTimeMs)
                         //start()
                     }
-                    val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
+                    val isHalfDouble = song.listKsf[positionActualLvs].typePlayer == "B"
 
-                    if(listItemsKsf[oldValue].isSSC){
-                        chart = Parser().parseSSC(listItemsKsf[oldValue].listKsf[positionActualLvs].steps)
+                    if(song.isSSC){
+                        chart = Parser().parseSSC(song.listKsf[positionActualLvs].steps, song.rutaSong)
                         playerSong.isSSC = true
                         if(playerSong.mirror){
                             if(!isHalfDouble){
@@ -960,7 +963,7 @@ class SelectSong : AppCompatActivity() {
                             }
                         }
                     }else{
-                        playerSong.rutaKsf = listItemsKsf[oldValue].listKsf[positionActualLvs].rutaKsf
+                        playerSong.rutaKsf = song.listKsf[positionActualLvs].rutaKsf
                         playerSong.isSSC = false
                         load(playerSong.rutaKsf, isHalfDouble)
                         if(playerSong.mirror){
@@ -1363,6 +1366,11 @@ class SelectSong : AppCompatActivity() {
         indicatorLayout.x = (indicatorPosition * sizeLvs).toFloat()
     }
 
+    private fun getRealIndex(pos: Int): Int {
+        val size = listItemsKsf.size
+        return ((pos % size) + size) % size
+    }
+
     private fun resetIndicatorPosition() {
         selectedIndex = 0
         firstVisible = 0
@@ -1541,7 +1549,7 @@ class SelectSong : AppCompatActivity() {
             onDownloadClick = if(previewDowloaded){
                 {
                     File(listItemsKsf[oldValue].rutaPreview).delete()
-                    isFocus(oldValue)
+                    isFocus(oldValue )
                     btnCancel.performClick()
                     mediPlayer.start()
                     Toast.makeText(this, "Preview eliminado", Toast.LENGTH_SHORT).show()
@@ -1689,7 +1697,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun getVideosPreview(): ArrayList<VideosDrive> {
-        val listSongsDrive = listChannelsDrive.find { it.name == currentChannel }?.songs ?: emptyList()
+        val listSongsDrive = listChannelsDrive.find { it.name == currentChannel.replace("-SSC", "") }?.songs ?: emptyList()
         if(listSongsDrive.isNotEmpty()) {
             val rp = File(listItemsKsf[oldValue].rutaPreview).parentFile!!.name
             val songDrive = listSongsDrive.find { it.name == rp }
@@ -2430,7 +2438,8 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun moverLvs() {
-        val lv = listItemsKsf[oldValue].listKsf[positionActualLvs]
+        val realPosition = getRealIndex(oldValue) // 🔥 CLAVE
+        val lv = listItemsKsf[realPosition].listKsf[positionActualLvs]
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
 
         lbLvActive.text = lv.level
@@ -2461,6 +2470,7 @@ class SelectSong : AppCompatActivity() {
         playerSong.level = lv.level
         playerSong.player = lv.typePlayer
         playerSong.type = lv.typeSteps
+        playerSong.chartName = lv.chartName
         playerSong.stepMaker = lv.stepmaker
 
         //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
@@ -2470,47 +2480,42 @@ class SelectSong : AppCompatActivity() {
         //moveIndicatorToPosition(positionActualLvs)
     }
 
-    private fun moverCanciones(flecha : ImageView, isNext: Boolean = false) {
+    private fun moverCanciones(flecha: ImageView, isNext: Boolean = false) {
+
+        val real = getRealIndex(oldValue) // 🔥 CLAVE
+
         resetIndicatorPosition()
         soundPoolSelectSong.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
         flecha.startAnimation(AppResources.animPressNav)
-        recyclerView.scrollToPosition(oldValue)
+
+        //recyclerView.scrollToPosition(oldValue)
         isFocus(oldValue)
         showTransitionVideo(isNext)
+
         val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
         smoothScroller.targetPosition = oldValue
         recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
+
         lbArtist.isSelected = true
         lbNameSong.isSelected = true
 
-        if(currentChannel == "03-SHORT CUT - V2" ||
+        // 🔥 AQUÍ estaba el bug
+        if (currentChannel == "03-SHORT CUT - V2" ||
             currentChannel == "04-REMIX - V2" ||
-            currentChannel == "05-FULLSONGS - V2"){
-            val currentNumberChannel = File(listItemsKsf[oldValue].rutaSong).parentFile?.name!!.substringBefore("-").trim()
-            if(currentNumberChannel != numberChannel){
+            currentChannel == "05-FULLSONGS - V2") {
+
+            val currentNumberChannel = File(listItemsKsf[real].rutaSong).parentFile?.name!!.substringBefore("-").trim()
+            if (currentNumberChannel != numberChannel) {
                 numberChannel = currentNumberChannel
-                when(currentNumberChannel){
-                    "12" ->{
-                        soundPoolSelectSong.play(st_zero, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                    "13" ->{
-                        soundPoolSelectSong.play(nx_nxAbs, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                    "14" ->{
-                        soundPoolSelectSong.play(fiesta_fiesta2, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                    "17" ->{
-                        soundPoolSelectSong.play(prime, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                    "18" ->{
-                        soundPoolSelectSong.play(prime2, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                    "19" ->{
-                        soundPoolSelectSong.play(aniversary_xx, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-                    "21" ->{
-                        soundPoolSelectSong.play(phoenix, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
+
+                when (currentNumberChannel) {
+                    "12" -> soundPoolSelectSong.play(st_zero, 1.0f, 1.0f, 1, 0, 1.0f)
+                    "13" -> soundPoolSelectSong.play(nx_nxAbs, 1.0f, 1.0f, 1, 0, 1.0f)
+                    "14" -> soundPoolSelectSong.play(fiesta_fiesta2, 1.0f, 1.0f, 1, 0, 1.0f)
+                    "17" -> soundPoolSelectSong.play(prime, 1.0f, 1.0f, 1, 0, 1.0f)
+                    "18" -> soundPoolSelectSong.play(prime2, 1.0f, 1.0f, 1, 0, 1.0f)
+                    "19" -> soundPoolSelectSong.play(aniversary_xx, 1.0f, 1.0f, 1, 0, 1.0f)
+                    "21" -> soundPoolSelectSong.play(phoenix, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
             }
         }
@@ -2518,7 +2523,30 @@ class SelectSong : AppCompatActivity() {
 
     private var isVideo: Boolean = false
     private fun isFocus (position: Int){
-        val item = listItemsKsf[position]
+        ImageScheduler.newGeneration()
+
+        val size = listItemsKsf.size
+
+        fun get(i: Int) = listItemsKsf[((i % size) + size) % size]
+
+        // 🔥 PRIORIDAD 3 → visible
+        val center = get(position)
+        preload(center.rutaDisc, priority = 3)
+
+        // 🔥 PRIORIDAD 2 → cercanos
+        for (i in 1..3) {
+            preload(get(position + i).rutaDisc, 2)
+            preload(get(position - i).rutaDisc, 2)
+        }
+
+        // 🔥 PRIORIDAD 1 → un poco más lejos
+        for (i in 4..6) {
+            preload(get(position + i).rutaDisc, 1)
+            preload(get(position - i).rutaDisc, 1)
+        }
+
+        val real = getRealIndex(position)
+        val item = listItemsKsf[real]
         currentPathSong = item.rutaSong
         timer?.cancel()
         timer = object : CountDownTimer(10000, 1000) {
@@ -2551,7 +2579,8 @@ class SelectSong : AppCompatActivity() {
                     puntaje = "0",
                     grade = "",
                     type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
-                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer
+                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
+                    chartName = nivel.chartName,
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
@@ -2623,66 +2652,214 @@ class SelectSong : AppCompatActivity() {
             lbArtist.text = item.artist
         }
 
-        lbBpm.text = "BPM:" + String.format("%.2f", item.displayBpm.toDouble())
+        val dbpm = if(item.displayBpm != "") item.displayBpm else "0.0"
+        val lbDbpm = "BPM:" + String.format("%.2f", abs(dbpm.toDouble()))
+        lbBpm.text = lbDbpm
         displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
         recyclerLvs.adapter?.notifyDataSetChanged()
         //llenaLvs(item.listKsf)
         llenaLvsKsf(item.listKsf)
     }
 
-    fun trimTransparent(src: Bitmap): Bitmap {
-        val width = src.width
-        val height = src.height
+    fun preload(path: String, priority: Int) {
 
-        var minX = width
-        var minY = height
-        var maxX = -1
-        var maxY = -1
+        val context = this.applicationContext // usa applicationContext
 
-        val pixels = IntArray(width * height)
-        src.getPixels(pixels, 0, width, 0, 0, width, height)
+        ImageScheduler.submit(path, priority) {
 
-        var index = 0
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val alpha = pixels[index] ushr 24
-                if (alpha != 0) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-                index++
+            val file = ImagePipeline.getOrCreateTrimmed(
+                path,
+                context,
+                300,
+                300
+            )
+
+            SongImageCache.memoryCache[path] = file
+        }
+    }
+
+    object SongImageCache {
+
+        val memoryCache = HashMap<String, File>()
+
+    }
+
+    object ImagePipeline {
+
+        fun getTrimmedFile(originalPath: String, context: Context): File {
+            val cacheDir = File(context.cacheDir, "trimmed")
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+
+            val name = originalPath.hashCode().toString() + "_trim.png"
+            return File(cacheDir, name)
+        }
+        @Synchronized
+        fun getOrCreateTrimmed(
+            originalPath: String,
+            context: Context,
+            reqWidth: Int,
+            reqHeight: Int
+        ): File {
+
+            val trimmedFile = getTrimmedFile(originalPath, context)
+
+            // 🔥 si ya existe → listo
+            if (trimmedFile.exists()) return trimmedFile
+
+            // 🔥 si no existe → generar
+            val bitmap = decodeSampledBitmap(originalPath, reqWidth, reqHeight) ?: return trimmedFile
+            val trimmed = trimTransparent(bitmap)
+
+            trimmedFile.outputStream().use {
+                trimmed.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
+
+            return trimmedFile
         }
 
-        // Imagen completamente transparente → no recortamos
-        if (maxX < minX || maxY < minY) {
-            return src
+        private fun decodeSampledBitmap(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+
+            BitmapFactory.decodeFile(path, options)
+
+            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.RGB_565
+
+            return BitmapFactory.decodeFile(path, options)
         }
 
-        return Bitmap.createBitmap(
-            src,
-            minX,
-            minY,
-            maxX - minX + 1,
-            maxY - minY + 1
-        )
+        private fun calculateInSampleSize(
+            options: BitmapFactory.Options,
+            reqWidth: Int,
+            reqHeight: Int
+        ): Int {
+            val (height, width) = options.outHeight to options.outWidth
+            var inSampleSize = 1
+
+            if (height > reqHeight || width > reqWidth) {
+                val halfHeight = height / 2
+                val halfWidth = width / 2
+
+                while ((halfHeight / inSampleSize) >= reqHeight &&
+                    (halfWidth / inSampleSize) >= reqWidth
+                ) {
+                    inSampleSize *= 2
+                }
+            }
+
+            return inSampleSize
+        }
+
+        private fun trimTransparent(src: Bitmap): Bitmap {
+            val width = src.width
+            val height = src.height
+
+            var minX = width
+            var minY = height
+            var maxX = -1
+            var maxY = -1
+
+            val pixels = IntArray(width * height)
+            src.getPixels(pixels, 0, width, 0, 0, width, height)
+
+            var index = 0
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    val alpha = pixels[index] ushr 24
+                    if (alpha != 0) {
+                        if (x < minX) minX = x
+                        if (x > maxX) maxX = x
+                        if (y < minY) minY = y
+                        if (y > maxY) maxY = y
+                    }
+                    index++
+                }
+            }
+
+            if (maxX < minX || maxY < minY) return src
+
+            return Bitmap.createBitmap(
+                src,
+                minX,
+                minY,
+                maxX - minX + 1,
+                maxY - minY + 1
+            )
+        }
     }
 
     fun setDiscImage(path: String) {
-        val cached = imageCache[path]
-        if (cached != null) {
-            imgPrev.setImageBitmap(cached)
+        imgPrev.tag = path
+        val cached = SongImageCache.memoryCache[path]
+        if (cached != null && cached.exists()) {
+            Glide.with(imgPrev)
+                .load(cached)
+                .fitCenter()
+                .into(imgPrev)
             return
         }
 
-        imgPrev.post {
-            val original = BitmapFactory.decodeFile(path) ?: return@post
-            val trimmed = trimTransparent(original)
+        imgPrev.setImageResource(R.drawable.placeholder)
 
-            imageCache[path] = trimmed
-            imgPrev.setImageBitmap(trimmed)
+        preload(path, priority = 3)
+    }
+
+    object ImageScheduler {
+
+        private val executor = java.util.concurrent.ThreadPoolExecutor(
+            2, 2,
+            60L, TimeUnit.SECONDS,
+            java.util.concurrent.PriorityBlockingQueue<Runnable>()
+        )
+
+        // evita duplicados
+        private val inFlight = HashSet<String>()
+
+        // invalida trabajos antiguos
+        @Volatile private var generation = 0
+
+        fun newGeneration() {
+            generation++
+        }
+
+        fun submit(
+            path: String,
+            priority: Int,
+            task: (gen: Int) -> Unit
+        ) {
+            synchronized(inFlight) {
+                if (inFlight.contains(path)) return
+                inFlight.add(path)
+            }
+
+            val genAtSubmit = generation
+
+            executor.execute(PriorityTask(priority) {
+                try {
+                    // si cambió la generación, cancela silenciosamente
+                    if (genAtSubmit != generation) return@PriorityTask
+                    task(genAtSubmit)
+                } finally {
+                    synchronized(inFlight) {
+                        inFlight.remove(path)
+                    }
+                }
+            })
+        }
+
+        private class PriorityTask(
+            private val priority: Int,
+            private val block: () -> Unit
+        ) : Runnable, Comparable<PriorityTask> {
+
+            override fun run() = block()
+
+            override fun compareTo(other: PriorityTask): Int {
+                return other.priority - this.priority // mayor prioridad primero
+            }
         }
     }
 
@@ -2733,15 +2910,17 @@ class SelectSong : AppCompatActivity() {
         isTimerRunning = true
     }
 
-    class CenterSmoothScroller(context: Context?) : LinearSmoothScroller(context) {
+    class CenterSmoothScroller(context: Context) : LinearSmoothScroller(context) {
+
         override fun calculateDtToFit(
             viewStart: Int,
             viewEnd: Int,
             boxStart: Int,
             boxEnd: Int,
-            snapPreference: Int,
+            snapPreference: Int
         ): Int {
-            return boxStart + (boxEnd - boxStart) / 2 - (viewStart + (viewEnd - viewStart) / 2)
+            return (boxStart + (boxEnd - boxStart) / 2) -
+                    (viewStart + (viewEnd - viewStart) / 2)
         }
     }
 

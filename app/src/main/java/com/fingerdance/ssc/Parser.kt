@@ -1,5 +1,8 @@
 package com.fingerdance.ssc
 
+import com.fingerdance.KsfProccess.LuaVisualEvent
+import com.fingerdance.VisualTarget
+import java.io.File
 import kotlin.math.max
 
 class Parser {
@@ -21,56 +24,65 @@ class Parser {
     data class BpmSegment(val beat: Double, val bpm: Double)
     data class TickCountSegment(val beat: Double, val tickcount: Int)
     data class Stop(val beat: Double, val durationMs: Double)
+    data class Delay(val beat: Double, val durationMs: Double)
     data class Warp(val beat: Double, val duration: Double)
     data class Fake(val beat: Double, val duration: Double)
 
     data class Speed(val beat: Double, val ratio: Double, val duration: Double, val mode: Int)
     data class Scroll(val beat: Double, val ratio: Double)
 
+    private var luaFileName: String? = null
+    private val luaEvents = mutableListOf<LuaVisualEvent>()
+
     data class Chart(
         val offset: Double = 0.0,
         val bpms: List<BpmSegment>,
         val tickcounts: List<TickCountSegment>,
         val stops: List<Stop>,
+        val delays: List<Delay>,
         val warps: List<Warp>,
         val fakes: List<Fake>,
         val speeds: List<Speed>,
         val scrolls: List<Scroll>,
         var notes: List<Note>,
-        val extendedNotes: List<Note>
+        val extendedNotes: List<Note>,
+        val luaEvents: List<LuaVisualEvent> = emptyList()
     )
 
     // =========================
     // PUBLIC
     // =========================
 
-    fun parseSSC(text: String): Chart {
+    fun parseSSC(text: String, pathFile: String): Chart {
         val offset = extractTag(text, "OFFSET")?.toDoubleOrNull() ?: 0.0
+        luaFileName = extractTag(text, "LUA")
         val bpms = parsePairs(text, "BPMS").map { BpmSegment(it.first, it.second) }
         val tickcounts = parsePairs(text, "TICKCOUNTS").map { TickCountSegment(it.first, it.second.toInt()) }
         val stops = parsePairs(text, "STOPS").map { Stop(it.first, it.second * 1000) }
-        val delays = parsePairs(text, "DELAYS").map { Stop(it.first, it.second * 1000) }
+        val delays = parsePairs(text, "DELAYS").map { Delay(it.first, it.second * 1000) }
         val warps = parsePairs(text, "WARPS").map { Warp(it.first, it.second) }
         val fakes = parsePairs(text, "FAKES").map { Fake(it.first, it.second) }
 
         val speeds = parseSpeeds(text)
         val scrolls = parseScrolls(text)
 
-        val allStops = (stops + delays).sortedBy { it.beat }
-
         val (notes, extendedNotes) = parseNotes(text, fakes)
+        val allNotes = (notes + extendedNotes).sortedBy { it.beat }
+        loadLuaEvents(pathFile)
 
         return Chart(
             offset = offset,
             bpms = bpms,
             tickcounts = tickcounts,
-            stops = allStops,
+            stops = stops,
+            delays = delays,
             warps = warps,
             fakes = fakes,
             speeds = speeds,
             scrolls = scrolls,
-            notes = notes,
-            extendedNotes = extendedNotes
+            notes = allNotes,
+            extendedNotes = extendedNotes,
+            luaEvents = luaEvents
         )
     }
 
@@ -134,11 +146,11 @@ class Parser {
                                     column = col,
                                     beat = startBeat,
                                     endBeat = beat,
-                                    isFake = fake,
+                                    isFake = true,
                                     type = NoteType.HOLD
                                 )
                             )
-                            extHolds.remove(col)
+                            //extHolds.remove(col)
                         }
                         else -> {
                             // otros códigos extendidos -> si luego quieres, los asignas aquí
@@ -280,6 +292,64 @@ class Parser {
     // =========================
     // HELPERS
     // =========================
+
+    private fun loadLuaEvents(ksfPath: String) {
+        val luaName = luaFileName ?: return
+
+        val luaFile = File(File(ksfPath).parentFile, luaName)
+        if (!luaFile.exists()) return
+
+        luaFile.forEachLine { line ->
+            val clean = line.trim()
+            if (clean.isEmpty() || clean.startsWith("--")) return@forEachLine
+
+            // split: setRecept(...) , 52000
+            val parts = clean.split("),")
+            if (parts.size != 2) return@forEachLine
+
+            val callPart = parts[0] + ")"
+            val beat = parts[1].trim().toFloat()
+
+            // 🔹 nombre de la función
+            val funcName = callPart.substringBefore("(").trim()
+
+            val target = when (funcName) {
+                "setRecept" -> VisualTarget.RECEPTOR
+                "setNotes"  -> VisualTarget.NOTES
+                else -> return@forEachLine
+            }
+
+            // args
+            val nameAndArgs = callPart.substringAfter("(").substringBefore(")")
+            val args = nameAndArgs.split(",")
+
+            val paramMap = mutableMapOf<String, Float>()
+            var duration = 0F
+
+            args.forEach {
+                val pair = it.split("=")
+                if (pair.size == 2) {
+                    val key = pair[0].trim()
+                    val value = pair[1].trim().toFloat()
+
+                    if (key == "time") {
+                        duration = value.toFloat()
+                    } else {
+                        paramMap[key] = value
+                    }
+                }
+            }
+
+            luaEvents.add(
+                LuaVisualEvent(
+                    startBeat = beat,
+                    durationBeat = duration,
+                    target = target,
+                    params = paramMap
+                )
+            )
+        }
+    }
 
     private fun parseSpeeds(text: String): List<Speed> {
         val raw = extractTag(text, "SPEEDS") ?: return emptyList()

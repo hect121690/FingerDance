@@ -1000,8 +1000,8 @@ class PlayerHorizontal(private val batch: SpriteBatch, activity: GameScreenActiv
                 val finalOffset = gdxWidth * xPercent
 
                 when (event.target) {
-                    KsfProccess.VisualTarget.RECEPTOR -> luaReceptOffsetX += finalOffset
-                    KsfProccess.VisualTarget.NOTES -> luaNoteOffsetX += finalOffset
+                    VisualTarget.RECEPTOR -> luaReceptOffsetX += finalOffset
+                    VisualTarget.NOTES -> luaNoteOffsetX += finalOffset
                 }
 
                 iterator.remove()
@@ -1016,8 +1016,8 @@ class PlayerHorizontal(private val batch: SpriteBatch, activity: GameScreenActiv
             val offset = targetOffset * t
 
             when (event.target) {
-                KsfProccess.VisualTarget.RECEPTOR -> luaReceptOffsetX += offset
-                KsfProccess.VisualTarget.NOTES -> luaNoteOffsetX += offset
+                VisualTarget.RECEPTOR -> luaReceptOffsetX += offset
+                VisualTarget.NOTES -> luaNoteOffsetX += offset
             }
         }
     }
