@@ -370,7 +370,7 @@ class SelectSongOnline : AppCompatActivity() {
             val rutaLvSelected = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png")!!.absolutePath
 
             for (index in 0..19) {
-                listVacios.add(Ksf("", "",  rutaLvSelected))
+                listVacios.add(Ksf("", 0,  rutaLvSelected))
             }
             llenaLvsVacios(listVacios)
             listItemsKsf = createSongListKsf()
@@ -1390,7 +1390,7 @@ class SelectSongOnline : AppCompatActivity() {
     private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
         recyclerView.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = CustomAdapter(listItemsKsf, heightBanner, widhtBanner)
+            adapter = CustomAdapter(this@SelectSongOnline, listItemsKsf, heightBanner, widhtBanner)
         }
     }
 

@@ -83,6 +83,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.toColorInt
+import com.fingerdance.ssc.Parser
 
 private val handlerSelectSongHorizontal = Handler(Looper.getMainLooper())
 
@@ -208,6 +209,10 @@ class SelectSongHorizontal : AppCompatActivity() {
     private val imageCache = mutableMapOf<String, Bitmap>()
     private lateinit var progressLoading : ProgressBar
 
+    private lateinit var selectModeContainer : FrameLayout
+    private var modeSelected = false
+    private var orientationMode = OrientationMode.VERTICAL
+
     private val sequence = mutableListOf<Boolean>()
     private val sequencePattern = listOf(false, true, false, true, false, true)
 
@@ -237,8 +242,6 @@ class SelectSongHorizontal : AppCompatActivity() {
 
         val screenWidth = resources.displayMetrics.widthPixels
         val screenHeight = resources.displayMetrics.heightPixels
-
-        spaceInitHorizontal = (screenWidth / 2f) - (medidaFlechasHorizontal * 3.5f)
 
         mediPlayer = MediaPlayer()
 
@@ -449,7 +452,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         val rutaLvSelected = "${rutaBase}/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png"
 
         repeat(20) {
-            listVacios.add(Ksf(steps = "", rutaBitActive = rutaLvSelected))
+            listVacios.add(Ksf(steps = 0, rutaBitActive = rutaLvSelected))
         }
         llenaLvsVacios(listVacios)
         llenaCommands(listCommands)
@@ -1014,9 +1017,239 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         imgPressStart.setOnClickListener {
-            goGameScreenActivity()
+            showSelectMode(screenWidth)
+            btnBackLeft.bringToFront()
+            btnBackRight.bringToFront()
         }
 
+    }
+
+    private fun showSelectMode(screenWidth: Int) {
+
+        selectModeContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(Color.BLACK)
+            setOnClickListener { }
+        }
+
+        constraintMain.addView(selectModeContainer)
+
+        val hand = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                medidaFlechas.toInt(),
+                medidaFlechas.toInt()
+            )
+            setImageBitmap(BitmapFactory.decodeStream(assets.open("hand_tap_here.png")))
+            alpha = 0f
+        }
+
+        val rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        selectModeContainer.addView(rootLayout)
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        }
+
+        rootLayout.addView(row)
+
+        // 🔥 FLOOR
+        val btnFloorAceptar = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                (screenWidth * 0.35).toInt(),
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            )
+            translationY = -40f
+            setImageBitmap(AppResources.bmFloor)
+            visibility = View.INVISIBLE
+            setOnClickListener {
+                goGameScreenActivity()
+            }
+        }
+
+        // 🔥 BOTÓN (un poco más arriba)
+        val btnAceptar = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                (screenWidth * 0.3).toInt(),
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            )
+            translationY = -190f
+            setImageBitmap(AppResources.bmAceptar)
+            visibility = View.INVISIBLE
+            setOnClickListener {
+                goGameScreenActivity()
+            }
+        }
+
+        val hPrev = BitmapFactory.decodeStream(assets.open("horizontal_mode_prev.png"))
+        val hSelect = BitmapFactory.decodeStream(assets.open("horizontal_mode_select.png"))
+
+        val vPrev = BitmapFactory.decodeStream(assets.open("vertical_mode_prev.png"))
+        val vSelect = BitmapFactory.decodeStream(assets.open("vertical_mode_select.png"))
+
+        lateinit var imgHorizontal: ImageView
+        lateinit var imgVertical: ImageView
+
+        fun createSection(bitmap: Bitmap, assign: (ImageView) -> Unit, onClick: () -> Unit): FrameLayout {
+
+            val container = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            }
+
+            val image = ImageView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageBitmap(bitmap)
+            }
+
+            assign(image)
+            image.setOnClickListener { onClick() }
+
+            container.addView(image)
+            return container
+        }
+
+        val left = createSection(vPrev, { imgVertical = it }) {
+            stopHand(hand)
+
+            modeSelected = true
+            orientationMode = OrientationMode.VERTICAL
+            btnFloorAceptar.visibility = View.VISIBLE
+            btnAceptar.visibility = View.VISIBLE
+            btnAceptar.startAnimation(animationPressStart)
+            imgVertical.setImageBitmap(vSelect)
+            imgHorizontal.setImageBitmap(hPrev)
+        }
+
+        val text = TextView(this).apply {
+            text = "Selecciona como quieres jugar"
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        }
+
+        val right = createSection(hPrev, { imgHorizontal = it }) {
+            stopHand(hand)
+
+            modeSelected = true
+            orientationMode = OrientationMode.HORIZONTAL
+            btnFloorAceptar.visibility = View.VISIBLE
+            btnAceptar.visibility = View.VISIBLE
+            btnAceptar.startAnimation(animationPressStart)
+            imgHorizontal.setImageBitmap(hSelect)
+            imgVertical.setImageBitmap(vPrev)
+        }
+
+        row.addView(left)
+        row.addView(text)
+        row.addView(right)
+
+        selectModeContainer.addView(hand)
+
+        selectModeContainer.addView(btnFloorAceptar)
+        selectModeContainer.addView(btnAceptar)
+
+        selectModeContainer.post {
+            isHandRunning = true
+            startHandAnimationHorizontal(hand, imgVertical, imgHorizontal)
+        }
+    }
+
+    var isHandRunning = false
+
+    private fun startHandAnimationHorizontal(hand: View, left: View, right: View) {
+
+        val centerY = getCenterY(left)
+
+        fun tapSequence(end: () -> Unit) {
+            hand.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80)
+                .withEndAction {
+                    hand.animate().scaleX(1f).scaleY(1f).setDuration(80)
+                        .withEndAction {
+                            hand.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80)
+                                .withEndAction {
+                                    hand.animate().scaleX(1f).scaleY(1f).setDuration(80)
+                                        .withEndAction { end() }
+                                }
+                        }
+                }
+        }
+
+        fun moveTo(targetX: Float, end: () -> Unit) {
+            hand.animate().cancel()
+
+            hand.animate()
+                .alpha(1f)
+                .x(targetX - hand.width / 2f)
+                .y(centerY - hand.height / 2f)
+                .setDuration(600)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .withEndAction {
+                    tapSequence(end)
+                }
+        }
+
+        fun loop() {
+            if (!isHandRunning) return
+
+            moveTo(getCenterX(left)) {
+                if (!isHandRunning) return@moveTo
+
+                moveTo(getCenterX(right)) {
+                    loop()
+                }
+            }
+        }
+
+        loop()
+    }
+
+    private fun stopHand(hand: View) {
+        isHandRunning = false
+        hand.animate().cancel()
+        hand.visibility = View.GONE
+    }
+
+    private fun getCenterX(v: View): Float {
+        val loc = IntArray(2)
+        v.getLocationOnScreen(loc)
+
+        val containerLoc = IntArray(2)
+        selectModeContainer.getLocationOnScreen(containerLoc)
+
+        return (loc[0] - containerLoc[0]) + v.width / 2f
+    }
+
+    private fun getCenterY(v: View): Float {
+        val loc = IntArray(2)
+        v.getLocationOnScreen(loc)
+
+        val containerLoc = IntArray(2)
+        selectModeContainer.getLocationOnScreen(containerLoc)
+
+        return (loc[1] - containerLoc[1]) + v.height / 2f
     }
 
     private var downloadJob: Job? = null
@@ -1574,21 +1807,43 @@ class SelectSongHorizontal : AppCompatActivity() {
             prepare()
         }
         val isHalfDouble = AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
-        load(playerSong.rutaKsf, isHalfDouble)
+        val song = AppResources.listSongsChannelKsf[oldValue]
 
-        if(playerSong.mirror){
-            if(!isHalfDouble){
-                ksf.makeMirror()
-            }else{
-                ksfHD.makeMirror()
+        if(song.isSSC){
+            val ssc = readFileSsc(song.rutaSsc)
+            val seccions = ssc.split("#NOTEDATA:;")
+            chart = Parser().parseSSC(seccions[song.listKsf[positionActualLvs].steps], song.rutaSong)
+            playerSong.isSSC = true
+            if(playerSong.mirror){
+                if(!isHalfDouble){
+                    chart.notes = Parser().makeMirror(chart.notes)
+                }else{
+                    chart.notes = Parser().makeRandom(chart.notes)
+                }
+                if(playerSong.rs){
+                    if(!isHalfDouble){
+                        chart.notes = Parser().makeMirror(chart.notes)
+                    }else{
+                        chart.notes = Parser().makeRandom(chart.notes)
+                    }
+                }
             }
+        }else {
+            load(playerSong.rutaKsf, isHalfDouble)
+            if (playerSong.mirror) {
+                if (!isHalfDouble) {
+                    ksf.makeMirror()
+                } else {
+                    ksfHD.makeMirror()
+                }
 
-        }
-        if(playerSong.rs){
-            if(!isHalfDouble){
-                ksf.makeRandom()
-            }else{
-                ksfHD.makeRandom()
+            }
+            if (playerSong.rs) {
+                if (!isHalfDouble) {
+                    ksf.makeRandom()
+                } else {
+                    ksfHD.makeRandom()
+                }
             }
         }
         if(!isOnline){
@@ -1609,7 +1864,13 @@ class SelectSongHorizontal : AppCompatActivity() {
         handlerSelectSongHorizontal.postDelayed({
 
             //mediPlayer.pause()
-            val intent = Intent(this, GameScreenActivityHorizontal()::class.java)
+            val intent = Intent(
+                this,
+                if (orientationMode == OrientationMode.VERTICAL)
+                    GameScreenActivity()::class.java
+                else
+                    GameScreenActivityHorizontal()::class.java
+            )
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
             startActivity(intent)
             handlerSelectSongHorizontal.postDelayed({
@@ -1618,6 +1879,8 @@ class SelectSongHorizontal : AppCompatActivity() {
                 imgLoading.isVisible = false
             }, 1000L)
             ready = 0
+            modeSelected = false
+            constraintMain.removeView(selectModeContainer)
         }, 3000L)
     }
 

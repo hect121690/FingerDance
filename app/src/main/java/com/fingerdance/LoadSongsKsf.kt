@@ -143,7 +143,7 @@ class LoadSongsKsf {
                         }
 
                         if(it.toString().endsWith(".ksf", ignoreCase = true)){
-                            val ksf = Ksf(steps = "")
+                            val ksf = Ksf(steps = 0)
                             ksf.typePlayer = "A"
                             ksf.typeSteps = "NORMAL"
                             val file = File(it.toString())

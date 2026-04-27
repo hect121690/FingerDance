@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
@@ -26,6 +27,7 @@ import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
+import com.fingerdance.ssc.GameScreenSscHorizontal
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -40,8 +42,9 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
     private lateinit var gdxContainer : RelativeLayout
     private var currentVideoPositionScreen : Int = 0
 
-    lateinit var videoViewBgaoff : VideoView
-    //lateinit var videoViewBgaOn : VideoView
+    private lateinit var videoBgaOff: TextureView
+    private lateinit var videoBgaOffPlayer: MediaPlayer
+
     lateinit var videoBgaOn : TextureView
     lateinit var videoBgaOnPLayer: MediaPlayer
 
@@ -51,12 +54,13 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
     private lateinit var bitNoMiss  : Bitmap
 
     private var isPlayingEndSong = 0
-    private var isFirstPlay = true  // Bandera para la primera reproducción
+    private var isFirstPlay = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_screen)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         gdxContainer = findViewById(R.id.gdxContainer)
         gdxContainer.layoutParams = RelativeLayout.LayoutParams(
@@ -65,6 +69,10 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
         readyPlay = false
+
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        spaceInitHorizontal = (screenWidth / 2f) - (medidaFlechasHorizontal * 3.5f)
 
         canGoBack = false
         thisHandler.postDelayed({
@@ -94,7 +102,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
-        val gdxView = initializeForView(MyGameScreenHorizontal(this), config)
+        val gdxView = initializeForView(MyGameScreenHorizontal(this, playerSong), config)
         if(gdxView is SurfaceView){
             (gdxView).setZOrderOnTop(true)
             (gdxView).holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -109,10 +117,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                     linearBGADark.visibility = View.GONE
                 }
             } else {
-                videoViewBgaoff.start()
-                videoViewBgaoff.setOnCompletionListener {
-                    videoViewBgaoff.start()
-                }
+                videoBgaOffPlayer.start()
                 if(playerSong.isBAGDark){
                     linearBGADark.visibility = View.VISIBLE
                 }else {
@@ -120,7 +125,9 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 }
             }
             mediaPlayer.start()
-
+            if(mediPlayer.isPlaying){
+                mediPlayer.stop()
+            }
         }, timeToPlay)
         if(!isOnline){
             if(!isOffline){
@@ -186,10 +193,20 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
+    fun getSongTimeMs(): Long {
+        return try {
+            mediaPlayer.currentPosition.toLong()
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
     private fun addVideoBackground() {
-        videoViewBgaoff = findViewById(R.id.videoViewBgaOff)
-        videoViewBgaoff.isVisible = false
+        videoBgaOn = findViewById(R.id.videoViewBgaOn)
+        videoBgaOff = findViewById(R.id.videoViewBgaOff)
+
         videoBgaOnPLayer = MediaPlayer()
+        videoBgaOffPlayer = MediaPlayer()
 
         videoBgaOn = findViewById(R.id.videoViewBgaOn)
 
@@ -207,36 +224,29 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
         }
 
-
-        if(isFileExists(File(playerSong.rutaVideo!!))){
-            if(playerSong.isBGAOff == false){
-                videoViewBgaoff.isVisible = false
-                videoBgaOn.isVisible = true
-                videoBgaOnPLayer.reset()
-
-                // Preparar MediaPlayer en hilo separado para evitar ANR
-                Thread {
-                    try {
-                        videoBgaOnPLayer.apply {
-                            setDataSource(playerSong.rutaVideo)
-                            prepare()
-                        }
-                        isVideo = true
-                    } catch (e: Exception) {
-                        Log.e("GameScreenActivity", "Error preparando video: ${e.message}")
-                        isVideo = false
-                    }
-                }.start()
-            }else{
-                videoViewBgaoff.isVisible = true
-                videoBgaOn.isVisible = false
-                videoViewBgaoff.setVideoPath(bgaOff)
-                isVideo = false
+        videoBgaOff.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                videoBgaOffPlayer.setSurface(Surface(surface))
             }
-        }else{
-            videoViewBgaoff.isVisible = true
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+        }
+
+        val customVideo = playerSong.rutaVideo
+        val hasCustom = !customVideo.isNullOrEmpty() && isFileExists(File(customVideo))
+
+        if (hasCustom && !playerSong.isBGAOff) {
+            // 👉 VIDEO GRANDE
+            videoBgaOn.isVisible = true
+            videoBgaOff.isVisible = false
+            prepareVideo(videoBgaOnPLayer, customVideo)
+            isVideo = true
+        } else {
+            // 👉 VIDEO FULL SCREEN
             videoBgaOn.isVisible = false
-            videoViewBgaoff.setVideoPath(bgaOff)
+            videoBgaOff.isVisible = true
+            prepareVideo(videoBgaOffPlayer, bgaOff, isBgaOff = true)
             isVideo = false
         }
 
@@ -277,6 +287,19 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             }, 4000)
         }
 
+    }
+
+    private fun prepareVideo(player: MediaPlayer, path: String, isBgaOff: Boolean = false) {
+        Thread {
+            try {
+                player.reset()
+                player.setDataSource(path)
+                player.isLooping = isBgaOff
+                player.prepare()
+            } catch (e: Exception) {
+                Log.e("VIDEO", "Error al preparar video: ${e.message}")
+            }
+        }.start()
     }
 
     private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
@@ -409,9 +432,9 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             }
         } else {
             try {
-                if (::videoViewBgaoff.isInitialized) {
-                    videoViewBgaoff.seekTo(0)
-                    videoViewBgaoff.suspend()
+                if (::videoBgaOffPlayer.isInitialized) {
+                    videoBgaOffPlayer.seekTo(0)
+                    videoBgaOffPlayer.release()
                 }
             } catch (e: Exception) {
                 Log.e("GameScreenActivity", "Error al suspender videoViewBgaoff: ${e.message}")
@@ -499,7 +522,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         if (isVideo) {
             videoBgaOnPLayer.pause()
         } else {
-            videoViewBgaoff.pause()
+            videoBgaOffPlayer.pause()
         }
     }
 
@@ -538,31 +561,48 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 videoBgaOnPLayer.start()
             }
         } else {
-            videoViewBgaoff.seekTo(currentVideoPositionScreen)
-            if (!videoViewBgaoff.isPlaying) {
-                videoViewBgaoff.start()
+            videoBgaOffPlayer.seekTo(currentVideoPositionScreen)
+            if (!videoBgaOffPlayer.isPlaying) {
+                videoBgaOffPlayer.start()
             }
         }
     }
 }
 
-class MyGameScreenHorizontal(gameScreenActivity: GameScreenActivityHorizontal) : Game() {
+class MyGameScreenHorizontal(gameScreenActivity: GameScreenActivityHorizontal, playerSong: PlayerSong) : Game() {
     val gsa = gameScreenActivity
-    private var gameScreenHorizontal: GameScreenKsfHorizontal? = null
+    val ps = playerSong
+    private var gameScreenKsfHorizontal: GameScreenKsfHorizontal? = null
+    private var gameScreenSscHorizontal: GameScreenSscHorizontal? = null
     private var gameScreenHD: GameScreenKsfHD? = null
     override fun create() {
-        if(halfDouble){
-            //gameScreenHD = GameScreenKsfHD(gsa)
-            //setScreen(gameScreenHD)
-        }else {
-            gameScreenHorizontal = GameScreenKsfHorizontal(gsa)
-            setScreen(gameScreenHorizontal)
+        playerSong = ps
+        if(playerSong.isSSC) {
+            if (halfDouble) {
+                //gameScreenHD = GameScreenKsfHD(gsa)
+                //setScreen(gameScreenHD)
+            } else {
+                gameScreenSscHorizontal = GameScreenSscHorizontal(gsa)
+                setScreen(gameScreenSscHorizontal)
+            }
+        }else{
+            if (halfDouble) {
+                //gameScreenHD = GameScreenKsfHD(gsa)
+                //setScreen(gameScreenHD)
+            } else {
+                gameScreenKsfHorizontal = GameScreenKsfHorizontal(gsa)
+                setScreen(gameScreenKsfHorizontal)
+            }
         }
     }
 
     override fun dispose() {
         super.dispose()
-        gameScreenHorizontal?.dispose()
+        if(playerSong.isSSC){
+            gameScreenSscHorizontal?.dispose()
+        }else {
+            gameScreenKsfHorizontal?.dispose()
+        }
     }
 }
 

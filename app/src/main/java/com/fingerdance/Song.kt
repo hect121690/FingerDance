@@ -1,6 +1,5 @@
 package com.fingerdance
 
-import com.google.firebase.annotations.concurrent.Background
 import java.io.Serializable
 
 class Song(var title:String = "",
@@ -15,12 +14,13 @@ class Song(var title:String = "",
            var offset: Long = 0L,
            var channel: String = "",
            var isFavorite: Boolean = false,
-           var isSSC: Boolean = false
+           var isSSC: Boolean = false,
+           var rutaSsc: String = "",
 ) : Serializable
 
 
 data class Ksf(var rutaKsf: String = "",
-               var steps: String,
+               var steps: Int,
                var level: String = "",
                var rutaBitActive: String = "",
                var stepmaker: String = "",

@@ -46,7 +46,6 @@ var chart = Chart(
     speeds = emptyList(),
     scrolls = emptyList(),
     notes = emptyList(),
-    extendedNotes = emptyList(),
     luaEvents = emptyList()
 )
 
@@ -323,7 +322,6 @@ fun trimTransparentEdges(source: Bitmap): Bitmap {
         bottom - top + 1
     )
 }
-
 
 fun getFilesCW(c: Context) : ArrayList<Command>{
     val rutaImgsCommands = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/commands").toString()
@@ -666,6 +664,17 @@ private fun getSoundEndSong(pathSounds: String){
     no_miss = soundPoolSelectSong.load(decriptorNoMiss, 0, pathNoMiss.length(), 1)
 }
 
+fun readFileSsc(path: String): String {
+    val bytes = Files.readAllBytes(Paths.get(path))
+    val utf8 = String(bytes, Charsets.UTF_8)
+
+    return if (utf8.contains("�")) {
+        String(bytes, Charsets.ISO_8859_1)
+    } else {
+        utf8
+    }
+}
+
 data class FirstRank(
     val nombre: String = "---------",
     val puntaje: String = "0",
@@ -700,4 +709,8 @@ enum class SaveResult {
 enum class VisualTarget {
     RECEPTOR,
     NOTES
+}
+
+enum class OrientationMode {
+    HORIZONTAL, VERTICAL
 }

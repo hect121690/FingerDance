@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <VideoView
+    <TextureView
         android:id="@+id/videoViewBgaOff"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -15,7 +15,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <VideoView
+    <TextureView
         android:id="@+id/videoViewBgaOn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,6 +23,26 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <LinearLayout
+        android:id="@+id/linearBGADark"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+
+    <ImageView
+        android:id="@+id/imgEndSong"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.30" />
 
     <RelativeLayout
         android:id="@+id/gdxContainer"

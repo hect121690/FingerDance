@@ -14,6 +14,7 @@ import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.fingerdance.GameScreenActivityHorizontal
 import com.fingerdance.PlayerHorizontal
+import com.fingerdance.PlayerSscHorizontal
 import com.fingerdance.aBatch
 import com.fingerdance.alphaPadB
 import com.fingerdance.bBatch
@@ -34,7 +35,7 @@ import com.fingerdance.width
 import com.fingerdance.widthBtnsHorizontal
 import kotlin.math.abs
 
-open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Screen {
+open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Screen {
     val a = activity
 
     private lateinit var batch: SpriteBatch
@@ -101,7 +102,7 @@ open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Scr
 
     private var isPaused = false
     lateinit var camera : OrthographicCamera
-    lateinit var player: PlayerHorizontal
+    lateinit var player: PlayerSscHorizontal
     private val posYpadB = (medidaFlechasHorizontal * 2)
     private val posXpadRight = height - (widthBtnsHorizontal * 3)
 
@@ -151,7 +152,7 @@ open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Scr
         camera = OrthographicCamera()
         camera.setToOrtho(true, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
 
-        player = PlayerHorizontal(batch, a)
+        player = PlayerSscHorizontal(batch, a)
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechasHorizontal
 
@@ -170,14 +171,13 @@ open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Scr
         batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
-            val currentTime = (elapsedTime * 1000).toLong() - 1000
+            val songTimeMs = a.getSongTimeMs()
+            elapsedTime += delta
 
             batch.begin()
             showBgPads()
-            player.updateStepData(currentTime)
+            player.updateStepData(songTimeMs)
             //batch.color = Color(0f, 0f, 0f, 0f)
-
-            elapsedTime += delta
 
             if(!playerSong.fd){
                 intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
@@ -187,10 +187,10 @@ open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Scr
                     showOverlay = !showOverlay
                 }
                 //ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
-                drawRecepts(player.luaReceptOffsetX)
+                drawRecepts(player.luaReceptOffsetX.toFloat())
             }
 
-            player.render(currentTime)
+            player.render(songTimeMs)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechasHorizontal, posYGauje)
@@ -235,47 +235,17 @@ open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Scr
     private fun showBgPads() {
         if(showPadB == 0){
             if(!hideImagesPadA){
-                batch.draw(padLefDown, padPositionsHorizontal[0][0], padPositionsHorizontal[0][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padLeftUp, padPositionsHorizontal[1][0], padPositionsHorizontal[1][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padCenter, padPositionsHorizontal[2][0], padPositionsHorizontal[2][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padRightUp, padPositionsHorizontal[3][0], padPositionsHorizontal[3][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padRightDown, padPositionsHorizontal[4][0], padPositionsHorizontal[4][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
+                batch.draw(padLefDown, padPositionsHorizontal[0][0], padPositionsHorizontal[0][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padLeftUp, padPositionsHorizontal[1][0], padPositionsHorizontal[1][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padCenter, padPositionsHorizontal[2][0], padPositionsHorizontal[2][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightUp, padPositionsHorizontal[3][0], padPositionsHorizontal[3][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightDown, padPositionsHorizontal[4][0], padPositionsHorizontal[4][1], widthBtnsHorizontal, heightBtnsHorizontal)
 
-                batch.draw(padLefDown, padPositionsHorizontal[5][0], padPositionsHorizontal[5][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padLeftUp, padPositionsHorizontal[6][0], padPositionsHorizontal[6][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padCenter, padPositionsHorizontal[7][0], padPositionsHorizontal[7][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padRightUp, padPositionsHorizontal[8][0], padPositionsHorizontal[8][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
-                batch.draw(padRightDown, padPositionsHorizontal[9][0], padPositionsHorizontal[9][1],
-                    widthBtnsHorizontal,
-                    heightBtnsHorizontal
-                )
+                batch.draw(padLefDown, padPositionsHorizontal[5][0], padPositionsHorizontal[5][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padLeftUp, padPositionsHorizontal[6][0], padPositionsHorizontal[6][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padCenter, padPositionsHorizontal[7][0], padPositionsHorizontal[7][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightUp, padPositionsHorizontal[8][0], padPositionsHorizontal[8][1], widthBtnsHorizontal, heightBtnsHorizontal)
+                batch.draw(padRightDown, padPositionsHorizontal[9][0], padPositionsHorizontal[9][1], widthBtnsHorizontal, heightBtnsHorizontal)
 
 
             }
@@ -289,96 +259,36 @@ open class GameScreenHorizontalSsc(activity: GameScreenActivityHorizontal) : Scr
             spritePadB.setBounds(posXpadRight, posYpadB, widthBtnsHorizontal * 3, width - (medidaFlechasHorizontal * 2))
             spritePadB.draw(batch)
         }else if (showPadB == 3){
-            batch.draw(arrayPad4Bg[0], padPositionsHorizontal[0][0], padPositionsHorizontal[0][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[1], padPositionsHorizontal[1][0], padPositionsHorizontal[1][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[2], padPositionsHorizontal[2][0], padPositionsHorizontal[2][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[3], padPositionsHorizontal[3][0], padPositionsHorizontal[3][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[4], padPositionsHorizontal[4][0], padPositionsHorizontal[4][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
+            batch.draw(arrayPad4Bg[0], padPositionsHorizontal[0][0], padPositionsHorizontal[0][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[1], padPositionsHorizontal[1][0], padPositionsHorizontal[1][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[2], padPositionsHorizontal[2][0], padPositionsHorizontal[2][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[3], padPositionsHorizontal[3][0], padPositionsHorizontal[3][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[4], padPositionsHorizontal[4][0], padPositionsHorizontal[4][1], widthBtnsHorizontal, heightBtnsHorizontal)
 
-            batch.draw(arrayPad4Bg[0], padPositionsHorizontal[5][0], padPositionsHorizontal[5][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[1], padPositionsHorizontal[6][0], padPositionsHorizontal[6][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[2], padPositionsHorizontal[7][0], padPositionsHorizontal[7][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[3], padPositionsHorizontal[8][0], padPositionsHorizontal[8][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
-            batch.draw(arrayPad4Bg[4], padPositionsHorizontal[9][0], padPositionsHorizontal[9][1],
-                widthBtnsHorizontal,
-                heightBtnsHorizontal
-            )
+            batch.draw(arrayPad4Bg[0], padPositionsHorizontal[5][0], padPositionsHorizontal[5][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[1], padPositionsHorizontal[6][0], padPositionsHorizontal[6][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[2], padPositionsHorizontal[7][0], padPositionsHorizontal[7][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[3], padPositionsHorizontal[8][0], padPositionsHorizontal[8][1], widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(arrayPad4Bg[4], padPositionsHorizontal[9][0], padPositionsHorizontal[9][1], widthBtnsHorizontal, heightBtnsHorizontal)
         }
     }
 
     private fun drawRecepts(luaReceptOffsetX: Float) {
-        batch.draw(recept0Frames[0], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-            medidaFlechasHorizontal,
-            medidaFlechasHorizontal
-        )
-        batch.draw(recept1Frames[0], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-            medidaFlechasHorizontal,
-            medidaFlechasHorizontal
-        )
-        batch.draw(recept2Frames[0], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-            medidaFlechasHorizontal,
-            medidaFlechasHorizontal
-        )
-        batch.draw(recept3Frames[0], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-            medidaFlechasHorizontal,
-            medidaFlechasHorizontal
-        )
-        batch.draw(recept4Frames[0], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-            medidaFlechasHorizontal,
-            medidaFlechasHorizontal
-        )
+        batch.draw(recept0Frames[0], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept1Frames[0], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept2Frames[0], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept3Frames[0], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(recept4Frames[0], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(recept0Frames[1], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-                medidaFlechasHorizontal,
-                medidaFlechasHorizontal
-            )
-            batch.draw(recept1Frames[1], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-                medidaFlechasHorizontal,
-                medidaFlechasHorizontal
-            )
-            batch.draw(recept2Frames[1], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-                medidaFlechasHorizontal,
-                medidaFlechasHorizontal
-            )
-            batch.draw(recept3Frames[1], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-                medidaFlechasHorizontal,
-                medidaFlechasHorizontal
-            )
-            batch.draw(recept4Frames[1], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontal, targetTop,
-                medidaFlechasHorizontal,
-                medidaFlechasHorizontal
-            )
+            batch.draw(recept0Frames[1], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept1Frames[1], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept2Frames[1], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept3Frames[1], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(recept4Frames[1], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontal, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }

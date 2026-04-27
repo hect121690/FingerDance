@@ -39,7 +39,6 @@ class InputProcessorHorizontal : InputAdapter() {
 
     // 🔥 UTILIDADES CLAVE
     fun getLogicalPad(padIndex: Int): Int = padIndex % 5
-    fun isRightSide(padIndex: Int): Boolean = padIndex >= 5
 
     override fun keyDown(keycode: Int): Boolean {
         keyToPadMap[keycode]?.let { padIndex ->

@@ -45,7 +45,6 @@ class Parser {
         val speeds: List<Speed>,
         val scrolls: List<Scroll>,
         var notes: List<Note>,
-        val extendedNotes: List<Note>,
         val luaEvents: List<LuaVisualEvent> = emptyList()
     )
 
@@ -81,7 +80,6 @@ class Parser {
             speeds = speeds,
             scrolls = scrolls,
             notes = allNotes,
-            extendedNotes = extendedNotes,
             luaEvents = luaEvents
         )
     }
@@ -163,6 +161,16 @@ class Parser {
                 for (col in 0 until row.size) {
 
                     when (row[col]) {
+                        'F', 'f' -> {
+                            notes.add(
+                                Note(
+                                    column = col,
+                                    beat = beat,
+                                    isFake = true,
+                                    type = NoteType.TAP
+                                )
+                            )
+                        }
 
                         '1' -> {
                             val fake = isFake(beat, fakes)

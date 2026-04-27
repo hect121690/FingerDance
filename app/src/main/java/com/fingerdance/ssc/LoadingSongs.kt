@@ -1,10 +1,12 @@
 package com.fingerdance.ssc
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.util.Log
 import com.fingerdance.Channels
 import com.fingerdance.Ksf
 import com.fingerdance.Song
+import com.fingerdance.readFileSsc
 import com.fingerdance.tema
 import java.io.File
 import java.nio.file.Files
@@ -28,7 +30,7 @@ class LoadingSongs {
 
         for (ruta in rutas) {
             val nombre = File(ruta).name
-            val descripcion = readFile("$ruta/info_ssc/text.ini")
+            val descripcion = readFileSsc("$ruta/info_ssc/text.ini")
             val banner = "$ruta/banner_ssc.png"
             val songs = getSongs(ruta, c)
 
@@ -62,7 +64,7 @@ class LoadingSongs {
 
             val dir = File(ruta)
             val sscFiles = dir.listFiles { f -> f.extension.equals("ssc", true) } ?: continue
-
+            val imgs = dir.listFiles { i -> i.extension.equals("png", true) || i.extension.equals("jpg", true) }
             for (fileSSC in sscFiles) {
 
                 // 🔹 VARIABLES LOCALES (FIX)
@@ -77,10 +79,8 @@ class LoadingSongs {
                 var credit = ""
                 var chartName = ""
 
-                val ssc = readFile(fileSSC.absolutePath)
-
+                val ssc = readFileSsc(fileSSC.absolutePath)
                 val seccions = ssc.split("#NOTEDATA:;")
-
                 val arr = seccions[0].split(Regex("\\r?\\n"))
 
                 for (lineRaw in arr) {
@@ -91,29 +91,64 @@ class LoadingSongs {
                         line.startsWith("#TITLE:") -> name = getValue(line)
                         line.startsWith("#ARTIST:") -> artist = getValue(line)
 
-                        line.startsWith("#BANNER:") || line.startsWith("#BACKGROUND:") -> {
+                        /*
+                        line.startsWith("#BANNER:") -> {
                             rutaBanner = "$ruta/${getValue(line)}"
                         }
 
-                        line.startsWith("#CDIMAGE:") || line.startsWith("#DISCIMAGE:") -> {
+                        line.startsWith("#BACKGROUND:") && rutaBanner.isEmpty() -> {
+                            rutaBanner = "$ruta/${getValue(line)}"
+                        }
+
+                        line.startsWith("#CDTITLE:") && rutaBanner.isEmpty() -> {
+                            rutaBanner = "$ruta/${getValue(line)}"
+                        }
+
+                        line.startsWith("#DISCIMAGE:") -> {
                             rutaDisc = "$ruta/${getValue(line)}"
                         }
+
+                        line.startsWith("#CDIMAGE:") && rutaDisc.isEmpty()-> {
+                            rutaDisc = "$ruta/${getValue(line)}"
+                        }
+                        */
 
                         line.startsWith("#MUSIC:") -> {
                             val song = getValue(line)
                             rutaCancion = resolveRealFile(dir, song)
+                            if(line.contains("/") || line.contains("..")){
+                                val songSplit = line.split("/")
+                                rutaCancion = resolveRealFile(dir, songSplit.last())
+                            }
 
-                            if (song.endsWith(".mp3", true) || song.endsWith(".ogg", true)) {
-                                rutaBga = "$ruta/${song.substringBeforeLast(".")}.mp4"
+                            if (rutaCancion.endsWith(".mp3", true) || rutaCancion.endsWith(".ogg", true)) {
+                                rutaBga = "$ruta/${rutaCancion.substringBeforeLast(".")}.mp4"
                             }
                         }
 
                         line.startsWith("#PREVIEW") -> {
                             rutaPreview = "$ruta/${getValue(line)}"
+                            if(line.contains("/") || line.contains("..")){
+                                val prevSplit = line.split("/")
+                                rutaPreview = "$ruta/${prevSplit.last()}"
+                            }
                         }
 
-                        line.startsWith("#DISPLAYBPM:") || line.startsWith("#BPMS:") -> {
+                        line.startsWith("#DISPLAYBPM:") -> {
+                            if(name == "Switronic"){
+                                name
+                            }
                             displayBpm = getDisplayBpm(line)
+                        }
+
+                        line.startsWith("#BPMS:") -> {
+                            if(displayBpm == "") {
+                                if(line.contains("=", true)) {
+                                    displayBpm = extractBpmsInHeader(line)
+                                }else{
+                                    displayBpm = getDisplayBpm(line)
+                                }
+                            }
                         }
 
                         line.startsWith("#CREDIT:") -> {
@@ -122,12 +157,15 @@ class LoadingSongs {
                     }
                 }
 
-                if (!isFileExists(File(rutaDisc))) {
-                    rutaDisc = rutaBanner
-                }
-
                 if(rutaPreview.endsWith("mpg", true)){
-                    rutaPreview = rutaCancion.replace(".mp3", "_p.mp4", ignoreCase = true)
+                    when {
+                        rutaCancion.endsWith(".mp3", true) -> {
+                            rutaPreview = rutaCancion.replace(".mp3", "_p.mp4", ignoreCase = true)
+                        }
+                        rutaCancion.endsWith(".ogg", true) -> {
+                            rutaPreview = rutaCancion.replace(".ogg", "_p.mp4", ignoreCase = true)
+                        }
+                    }
                 }
 
                 val listLevels = arrayListOf<Ksf>()
@@ -154,7 +192,11 @@ class LoadingSongs {
                         }
                     }
 
-                    if (displayBpm == "" || displayBpm.toDoubleOrNull()!! < 10.0) {
+                    if (displayBpm == "") {
+                        displayBpm = extractFromBPMS(arr2.toList())
+                    }
+
+                    if (displayBpm.toDoubleOrNull()!! < 10.0) {
                         displayBpm = extractFromBPMS(arr2.toList())
                     }
 
@@ -171,7 +213,7 @@ class LoadingSongs {
                             Ksf(
                                 level = numberLevel,
                                 rutaBitActive = icon,
-                                steps = seccions[index], // 🔥 EXACTO COMO TENÍAS
+                                steps = index, // 🔥 EXACTO COMO TENÍAS
                                 typePlayer = player,
                                 typeSteps = typeSteps,
                                 stepmaker = credit,
@@ -192,6 +234,34 @@ class LoadingSongs {
 
                 if (rutaCancion.isEmpty()) continue
 
+                if(imgs != null && imgs.size > 0){
+                    if(imgs.size == 1){
+                        rutaBanner = imgs[0].absolutePath
+                        rutaDisc = imgs[0].absolutePath
+                    }else{
+                        var minPixels = Int.MAX_VALUE
+                        var maxPixels = 0
+
+                        val options = BitmapFactory.Options().apply {
+                            inJustDecodeBounds = true
+                        }
+
+                        for (file in imgs) {
+                            BitmapFactory.decodeFile(file.absolutePath, options)
+                            if (options.outWidth <= 0 || options.outHeight <= 0) continue
+                            val pixels = options.outWidth * options.outHeight
+                            if (pixels < minPixels) {
+                                minPixels = pixels
+                                rutaDisc = file.absolutePath
+                            }
+                            if (pixels > maxPixels) {
+                                maxPixels = pixels
+                                rutaBanner = file.absolutePath
+                            }
+                        }
+                    }
+                }
+
                 listSongs.add(
                     Song(
                         title = name,
@@ -204,7 +274,8 @@ class LoadingSongs {
                         rutaBGA = rutaBga,
                         listKsf = listLevels,
                         channel = dir.parentFile.name,
-                        isSSC = true
+                        isSSC = true,
+                        rutaSsc = fileSSC.absolutePath
                     )
                 )
             }
@@ -219,12 +290,20 @@ class LoadingSongs {
         return "%.2f".format(bpm.toDoubleOrNull() ?: 0.0)
     }
 
+    private fun extractBpmsInHeader(line: String): String {
+        val bpm = line.substringAfter("=").substringBefore(",").substringBefore(";")
+        return "%.2f".format(bpm.toDoubleOrNull() ?: 0.0)
+    }
+
     private fun isFileExists(file: File): Boolean {
         return file.exists() && !file.isDirectory
     }
 
     private fun getDisplayBpm(line: String): String {
         val bpm = line.substringAfter(":").substringBefore(";")
+        if(bpm.contains(":") || bpm.contains("-")){
+            return "%.2f".format(bpm.substringAfter(":").toDoubleOrNull())
+        }
         return "%.2f".format(bpm.toDoubleOrNull() ?: 0.0)
     }
 
@@ -268,16 +347,5 @@ class LoadingSongs {
         }
 
         return list
-    }
-
-    private fun readFile(path: String): String {
-        val bytes = Files.readAllBytes(Paths.get(path))
-        val utf8 = String(bytes, Charsets.UTF_8)
-
-        return if (utf8.contains("�")) {
-            String(bytes, Charsets.ISO_8859_1)
-        } else {
-            utf8
-        }
     }
 }

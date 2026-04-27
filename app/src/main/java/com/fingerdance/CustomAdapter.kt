@@ -1,6 +1,8 @@
 package com.fingerdance
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.util.LruCache
 import android.view.LayoutInflater
@@ -10,23 +12,33 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.fingerdance.databinding.ItemBinding
+import java.io.File
+import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 class CustomAdapter(
+    private val context: Context,
     private val songListKsf: ArrayList<Song>,
     private val heightBanners: Int,
     private val widthBanners: Int
 ) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
-    // 🔥 thread pool para trim (no bloquear UI)
+    // 🔥 Thread pool
     private val executor = Executors.newFixedThreadPool(2)
 
+    // 🔥 Memory cache
     private val imageCache = object : LruCache<String, Bitmap>(
         (Runtime.getRuntime().maxMemory() / 8).toInt()
     ) {
         override fun sizeOf(key: String, value: Bitmap): Int {
             return value.byteCount
         }
+    }
+
+    // 🔥 Disk cache dir
+    private val diskCacheDir = File(context.cacheDir, "thumbs").apply {
+        if (!exists()) mkdirs()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -40,7 +52,12 @@ class CustomAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val realPosition = getRealPosition(position)
-        holder.bindItem(songListKsf[realPosition], imageCache)
+        holder.bindItem(
+            context,
+            songListKsf[realPosition],
+            imageCache,
+            diskCacheDir
+        )
     }
 
     override fun getItemCount(): Int = Int.MAX_VALUE
@@ -57,27 +74,43 @@ class CustomAdapter(
         private val executor: java.util.concurrent.ExecutorService
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bindItem(song: Song, cache: LruCache<String, Bitmap>) {
+        fun bindItem(
+            context: Context,
+            song: Song,
+            memoryCache: LruCache<String, Bitmap>,
+            diskCacheDir: File
+        ) {
+            val path = song.rutaDisc
+            binding.image.tag = path
 
             binding.image.layoutParams.apply {
                 height = heightB
                 width = widthB
             }
 
-            val path = song.rutaDisc
-            binding.image.tag = path
+            val key = md5(path + widthB + heightB)
 
-            // 🔥 1. cache primero (instantáneo)
-            val cached = cache.get(path)
-            if (cached != null) {
-                binding.image.setImageBitmap(cached)
+            // 🔥 1. MEMORY CACHE
+            memoryCache.get(key)?.let {
+                binding.image.setImageBitmap(it)
                 return
             }
 
-            // 🔥 2. placeholder inmediato (evita pantalla vacía)
+            // 🔥 2. DISK CACHE
+            val file = File(diskCacheDir, "$key.webp")
+            if (file.exists()) {
+                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                if (bitmap != null) {
+                    memoryCache.put(key, bitmap)
+                    binding.image.setImageBitmap(bitmap)
+                    return
+                }
+            }
+
+            // 🔥 3. PLACEHOLDER
             binding.image.setImageResource(R.drawable.placeholder)
 
-            // 🔥 3. Glide → decode + resize
+            // 🔥 4. GENERAR (solo una vez en vida del cache)
             Glide.with(binding.image)
                 .asBitmap()
                 .load(path)
@@ -87,15 +120,14 @@ class CustomAdapter(
 
                     override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
 
-                        if (binding.image.tag != path) return
-
-                        // 🔥 mostrar rápido SIN trim
-                        binding.image.setImageBitmap(resource)
-
-                        // 🔥 trim en background (NO bloquea UI)
                         executor.execute {
                             val trimmed = trimTransparent(resource)
-                            cache.put(path, trimmed)
+
+                            // 🔥 guardar en disco
+                            saveToDisk(trimmed, file)
+
+                            // 🔥 guardar en memoria
+                            memoryCache.put(key, trimmed)
 
                             binding.image.post {
                                 if (binding.image.tag == path) {
@@ -109,7 +141,7 @@ class CustomAdapter(
                 })
         }
 
-        // 🔥 trim optimizado (ahora sobre imagen pequeña)
+        // 🔥 Trim optimizado
         private fun trimTransparent(src: Bitmap): Bitmap {
             val width = src.width
             val height = src.height
@@ -145,6 +177,21 @@ class CustomAdapter(
                 maxX - minX + 1,
                 maxY - minY + 1
             )
+        }
+
+        // 🔥 Guardar WEBP (rápido + liviano)
+        private fun saveToDisk(bitmap: Bitmap, file: File) {
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 80, out)
+            }
+        }
+
+        companion object {
+            // 🔥 Hash robusto
+            fun md5(input: String): String {
+                val bytes = MessageDigest.getInstance("MD5").digest(input.toByteArray())
+                return bytes.joinToString("") { "%02x".format(it) }
+            }
         }
     }
 }

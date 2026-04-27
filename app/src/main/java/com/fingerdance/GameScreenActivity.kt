@@ -29,6 +29,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
+import android.content.pm.ActivityInfo
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -42,8 +43,8 @@ open class GameScreenActivity : AndroidApplication() {
     private lateinit var videoBgaOff: TextureView
     private lateinit var videoBgaOffPlayer: MediaPlayer
 
-    lateinit var videoBgaOn : TextureView
-    lateinit var videoBgaOnPLayer: MediaPlayer
+    private lateinit var videoBgaOn : TextureView
+    private lateinit var videoBgaOnPLayer: MediaPlayer
 
     private lateinit var imgEndSong : ImageView
     private lateinit var bitPerfectGame : Bitmap
@@ -57,6 +58,7 @@ open class GameScreenActivity : AndroidApplication() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_screen)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         gdxContainer = findViewById(R.id.gdxContainer)
         gdxContainer.layoutParams = RelativeLayout.LayoutParams(
@@ -94,7 +96,7 @@ open class GameScreenActivity : AndroidApplication() {
 
         val config = AndroidApplicationConfiguration()
         config.a = 8
-        val gdxView = initializeForView(MyGameScreen(this), config)
+        val gdxView = initializeForView(MyGameScreen(this, playerSong), config)
         if(gdxView is SurfaceView){
             (gdxView).setZOrderOnTop(true)
             (gdxView).holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -117,7 +119,9 @@ open class GameScreenActivity : AndroidApplication() {
                 }
             }
             mediaPlayer.start()
-
+            if(mediPlayer.isPlaying){
+                mediPlayer.stop()
+            }
         }, timeToPlay)
         if(!isOnline){
             if(!isOffline){
@@ -294,106 +298,6 @@ open class GameScreenActivity : AndroidApplication() {
             }
         }.start()
     }
-
-    /*
-    private fun addVideoBackground() {
-        videoBgaOn = findViewById(R.id.videoViewBgaOn)
-        videoBgaOff = findViewById(R.id.videoViewBgaOff)
-
-        videoViewBgaoff.isVisible = false
-        videoBgaOnPLayer = MediaPlayer()
-
-
-        videoBgaOn.y = medidaFlechas * 2
-        val newWidth = (width * 1.25).toInt()
-        val newHeight = (newWidth * 9 / 16).toInt()
-
-        videoBgaOn.layoutParams = videoBgaOn.layoutParams.apply {
-            width = newWidth
-            height = newHeight
-        }
-
-        videoBgaOn.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                videoBgaOnPLayer.setSurface(Surface(surface))
-            }
-            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-        }
-
-
-        if(isFileExists(File(playerSong.rutaVideo!!))){
-            if(playerSong.isBGAOff == false){
-                videoViewBgaoff.isVisible = false
-                videoBgaOn.isVisible = true
-                videoBgaOnPLayer.reset()
-
-                // Preparar MediaPlayer en hilo separado para evitar ANR
-                Thread {
-                    try {
-                        videoBgaOnPLayer.apply {
-                            setDataSource(playerSong.rutaVideo)
-                            prepare()
-                        }
-                        isVideo = true
-                    } catch (e: Exception) {
-                        Log.e("GameScreenActivity", "Error preparando video: ${e.message}")
-                        isVideo = false
-                    }
-                }.start()
-            }else{
-                videoViewBgaoff.isVisible = true
-                videoBgaOn.isVisible = false
-                videoViewBgaoff.setVideoPath(bgaOff)
-                isVideo = false
-            }
-        }else{
-            videoViewBgaoff.isVisible = true
-            videoBgaOn.isVisible = false
-            videoViewBgaoff.setVideoPath(bgaOff)
-            isVideo = false
-        }
-
-        mediaPlayer.isLooping = false
-        mediaPlayer.setOnPreparedListener {
-            isMediaPlayerPrepared = true
-        }
-
-        mediaPlayer.setOnCompletionListener {
-            resultSong.banner = playerSong.rutaBanner!!
-            if(currentChannel == "06-FAVORITES"){
-                val nameChannels = AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel
-                listenScoreChannel(nameChannels.toString()) { listaCanciones ->
-                    listGlobalRanking = listaCanciones
-                }
-                thisHandler.postDelayed({
-                    val rankingItem = listGlobalRanking.find { it.cancion == currentSong }
-                    if(rankingItem != null) {
-                        currentWorldScore = if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
-                            listOf(
-                                rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
-                                rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
-                                rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
-                            )
-                        }else{
-                            listOf("1000000", "1000000", "1000000")
-                        }
-                    }
-                }, 7000)
-            }
-            thisHandler.postDelayed({
-                getEndSong()
-            },1000)
-            thisHandler.postDelayed({
-                val intent = Intent(this, DanceGrade()::class.java)
-                startActivity(intent)
-                this.finish()
-            }, 4000)
-        }
-
-    }
-    */
 
     private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
         val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
@@ -662,12 +566,14 @@ open class GameScreenActivity : AndroidApplication() {
     }
 }
 
-class MyGameScreen(gameScreenActivity: GameScreenActivity) : Game() {
+class MyGameScreen(gameScreenActivity: GameScreenActivity, playerSong: PlayerSong) : Game() {
     val gsa = gameScreenActivity
+    val ps = playerSong
     private var gameScreen: GameScreenKsf? = null
     private var gameScreenHD: GameScreenKsfHD? = null
     private var gameScreenSsc: GameScreenSsc? = null
     override fun create() {
+        playerSong = ps
         if(halfDouble){
             gameScreenHD = GameScreenKsfHD(gsa)
             setScreen(gameScreenHD)
