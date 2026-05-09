@@ -93,6 +93,7 @@ val gson = Gson()
 
 lateinit var mediPlayer : MediaPlayer
 lateinit var playerSong: PlayerSong
+var initGameScreen = false
 var positionActualLvs: Int = 0
 var displayBPM = 0f
 var sizeLvs = 0
@@ -278,7 +279,8 @@ class MainActivity : AppCompatActivity(), Serializable {
                 Log.e("MOCK", "Error cargando JSON: ${e.message}")
             }
         }
-
+        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false, false,"", "", "")
+        mediPlayer = MediaPlayer()
         medidaFlechas = (width / 7f)
 
         heightLayoutBtns = height / 2f

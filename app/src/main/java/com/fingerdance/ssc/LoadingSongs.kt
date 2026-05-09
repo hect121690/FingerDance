@@ -63,7 +63,7 @@ class LoadingSongs {
         for (ruta in listRutas) {
 
             val dir = File(ruta)
-            val sscFiles = dir.listFiles { f -> f.extension.equals("ssc", true) } ?: continue
+            val sscFiles = dir.listFiles { f -> f.absolutePath.endsWith("ssc", true) } ?: continue
             val imgs = dir.listFiles { i -> i.extension.equals("png", true) || i.extension.equals("jpg", true) }
             for (fileSSC in sscFiles) {
 
@@ -80,6 +80,7 @@ class LoadingSongs {
                 var chartName = ""
 
                 val ssc = readFileSsc(fileSSC.absolutePath)
+
                 val seccions = ssc.split("#NOTEDATA:;")
                 val arr = seccions[0].split(Regex("\\r?\\n"))
 
@@ -114,9 +115,12 @@ class LoadingSongs {
                         */
 
                         line.startsWith("#MUSIC:") -> {
+                            if(name.equals("Club Night")){
+                                ssc
+                            }
                             val song = getValue(line)
                             rutaCancion = resolveRealFile(dir, song)
-                            if(line.contains("/") || line.contains("..")){
+                            if(line.contains("/")){
                                 val songSplit = line.split("/")
                                 rutaCancion = resolveRealFile(dir, songSplit.last())
                             }

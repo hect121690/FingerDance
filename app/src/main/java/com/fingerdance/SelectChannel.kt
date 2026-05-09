@@ -149,9 +149,12 @@ class SelectChannel : AppCompatActivity() {
 
         val adapter = CommandChannel(listChannels, (width * 0.6).toInt(), this)
 
-        val layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        val layoutManager = object : LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false){
+            override fun canScrollHorizontally(): Boolean = false
+        }
 
         recyclerChannels.layoutManager = layoutManager
+        recyclerChannels.isNestedScrollingEnabled = false
         recyclerChannels.adapter = adapter
         val startPosition = Int.MAX_VALUE / 2
         val mod = startPosition % listChannels.size

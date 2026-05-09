@@ -229,7 +229,7 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/linearListSongs"
             android:layout_width="match_parent"
-            android:layout_height="100dp"
+            android:layout_height="110dp"
             android:gravity="center_vertical"
             android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -238,7 +238,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.44">
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.fingerdance.SongCarouselViewVertical
                 android:id="@+id/recyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

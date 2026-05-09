@@ -3,6 +3,7 @@ package com.fingerdance
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.ColorStateList
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -34,6 +35,8 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.Button
+import android.widget.CheckBox
+import android.widget.CheckedTextView
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -88,21 +91,19 @@ import androidx.core.net.toUri
 import com.bumptech.glide.Glide
 import com.fingerdance.CustomAdapter.ViewHolder.Companion.md5
 import com.fingerdance.ssc.Parser
-import com.google.android.datatransport.runtime.ExecutionModule_ExecutorFactory.executor
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
 private lateinit var linearLvs: ConstraintLayout
 
-private lateinit var recyclerView: RecyclerView
+//private lateinit var recyclerView: RecyclerView
+private lateinit var carouselSong: SongCarouselViewVertical
 private lateinit var recyclerLvs: RecyclerView
 private lateinit var recyclerLvsVacios: RecyclerView
 private lateinit var recyclerCommands: ViewPager2
 private lateinit var recyclerCommandsValues: ViewPager2
 
 private lateinit var listItemsKsf: ArrayList<Song>
-
-private var middle: Int = 0
 
 private var animOn: Animation? = null
 private var animOff: Animation? = null
@@ -229,6 +230,15 @@ class SelectSong : AppCompatActivity() {
     private val visibleItems = 9
     private var firstVisible = 0
 
+    private var isRunning = false
+
+    private val carouselRunnable = object : Runnable {
+        override fun run() {
+            carouselSong.update()
+            handler.postDelayed(this, 16)
+        }
+    }
+
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
@@ -254,19 +264,17 @@ class SelectSong : AppCompatActivity() {
 
         isOnline = false
         niveles = arrayListOf<Nivel>()
-        recyclerView = findViewById(R.id.recyclerView)
+        //recyclerView = findViewById(R.id.recyclerView)
+        carouselSong = findViewById(R.id.recyclerView)
 
         recyclerLvs = findViewById(R.id.recyclerLvs)
         recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
         linearListSongs = findViewById(R.id.linearListSongs)
-        //linearListSongs.isVisible = isPrime
 
         recyclerCommands = findViewById(R.id.recyclerCommands)
         recyclerCommands.isUserInputEnabled = false
         recyclerCommandsValues = findViewById(R.id.recyclerValues)
         recyclerCommandsValues.isUserInputEnabled = false
-
-        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false, false,"", "", "")
 
         constraintMain = findViewById(R.id.constraintMain)
         progressLoading = findViewById(R.id.progressLoading)
@@ -302,7 +310,6 @@ class SelectSong : AppCompatActivity() {
         commandWindow = findViewById(R.id.command_window)
         commandWindowBG = findViewById(R.id.command_window_bg)
         commandWindowBG.foreground = Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")
-        mediPlayer = MediaPlayer()
 
         mediaPlayerVideo = MediaPlayer()
         mediaPlayerVideo.setAudioAttributes(
@@ -467,10 +474,28 @@ class SelectSong : AppCompatActivity() {
         val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
         imageCircle.startAnimation(animatorSetRotation)
 
-        imgSelected.layoutParams.height = width / 3
-        imgSelected.layoutParams.width = width / 3
+        imgSelected.layoutParams.height = (decimoHeigtn * 1.3).toInt()
+        imgSelected.layoutParams.width = (width * 0.6).toInt()
         val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select)
         imgSelected.startAnimation(anim)
+
+        selectModeContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(Color.BLACK)
+            setOnClickListener(object : View.OnClickListener {
+                override fun onClick(v: View?) {
+                    // No hace nada
+                }
+            })
+            visibility = View.INVISIBLE
+        }
+
+        buildSelectMode(animateSetTraslation)
+
+        constraintMain.addView(selectModeContainer)
 
         nav_izq = findViewById(R.id.nav_izq_song)
         nav_der = findViewById(R.id.nav_der_song)
@@ -497,6 +522,27 @@ class SelectSong : AppCompatActivity() {
 
         next.visibility = View.GONE
         prev.visibility = View.GONE
+
+        imgOffset.setOnClickListener {
+            val dialogEditOffset = AlertDialog.Builder(this)
+                .setTitle("Editar Offset")
+                .setMessage("Guadar cambios?")
+                .setCancelable(true)
+                .setPositiveButton("Aceptar") { _, _ ->
+                    val fileSsc = File(listItemsKsf[oldValue % listItemsKsf.size].rutaSsc)
+                    val original = readFileSsc(fileSsc.absolutePath)
+
+                    val nuevoContenido = processSscOffset(original, valueOffset.toInt())
+
+                    // si quieres sobrescribir archivo
+                    fileSsc.writeText(nuevoContenido)
+                }
+                .setNegativeButton("Cancelar") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .create()
+            dialogEditOffset.show()
+        }
 
         nextPlayer = MediaPlayer().apply {
             setDataSource("$rutaBase/FingerDance/Themes/$tema/BGAs/next.mp4")
@@ -562,31 +608,13 @@ class SelectSong : AppCompatActivity() {
             listItemsKsf = AppResources.listSongsChannelKsf
         }
 
-        setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
-        recyclerView.post {
+        //setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
 
-            val parentWidth = recyclerView.width
-            val itemWidth = (width * 0.2).toInt() // el mismo que usas
+        carouselSong.setSongs(listItemsKsf)
+        oldValue = carouselSong.getSelectedIndex()
+        isFocus(oldValue)
 
-            val padding = (parentWidth - itemWidth) / 2
 
-            recyclerView.setPadding(padding, 0, padding, 0)
-            recyclerView.clipToPadding = false
-        }
-        middle = Int.MAX_VALUE / 2
-        middle -= middle % listItemsKsf.size
-
-        oldValue = middle
-        recyclerView.scrollToPosition(middle)
-        numberChannel = File(listItemsKsf[oldValue % listItemsKsf.size].rutaSong).parentFile?.name!!.substringBefore("-").trim()
-        isFocus(middle)
-
-        smoothScroller = CenterSmoothScroller(recyclerView.context)
-        smoothScroller.targetPosition = middle
-        recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
-        recyclerView.itemAnimator = null
-        recyclerView.setItemViewCacheSize(10)
-        recyclerView.setOnTouchListener { _, _ -> true }
         //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
         imageCircle.layoutParams.width = (width * 0.95).toInt()
         imageCircle.layoutParams.height = imageCircle.layoutParams.width
@@ -744,11 +772,11 @@ class SelectSong : AppCompatActivity() {
         nav_back_Izq.setOnClickListener() {
             ready = 0
             imgFloor.setImageBitmap(AppResources.bmFloor)
-            if (recyclerView.isVisible && !commandWindow.isVisible) {
+            if (carouselSong.isVisible && !commandWindow.isVisible) {
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
-            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !::selectModeContainer.isInitialized) {
+            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !selectModeContainer.isVisible) {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideSelectLv(anim)
             }
@@ -768,9 +796,9 @@ class SelectSong : AppCompatActivity() {
                 linearValues.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
             }
-            if (::selectModeContainer.isInitialized) {
+            if (selectModeContainer.isVisible) {
                 modeSelected = false
-                constraintMain.removeView(selectModeContainer)
+                selectModeContainer.visibility = View.INVISIBLE
                 imgFloor.visibility = View.VISIBLE
                 imgAceptar.visibility = View.VISIBLE
                 imgAceptar.startAnimation(animateSetTraslation)
@@ -779,12 +807,12 @@ class SelectSong : AppCompatActivity() {
         nav_back_der.setOnClickListener() {
             ready = 0
             imgFloor.setImageBitmap(AppResources.bmFloor)
-            if (recyclerView.isVisible && !commandWindow.isVisible) {
+            if (carouselSong.isVisible && !commandWindow.isVisible) {
                 //goSelectChannel()
                 Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
-            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !::selectModeContainer.isInitialized) {
+            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !selectModeContainer.isVisible) {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideSelectLv(anim)
             }
@@ -804,9 +832,9 @@ class SelectSong : AppCompatActivity() {
                 linearCurrent.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
             }
-            if (::selectModeContainer.isInitialized) {
+            if (selectModeContainer.isVisible) {
                 modeSelected = false
-                constraintMain.removeView(selectModeContainer)
+                selectModeContainer.visibility = View.INVISIBLE
                 imgFloor.visibility = View.VISIBLE
                 imgAceptar.visibility = View.VISIBLE
                 imgAceptar.startAnimation(animateSetTraslation)
@@ -816,9 +844,11 @@ class SelectSong : AppCompatActivity() {
         nav_izq.setOnClickListener {
             ready = 0
             imgFloor.setImageBitmap(AppResources.bmFloor)
-            if (recyclerView.isVisible && !commandWindow.isVisible) {
-                oldValue --
-                moverCanciones(nav_izq)
+            if (carouselSong.isVisible && !commandWindow.isVisible) {
+
+                carouselSong.moveLeft()
+                oldValue = carouselSong.getSelectedIndex()
+                moverCanciones(nav_izq, false)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(false)) return@setOnClickListener
@@ -854,9 +884,10 @@ class SelectSong : AppCompatActivity() {
         nav_der.setOnClickListener {
             ready = 0
             imgFloor.setImageBitmap(AppResources.bmFloor)
-            if (recyclerView.isVisible && !commandWindow.isVisible) {
-                //if (oldValue == listItems.size - 3) {
-                oldValue ++
+            if (carouselSong.isVisible && !commandWindow.isVisible) {
+
+                carouselSong.moveRight()
+                oldValue = carouselSong.getSelectedIndex()
                 moverCanciones(nav_der, true)
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
@@ -899,13 +930,13 @@ class SelectSong : AppCompatActivity() {
 
         imgAceptar.setOnClickListener() {
 
-            if (recyclerView.isVisible && !commandWindow.isVisible) {
+            if (carouselSong.isVisible && !commandWindow.isVisible) {
                 goSelectLevel()
             }
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
                 if(ready == 1 && !modeSelected){
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    showSelectMode(animateSetTraslation)
+                    showSelectMode()
                 }
                 if(ready == 1 && modeSelected){
                     goGameScreenActivity(anim)
@@ -1177,30 +1208,38 @@ class SelectSong : AppCompatActivity() {
         mediPlayer.start()
     }
 
-    private fun showSelectMode(animateSetTraslation: Animation) {
-        selectModeContainer = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(Color.BLACK)
-            setOnClickListener(object : View.OnClickListener {
-                override fun onClick(v: View?) {
-                    // No hace nada
-                }
-            })
+    fun processSscOffset(sscContent: String, valueOffset: Int): String {
+
+        // 🔍 Regex para encontrar OFFSET
+        val regex = Regex("#OFFSET:([-+]?[0-9]*\\.?[0-9]+);")
+
+        val firstMatch = regex.find(sscContent)
+            ?: return sscContent // si no hay OFFSET, no haces nada
+
+        // 🔥 1. Obtener offset original (segundos)
+        val offsetSsc = firstMatch.groupValues[1].toDouble()
+
+        // 🔥 2. Convertir a milisegundos
+        val offsetMs = offsetSsc * 1000
+
+        // 🔥 3. Aplicar tu offset custom
+        val newOffsetMs = offsetMs + (valueOffset * 10)
+
+        // 🔥 4. Volver a segundos
+        val newOffsetSeconds = newOffsetMs / 1000.0
+
+        // 🔥 5. Formato con 6 decimales (como SSC)
+        val formatted = String.format("%.6f", newOffsetSeconds)
+
+        // 🔥 6. Reemplazar TODOS los OFFSET del archivo
+        return regex.replace(sscContent) {
+            "#OFFSET:$formatted;"
         }
+    }
 
-        val hand = ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt(), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-            setImageBitmap(BitmapFactory.decodeStream(assets.open("hand_tap_here.png"))) // tu imagen
-            alpha = 0f
-        }
-
-        constraintMain.addView(selectModeContainer)
-
-
+    private fun showSelectMode() {
         // 🔥 sube los controles SOBRE el overlay
+        selectModeContainer.visibility = View.VISIBLE
         imgAceptar.bringToFront()
         imgFloor.bringToFront()
         nav_back_Izq.bringToFront()
@@ -1208,6 +1247,14 @@ class SelectSong : AppCompatActivity() {
         imgFloor.visibility = View.INVISIBLE
         imgAceptar.visibility = View.INVISIBLE
         imgAceptar.animation = null
+    }
+
+    private fun buildSelectMode(animateSetTraslation: Animation){
+        val hand = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt(), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+            setImageBitmap(BitmapFactory.decodeStream(assets.open("hand_tap_here.png"))) // tu imagen
+            alpha = 0f
+        }
 
         val aceptarTop = imgAceptar.top.takeIf { it > 0 }
             ?: (resources.displayMetrics.heightPixels * 0.8f).toInt()
@@ -1245,11 +1292,7 @@ class SelectSong : AppCompatActivity() {
         ): FrameLayout {
 
             val section = FrameLayout(this).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             }
 
             val image = ImageView(this).apply {
@@ -1304,7 +1347,7 @@ class SelectSong : AppCompatActivity() {
             imgVertical.setImageBitmap(vPrev)
         }
 
-        val text = TextView(this).apply {
+        val textInfo = TextView(this).apply {
             text = "Selecciona como quieres jugar"
             setTextColor(Color.WHITE)
             textSize = 18f
@@ -1319,7 +1362,7 @@ class SelectSong : AppCompatActivity() {
         }
 
         verticalLayout.addView(topSection)
-        verticalLayout.addView(text)
+        verticalLayout.addView(textInfo)
         verticalLayout.addView(bottomSection)
 
         selectModeContainer.post {
@@ -1535,13 +1578,13 @@ class SelectSong : AppCompatActivity() {
                 linearLoading.isVisible = false
                 imgLoading.isVisible = false
             }, 1000L)
-
+            initGameScreen = true
             ready = 0
             modeSelected = false
-            constraintMain.removeView(selectModeContainer)
+            selectModeContainer.visibility = View.INVISIBLE
             imgFloor.setImageBitmap(AppResources.bmFloor)
 
-        }, 3000L)
+        }, 4000L)
     }
 
     private fun updateRecycler() {
@@ -2210,53 +2253,6 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    /*
-    private fun showNewNoteSkin(newNoteSkin: CommandValues) {
-        val linearNewNoteSkin = LinearLayout(this).apply {
-            setBackgroundColor(0xAA000000.toInt()) // Oscurece la pantalla
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
-            setOnTouchListener { _, _ -> true }
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-        }
-
-        val imageView = ImageView(this).apply {
-            setPadding(20, 10, 20, 10)
-            setImageBitmap(BitmapFactory.decodeFile(newNoteSkin.rutaCommandImg))
-            layoutParams = LinearLayout.LayoutParams(
-                (medidaFlechas * 4).toInt(),
-                (medidaFlechas * 4).toInt()
-            )
-        }
-
-        val textView = TextView(this).apply {
-            text = "Felicidades!!! \n Has desbloqueado un nuevo NoteSkin \n ${newNoteSkin.value}"
-            setPadding(20, 30, 20, 30)
-            textAlignment = View.TEXT_ALIGNMENT_CENTER
-            setTextColor(Color.parseColor("#FFEB3B"))
-            setTextIsSelectable(false)
-            textSize = medidaFlechas / 10f
-            setTypeface(typeface, Typeface.NORMAL)
-            setShadowLayer(1.6f, 1.5f, 1.3f, Color.WHITE)
-        }
-
-        val btnAceptar = Button(this).apply {
-            text = "Aceptar"
-            setBackgroundResource(android.R.color.transparent)
-            setTextColor(Color.WHITE)
-            setPadding(20, 50, 20, 10)
-            setOnClickListener {
-                constraintMain.removeView(linearNewNoteSkin)
-            }
-        }
-
-        linearNewNoteSkin.addView(imageView)
-        linearNewNoteSkin.addView(textView)
-        linearNewNoteSkin.addView(btnAceptar)
-        constraintMain.addView(linearNewNoteSkin)
-    }
-    */
-
     private fun actualizarImagenNumero(numero: Int) {
             val unidad = numero % 10
             val decena = numero / 10
@@ -2357,8 +2353,8 @@ class SelectSong : AppCompatActivity() {
 
     private fun goSelectLevel() {
         soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-        recyclerView.startAnimation(animOff)
-        recyclerView.isVisible = false
+        carouselSong.startAnimation(animOff)
+        carouselSong.isVisible = false
         imgSelected.clearAnimation()
         imgSelected.visibility = View.INVISIBLE
         imgLvSelected.isVisible = true
@@ -2598,8 +2594,8 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun hideSelectLv(anim: Animation) {
-        recyclerView.isVisible = true
-        recyclerView.startAnimation(animOn)
+        carouselSong.isVisible = true
+        carouselSong.startAnimation(animOn)
         imgSelected.visibility = View.VISIBLE
         imgSelected.startAnimation(anim)
 
@@ -2668,20 +2664,13 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun moverCanciones(flecha: ImageView, isNext: Boolean = false) {
-
         val real = getRealIndex(oldValue) // 🔥 CLAVE
-
         resetIndicatorPosition()
         soundPoolSelectSong.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
         flecha.startAnimation(AppResources.animPressNav)
 
-        //recyclerView.scrollToPosition(oldValue)
         isFocus(oldValue)
         showTransitionVideo(isNext)
-
-        val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
-        smoothScroller.targetPosition = oldValue
-        recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
 
         lbArtist.isSelected = true
         lbNameSong.isSelected = true
@@ -2746,7 +2735,7 @@ class SelectSong : AppCompatActivity() {
 
         currentSong = item.title
         if(currentChannel == "06-FAVORITES") {
-            val nameChannels = item.channel //listSongsChannelKsf.find { it.title == currentSong }?.channel
+            val nameChannels = item.channel
             listSongScores = db.getSongScores(db.readableDatabase, nameChannels.toString(), currentSong)
         }else{
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
@@ -2844,7 +2833,6 @@ class SelectSong : AppCompatActivity() {
         lbBpm.text = lbDbpm
         displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
         recyclerLvs.adapter?.notifyDataSetChanged()
-        //llenaLvs(item.listKsf)
         llenaLvsKsf(item.listKsf)
     }
 
@@ -3101,20 +3089,6 @@ class SelectSong : AppCompatActivity() {
         isTimerRunning = true
     }
 
-    class CenterSmoothScroller(context: Context) : LinearSmoothScroller(context) {
-
-        override fun calculateDtToFit(
-            viewStart: Int,
-            viewEnd: Int,
-            boxStart: Int,
-            boxEnd: Int,
-            snapPreference: Int
-        ): Int {
-            return (boxStart + (boxEnd - boxStart) / 2) -
-                    (viewStart + (viewEnd - viewStart) / 2)
-        }
-    }
-
     private fun isFocusCommandWindow (position: Int){
         soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         val item = listCommands[position]
@@ -3216,13 +3190,6 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private fun setupRecyclerView(heightBanner: Int, widhtBanner: Int) {
-        recyclerView.apply {
-            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = CustomAdapter(this@SelectSong, listItemsKsf, heightBanner, widhtBanner)
-        }
-    }
-
     private fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int): AnimationDrawable{
         val arrowSpritesRD = arrayOf(
             Bitmap.createBitmap(bitmap, 0, 0, spriteWidth, spriteHeight),
@@ -3252,6 +3219,8 @@ class SelectSong : AppCompatActivity() {
         super.onPause()
         handler.removeCallbacks(runnable)
         handlerContador.removeCallbacks(runnableContador)
+        isRunning = false
+        handler.removeCallbacks(carouselRunnable)
         //mediPlayer.pause()
         if(bgaSelectSong.isPlaying){
             bgaSelectSong.pause()
@@ -3260,13 +3229,13 @@ class SelectSong : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        recyclerView.scrollToPosition(oldValue)
-        isFocus(oldValue)
-        val smoothScroller: RecyclerView.SmoothScroller = CenterSmoothScroller(recyclerView.context)
-        smoothScroller.targetPosition = oldValue
-        recyclerView.layoutManager?.startSmoothScroll(smoothScroller)
+        //isFocus(oldValue)
         resetRunnable()
         detenerContador()
+        if (!isRunning) {
+            isRunning = true
+            handler.post(carouselRunnable)
+        }
         bgaSelectSong.start()
         if(listEfectsDisplay.isNotEmpty()) {
             handler.postDelayed(runnable, 1200)
@@ -3285,6 +3254,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         /*
         if (::prevPlayer.isInitialized) prevPlayer.release()
         if (::nextPlayer.isInitialized) nextPlayer.release()

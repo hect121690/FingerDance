@@ -32,6 +32,8 @@
         <activity
             android:name=".SelectSongHorizontal"
             android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape" />
         <activity
             android:name=".SelectChannelHorizontal"
@@ -67,7 +69,10 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
         <activity
             android:name=".SelectSong"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".SelectSongOnline"
             android:exported="false" />

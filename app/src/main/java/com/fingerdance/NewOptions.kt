@@ -162,6 +162,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     private var nameNewChannel = ""
     private var descriptionNewChannel = ""
     private val idNewChannel = 100
+    private var isSscChannel = false
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -294,8 +295,26 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     private fun setupCreateChannel(view: View) {
         val btnCreateChannel = view.findViewById<Button>(R.id.createChannel)
         btnCreateChannel.setOnClickListener {
-            showInputNameChannel()
+            showCreateChannelDialog()
         }
+    }
+
+    private fun showCreateChannelDialog() {
+
+        val options = arrayOf("Canal KSF", "Canal SSC", "Cancelar")
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Crear Canal")
+            .setItems(options) { dialog, which ->
+
+                when (which) {
+                    0 -> createChannelKSF()
+                    1 -> createChannelSSC()
+                    2 -> dialog.dismiss()
+                }
+            }
+            .setCancelable(true)
+            .show()
     }
 
     private fun setupDownloadChannel() {
@@ -376,11 +395,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
     }
 
-    private suspend fun downloadChannelFromDrive(
-        fileId: String,
-        context: Context,
-        progressCallback: (Int) -> Unit
-    ): File? = withContext(Dispatchers.IO) {
+    private suspend fun downloadChannelFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {
         try {
             val client = OkHttpClient()
             val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
@@ -445,6 +460,16 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
 
             return@withContext null
         }
+    }
+
+    fun createChannelKSF() {
+        isSscChannel = false
+        showInputNameChannel()
+    }
+
+    fun createChannelSSC() {
+        isSscChannel = true
+        showInputNameChannel()
     }
 
     private fun showInputNameChannel() {
@@ -516,7 +541,8 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun createTextIni(context: Context): Boolean {
-        val folderPath = context.getExternalFilesDir("/FingerDance/Songs/Channels/$nameNewChannel/info/")
+        val nameInfo = if(isSscChannel) "info_ssc" else "info"
+        val folderPath = context.getExternalFilesDir("/FingerDance/Songs/Channels/$nameNewChannel/$nameInfo/")
         return if (folderPath != null && (folderPath.exists() || folderPath.mkdirs())) {
             val textFile = File(folderPath, "text.ini")
             try {
@@ -536,22 +562,10 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             showSelectIconChannel()
             return
         }
-
         val destinationPath = requireContext().getExternalFilesDir("/FingerDance/Songs/Channels/$nameNewChannel/")
-        val destinationFile = File(destinationPath, "banner.png")
+        val destinationFile = File(destinationPath, if(isSscChannel)"banner_ssc.png" else "banner.png")
 
         try {
-            val inputStream: InputStream? = requireContext().contentResolver.openInputStream(uri)
-            val options = BitmapFactory.Options()
-            options.inJustDecodeBounds = true
-            BitmapFactory.decodeStream(inputStream, null, options)
-            inputStream?.close()
-
-            if (!((options.outWidth == 1024 && options.outHeight == 1024) || (options.outWidth == 512 && options.outHeight == 512))) {
-                Toast.makeText(requireContext(), "La imagen debe ser de 512x512 o 1024x1024 píxeles", Toast.LENGTH_SHORT).show()
-                showSelectIconChannel()
-                return
-            }
             val validatedInputStream: InputStream? = requireContext().contentResolver.openInputStream(uri)
             validatedInputStream?.use { input ->
                 val outputStream = FileOutputStream(destinationFile)

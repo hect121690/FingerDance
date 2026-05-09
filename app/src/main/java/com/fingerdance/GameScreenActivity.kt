@@ -119,6 +119,8 @@ open class GameScreenActivity : AndroidApplication() {
                 }
             }
             mediaPlayer.start()
+            baseTimeMs = mediaPlayer.currentPosition.toDouble()
+            lastUpdateNs = System.nanoTime()
             if(mediPlayer.isPlaying){
                 mediPlayer.stop()
             }
@@ -187,12 +189,36 @@ open class GameScreenActivity : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
+    var baseTimeMs = 0.0
+    var lastUpdateNs = System.nanoTime()
+
     fun getSongTimeMs(): Long {
-        return try {
-            mediaPlayer.currentPosition.toLong()
+        val nowNs = System.nanoTime()
+        val deltaMs = (nowNs - lastUpdateNs) / 1_000_000.0
+        lastUpdateNs = nowNs
+
+        // avanzar tiempo suavemente
+        baseTimeMs += deltaMs
+
+        // obtener tiempo real del audio
+        val real = try {
+            mediaPlayer.currentPosition.toDouble()
         } catch (e: Exception) {
-            0L
+            baseTimeMs
         }
+
+        // 🔥 corrección de drift (muy importante)
+        val diff = real - baseTimeMs
+
+        if (kotlin.math.abs(diff) > 50) {
+            // salto grande → resync duro
+            baseTimeMs = real
+        } else {
+            // ajuste suave
+            baseTimeMs += diff * 0.1
+        }
+
+        return baseTimeMs.toLong()
     }
 
     private fun addVideoBackground() {

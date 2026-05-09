@@ -396,6 +396,7 @@ class SplashActivity : AppCompatActivity() {
             typePadD = themes.getInt("typePadD", 0)
             numberUpdateLocal = themes.getString("numberUpdateLocal", "0.0.0").toString()
             isHorizontalMode = themes.getBoolean("isHorizontalMode", false)
+            playMode = themes.getInt("playMode", -1)
 
         } catch (e: Exception) {
             Log.e("SplashActivity", "Error: ${e.message}")

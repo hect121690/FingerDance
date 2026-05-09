@@ -18,6 +18,8 @@ class Parser {
         val beat: Double,
         val endBeat: Double? = null,
         val isFake: Boolean = false,
+        val isVanish: Boolean = false,
+        val isPhantom: Boolean = false,
         val type: NoteType
     )
 
@@ -93,7 +95,8 @@ class Parser {
         val notes = mutableListOf<Note>()          // jugables normales
         val extendedNotes = mutableListOf<Note>()  // de tokens extendidos
 
-        val holds = mutableMapOf<Int, Double>()    // holds normales 2/3 planos
+        val holds = mutableMapOf<Int, Double>()    // holds HEAD '2'
+        val phantomHolds = mutableMapOf<Int, Double>() // HEAD '6' (fantom rolls)
         val extHolds = mutableMapOf<Int, Double>() // holds de tokens extendidos 2/3
 
         val block = extractNotesBlock(text) ?: return notes to extendedNotes
@@ -115,51 +118,60 @@ class Parser {
                 val beat = currentBeat + i * step
 
                 // 1) Procesar tokens extendidos ({...} excepto 108)
-                for ((col, code) in extTokens) {
+                for ((col, data) in extTokens) {
+                    val (code, isVanish) = data
                     when (code) {
-                        'M', 'm' -> {
-                            // Mina extendida -> la metemos a notes (jugable)
-                            val fake = isFake(beat, fakes)
-                            notes.add(
+                        '1' -> {
+                            extendedNotes.add(
                                 Note(
                                     column = col,
                                     beat = beat,
-                                    isFake = fake,
-                                    type = NoteType.MINE
+                                    isFake = false,
+                                    isVanish = isVanish,
+                                    isPhantom = false,
+                                    type = NoteType.TAP
                                 )
                             )
                         }
                         '2' -> {
-                            // inicio de hold extendida -> armamos hold en extendedNotes
                             extHolds[col] = beat
                         }
+
                         '3' -> {
                             val startBeat = extHolds[col] ?: continue
-                            val isStartFake = isFake(startBeat, fakes)
-                            val isEndFake = isFake(beat, fakes)
-                            val fake = isStartFake || isEndFake
 
                             extendedNotes.add(
                                 Note(
                                     column = col,
                                     beat = startBeat,
                                     endBeat = beat,
-                                    isFake = true,
+                                    isFake = false,
+                                    isVanish = isVanish,
+                                    isPhantom = false,
                                     type = NoteType.HOLD
                                 )
                             )
-                            //extHolds.remove(col)
+
+                            extHolds.remove(col)
                         }
-                        else -> {
-                            // otros códigos extendidos -> si luego quieres, los asignas aquí
-                            // por ahora, nada
+
+                        'M', 'm' -> {
+                            notes.add(
+                                Note(
+                                    column = col,
+                                    beat = beat,
+                                    isFake = false,
+                                    isVanish = isVanish,
+                                    isPhantom = false,
+                                    type = NoteType.MINE
+                                )
+                            )
                         }
                     }
                 }
 
-                // 2) Procesar tokens planos (0,1,2,3,M,m, etc.)
+                // 2) Procesar tokens planos (0,1,2,3,5,6,M,m, etc.)
                 for (col in 0 until row.size) {
-
                     when (row[col]) {
                         'F', 'f' -> {
                             notes.add(
@@ -167,11 +179,11 @@ class Parser {
                                     column = col,
                                     beat = beat,
                                     isFake = true,
+                                    isPhantom = false,
                                     type = NoteType.TAP
                                 )
                             )
                         }
-
                         '1' -> {
                             val fake = isFake(beat, fakes)
                             notes.add(
@@ -179,34 +191,65 @@ class Parser {
                                     column = col,
                                     beat = beat,
                                     isFake = fake,
+                                    isPhantom = false,
                                     type = NoteType.TAP
                                 )
                             )
                         }
-
                         '2' -> {
                             holds[col] = beat
                         }
-
                         '3' -> {
-                            val startBeat = holds[col] ?: continue
-                            val isStartFake = isFake(startBeat, fakes)
-                            val isEndFake = isFake(beat, fakes)
-                            val fake = isStartFake || isEndFake
-
+                            // Normal: cierra hold iniciado con '2'
+                            if (holds.contains(col)) {
+                                val startBeat = holds[col]!!
+                                val isStartFake = isFake(startBeat, fakes)
+                                val isEndFake = isFake(beat, fakes)
+                                val fake = isStartFake || isEndFake
+                                notes.add(
+                                    Note(
+                                        column = col,
+                                        beat = startBeat,
+                                        endBeat = beat,
+                                        isFake = fake,
+                                        isPhantom = false,
+                                        type = NoteType.HOLD
+                                    )
+                                )
+                                holds.remove(col)
+                            }
+                            // PHANTOM: cierra hold iniciado con '6'
+                            else if (phantomHolds.contains(col)) {
+                                val startBeat = phantomHolds[col]!!
+                                notes.add(
+                                    Note(
+                                        column = col,
+                                        beat = startBeat,
+                                        endBeat = beat,
+                                        isFake = false,
+                                        isPhantom = true,
+                                        type = NoteType.HOLD
+                                    )
+                                )
+                                phantomHolds.remove(col)
+                            }
+                        }
+                        '5' -> {
+                            // PHANTOM NOTE: tail sola, tap "fantasma"
                             notes.add(
                                 Note(
                                     column = col,
-                                    beat = startBeat,
-                                    endBeat = beat,
-                                    isFake = fake,
-                                    type = NoteType.HOLD
+                                    beat = beat,
+                                    isFake = false,
+                                    isPhantom = true,
+                                    type = NoteType.TAP
                                 )
                             )
-
-                            holds.remove(col)
                         }
-
+                        '6' -> {
+                            // PHANTOM: empieza phantom hold
+                            phantomHolds[col] = beat
+                        }
                         'M', 'm' -> {
                             val fake = isFake(beat, fakes)
                             notes.add(
@@ -214,26 +257,22 @@ class Parser {
                                     column = col,
                                     beat = beat,
                                     isFake = fake,
+                                    isPhantom = false,
                                     type = NoteType.MINE
                                 )
                             )
                         }
-
                         'X' -> {
-                            // Si sigues usando {108}->'X', aquí podrías tratarlos
-                            // ahora los ignoramos
+                            // Ignora
                         }
-
                         else -> {
-                            // '0' u otros -> nada
+                            // '0' y cualquier otro carácter => nada
                         }
                     }
                 }
             }
-
             currentBeat += 4.0
         }
-
         return notes to extendedNotes
     }
 
@@ -246,40 +285,53 @@ class Parser {
      *  - tokens planos (List<Char>) para la lógica normal de notas
      *  - meta extendido por columna (Map<col, codeChar>) para tokens {code|...}
      */
-    private fun tokenize(row: String): Pair<List<Char>, Map<Int, Char>> {
+    private fun tokenize(row: String): Pair<List<Char>, Map<Int, Pair<Char, Boolean>>> {
+
         val result = mutableListOf<Char>()
-        val extTokens = mutableMapOf<Int, Char>()
+
+        // 👇 ahora guardamos: code + isVanish
+        val extTokens = mutableMapOf<Int, Pair<Char, Boolean>>()
 
         var i = 0
         var colIndex = 0
 
         while (i < row.length) {
+
             val ch = row[i]
 
             if (ch == '{') {
+
                 val end = row.indexOf('}', i)
+
                 if (end != -1) {
-                    val inside = row.substring(i + 1, end) // "2|n|1|0" o "M|n|1|0" o "108"
+
+                    val inside = row.substring(i + 1, end)
+                    // ejemplo: "2|v|0|0"
+
                     val parts = inside.split("|")
 
                     if (parts.size == 1) {
-                        // Caso {108} u otros códigos simples sin '|'
+                        // Caso {108} u otros códigos simples
+
                         val code = parts[0]
+
                         if (code == "108") {
-                            // Ignoramos completamente este token, NO ocupa columna
-                            // (no incrementamos colIndex ni añadimos a result)
-                        } else {
-                            // Otro {algo} simple: si quieres que ocupe columna, descomenta:
-                            // extTokens[colIndex] = code.firstOrNull() ?: ' '
-                            // colIndex++
+                            // ignorado completamente
                         }
-                    } else if (parts.size >= 1) {
-                        // Formato extendido normal: "2|n|1|0", "M|n|1|0", etc.
+
+                    } else {
+                        // Formato extendido: "2|v|0|0"
+
                         val codeChar = parts[0].firstOrNull() ?: ' '
 
-                        // Guardamos el código extendido para esa columna
-                        extTokens[colIndex] = codeChar
-                        // NO añadimos char plano al result, pero SÍ consumimos una columna
+                        // 👇 detectar vanish
+                        val modifier = parts.getOrNull(1)
+                        val isVanish = modifier == "v"
+
+                        // 👇 guardamos ambos
+                        extTokens[colIndex] = codeChar to isVanish
+
+                        // consume columna
                         colIndex++
                     }
 

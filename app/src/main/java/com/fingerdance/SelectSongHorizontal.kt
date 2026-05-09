@@ -200,7 +200,6 @@ class SelectSongHorizontal : AppCompatActivity() {
     private val startTimeMs = 30000
     private var timer: CountDownTimer? = null
     private var isTimerRunning = false
-    private var mediaPlayerSelectSongHorizontal: MediaPlayer = MediaPlayer()
 
     private var selectedIndex = 0
     private val visibleItems = 12
@@ -242,8 +241,6 @@ class SelectSongHorizontal : AppCompatActivity() {
 
         val screenWidth = resources.displayMetrics.widthPixels
         val screenHeight = resources.displayMetrics.heightPixels
-
-        mediPlayer = MediaPlayer()
 
         constraintMain = findViewById(R.id.main)
         progressLoading = findViewById(R.id.progressLoadingHorizontal)
@@ -478,8 +475,6 @@ class SelectSongHorizontal : AppCompatActivity() {
 
         songCarouselSongs.setSongs(AppResources.listSongsChannelKsf)
 
-        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false, false,"", "", "")
-
         var textSize = (screenWidth * 0.06).toInt()
         lbLvActive.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
         val frameBestScoreWidth = (screenWidth * 0.3).toInt()
@@ -509,6 +504,8 @@ class SelectSongHorizontal : AppCompatActivity() {
         linearLoading.isVisible = false
 
         focusOnSong()
+
+        buildSelectMode(screenWidth)
 
         val rankingView = findViewById<TopRankingView>(R.id.topRankingViewHorizontal)
         rankingView.layoutParams.width = width.toInt()
@@ -590,7 +587,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
-            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !linearPressStart.isVisible) {
+            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !linearPressStart.isVisible && !selectModeContainer.isVisible) {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideLvs()
                 if (!songCarouselSongs.carouselVisible) {
@@ -618,6 +615,12 @@ class SelectSongHorizontal : AppCompatActivity() {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearPressStart.visibility = View.GONE
             }
+            if (selectModeContainer.isVisible) {
+                modeSelected = false
+                selectModeContainer.visibility = View.INVISIBLE
+                //imgPressStart.visibility = View.VISIBLE
+                //imgPressStart.startAnimation(animationPressStart)
+            }
         }
         btnBackRight.setOnClickListener {
             ready = 0
@@ -626,11 +629,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
-            if(songCarouselSongs.carouselVisible && !commandWindow.isVisible){
-                Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
-                soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            }
-            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !linearPressStart.isVisible) {
+            if (imgLvSelected.isVisible && !commandWindow.isVisible && !rankingView.isVisible && !linearPressStart.isVisible && !selectModeContainer.isVisible) {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideLvs()
                 if(!songCarouselSongs.carouselVisible){
@@ -656,6 +655,12 @@ class SelectSongHorizontal : AppCompatActivity() {
             if(linearPressStart.isVisible){
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 linearPressStart.visibility = View.GONE
+            }
+            if (selectModeContainer.isVisible) {
+                modeSelected = false
+                selectModeContainer.visibility = View.INVISIBLE
+                //imgPressStart.visibility = View.VISIBLE
+                //imgPressStart.startAnimation(animationPressStart)
             }
         }
 
@@ -1017,15 +1022,14 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         imgPressStart.setOnClickListener {
-            showSelectMode(screenWidth)
+            selectModeContainer.visibility = View.VISIBLE
             btnBackLeft.bringToFront()
             btnBackRight.bringToFront()
         }
 
     }
 
-    private fun showSelectMode(screenWidth: Int) {
-
+    private fun buildSelectMode(screenWidth: Int) {
         selectModeContainer = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -1033,9 +1037,8 @@ class SelectSongHorizontal : AppCompatActivity() {
             )
             setBackgroundColor(Color.BLACK)
             setOnClickListener { }
+            visibility = View.INVISIBLE
         }
-
-        constraintMain.addView(selectModeContainer)
 
         val hand = ImageView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -1175,10 +1178,10 @@ class SelectSongHorizontal : AppCompatActivity() {
             isHandRunning = true
             startHandAnimationHorizontal(hand, imgVertical, imgHorizontal)
         }
+        constraintMain.addView(selectModeContainer)
     }
 
     var isHandRunning = false
-
     private fun startHandAnimationHorizontal(hand: View, left: View, right: View) {
 
         val centerY = getCenterY(left)
@@ -1764,7 +1767,6 @@ class SelectSongHorizontal : AppCompatActivity() {
         showProgressBar()
         mediPlayer.pause()
         playerSong.rutaBanner = AppResources.listSongsChannelKsf[oldValue].rutaDisc
-        mediaPlayerSelectSongHorizontal.pause()
         txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
 
         playerSong.speed = txVelocidadActual.text.toString()
@@ -1862,8 +1864,6 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         handlerSelectSongHorizontal.postDelayed({
-
-            //mediPlayer.pause()
             val intent = Intent(
                 this,
                 if (orientationMode == OrientationMode.VERTICAL)
@@ -1878,9 +1878,10 @@ class SelectSongHorizontal : AppCompatActivity() {
                 linearPressStart.isVisible = false
                 imgLoading.isVisible = false
             }, 1000L)
+            initGameScreen = true
             ready = 0
             modeSelected = false
-            constraintMain.removeView(selectModeContainer)
+            selectModeContainer.visibility = View.INVISIBLE
         }, 3000L)
     }
 
@@ -2079,14 +2080,11 @@ class SelectSongHorizontal : AppCompatActivity() {
         if (focusedIndex == -1) return
         val song = AppResources.listSongsChannelKsf[focusedIndex]
         oldValue = focusedIndex
-        if (mediaPlayerSelectSongHorizontal.isPlaying) {
-            mediaPlayerSelectSongHorizontal.stop()
-        }
 
         timer?.cancel()
 
         isTimerRunning = false
-        if (isFileExists(File(song.rutaPreview))) {
+        if (isFileExists(File(song.rutaPreview)) && !song.rutaPreview.endsWith(".png")) {
             previewTextureView.visibility = TextureView.VISIBLE
             previewMediaPlayer.apply {
                 reset()
@@ -2254,8 +2252,8 @@ class SelectSongHorizontal : AppCompatActivity() {
     }
 
     private fun playMedia(path: String) {
-        mediaPlayerSelectSongHorizontal.release()
-        mediaPlayerSelectSongHorizontal = MediaPlayer().apply {
+        mediPlayer.release()
+        mediPlayer = MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
@@ -2307,8 +2305,8 @@ class SelectSongHorizontal : AppCompatActivity() {
             override fun onTick(millisUntilFinished: Long) {}
             override fun onFinish() {
                 try {
-                    if (mediaPlayerSelectSongHorizontal.isPlaying) {
-                        mediaPlayerSelectSongHorizontal.stop()
+                    if (mediPlayer.isPlaying) {
+                        mediPlayer.stop()
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -2318,7 +2316,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
         timer?.start()
         isTimerRunning = true
-        mediaPlayerSelectSongHorizontal.start()
+        mediPlayer.start()
     }
 
     private fun isFileExists(file: File): Boolean {
@@ -2367,10 +2365,10 @@ class SelectSongHorizontal : AppCompatActivity() {
 
     private fun goSelectChannelHorizontal() {
         handlerSelectSongHorizontal.removeCallbacksAndMessages(null)
-        if (mediaPlayerSelectSongHorizontal.isPlaying){
-            mediaPlayerSelectSongHorizontal.pause()
-            mediaPlayerSelectSongHorizontal.stop()
-            mediaPlayerSelectSongHorizontal.release()
+        if (mediPlayer.isPlaying){
+            mediPlayer.pause()
+            mediPlayer.stop()
+            mediPlayer.release()
             if(previewMediaPlayer.isPlaying){
                 previewMediaPlayer.pause()
                 previewMediaPlayer.stop()
@@ -2718,8 +2716,8 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         handlerSelectSongHorizontal.postDelayed({
-            if (!mediaPlayerSelectSongHorizontal.isPlaying) {
-                mediaPlayerSelectSongHorizontal.start()
+            if (!mediPlayer.isPlaying) {
+                mediPlayer.start()
                 if (::previewMediaPlayer.isInitialized) {
                     previewMediaPlayer.start()
                 }

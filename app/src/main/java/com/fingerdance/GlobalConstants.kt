@@ -180,6 +180,7 @@ var hideImagesPadA : Boolean = false
 var skinPad = ""
 var alphaPadB = 1f
 var numberUpdateLocal = ""
+var playMode = 0
 
 var rutaGrades = ""
 var gradeDescription = ""
