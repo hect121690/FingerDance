@@ -152,6 +152,8 @@ class SelectSongHorizontal : AppCompatActivity() {
     private lateinit var recyclerLvsEmpty: RecyclerView
     private lateinit var indicatorLayout: ImageView
 
+    private lateinit var txInfoCurrentSong: TextView
+
     private lateinit var linearLvAndRanking: ConstraintLayout
     private lateinit var imgLvSelected: ImageView
     private lateinit var lbLvActive: TextView
@@ -255,6 +257,13 @@ class SelectSongHorizontal : AppCompatActivity() {
         recyclerCommandsValues = findViewById(R.id.recyclerValuesHorizontal)
         recyclerCommandsValues.isUserInputEnabled = false
 
+        val txNameChannel = findViewById<TextView>(R.id.txCurrentChannel)
+        txNameChannel.text = currentChannel.substringAfter("-")
+        val txPlayerName = findViewById<TextView>(R.id.txPlayerName)
+        txPlayerName.text = userName
+
+        txNameChannel.layoutParams.width = (screenWidth * 0.25).toInt()
+        txPlayerName.layoutParams.width = (screenWidth * 0.25).toInt()
         commandWindow = findViewById(R.id.command_windowHorizontal)
         commandWindow.visibility = View.GONE
         commandWindow.background = Drawable.createFromPath("${rutaBase}/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")
@@ -374,6 +383,8 @@ class SelectSongHorizontal : AppCompatActivity() {
         recyclerLvsEmpty = findViewById(R.id.recyclerLvsEmptyHorizontal)
         indicatorLayout = findViewById(R.id.indicatorCurrentLv)
 
+
+        txInfoCurrentSong = findViewById(R.id.txInfoCurrentSong)
         linearLvAndRanking = findViewById(R.id.linearLvAndRanking)
         linearLvAndRanking.visibility = View.GONE
         imgLvSelected = findViewById(R.id.imgLvSelectedHorizontal)
@@ -1820,13 +1831,13 @@ class SelectSongHorizontal : AppCompatActivity() {
                 if(!isHalfDouble){
                     chart.notes = Parser().makeMirror(chart.notes)
                 }else{
-                    chart.notes = Parser().makeRandom(chart.notes)
+                    chart.notes = Parser().makeMirrorHD(chart.notes)
                 }
                 if(playerSong.rs){
                     if(!isHalfDouble){
-                        chart.notes = Parser().makeMirror(chart.notes)
-                    }else{
                         chart.notes = Parser().makeRandom(chart.notes)
+                    }else{
+                        chart.notes = Parser().makeRandomHD(chart.notes)
                     }
                 }
             }
@@ -1872,6 +1883,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                     GameScreenActivityHorizontal()::class.java
             )
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
+            intent.putExtra("IS_VERTICAL", false)
             startActivity(intent)
             handlerSelectSongHorizontal.postDelayed({
                 linearLoading.isVisible = false
@@ -2102,7 +2114,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             if (previewMediaPlayer.isPlaying) {
                 previewMediaPlayer.pause()
             }
-            setDiscImage(song.rutaDisc)
+            setDiscImage(song.rutaTitle)
         }
 
         llenaLvsKsf(song.listKsf)
@@ -2153,7 +2165,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             niveles = ArrayList(List(listSongScores.size) { Nivel() })
             isOficialSong = false
         }
-
+        txInfoCurrentSong.text = String.format("%03d/%03d", focusedIndex + 1, AppResources.listSongsChannelKsf.size)
         lbNameSong.text = song.title
         lbArtist.text = song.artist
         lbBpm.text = "BPM: ${song.displayBpm}"
@@ -2244,6 +2256,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         indicatorLayout.visibility = View.VISIBLE
         linearLvAndRanking.visibility = View.VISIBLE
+
         if(!levelsShowing){
             animateLvAndRankingUp()
         }
@@ -2288,6 +2301,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         songCarouselSongs.showCarousel()
         imgCursor.clearAnimation()
         imgCursor.visibility = View.VISIBLE
+        txInfoCurrentSong.visibility = View.VISIBLE
         imgCursor.startAnimation(animSelect)
     }
 
@@ -2295,6 +2309,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         songCarouselSongs.hideCarousel()
         imgCursor.clearAnimation()
         imgCursor.visibility = View.GONE
+        txInfoCurrentSong.visibility = View.GONE
     }
 
     private fun startSongPlayback(path: String) {

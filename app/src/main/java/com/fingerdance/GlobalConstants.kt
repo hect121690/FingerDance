@@ -71,6 +71,11 @@ var padPositionsHD = listOf<Array<Float>>()
 var padPositionsHorizontal = listOf<Array<Float>>()
 var touchAreasHorizontal = listOf<Array<Float>>()
 var areaToPadMap = listOf<Int>()
+
+var padPositionsHorizontalHD = listOf<Array<Float>>()
+var touchAreasHorizontalHD = listOf<Array<Float>>()
+var areaToPadMapHD = listOf<Int>()
+
 var heightBtnsHorizontal  = 0f
 var widthBtnsHorizontal = 0f
 var touchAreas = listOf<Array<Float>>()
@@ -149,6 +154,7 @@ var currentPathSong: String = ""
 
 var countMiss = 0
 var halfDouble = false
+var isVertical = true
 
 lateinit var listSongScores: Array<ObjPuntaje>
 

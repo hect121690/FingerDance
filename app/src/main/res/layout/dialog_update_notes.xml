@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="#CC000000">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_update_dialog"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="INFORMACIÓN"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textSize="24sp"
+                android:fontFamily="sans-serif-black" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Finger Dance 3.0.0"
+                android:textColor="#00E5FF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33FFFFFF"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- SOLO ESTO HACE SCROLL -->
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true"
+                android:scrollbars="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="• Se agregó compatibilidad con formato SSC.\n\n• Se agregó jugabilidad horizontal para canciones Half Double.\n\n• Los packs principales fueron migrados a formato SSC.\n\n• Los canales en formato KSF ya no estarán disponibles para descarga.\n\n• Se recomienda eliminar los canales KSF actuales y descargar nuevamente las versiones SSC desde:\n\nOptions > Canciones"
+                        android:textColor="#DDDDDD"
+                        android:textSize="15sp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="⚠️ IMPORTANTE\n\nPara evitar errores o contenido duplicado, se recomienda eliminar todos los canales KSF antiguos antes de descargar los nuevos packs SSC."
+                        android:textColor="#FFD54F"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:layout_marginTop="18dp" />
+
+                </LinearLayout>
+
+            </ScrollView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="20dp">
+
+                <Button
+                    android:id="@+id/btnDeleteChannels"
+                    android:layout_width="0dp"
+                    android:layout_height="@dimen/dialog_button_height"
+                    android:layout_weight="1"
+                    android:text="BORRAR KSF's"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:textSize="@dimen/dialog_button_text"
+                    android:background="@drawable/bg_button_delete" />
+
+                <Space
+                    android:layout_width="24dp"
+                    android:layout_height="wrap_content" />
+
+                <Button
+                    android:id="@+id/btnClose"
+                    android:layout_width="0dp"
+                    android:layout_height="@dimen/dialog_button_height"
+                    android:layout_weight="1"
+                    android:text="Cerrar"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="@dimen/dialog_button_text"
+                    android:background="@drawable/bg_button_close" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

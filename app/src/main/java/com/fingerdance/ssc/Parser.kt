@@ -97,7 +97,7 @@ class Parser {
 
         val holds = mutableMapOf<Int, Double>()    // holds HEAD '2'
         val phantomHolds = mutableMapOf<Int, Double>() // HEAD '6' (fantom rolls)
-        val extHolds = mutableMapOf<Int, Double>() // holds de tokens extendidos 2/3
+        val extHolds = mutableMapOf<Int, Pair<Double, Boolean>>() // holds de tokens extendidos 2/3
 
         val block = extractNotesBlock(text) ?: return notes to extendedNotes
         val measures = block.split(",")
@@ -113,20 +113,20 @@ class Parser {
             val step = 4.0 / max(rows.size, 1)
 
             for ((i, rowRaw) in rows.withIndex()) {
-
-                val (row, extTokens) = tokenize(rowRaw)
+                val normalizedRow = normalizeRowForHD(rowRaw)
+                val (row, extTokens) = tokenize(normalizedRow)
                 val beat = currentBeat + i * step
 
                 // 1) Procesar tokens extendidos ({...} excepto 108)
                 for ((col, data) in extTokens) {
-                    val (code, isVanish) = data
+                    val (code, isVanish, isFake) = data
                     when (code) {
                         '1' -> {
                             extendedNotes.add(
                                 Note(
                                     column = col,
                                     beat = beat,
-                                    isFake = false,
+                                    isFake = isFake,
                                     isVanish = isVanish,
                                     isPhantom = false,
                                     type = NoteType.TAP
@@ -134,18 +134,18 @@ class Parser {
                             )
                         }
                         '2' -> {
-                            extHolds[col] = beat
+                            extHolds[col] = beat to isFake
                         }
 
                         '3' -> {
-                            val startBeat = extHolds[col] ?: continue
-
+                            val (startBeat, startFake) = extHolds[col] ?: continue
+                            val fake = startFake || isFake
                             extendedNotes.add(
                                 Note(
                                     column = col,
                                     beat = startBeat,
                                     endBeat = beat,
-                                    isFake = false,
+                                    isFake = fake,
                                     isVanish = isVanish,
                                     isPhantom = false,
                                     type = NoteType.HOLD
@@ -156,11 +156,11 @@ class Parser {
                         }
 
                         'M', 'm' -> {
-                            notes.add(
+                            extendedNotes.add(
                                 Note(
                                     column = col,
                                     beat = beat,
-                                    isFake = false,
+                                    isFake = isFake,
                                     isVanish = isVanish,
                                     isPhantom = false,
                                     type = NoteType.MINE
@@ -276,6 +276,17 @@ class Parser {
         return notes to extendedNotes
     }
 
+    private fun normalizeRowForHD(row: String): String {
+
+        val (parsed, _) = tokenize(row)
+
+        return if (parsed.size == 6) {
+            "00$row" + "00"
+        } else {
+            row
+        }
+    }
+
     // =========================
     // TOKENIZER
     // =========================
@@ -285,12 +296,12 @@ class Parser {
      *  - tokens planos (List<Char>) para la lógica normal de notas
      *  - meta extendido por columna (Map<col, codeChar>) para tokens {code|...}
      */
-    private fun tokenize(row: String): Pair<List<Char>, Map<Int, Pair<Char, Boolean>>> {
+    private fun tokenize(row: String): Pair<List<Char>, Map<Int, Triple<Char, Boolean, Boolean>>> {
 
         val result = mutableListOf<Char>()
 
-        // 👇 ahora guardamos: code + isVanish
-        val extTokens = mutableMapOf<Int, Pair<Char, Boolean>>()
+        // 👇 ahora guardamos: code + isVanish + isFake
+        val extTokens = mutableMapOf<Int, Triple<Char, Boolean, Boolean>>()
 
         var i = 0
         var colIndex = 0
@@ -311,8 +322,6 @@ class Parser {
                     val parts = inside.split("|")
 
                     if (parts.size == 1) {
-                        // Caso {108} u otros códigos simples
-
                         val code = parts[0]
 
                         if (code == "108") {
@@ -328,10 +337,15 @@ class Parser {
                         val modifier = parts.getOrNull(1)
                         val isVanish = modifier == "v"
 
-                        // 👇 guardamos ambos
-                        extTokens[colIndex] = codeChar to isVanish
+                        val fakeFlag = parts.getOrNull(2) == "1"
+                        // solo aplica para 1/2/3
+                        val isFake =
+                            fakeFlag &&
+                                    (codeChar == '1' || codeChar == '2' || codeChar == '3')
 
-                        // consume columna
+                        extTokens[colIndex] =
+                            Triple(codeChar, isVanish, isFake)
+
                         colIndex++
                     }
 
@@ -475,7 +489,17 @@ class Parser {
     }
 
     fun makeRandom(notes: List<Note>): List<Note> {
-        val map = generateSafeRandomMap(5)
+        val map = generatePumpRandomMap()
+        return remapColumns(notes, map)
+    }
+
+    fun makeMirrorHD(notes: List<Note>): List<Note> {
+        val mirrorMap = intArrayOf(0, 1, 7, 6, 5, 4, 3, 2, 8, 9)
+        return remapColumns(notes, mirrorMap)
+    }
+
+    fun makeRandomHD(notes: List<Note>): List<Note> {
+        val map = generatePumpRandomMapHD()
         return remapColumns(notes, map)
     }
 
@@ -498,35 +522,119 @@ class Parser {
 
     }
 
-    private fun generateSafeRandomMap(size: Int = 5): IntArray {
+    private fun generatePumpRandomMap(): IntArray {
 
-        val base = IntArray(size) { it }
+        val map = intArrayOf(0, 1, 2, 3, 4)
 
-        while (true) {
+        repeat(2) {
 
-            val map = base.clone()
-            map.shuffle()
+            when ((0..3).random()) {
 
-            // centro no fijo (para 5K)
-            if (size >= 3 && map[2] == 2) continue
+                // swap izquierda
+                0 -> {
+                    map.swap(0, 1)
+                }
 
-            // evitar demasiados iguales
-            var same = 0
-            for (i in map.indices) {
-                if (map[i] == i) same++
+                // swap derecha
+                1 -> {
+                    map.swap(3, 4)
+                }
+
+                // mover centro ligeramente
+                2 -> {
+
+                    val target = listOf(
+                        1,
+                        3
+                    ).random()
+
+                    map.swap(2, target)
+                }
+
+                // diagonal suave
+                3 -> {
+
+                    if ((0..1).random() == 0) {
+                        map.swap(0, 3)
+                    } else {
+                        map.swap(1, 4)
+                    }
+                }
             }
-            if (same > size / 2) continue
-
-            // evitar colapso lateral (solo 5K)
-            if (size == 5) {
-                val leftSide = setOf(0, 1)
-                val mapped0Left = map[0] in leftSide
-                val mapped4Left = map[4] in leftSide
-
-                if (mapped0Left && mapped4Left) continue
-            }
-
-            return map
         }
+
+        return map
+    }
+
+    private fun IntArray.swap(a: Int, b: Int) {
+
+        val tmp = this[a]
+        this[a] = this[b]
+        this[b] = tmp
+    }
+
+    private fun generatePumpRandomMapHD(): IntArray {
+
+        val map = IntArray(10) { it }
+
+        repeat(3) {
+
+            when ((0..5).random()) {
+
+                // lado izquierdo swap
+                0 -> {
+                    map.swap(2, 3)
+                }
+
+                // lado derecho swap
+                1 -> {
+                    map.swap(6, 7)
+                }
+
+                // centro interno
+                2 -> {
+                    map.swap(4, 5)
+                }
+
+                // diagonal suave
+                3 -> {
+
+                    if ((0..1).random() == 0) {
+                        map.swap(3, 5)
+                    } else {
+                        map.swap(4, 6)
+                    }
+                }
+
+                // center expand
+                4 -> {
+
+                    val target = listOf(
+                        3,
+                        4,
+                        5,
+                        6
+                    ).random()
+
+                    if ((0..1).random() == 0) {
+                        map.swap(2, target)
+                    } else {
+                        map.swap(7, target)
+                    }
+                }
+
+                // cross suave rara
+                5 -> {
+
+                    if ((0..1).random() == 0) {
+                        map.swap(2, 6)
+                    } else {
+                        map.swap(3, 7)
+                    }
+                }
+            }
+        }
+
+        return map
     }
 }

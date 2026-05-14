@@ -21,7 +21,7 @@ class LoadingSongs {
         val rutas = mutableListOf<String>()
 
         dir?.walkTopDown()?.forEach {
-            if (it.isDirectory && it.name.equals("info_ssc", true)) {
+            if (it.isDirectory && it.name.equals("info", true)) {
                 rutas.add(it.parentFile.absolutePath)
             }
         }
@@ -30,8 +30,8 @@ class LoadingSongs {
 
         for (ruta in rutas) {
             val nombre = File(ruta).name
-            val descripcion = readFileSsc("$ruta/info_ssc/text.ini")
-            val banner = "$ruta/banner_ssc.png"
+            val descripcion = readFileSsc("$ruta/info/text.ini")
+            val banner = "$ruta/banner.png"
             val songs = getSongs(ruta, c)
 
             listChannels.add(Channels(nombre, descripcion, banner, songs))

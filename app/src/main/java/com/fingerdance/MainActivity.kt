@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import android.animation.AnimatorInflater
+import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -10,6 +11,7 @@ import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
@@ -30,6 +32,7 @@ import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.view.animation.Animation
@@ -84,6 +87,7 @@ import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.system.exitProcess
+import androidx.core.graphics.drawable.toDrawable
 
 private var descargando = true
 var height: Int = 0
@@ -169,7 +173,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             e1: MotionEvent?,
             e2: MotionEvent,
             velocityX: Float,
-            velocityY: Float
+            velocityY: Float,
         ): Boolean {
             return false
         }
@@ -178,7 +182,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             e1: MotionEvent?,
             e2: MotionEvent,
             distanceX: Float,
-            distanceY: Float
+            distanceY: Float,
         ): Boolean {
             return false
         }
@@ -376,6 +380,87 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val rightMap = leftMap.map { it + 5 }
         areaToPadMap = leftMap + rightMap
+
+        padPositionsHorizontalHD = listOf(
+            arrayOf((widthBtnsHorizontal * 3f) - widthBtnsHorizontal, width - heightBtnsHorizontal), // leftDown
+            arrayOf((widthBtnsHorizontal * 3f) - widthBtnsHorizontal, (medidaFlechasHorizontal * 2)), // leftUp
+            arrayOf(widthBtnsHorizontal - widthBtnsHorizontal, width - (heightBtnsHorizontal * 1.75f)), // center
+            arrayOf((widthBtnsHorizontal * 2f) - widthBtnsHorizontal, (medidaFlechasHorizontal * 2)), // rightUp
+            arrayOf((widthBtnsHorizontal * 2f) - widthBtnsHorizontal, width - heightBtnsHorizontal),  // rightDown
+
+            arrayOf(initPadB + widthBtnsHorizontal, width - heightBtnsHorizontal), // leftDown
+            arrayOf(initPadB + widthBtnsHorizontal, (medidaFlechasHorizontal * 2)), // leftUp
+            arrayOf(initPadB + widthBtnsHorizontal * 2, width - (heightBtnsHorizontal * 1.75f)), // center
+            arrayOf(initPadB , (medidaFlechasHorizontal * 2)), // rightUp
+            arrayOf(initPadB , width - heightBtnsHorizontal)  // rightDown
+        )
+
+        val verticalSpaceHD = getVerticalGap(
+            padPositionsHorizontalHD[1], // LU
+            padPositionsHorizontalHD[0], // LD
+            heightBtnsHorizontal
+        )
+
+        val leftAreasHD = listOf(
+
+            // LD <-> LU
+            arrayOf(
+                padPositionsHorizontalHD[1][0],
+                padPositionsHorizontalHD[1][1] + heightBtnsHorizontal
+            ),
+
+            // LU -> CE
+            arrayOf(
+                padPositionsHorizontalHD[2][0],
+                padPositionsHorizontalHD[1][1]
+            ),
+
+            // CE -> RU
+            arrayOf(
+                padPositionsHorizontalHD[2][0] + (widthBtnsHorizontal / 2f),
+                padPositionsHorizontalHD[1][1]
+            ),
+
+            // RU <-> RD
+            arrayOf(
+                padPositionsHorizontalHD[3][0],
+                padPositionsHorizontalHD[3][1] + heightBtnsHorizontal
+            ),
+
+            // CE -> LD
+            arrayOf(
+                padPositionsHorizontalHD[2][0],
+                padPositionsHorizontalHD[2][1] + heightBtnsHorizontal
+            ),
+
+            // CE -> RD
+            arrayOf(
+                padPositionsHorizontalHD[2][0] + (widthBtnsHorizontal / 2f),
+                padPositionsHorizontalHD[2][1] + heightBtnsHorizontal
+            )
+        )
+
+        val rightAreasHD = leftAreasHD.map { area ->
+
+            arrayOf(
+                area[0] + initPadB + widthBtnsHorizontal,
+                area[1]
+            )
+        }
+        touchAreasHorizontalHD = leftAreasHD + rightAreasHD
+
+        val leftMapHD = listOf(
+
+            0, // LD-LU
+            1, // LU-CE left
+            3, // CE-RU
+            4, // RU-RD
+            0, // CE-LD
+            4  // CE-RD
+        )
+        val rightMapHD = leftMapHD.map { it + 5 }
+
+        areaToPadMapHD = leftMapHD + rightMapHD
 
         linearDownload = findViewById(R.id.linearDownload)
 
@@ -931,13 +1016,13 @@ class MainActivity : AppCompatActivity(), Serializable {
     data class ChannelsDrive(
         val name: String,
         val id: String,
-        val songs: ArrayList<SongsDrive>
+        val songs: ArrayList<SongsDrive>,
     )
 
     data class SongsDrive(
         val name: String,
         val id: String,
-        val videos: ArrayList<VideosDrive>
+        val videos: ArrayList<VideosDrive>,
     )
 
     data class VideosDrive(
@@ -956,18 +1041,32 @@ class MainActivity : AppCompatActivity(), Serializable {
             idWithRegister = ""
         }
         checkAppVersion()
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val versionApp = packageInfo.versionName ?: ""
+        ksfsEliminados = themes.getBoolean("ksfsEliminados", false)
+        if(versionApp == "3.0.0" && !ksfsEliminados){
+            showUpdateDialog(this)
+        }
     }
 
-    private fun cleanFiles() {
+    private var ksfsEliminados = false
+    private fun deleteAllChannelsKsf(dialog: Dialog) {
         val baseDir = getExternalFilesDir(null)
 
         val pathChannels = "FingerDance/Songs/Channels"
-
         val channels = listOf(
-            "$pathChannels/03-SHORT CUT",
-            "$pathChannels/04-REMIX",
-            "$pathChannels/05-FULLSONGS",
-            "$pathChannels/14-FIESTA TO FIESTA 2"
+            "$pathChannels/03-SHORT CUT - V2",
+            "$pathChannels/04-REMIX - V2",
+            "$pathChannels/05-FULLSONGS - V2",
+            "$pathChannels/10-PIU 1st TO PERFECT COLLECTION",
+            "$pathChannels/11-EXTRA TO PREX 3",
+            "$pathChannels/12-EXCEED TO ZERO",
+            "$pathChannels/13-NX TO NXA",
+            "$pathChannels/14-FIESTA TO FIESTA 2 - V2",
+            "$pathChannels/17-PRIME",
+            "$pathChannels/18-PRIME 2",
+            "$pathChannels/19-XX ANIVERSARY",
+            "$pathChannels/20-PHOENIX"
         )
 
         channels.forEach { path ->
@@ -977,21 +1076,56 @@ class MainActivity : AppCompatActivity(), Serializable {
                 dir.deleteRecursively()
             }
         }
+        ksfsEliminados = true
+        themes.edit().putBoolean("ksfsEliminados", true).apply()
 
-        val imgsPads = listOf(
-            "FingerDance/Themes/default/left_down.png",
-            "FingerDance/Themes/default/left_up.png",
-            "FingerDance/Themes/default/center.png",
-            "FingerDance/Themes/default/right_up.png",
-            "FingerDance/Themes/default/right_down.png"
-        )
+        Handler(Looper.getMainLooper()).postDelayed({
+            Toast.makeText(
+                this,
+                "Canales KSF eliminados correctamente",
+                Toast.LENGTH_SHORT
+            ).show()
 
-        imgsPads.forEach { path ->
-            val img = File(baseDir, path)
-            if (img.exists() && img.isFile) {
-                img.delete()
-            }
+            dialog.dismiss()
+
+        }, 2000)
+    }
+
+    private fun showUpdateDialog(context: Context) {
+
+        val dialog = Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_update_notes)
+
+        dialog.window?.apply {
+
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+            setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+
+            decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
+
+        val btnDelete = dialog.findViewById<Button>(R.id.btnDeleteChannels)
+        val btnClose = dialog.findViewById<Button>(R.id.btnClose)
+
+        btnDelete.setOnClickListener {
+            btnDelete.isEnabled = false
+            btnClose.isEnabled = false
+            Toast.makeText(context, "Eliminando Canales KSF", Toast.LENGTH_SHORT).show()
+            deleteAllChannelsKsf(dialog)
+        }
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private suspend fun checkAppVersion() {
@@ -1499,6 +1633,12 @@ class MainActivity : AppCompatActivity(), Serializable {
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
             listChannels = ls.getChannels(this@MainActivity)
+            val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
+            if(listSongsSsc.isNotEmpty()){
+                for(i in listSongsSsc){
+                    listChannels.add(i)
+                }
+            }
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
 
@@ -1622,7 +1762,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             salaRef = firebaseDatabase!!.getReference("rooms/$idSala")
             salaRef.child("jugador1").onDisconnect().removeValue()
             val jugador1 = Jugador(id = userName)
-            val date = LocalDate.now().toString()
 
             activeSala = Sala(turno = userName, jugador1 = jugador1)
             salaRef.setValue(activeSala).addOnSuccessListener {
@@ -1764,7 +1903,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             iconRes: Int,
             bgColor: Int,
             textColor: Int = Color.WHITE,
-            colorIconDraw: Boolean = false
+            colorIconDraw: Boolean = false,
         ): Button {
             return Button(this).apply {
                 this.text = text

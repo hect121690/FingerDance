@@ -18,10 +18,10 @@ class LoadSongsKsf {
         val listRutasChannels = mutableListOf<String>()
         if (dir != null){
             dir.walkTopDown().forEach {
-                if(it.toString().endsWith("info", true)){
+                if(it.toString().endsWith("info_ksf", true)){
                     when {
                         it.isDirectory -> {
-                            listRutasChannels.add(it.toString().replace("/info", "", ignoreCase = true))
+                            listRutasChannels.add(it.toString().replace("/info_ksf", "", ignoreCase = true))
                         }
                     }
                 }
@@ -35,8 +35,8 @@ class LoadSongsKsf {
 
             for (index in 0 until listRutasChannels.size) {
                 nombre = listRutasChannels[index].removeRange(0, 82)
-                descripcion = readFile(listRutasChannels[index] + "/info/text.ini")
-                banner = listRutasChannels[index] + "/banner.png"
+                descripcion = readFile(listRutasChannels[index] + "/info_ksf/text.ini")
+                banner = listRutasChannels[index] + "/banner_ksf.png"
                 rutaChannel = listRutasChannels[index]
                 listSongs = getSongs(rutaChannel, context)
                 channel = Channels(nombre, descripcion, banner, listSongs)
@@ -57,7 +57,7 @@ class LoadSongsKsf {
             // Filtrar solo las carpetas que coincidan con la lista
             baseDir.listFiles()?.forEach { file ->
                 if (file.isDirectory && validFolders.contains(file.name)) {
-                    val infoDir = File(file, "info")
+                    val infoDir = File(file, "info_ksf")
                     if (infoDir.exists() && infoDir.isDirectory) {
                         listRutasChannels.add(file.absolutePath)
                     }
@@ -68,8 +68,8 @@ class LoadSongsKsf {
 
             for (rutaChannel in listRutasChannels) {
                 val nombre = rutaChannel.substringAfterLast("/") // Nombre de la carpeta
-                val descripcion = readFile("$rutaChannel/info/text.ini")
-                val banner = "$rutaChannel/banner.png"
+                val descripcion = readFile("$rutaChannel/info_ksf/text.ini")
+                val banner = "$rutaChannel/banner_ksf.png"
                 val listSongs = getSongs(rutaChannel, context)
 
                 val channel = Channels(nombre, descripcion, banner, listSongs)
@@ -223,7 +223,9 @@ class LoadSongsKsf {
                 songKsf.listKsf[i].checkedValues = "${songKsf.listKsf[i].checkedValues}|${File(songKsf.rutaSong).length()}"
             }
             */
-            listSongs.add(songKsf)
+            if(songKsf.listKsf.isNotEmpty()) {
+                listSongs.add(songKsf)
+            }
         }
         listSongs.sortBy { song ->
             when (song.channel) {

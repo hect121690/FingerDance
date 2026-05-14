@@ -28,6 +28,7 @@ import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.fingerdance.ssc.GameScreenSscHorizontal
+import com.fingerdance.ssc.GameScreenSscHorizontalHD
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -68,6 +69,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             RelativeLayout.LayoutParams.MATCH_PARENT
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
+        isVertical = intent.getBooleanExtra("IS_VERTICAL", false)
         readyPlay = false
 
         val screenWidth = resources.displayMetrics.widthPixels
@@ -281,7 +283,13 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 getEndSong()
             },1000)
             thisHandler.postDelayed({
-                val intent = Intent(this, DanceGradeHorizontal()::class.java)
+                val intent = Intent(this,
+                    if(isVertical){
+                        DanceGrade()::class.java
+                    }else{
+                        DanceGradeHorizontal()::class.java
+                    }
+                )
                 startActivity(intent)
                 this.finish()
             }, 4000)
@@ -572,23 +580,28 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
 class MyGameScreenHorizontal(gameScreenActivity: GameScreenActivityHorizontal, playerSong: PlayerSong) : Game() {
     val gsa = gameScreenActivity
     val ps = playerSong
+
+    //HORIZONTAL KSF's
     private var gameScreenKsfHorizontal: GameScreenKsfHorizontal? = null
+    private var gameScreenKsfHorizontalHD: GameScreenKsfHDHorizontal? = null
+
+    //HORIZONTAL SSC's
     private var gameScreenSscHorizontal: GameScreenSscHorizontal? = null
-    private var gameScreenHD: GameScreenKsfHD? = null
+    private var gameScreenSscHorizontalHD: GameScreenSscHorizontalHD? = null
     override fun create() {
         playerSong = ps
         if(playerSong.isSSC) {
             if (halfDouble) {
-                //gameScreenHD = GameScreenKsfHD(gsa)
-                //setScreen(gameScreenHD)
+                gameScreenSscHorizontalHD = GameScreenSscHorizontalHD(gsa)
+                setScreen(gameScreenSscHorizontalHD)
             } else {
                 gameScreenSscHorizontal = GameScreenSscHorizontal(gsa)
                 setScreen(gameScreenSscHorizontal)
             }
         }else{
             if (halfDouble) {
-                //gameScreenHD = GameScreenKsfHD(gsa)
-                //setScreen(gameScreenHD)
+                gameScreenKsfHorizontalHD = GameScreenKsfHDHorizontal(gsa)
+                setScreen(gameScreenKsfHorizontalHD)
             } else {
                 gameScreenKsfHorizontal = GameScreenKsfHorizontal(gsa)
                 setScreen(gameScreenKsfHorizontal)
@@ -598,10 +611,18 @@ class MyGameScreenHorizontal(gameScreenActivity: GameScreenActivityHorizontal, p
 
     override fun dispose() {
         super.dispose()
-        if(playerSong.isSSC){
-            gameScreenSscHorizontal?.dispose()
+        if(halfDouble){
+            if(playerSong.isSSC){
+                gameScreenSscHorizontalHD?.dispose()
+            }else{
+                gameScreenKsfHorizontalHD?.dispose()
+            }
         }else {
-            gameScreenKsfHorizontal?.dispose()
+            if (playerSong.isSSC) {
+                gameScreenSscHorizontal?.dispose()
+            } else {
+                gameScreenKsfHorizontal?.dispose()
+            }
         }
     }
 }

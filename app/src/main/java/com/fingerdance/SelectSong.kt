@@ -187,6 +187,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var imgAceptar: ImageView
     private lateinit var imgFloor: ImageView
 
+    private lateinit var txInfoCurrentSong: TextView
     private lateinit var imgLvSelected: ImageView
     private lateinit var lbLvActive: TextView
 
@@ -263,6 +264,13 @@ class SelectSong : AppCompatActivity() {
         isPrime = tema != "Prime"
 
         isOnline = false
+        val txNameChannel = findViewById<TextView>(R.id.txCurrentChannel)
+        txNameChannel.text = currentChannel.substringAfter("-")
+        val txPlayerName = findViewById<TextView>(R.id.txPlayerName)
+        txPlayerName.text = userName
+        txNameChannel.layoutParams.width = (width * 0.35).toInt()
+        txPlayerName.layoutParams.width = (width * 0.35).toInt()
+
         niveles = arrayListOf<Nivel>()
         //recyclerView = findViewById(R.id.recyclerView)
         carouselSong = findViewById(R.id.recyclerView)
@@ -425,6 +433,7 @@ class SelectSong : AppCompatActivity() {
         imgAceptar = findViewById(R.id.floor_start)
         imgAceptar.setImageBitmap(AppResources.bmAceptar)
 
+        txInfoCurrentSong = findViewById(R.id.txInfoCurrentSong)
         imgLvSelected = findViewById(R.id.imgLvSelected)
         difficultySelected = AppResources.difficultedSelected
         difficultySelectedHD = AppResources.difficultedSelectedHD
@@ -494,7 +503,6 @@ class SelectSong : AppCompatActivity() {
         }
 
         buildSelectMode(animateSetTraslation)
-
         constraintMain.addView(selectModeContainer)
 
         nav_izq = findViewById(R.id.nav_izq_song)
@@ -801,6 +809,8 @@ class SelectSong : AppCompatActivity() {
                 selectModeContainer.visibility = View.INVISIBLE
                 imgFloor.visibility = View.VISIBLE
                 imgAceptar.visibility = View.VISIBLE
+                txNameChannel.visibility = View.VISIBLE
+                txPlayerName.visibility = View.VISIBLE
                 imgAceptar.startAnimation(animateSetTraslation)
             }
         }
@@ -837,6 +847,8 @@ class SelectSong : AppCompatActivity() {
                 selectModeContainer.visibility = View.INVISIBLE
                 imgFloor.visibility = View.VISIBLE
                 imgAceptar.visibility = View.VISIBLE
+                txNameChannel.visibility = View.VISIBLE
+                txPlayerName.visibility = View.VISIBLE
                 imgAceptar.startAnimation(animateSetTraslation)
             }
         }
@@ -936,10 +948,12 @@ class SelectSong : AppCompatActivity() {
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
                 if(ready == 1 && !modeSelected){
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
+                    txNameChannel.visibility = View.INVISIBLE
+                    txPlayerName.visibility = View.INVISIBLE
                     showSelectMode()
                 }
                 if(ready == 1 && modeSelected){
-                    goGameScreenActivity(anim)
+                    goGameScreenActivity(anim, txPlayerName, txNameChannel)
                 }
                 imgAceptar.isEnabled = true
                 if(ready == 0){
@@ -1447,7 +1461,7 @@ class SelectSong : AppCompatActivity() {
         return (loc[1] - containerLoc[1]) + v.height / 2f
     }
 
-    private fun goGameScreenActivity(anim: Animation){
+    private fun goGameScreenActivity(anim: Animation, txPlayerName: TextView, txNameChannel: TextView) {
         val real = getRealIndex(oldValue)
         val song = listItemsKsf[real]
         soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -1516,13 +1530,13 @@ class SelectSong : AppCompatActivity() {
                 if(!isHalfDouble){
                     chart.notes = Parser().makeMirror(chart.notes)
                 }else{
-                    chart.notes = Parser().makeRandom(chart.notes)
+                    chart.notes = Parser().makeMirrorHD(chart.notes)
                 }
                 if(playerSong.rs){
                     if(!isHalfDouble){
-                        chart.notes = Parser().makeMirror(chart.notes)
-                    }else{
                         chart.notes = Parser().makeRandom(chart.notes)
+                    }else{
+                        chart.notes = Parser().makeRandomHD(chart.notes)
                     }
                 }
             }
@@ -1572,11 +1586,14 @@ class SelectSong : AppCompatActivity() {
             )
 
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
+            intent.putExtra("IS_VERTICAL", true)
             startActivity(intent)
 
             handler.postDelayed({
                 linearLoading.isVisible = false
                 imgLoading.isVisible = false
+                txNameChannel.visibility = View.VISIBLE
+                txPlayerName.visibility = View.VISIBLE
             }, 1000L)
             initGameScreen = true
             ready = 0
@@ -2354,7 +2371,9 @@ class SelectSong : AppCompatActivity() {
     private fun goSelectLevel() {
         soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         carouselSong.startAnimation(animOff)
+        txInfoCurrentSong.startAnimation(animOff)
         carouselSong.isVisible = false
+        txInfoCurrentSong.isVisible = false
         imgSelected.clearAnimation()
         imgSelected.visibility = View.INVISIBLE
         imgLvSelected.isVisible = true
@@ -2596,6 +2615,8 @@ class SelectSong : AppCompatActivity() {
     private fun hideSelectLv(anim: Animation) {
         carouselSong.isVisible = true
         carouselSong.startAnimation(animOn)
+        txInfoCurrentSong.isVisible = true
+        txInfoCurrentSong.startAnimation(animOn)
         imgSelected.visibility = View.VISIBLE
         imgSelected.startAnimation(anim)
 
@@ -2821,6 +2842,7 @@ class SelectSong : AppCompatActivity() {
             lbNameSong.text = item.title
         }
         lbNameSong.startAnimation(AppResources.animNameSong)
+        txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, listItemsKsf.size)
 
         if(item.artist == ""){
             lbArtist.text = "NO ARTIST"

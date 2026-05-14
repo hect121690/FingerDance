@@ -10,10 +10,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.GameScreenActivity
-import com.fingerdance.KsfProccess
 import com.fingerdance.KsfProccess.LuaVisualEvent
-import com.fingerdance.KsfProccess.Pattern
-import com.fingerdance.Player
 import com.fingerdance.VisualTarget
 import com.fingerdance.aBatch
 import com.fingerdance.bBatch
@@ -21,12 +18,10 @@ import com.fingerdance.breakSong
 import com.fingerdance.chart
 import com.fingerdance.decimoHeigtn
 import com.fingerdance.displayBPM
-import com.fingerdance.height
 import com.fingerdance.heightBtns
 import com.fingerdance.heightJudges
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
-import com.fingerdance.ksf
 import com.fingerdance.medidaFlechas
 import com.fingerdance.padPositions
 import com.fingerdance.playerSong
@@ -554,6 +549,7 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
     }
 
     private fun processTapAndHeadOnColumn(col: Int, timeMs: Long) {
+
         val notesInCol = columnNotes[col]
         val nowBeat = timeToBeat(timeMs.toDouble())
 
@@ -563,28 +559,46 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         var minAbsDelta = Long.MAX_VALUE
 
         for (i in idxStart until min(idxStart + 8, notesInCol.size)) {
+
             val note = notesInCol[i]
 
             if (timingData.isBeatInWarp(note.beat)) {
                 continue
             }
 
-            // 🔴 FIX 2: mines corregidas
-            if (note.type == Parser.NoteType.MINE) {
-                applyJudge(col, JUDGE_MISS, isFromInput = true, isMine = true, note = note)
-                hitNotes.add(note)
-                columnIndex[col] = i + 1
-                onMineHit(timeMs)
-                return
+            val deltaMs = getDeltaMsForNote(note.beat, timeMs)
+
+            if (deltaMs < -ZONE_BAD) {
+                break
             }
 
-            if (note.type != Parser.NoteType.TAP && note.type != Parser.NoteType.HOLD) continue
-            if (note.type == Parser.NoteType.HOLD && LONGNOTE[col].pressed) continue
+            // MINE
+            if (note.type == Parser.NoteType.MINE) {
 
-            val deltaMs = getDeltaMsForNote(note.beat, timeMs)
-            if (deltaMs < -ZONE_BAD) break
+                if (abs(deltaMs) <= ZONE_BAD) {
+                    applyJudge(col,
+                        JUDGE_MISS, isFromInput = true, isMine = true, note = note)
+                    hitNotes.add(note)
+                    columnIndex[col] = i + 1
+
+                    onMineHit(timeGetTime())
+                }
+
+                continue
+            }
+
+            if (note.type != Parser.NoteType.TAP &&
+                note.type != Parser.NoteType.HOLD) {
+                continue
+            }
+
+            if (note.type == Parser.NoteType.HOLD &&
+                LONGNOTE[col].pressed) {
+                continue
+            }
 
             val judge = getJudgeFromDelta(deltaMs)
+
             if (judge >= 0 && abs(deltaMs) < minAbsDelta) {
                 bestIdx = i
                 bestJudge = judge
@@ -597,10 +611,15 @@ class PlayerSsc(private val batch: SpriteBatch, activity: GameScreenActivity) : 
         val n = notesInCol[bestIdx]
 
         if (n.type == Parser.NoteType.HOLD) {
+
             applyJudge(col, JUDGE_PERFECT, isFromInput = true, note = n)
+
             startLongNote(col, n, timeMs)
+
             LONGNOTE[col].lastTickBeat = nowBeat
+
             columnIndex[col] = bestIdx + 1
+
         } else {
             applyJudge(col, bestJudge, isFromInput = true, note = n)
             hitNotes.add(n)

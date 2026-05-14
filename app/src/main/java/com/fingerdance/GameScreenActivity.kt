@@ -30,6 +30,8 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
 import android.content.pm.ActivityInfo
+import android.view.Gravity.isVertical
+import com.fingerdance.ssc.GameScreenSscHD
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -66,6 +68,7 @@ open class GameScreenActivity : AndroidApplication() {
             RelativeLayout.LayoutParams.MATCH_PARENT
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
+        isVertical = intent.getBooleanExtra("IS_VERTICAL", true)
         readyPlay = false
 
         canGoBack = false
@@ -305,7 +308,13 @@ open class GameScreenActivity : AndroidApplication() {
                 getEndSong()
             },1000)
             thisHandler.postDelayed({
-                val intent = Intent(this, DanceGrade()::class.java)
+                val intent = Intent(this,
+                    if(isVertical){
+                        DanceGrade()::class.java
+                    }else{
+                        DanceGradeHorizontal()::class.java
+                    }
+                )
                 startActivity(intent)
                 this.finish()
             }, 4000)
@@ -507,7 +516,6 @@ open class GameScreenActivity : AndroidApplication() {
     }
 
     fun breakDance(){
-
         this.finish()
         countMiss = 0
         val intent = Intent(this, BreakDance::class.java)
@@ -595,14 +603,23 @@ open class GameScreenActivity : AndroidApplication() {
 class MyGameScreen(gameScreenActivity: GameScreenActivity, playerSong: PlayerSong) : Game() {
     val gsa = gameScreenActivity
     val ps = playerSong
+    //VERTICAL KSF's
     private var gameScreen: GameScreenKsf? = null
     private var gameScreenHD: GameScreenKsfHD? = null
+
+    //VERTICAL SSC's
     private var gameScreenSsc: GameScreenSsc? = null
+    private var gameScreenSscHD: GameScreenSscHD? = null
     override fun create() {
         playerSong = ps
         if(halfDouble){
-            gameScreenHD = GameScreenKsfHD(gsa)
-            setScreen(gameScreenHD)
+            if(playerSong.isSSC){
+                gameScreenSscHD = GameScreenSscHD(gsa)
+                setScreen(gameScreenSscHD)
+            }else {
+                gameScreenHD = GameScreenKsfHD(gsa)
+                setScreen(gameScreenHD)
+            }
         }else {
             if(playerSong.isSSC){
                 gameScreenSsc = GameScreenSsc(gsa)
@@ -617,7 +634,11 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity, playerSong: PlayerSon
     override fun dispose() {
         super.dispose()
         if(halfDouble){
-            gameScreenHD?.dispose()
+            if (playerSong.isSSC) {
+                gameScreenSscHD?.dispose()
+            } else {
+                gameScreenHD?.dispose()
+            }
         }else {
             if(playerSong.isSSC){
                 gameScreenSsc?.dispose()
