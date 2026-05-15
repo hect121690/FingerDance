@@ -115,11 +115,7 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         button: Int
     ): Boolean {
 
-        val pad =
-            getPadIndex(
-                screenX.toFloat(),
-                screenY.toFloat()
-            ) ?: return false
+        val pad = getPadIndex(screenX.toFloat(), screenY.toFloat()) ?: return false
 
         pointerToPadMap[pointer] = pad
 

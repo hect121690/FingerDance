@@ -593,7 +593,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
             player = playerSong.player,
             nuevoPuntaje = totalScore.toString(),
             nuevoGrade = newGrade,
-            chartName = playerSong.chartName
+            chartName = playerSong.chartName,
+            credit = playerSong.stepMaker
         )
 
         imgMyBestGrade.setImageBitmap(bitmapGrade)
@@ -867,6 +868,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
                             val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
                             val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
                             val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
+                            val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
+                            val stepmaker = nivelSnapshot.child("stepMaker").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -874,7 +877,7 @@ class DanceGradeHorizontal : AppCompatActivity() {
                                 val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))

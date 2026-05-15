@@ -1868,7 +1868,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                     songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
                 }else {
                     channelIndex = validFolders.indexOf(currentChannel)
-                    songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
+                    songIndex = oldValue
                 }
                 levelIndex = positionActualLvs
             }
@@ -2144,6 +2144,7 @@ class SelectSongHorizontal : AppCompatActivity() {
                     type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
                     player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
                     chartName = nivel.chartName,
+                    credit = nivel.stepmaker
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)

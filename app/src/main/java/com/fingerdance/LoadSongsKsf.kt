@@ -148,9 +148,9 @@ class LoadSongsKsf {
                             ksf.typeSteps = "NORMAL"
                             val file = File(it.toString())
 
-                            /*
-                            ksf.checkedValues = generateCheckedValues(file)
-                            */
+
+                            ksf.checkedValues = generateCheckedValuesKsf(file)
+
 
                             file.useLines { lines ->
                                 for (line in lines) {
@@ -218,11 +218,11 @@ class LoadSongsKsf {
                     }
                 }
             }
-            /*
+
             for(i in 0 until songKsf.listKsf.size){
                 songKsf.listKsf[i].checkedValues = "${songKsf.listKsf[i].checkedValues}|${File(songKsf.rutaSong).length()}"
             }
-            */
+
             if(songKsf.listKsf.isNotEmpty()) {
                 listSongs.add(songKsf)
             }
@@ -235,32 +235,6 @@ class LoadSongsKsf {
         }
 
         return listSongs
-    }
-
-    private fun generateCheckedValues(file: File): String {
-        var inStepBlock = false
-        var count1 = 0
-        var count4 = 0
-
-        file.forEachLine { line ->
-            if (!inStepBlock && line.startsWith("#STEP:")) {
-                inStepBlock = true
-                return@forEachLine
-            }
-
-            if (inStepBlock) {
-                if (line.startsWith("22222")) return@forEachLine
-                if (line.startsWith("|")) return@forEachLine
-                line.forEach { char ->
-                    when (char) {
-                        '1' -> count1++
-                        '4' -> count4++
-                    }
-                }
-            }
-        }
-
-        return "$count1|$count4"
     }
 
     private fun getValue(line: String): String {

@@ -32,6 +32,7 @@ import java.io.File
 import android.content.pm.ActivityInfo
 import android.view.Gravity.isVertical
 import com.fingerdance.ssc.GameScreenSscHD
+import com.fingerdance.ssc.Parser
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -130,7 +131,14 @@ open class GameScreenActivity : AndroidApplication() {
         }, timeToPlay)
         if(!isOnline){
             if(!isOffline){
-                checkedValuesKsfLocal = generateCheckedValues(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
+                if(playerSong.isSSC) {
+                    val ssc = readFileSsc(listChannels[channelIndex].listCanciones[songIndex].rutaSsc)
+                    val seccions = ssc.split("#NOTEDATA:;")
+                    val chartString = seccions[listChannels[channelIndex].listCanciones[songIndex].listKsf[positionActualLvs].steps]
+                    checkedValuesKsfLocal = generateCheckedValuesSsc(chartString) + "|" + File(playerSong.rutaCancion!!).length()
+                }else{
+                    checkedValuesKsfLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
+                }
             }
         }
     }
@@ -350,6 +358,8 @@ open class GameScreenActivity : AndroidApplication() {
                             val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
                             val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
                             val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
+                            val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
+                            val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -357,7 +367,7 @@ open class GameScreenActivity : AndroidApplication() {
                                 val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))
@@ -399,32 +409,6 @@ open class GameScreenActivity : AndroidApplication() {
             isPlayingEndSong = soundPoolSelectSong.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
         }
         imgEndSong.bringToFront()
-    }
-
-    private fun generateCheckedValues(file: File): String {
-        var inStepBlock = false
-        var count1 = 0
-        var count4 = 0
-
-        file.forEachLine { line ->
-            if (!inStepBlock && line.startsWith("#STEP:")) {
-                inStepBlock = true
-                return@forEachLine
-            }
-
-            if (inStepBlock) {
-                if (line.startsWith("22222")) return@forEachLine
-                if (line.startsWith("|")) return@forEachLine
-                line.forEach { char ->
-                    when (char) {
-                        '1' -> count1++
-                        '4' -> count4++
-                    }
-                }
-            }
-        }
-
-        return "$count1|$count4"
     }
 
     override fun onDestroy() {

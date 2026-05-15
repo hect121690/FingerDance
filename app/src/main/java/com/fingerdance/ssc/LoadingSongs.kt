@@ -6,6 +6,7 @@ import android.util.Log
 import com.fingerdance.Channels
 import com.fingerdance.Ksf
 import com.fingerdance.Song
+import com.fingerdance.generateCheckedValuesSsc
 import com.fingerdance.readFileSsc
 import com.fingerdance.tema
 import java.io.File
@@ -76,8 +77,6 @@ class LoadingSongs {
                 var rutaPreview = ""
                 var rutaCancion = ""
                 var rutaBga = ""
-                var credit = ""
-                var chartName = ""
 
                 val ssc = readFileSsc(fileSSC.absolutePath)
 
@@ -92,32 +91,7 @@ class LoadingSongs {
                         line.startsWith("#TITLE:") -> name = getValue(line)
                         line.startsWith("#ARTIST:") -> artist = getValue(line)
 
-                        /*
-                        line.startsWith("#BANNER:") -> {
-                            rutaBanner = "$ruta/${getValue(line)}"
-                        }
-
-                        line.startsWith("#BACKGROUND:") && rutaBanner.isEmpty() -> {
-                            rutaBanner = "$ruta/${getValue(line)}"
-                        }
-
-                        line.startsWith("#CDTITLE:") && rutaBanner.isEmpty() -> {
-                            rutaBanner = "$ruta/${getValue(line)}"
-                        }
-
-                        line.startsWith("#DISCIMAGE:") -> {
-                            rutaDisc = "$ruta/${getValue(line)}"
-                        }
-
-                        line.startsWith("#CDIMAGE:") && rutaDisc.isEmpty()-> {
-                            rutaDisc = "$ruta/${getValue(line)}"
-                        }
-                        */
-
                         line.startsWith("#MUSIC:") -> {
-                            if(name.equals("Club Night")){
-                                ssc
-                            }
                             val song = getValue(line)
                             rutaCancion = resolveRealFile(dir, song)
                             if(line.contains("/")){
@@ -154,10 +128,6 @@ class LoadingSongs {
                                 }
                             }
                         }
-
-                        line.startsWith("#CREDIT:") -> {
-                            credit = getValue(line)
-                        }
                     }
                 }
 
@@ -178,8 +148,11 @@ class LoadingSongs {
                 for (index in 1 until seccions.size) {
 
                     var numberLevel = ""
+                    var chartName = ""
                     var typePlayer = ""
                     var typeSteps = "NORMAL"
+                    var checkedValues = ""
+                    var credit = ""
 
                     val arr2 = seccions[index].split(Regex("\\r?\\n"))
 
@@ -192,6 +165,7 @@ class LoadingSongs {
                             line.startsWith("#DESCRIPTION:") -> typeSteps = getValue(line)
                             line.startsWith("#METER:") -> numberLevel = getValue(line).padStart(2, '0')
                             line.startsWith("#CHARTNAME:") -> chartName = getValue(line)
+                            line.startsWith("#CREDIT:") -> credit = getValue(line)
                             line.startsWith("#NOTES:") -> break
                         }
                     }
@@ -205,23 +179,24 @@ class LoadingSongs {
                     }
 
                     if (
-                        typePlayer.equals("pump-single", true) ||
-                        typePlayer.equals("pump-half-double", true) ||
-                        typePlayer.equals("pump-halfdouble", true)
+                        typePlayer.contains("single", true) ||
+                        typePlayer.contains("half", true)
                     ) {
 
-                        val player = if (typePlayer.contains("double", true)) "B" else "A"
+                        val player = if (typePlayer.contains("half", true)) "B" else "A"
+                        checkedValues = generateCheckedValuesSsc(seccions[index]) + "|${File(rutaCancion).length()}"
                         val icon = if (player == "B") rutaBitActiveHalfDouble else rutaBitActiveSingle
 
                         listLevels.add(
                             Ksf(
                                 level = numberLevel,
                                 rutaBitActive = icon,
-                                steps = index, // 🔥 EXACTO COMO TENÍAS
+                                steps = index,
                                 typePlayer = player,
                                 typeSteps = typeSteps,
+                                checkedValues = checkedValues,
                                 stepmaker = credit,
-                                chartName = chartName
+                                chartName = chartName,
                             )
                         )
                     }

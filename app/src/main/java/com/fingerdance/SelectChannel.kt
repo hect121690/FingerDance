@@ -214,10 +214,6 @@ class SelectChannel : AppCompatActivity() {
                 AppResources.listSongsChannelKsf = channelSelected.listCanciones
                 currentChannel = channelSelected.nombre
                 Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
-                if(channelSelected.listCanciones.first().isSSC){
-                    isOffline = true
-                }
-
 
                 /*
                 val gson = GsonBuilder().setPrettyPrinting().create()
@@ -225,17 +221,19 @@ class SelectChannel : AppCompatActivity() {
                 val listCanales = arrayListOf<Canal>()
                 for(i in 0 until listChannels.size) {
                     val listCanciones = arrayListOf<Cancion>()
-                    for (a in 0 until listChannels[i].listCancionesKsf.size) {
+                    for (a in 0 until listChannels[i].listCanciones.size) {
                         val listNiveles = arrayListOf<Nivel>()
-                        for (b in 0 until listChannels[i].listCancionesKsf[a].listKsf.size) {
-                            val checkedValues = listChannels[i].listCancionesKsf[a].listKsf[b].checkedValues
-                            val level = listChannels[i].listCancionesKsf[a].listKsf[b].level
-                            val type = listChannels[i].listCancionesKsf[a].listKsf[b].typeSteps
-                            val player = listChannels[i].listCancionesKsf[a].listKsf[b].typePlayer
-                            val n = Nivel(level, checkedValues, type, player, ArrayList(List(3) { FirstRank() }))
+                        for (b in 0 until listChannels[i].listCanciones[a].listKsf.size) {
+                            val checkedValues = listChannels[i].listCanciones[a].listKsf[b].checkedValues
+                            val level = listChannels[i].listCanciones[a].listKsf[b].level
+                            val type = listChannels[i].listCanciones[a].listKsf[b].typeSteps
+                            val player = listChannels[i].listCanciones[a].listKsf[b].typePlayer
+                            val chartName = listChannels[i].listCanciones[a].listKsf[b].chartName
+                            val stepmaker = listChannels[i].listCanciones[a].listKsf[b].stepmaker
+                            val n = Nivel(level, checkedValues, type, player, chartName, stepmaker, ArrayList(List(3) { FirstRank() }))
                             listNiveles.add(n)
                         }
-                        val cancion = Cancion(listChannels[i].listCancionesKsf[a].title, listNiveles)
+                        val cancion = Cancion(listChannels[i].listCanciones[a].title, listNiveles)
                         listCanciones.add(cancion)
                     }
                     val canal = Canal(listChannels[i].nombre, listCanciones)

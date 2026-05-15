@@ -3,7 +3,6 @@ package com.fingerdance
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.content.res.ColorStateList
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -35,8 +34,6 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.Button
-import android.widget.CheckBox
-import android.widget.CheckedTextView
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -50,10 +47,15 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -62,22 +64,14 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.Transformer.Listener
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
-import java.math.BigDecimal
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlin.random.Random
-import androidx.core.graphics.createBitmap
-import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.MediaItem
+import com.bumptech.glide.Glide
+import com.fingerdance.CustomAdapter.ViewHolder.Companion.md5
 import com.fingerdance.MainActivity.VideosDrive
+import com.fingerdance.ssc.Parser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -85,12 +79,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
-import androidx.core.graphics.scale
-import androidx.core.net.toUri
-import com.bumptech.glide.Glide
-import com.fingerdance.CustomAdapter.ViewHolder.Companion.md5
-import com.fingerdance.ssc.Parser
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.random.Random
+
+
 
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
@@ -1570,7 +1568,7 @@ class SelectSong : AppCompatActivity() {
                     songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
                 }else {
                     channelIndex = validFolders.indexOf(currentChannel)
-                    songIndex = listGlobalRanking.indexOfFirst{ it.cancion == currentSong }
+                    songIndex = real
                 }
                 levelIndex = positionActualLvs
             }
@@ -1927,7 +1925,7 @@ class SelectSong : AppCompatActivity() {
         constraintMain.addView(buttonLayout)
     }
 
-    fun setOverlayEnabled(enabled: Boolean, cardLayout: LinearLayout) {
+    private fun setOverlayEnabled(enabled: Boolean, cardLayout: LinearLayout) {
         cardLayout.isEnabled = enabled
         cardLayout.alpha = if (enabled) 1f else 0.6f
         // Fila de Preview (índice 1)
@@ -2197,54 +2195,6 @@ class SelectSong : AppCompatActivity() {
         override fun run() {
             actualizarImagenNumero(reductor)
             reductor--
-
-            /*
-            when(countSongsPlayed){
-                ONE_ADDITIONAL_NOTESKIN -> {
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[0])
-                    listCommands[0].listCommandValues.sortBy { it.value }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    showNewNoteSkin(listNoteSkinAdditionals[0])
-                    countSongsPlayed++
-                }
-                TWO_ADDITIONAL_NOTESKIN -> {
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[1])
-                    listCommands[0].listCommandValues.sortBy { it.value }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    showNewNoteSkin(listNoteSkinAdditionals[1])
-                    countSongsPlayed++
-                }
-                THREE_ADDITIONAL_NOTESKIN -> {
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[2])
-                    listCommands[0].listCommandValues.sortBy { it.value }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    showNewNoteSkin(listNoteSkinAdditionals[2])
-                    countSongsPlayed++
-                }
-                FOUR_ADDITIONAL_NOTESKIN -> {
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[3])
-                    listCommands[0].listCommandValues.sortBy { it.value }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    showNewNoteSkin(listNoteSkinAdditionals[3])
-                    countSongsPlayed++
-                }
-                FIVE_ADDITIONAL_NOTESKIN -> {
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[4])
-                    listCommands[0].listCommandValues.sortBy { it.value }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    showNewNoteSkin(listNoteSkinAdditionals[4])
-                    countSongsPlayed++
-                }
-                SIX_ADDITIONAL_NOTESKIN -> {
-                    listCommands[0].listCommandValues.add(listNoteSkinAdditionals[5])
-                    listCommands[0].listCommandValues.sortBy { it.value }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    showNewNoteSkin(listNoteSkinAdditionals[5])
-                    countSongsPlayed++
-                }
-            }
-            */
-
             if(isCounter){
                 handlerContador.postDelayed(this, 1000)
                 if(reductor < 0){
@@ -2676,12 +2626,6 @@ class SelectSong : AppCompatActivity() {
         playerSong.type = lv.typeSteps
         playerSong.chartName = lv.chartName
         playerSong.stepMaker = lv.stepmaker
-
-        //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
-
-        //val dx = positionActualLvs * sizeLvs - recyclerLvs.computeHorizontalScrollOffset()
-        //recyclerLvs.smoothScrollBy(dx, 0)
-        //moveIndicatorToPosition(positionActualLvs)
     }
 
     private fun moverCanciones(flecha: ImageView, isNext: Boolean = false) {
@@ -2778,6 +2722,7 @@ class SelectSong : AppCompatActivity() {
                     type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
                     player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
                     chartName = nivel.chartName,
+                    credit = nivel.stepmaker
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)

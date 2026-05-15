@@ -133,7 +133,14 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         }, timeToPlay)
         if(!isOnline){
             if(!isOffline){
-                checkedValuesKsfLocal = generateCheckedValues(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
+                if(playerSong.isSSC) {
+                    val ssc = readFileSsc(listChannels[channelIndex].listCanciones[songIndex].rutaSsc)
+                    val seccions = ssc.split("#NOTEDATA:;")
+                    val chartString = seccions[listChannels[channelIndex].listCanciones[songIndex].listKsf[positionActualLvs].steps]
+                    checkedValuesKsfLocal = generateCheckedValuesSsc(chartString) + "|" + File(playerSong.rutaCancion!!).length()
+                }else{
+                    checkedValuesKsfLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
+                }
             }
         }
     }
@@ -326,6 +333,8 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                             val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
                             val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
                             val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
+                            val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
+                            val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -333,7 +342,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                                 val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))

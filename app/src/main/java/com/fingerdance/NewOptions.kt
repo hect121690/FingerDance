@@ -541,7 +541,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun createTextIni(context: Context): Boolean {
-        val nameInfo = if(isSscChannel) "info_ssc" else "info"
+        val nameInfo = if(isSscChannel) "info" else "info_ksf"
         val folderPath = context.getExternalFilesDir("/FingerDance/Songs/Channels/$nameNewChannel/$nameInfo/")
         return if (folderPath != null && (folderPath.exists() || folderPath.mkdirs())) {
             val textFile = File(folderPath, "text.ini")
@@ -563,7 +563,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             return
         }
         val destinationPath = requireContext().getExternalFilesDir("/FingerDance/Songs/Channels/$nameNewChannel/")
-        val destinationFile = File(destinationPath, if(isSscChannel)"banner_ssc.png" else "banner.png")
+        val destinationFile = File(destinationPath, if(isSscChannel)"banner.png" else "banner_ksf.png")
 
         try {
             val validatedInputStream: InputStream? = requireContext().contentResolver.openInputStream(uri)

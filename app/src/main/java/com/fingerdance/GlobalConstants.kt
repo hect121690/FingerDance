@@ -197,7 +197,7 @@ var ready = 0
 // ========== FUNCIONES HELPER ==========
 
 fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-    val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
+    val canalRef = firebaseDatabase.getReference("channels").orderByChild("canal").equalTo(canalNombre)
     val listResult = arrayListOf<Cancion>()
     canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
@@ -212,6 +212,8 @@ fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Un
                         val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
                         val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
                         val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
+                        val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
+                        val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
                         val rankings = arrayListOf<FirstRank>()
                         for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                             val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -220,7 +222,7 @@ fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Un
                             rankings.add(FirstRank(nombre, puntaje, grade))
                         }
 
-                        niveles.add(Nivel(numberNivel, checkedValues, type, player, rankings))
+                        niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
                     }
 
                     listResult.add(Cancion(nombreCancion, niveles))
@@ -235,6 +237,63 @@ fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Un
             callback(listResult)
         }
     })
+}
+
+fun generateCheckedValuesKsf(file: File): String {
+    var inStepBlock = false
+    var count1 = 0
+    var count4 = 0
+
+    file.forEachLine { line ->
+        if (!inStepBlock && line.startsWith("#STEP:")) {
+            inStepBlock = true
+            return@forEachLine
+        }
+
+        if (inStepBlock) {
+            if (line.startsWith("22222")) return@forEachLine
+            if (line.startsWith("|")) return@forEachLine
+            line.forEach { char ->
+                when (char) {
+                    '1' -> count1++
+                    '4' -> count4++
+                }
+            }
+        }
+    }
+
+    return "$count1|$count4"
+}
+
+fun generateCheckedValuesSsc(chartString: String): String {
+    var inNotesBlock = false
+    var count1 = 0
+    var count2 = 0
+    var count3 = 0
+
+    chartString.lines().forEach { line ->
+        if (!inNotesBlock && line.trim() == "#NOTES:") {
+            inNotesBlock = true
+            return@forEach
+        }
+
+        if (inNotesBlock) {
+
+            if (line.trim() == ";") {
+                inNotesBlock = false
+                return@forEach
+            }
+            line.forEach { char ->
+                when (char) {
+                    '1' -> count1++
+                    '2' -> count2++
+                    '3' -> count3++
+                }
+            }
+        }
+    }
+
+    return "$count1|$count2|$count3"
 }
 
 fun isConnectedToInternet(context: Context): Boolean {
@@ -693,6 +752,8 @@ data class Nivel(
     val checkedValues: String = "",
     val type: String = "",
     val player: String = "",
+    val chartName: String = "",
+    val stepmaker: String = "",
     val fisrtRank: ArrayList<FirstRank> = arrayListOf()
 )
 
