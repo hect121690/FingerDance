@@ -1,5 +1,9 @@
 package com.fingerdance
 
+import android.R.attr.alpha
+import android.R.attr.pivotY
+import android.R.attr.scaleY
+import android.animation.ValueAnimator
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -30,7 +34,13 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
 import android.content.pm.ActivityInfo
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import android.view.Gravity.isVertical
+import android.view.ViewPropertyAnimator
+import android.widget.FrameLayout
+import androidx.core.graphics.drawable.toDrawable
 import com.fingerdance.ssc.GameScreenSscHD
 import com.fingerdance.ssc.Parser
 
@@ -82,7 +92,6 @@ open class GameScreenActivity : AndroidApplication() {
         }
 
         resultSong = ResultSong()
-
         val pathImgs = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play")!!.absolutePath
         bitPerfectGame = BitmapFactory.decodeFile("$pathImgs/perfect_game.png")
         bitPerfectGame = trimTransparentEdges(bitPerfectGame)
@@ -96,6 +105,7 @@ open class GameScreenActivity : AndroidApplication() {
         imgEndSong.visibility = View.INVISIBLE
 
         val linearBGADark = findViewById<LinearLayout>(R.id.linearBGADark)
+
         addVideoBackground()
 
         val config = AndroidApplicationConfiguration()
@@ -132,9 +142,23 @@ open class GameScreenActivity : AndroidApplication() {
         if(!isOnline){
             if(!isOffline){
                 if(playerSong.isSSC) {
-                    val ssc = readFileSsc(listChannels[channelIndex].listCanciones[songIndex].rutaSsc)
-                    val seccions = ssc.split("#NOTEDATA:;")
-                    val chartString = seccions[listChannels[channelIndex].listCanciones[songIndex].listKsf[positionActualLvs].steps]
+                    val ssc = readFileSsc(listChannels.find { e-> e.nombre == currentChannel }!!.listCanciones[songIndex].rutaSsc)
+                    val charts = ssc.split("#NOTEDATA:;").drop(1).filter {
+                            it.contains("#STEPSTYPE:pump-single", true) ||
+                            it.contains("#STEPSTYPE:pump-halfdouble", true)
+                        }.sortedWith(
+                        compareBy<String> {
+                            when {
+                                it.contains("#STEPSTYPE:pump-single", true) -> 0
+                                it.contains("#STEPSTYPE:pump-halfdouble", true) -> 1
+                                else -> 2
+                            }
+                        }.thenBy {
+                            Regex("#METER:(\\d+);").find(it)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        }
+                    )
+
+                    val chartString = charts[positionActualLvs]
                     checkedValuesKsfLocal = generateCheckedValuesSsc(chartString) + "|" + File(playerSong.rutaCancion!!).length()
                 }else{
                     checkedValuesKsfLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
@@ -237,6 +261,14 @@ open class GameScreenActivity : AndroidApplication() {
         videoBgaOff = findViewById(R.id.videoViewBgaOff)
 
         videoBgaOnPLayer = MediaPlayer()
+        videoBgaOnPLayer.setOnInfoListener { _, what, _ ->
+            if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
+                openBgaOn()
+                true
+            } else {
+                false
+            }
+        }
         videoBgaOffPlayer = MediaPlayer()
 
         // 🔹 Ajuste BGA ON (Configuración de dimensiones)
@@ -272,8 +304,25 @@ open class GameScreenActivity : AndroidApplication() {
         val hasCustom = !customVideo.isNullOrEmpty() && isFileExists(File(customVideo))
 
         if (hasCustom && !playerSong.isBGAOff) {
+            val bgBanner: ImageView = findViewById(R.id.bgImageForBga)
+            val bitmap = BitmapFactory.decodeFile(playerSong.rutaBanner)
+            val bitmapDrawable = bitmap.toDrawable(resources)
+            bgBanner.background = bitmapDrawable
+            bgBanner.layoutParams.height = height
+            bgBanner.layoutParams.width = height + (height / 2)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                bgBanner.setRenderEffect(
+                    RenderEffect.createBlurEffect(
+                        20f, // radio X
+                        20f, // radio Y
+                        Shader.TileMode.CLAMP
+                    )
+                )
+            }
+            bgBanner.alpha = 0.5f
+
             // 👉 VIDEO GRANDE
-            videoBgaOn.isVisible = true
             videoBgaOff.isVisible = false
             prepareVideo(videoBgaOnPLayer, customVideo)
             isVideo = true
@@ -292,40 +341,122 @@ open class GameScreenActivity : AndroidApplication() {
 
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-            if(currentChannel == "06-FAVORITES"){
+            // 🔥 FIREBASE INMEDIATAMENTE
+            if(currentChannel == "06-FAVORITES") {
                 val nameChannels = AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel
                 listenScoreChannel(nameChannels.toString()) { listaCanciones ->
                     listGlobalRanking = listaCanciones
-                }
-                thisHandler.postDelayed({
-                    val rankingItem = listGlobalRanking.find { it.cancion == currentSong }
-                    if(rankingItem != null) {
-                        currentWorldScore = if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
-                            listOf(
-                                rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
-                                rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
-                                rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
-                            )
-                        }else{
-                            listOf("1000000", "1000000", "1000000")
-                        }
+                    val rankingItem = listGlobalRanking.find {
+                        it.cancion == currentSong
                     }
-                }, 7000)
+                    if(rankingItem != null) {
+                        currentWorldScore =
+                            if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
+                                listOf(
+                                    rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
+                                    rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
+                                    rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
+                                )
+                            } else {
+                                listOf("1000000", "1000000", "1000000")
+                            }
+                    }
+                }
             }
+            closeBgaOn()
             thisHandler.postDelayed({
                 getEndSong()
-            },1000)
+            }, 500)
             thisHandler.postDelayed({
-                val intent = Intent(this,
-                    if(isVertical){
+                isEndingFade = true
+            }, 2300)
+
+            thisHandler.postDelayed({
+                val intent = Intent(
+                    this,
+                    if(isVertical) {
                         DanceGrade()::class.java
-                    }else{
+                    } else {
                         DanceGradeHorizontal()::class.java
                     }
                 )
                 startActivity(intent)
-                this.finish()
-            }, 4000)
+                overridePendingTransition(0, 0)
+                finish()
+            }, 3500)
+        }
+    }
+
+    private fun openBgaOn() {
+        videoBgaOn.apply {
+            post {
+                pivotX = width / 2f
+                pivotY = height / 2f
+                // Estado inicial tipo CRT apagado
+                scaleX = 0.05f
+                scaleY = 0.008f
+                alpha = 0f
+                visibility = View.VISIBLE
+                // 🔥 FASE 1
+                // Línea horizontal brillante
+                animate()
+                    .alpha(1f)
+                    .scaleY(0.03f)
+                    .scaleX(1.08f)
+                    .setDuration(90)
+                    .withEndAction {
+                        // 🔥 FASE 2
+                        // Explosión vertical CRT
+                        animate()
+                            .scaleY(1.05f)
+                            .scaleX(1.02f)
+                            .setDuration(160)
+                            .withEndAction {
+                                // 🔥 FASE 3
+                                // Rebote analógico
+                                animate()
+                                    .scaleX(0.995f)
+                                    .scaleY(0.985f)
+                                    .setDuration(70)
+                                    .withEndAction {
+                                        // 🔥 FASE 4
+                                        // Estabilización final
+                                        animate()
+                                            .scaleX(1f)
+                                            .scaleY(1f)
+                                            .setDuration(60)
+                                            .start()
+                                    }.start()
+                            }.start()
+                    }.start()
+            }
+        }
+    }
+
+    private fun closeBgaOn(){
+        videoBgaOn.apply {
+            pivotY = height / 2f
+            animateIndependent(260) {
+                scaleY(0.02f)
+                alpha(0f)
+                start()
+            }
+        }
+    }
+
+    private fun View.animateIndependent(duration: Long, block: ViewPropertyAnimator.() -> Unit) {
+        val scale = try {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE
+            )
+        } catch (e: Exception) {
+            1f
+        }
+
+        this.animate().apply {
+            setDuration(if (scale <= 0f) duration else (duration / scale).toLong())
+            block()
         }
     }
 
@@ -343,7 +474,7 @@ open class GameScreenActivity : AndroidApplication() {
     }
 
     private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
+        val canalRef = firebaseDatabase.getReference("channels").orderByChild("canal").equalTo(canalNombre)
         val listResult = arrayListOf<Cancion>()
         canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -360,6 +491,7 @@ open class GameScreenActivity : AndroidApplication() {
                             val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
                             val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
                             val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
+                            val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -367,7 +499,7 @@ open class GameScreenActivity : AndroidApplication() {
                                 val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))

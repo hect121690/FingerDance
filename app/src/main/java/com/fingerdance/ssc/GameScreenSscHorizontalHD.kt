@@ -16,7 +16,6 @@ import com.fingerdance.*
 import kotlin.math.abs
 
 open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : Screen {
-
     val a = activity
 
     private lateinit var batch: SpriteBatch
@@ -100,6 +99,8 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
     val posYGauje = medidaFlechasHorizontal / 4f
 
+    private val fadeTexture = Texture(Gdx.files.internal("black.png"))
+
     init {
         if(showPadB == 1){
             padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsB/$skinPad.png")))
@@ -148,7 +149,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
             Gdx.graphics.height.toFloat()
         )
 
-        player = PlayerSscHorizontalHD(batch, a)
+        player = PlayerSscHorizontalHD(this, batch, a)
 
         targetTop =
             medidaFlechasHorizontal
@@ -168,50 +169,41 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     // ---------------------------------------------------
 
     override fun render(delta: Float) {
-
         ScreenUtils.clear(0f, 0f, 0f, 0f)
-
         camera.update()
-
-        batch.projectionMatrix =
-            camera.combined
+        batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
 
-            val songTimeMs =
-                a.getSongTimeMs()
-
+            val songTimeMs = a.getSongTimeMs()
             elapsedTime += delta
-
             batch.begin()
-
             showBgPads()
-
             player.updateStepData(songTimeMs)
 
             if (!playerSong.fd) {
-
-                intervalOverlay =
-                    (60 / abs(player.m_fCurBPM)) / 2f
-
+                intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
                 timer += delta
-
                 if (timer >= intervalOverlay) {
-
                     timer -= intervalOverlay
-
                     showOverlay = !showOverlay
                 }
-
-                drawRecepts(
-                    player.luaReceptOffsetX.toFloat()
-                )
+                drawRecepts()
             }
 
             player.render(songTimeMs)
 
-            batch.end()
+            if (isEndingFade) {
+                endingFadeAlpha += delta * 1.8f
+                if (endingFadeAlpha > 1f) {
+                    endingFadeAlpha = 1f
+                }
+                batch.setColor(0f, 0f, 0f, endingFadeAlpha)
+                batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+                batch.setColor(1f, 1f, 1f, 1f)
+            }
 
+            batch.end()
             stage.act(delta)
         }
 
@@ -256,24 +248,24 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     // RECEPTS
     // ---------------------------------------------------
     val spaceInitHorizontalHD = spaceInitHorizontal + (medidaFlechasHorizontal * 0.5f)
-    private fun drawRecepts(luaReceptOffsetX: Float) {
-        batch.draw(receptCE[0], luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptRU[0], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptRD[0], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptLD[0], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptLU[0], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptCE[0], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+    private fun drawRecepts() {
+        batch.draw(receptCE[0], luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(receptRU[0], (medidaFlechasHorizontal) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(receptRD[0], (medidaFlechasHorizontal * 2) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(receptLD[0], (medidaFlechasHorizontal * 3) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(receptLU[0], (medidaFlechasHorizontal * 4) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        batch.draw(receptCE[0], (medidaFlechasHorizontal * 5) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(receptCE[1], luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.draw(receptRU[1], (medidaFlechasHorizontal) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.draw(receptRD[1], (medidaFlechasHorizontal * 2) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.draw(receptLD[1], (medidaFlechasHorizontal * 3) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.draw(receptLU[1], (medidaFlechasHorizontal * 4) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.draw(receptCE[1], (medidaFlechasHorizontal * 5) + luaReceptOffsetX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(receptCE[1], luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(receptRU[1], (medidaFlechasHorizontal) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(receptRD[1], (medidaFlechasHorizontal * 2) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(receptLD[1], (medidaFlechasHorizontal * 3) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(receptLU[1], (medidaFlechasHorizontal * 4) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+            batch.draw(receptCE[1], (medidaFlechasHorizontal * 5) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
@@ -408,6 +400,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
         textureLD.dispose()
         textureLU.dispose()
         textureCE.dispose()
+        fadeTexture.dispose()
 
         if (showPadB == 1 || showPadB == 2) {
 

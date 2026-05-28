@@ -218,11 +218,11 @@ class LoadSongsKsf {
                     }
                 }
             }
-
+            /*
             for(i in 0 until songKsf.listKsf.size){
                 songKsf.listKsf[i].checkedValues = "${songKsf.listKsf[i].checkedValues}|${File(songKsf.rutaSong).length()}"
             }
-
+            */
             if(songKsf.listKsf.isNotEmpty()) {
                 listSongs.add(songKsf)
             }

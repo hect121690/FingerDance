@@ -31,7 +31,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Finger Dance 3.0.0"
+                android:text="Finger Dance 3.0.5"
                 android:textColor="#00E5FF"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -43,8 +43,6 @@
                 android:background="#33FFFFFF"
                 android:layout_marginTop="12dp"
                 android:layout_marginBottom="12dp"/>
-
-            <!-- SOLO ESTO HACE SCROLL -->
 
             <ScrollView
                 android:layout_width="match_parent"
@@ -61,7 +59,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="• Se agregó compatibilidad con formato SSC.\n\n• Se agregó jugabilidad horizontal para canciones Half Double.\n\n• Los packs principales fueron migrados a formato SSC.\n\n• Los canales en formato KSF ya no estarán disponibles para descarga.\n\n• Se recomienda eliminar los canales KSF actuales y descargar nuevamente las versiones SSC desde:\n\nOptions > Canciones"
+                        android:text="• El Ranking Global fue reiniciado debido a ajustes realizados en el sistema de calificación de la aplicación.\n\n• Se integró soporte para archivos Lua exclusivos de Finger Dance, permitiendo añadir nuevos efectos visuales y transformaciones durante la jugabilidad.\n\n• Se agregó un fix para el mensaje de nivel modificado en canciones.\n\n• Mejoras generales de estabilidad y compatibilidad."
                         android:textColor="#DDDDDD"
                         android:textSize="15sp"
                         android:lineSpacingExtra="4dp" />
@@ -69,7 +67,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="⚠️ IMPORTANTE\n\nPara evitar errores o contenido duplicado, se recomienda eliminar todos los canales KSF antiguos antes de descargar los nuevos packs SSC."
+                        android:text="⚠️ IMPORTANTE\n\nDebido a los cambios realizados en el sistema de evaluación, el Ranking Global anterior ya no es compatible con la nueva versión."
                         android:textColor="#FFD54F"
                         android:textStyle="bold"
                         android:textSize="14sp"
@@ -82,29 +80,13 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:gravity="center"
                 android:layout_marginTop="20dp">
 
                 <Button
-                    android:id="@+id/btnDeleteChannels"
-                    android:layout_width="0dp"
-                    android:layout_height="@dimen/dialog_button_height"
-                    android:layout_weight="1"
-                    android:text="BORRAR KSF's"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF"
-                    android:textSize="@dimen/dialog_button_text"
-                    android:background="@drawable/bg_button_delete" />
-
-                <Space
-                    android:layout_width="24dp"
-                    android:layout_height="wrap_content" />
-
-                <Button
                     android:id="@+id/btnClose"
-                    android:layout_width="0dp"
+                    android:layout_width="220dp"
                     android:layout_height="@dimen/dialog_button_height"
-                    android:layout_weight="1"
                     android:text="Cerrar"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"

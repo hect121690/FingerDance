@@ -28,6 +28,7 @@ class PlayerSong(
     var player: String = "",
     var type: String = "",
     var chartName: String = "",
+    var difficulty: String = "",
     var snake: Boolean = false,
     var isSSC: Boolean = false
 ) : Serializable

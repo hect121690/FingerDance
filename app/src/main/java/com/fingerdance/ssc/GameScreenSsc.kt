@@ -3,9 +3,11 @@ package com.fingerdance.ssc
 import android.os.SystemClock
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
@@ -13,13 +15,17 @@ import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.fingerdance.GameScreenActivity
+import com.fingerdance.LuaTransform
 import com.fingerdance.aBatch
 import com.fingerdance.alphaPadB
 import com.fingerdance.bBatch
 import com.fingerdance.displayBPM
+import com.fingerdance.endingFadeAlpha
 import com.fingerdance.height
 import com.fingerdance.heightBtns
 import com.fingerdance.hideImagesPadA
+import com.fingerdance.isEndingFade
+import com.fingerdance.luaRecepts
 import com.fingerdance.medidaFlechas
 import com.fingerdance.padPositions
 import com.fingerdance.playerSong
@@ -122,6 +128,8 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
+    private val fadeTexture = Texture(Gdx.files.internal("black.png"))
+
     data class PadPositionC(val x: Float, val y: Float, val size: Float)
     val padPositionsC = listOf(
         PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.61f, medidaFlechas * 3f),
@@ -130,6 +138,8 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.063f, medidaFlechas * 3f),
         PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.61f, medidaFlechas * 3f)
     )
+
+    private lateinit var font: BitmapFont
 
     init {
         if(showPadB == 1){
@@ -167,11 +177,14 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
     override fun show() {
         batch = SpriteBatch()
+        font = BitmapFont()
+        font.color = Color.WHITE
+        font.data.setScale(2f, -2f)
         stage = Stage(ScreenViewport())
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
-        player = PlayerSsc(batch, a)
+        player = PlayerSsc(this, batch, a)
         rithymAnim = (60f / displayBPM)
         targetTop = medidaFlechas
 
@@ -207,16 +220,27 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                     showOverlay = !showOverlay
                 }
                 //ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
-                drawRecepts(player.luaReceptOffsetX.toFloat())
+                drawRecepts()
             }
 
             player.render(songTimeMs)
+            font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechas, 0f)
 
             barRed.setSize(maxWidth, maxlHeight)
             barRed.setPosition(medidaFlechas, 0f)
+
+            if (isEndingFade) {
+                endingFadeAlpha += delta * 1.8f
+                if (endingFadeAlpha > 1f) {
+                    endingFadeAlpha = 1f
+                }
+                batch.setColor(0f, 0f, 0f, endingFadeAlpha)
+                batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+                batch.setColor(1f, 1f, 1f, 1f)
+            }
 
             batch.end()
             stage.act(delta)
@@ -228,6 +252,10 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     override fun resize(width: Int, height: Int) {
         camera.setToOrtho(true, width.toFloat(), height.toFloat())
         camera.update()
+    }
+
+    fun startEndingFade() {
+        isEndingFade = true
     }
 
     fun timeGetTime(): Long{
@@ -296,22 +324,22 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
     }
 
-    private fun drawRecepts(luaReceptOffsetX: Float) {
-        batch.draw(recept0Frames[0], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept1Frames[0], (medidaFlechas * 2) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept2Frames[0], (medidaFlechas * 3) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept3Frames[0], (medidaFlechas * 4) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept4Frames[0], (medidaFlechas * 5) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+    private fun drawRecepts() {
+        batch.draw(recept0Frames[0], (medidaFlechas) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept1Frames[0], (medidaFlechas * 2) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept2Frames[0], (medidaFlechas * 3) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept3Frames[0], (medidaFlechas * 4) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+        batch.draw(recept4Frames[0], (medidaFlechas * 5) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(recept0Frames[1], (medidaFlechas) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept1Frames[1], (medidaFlechas * 2) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept2Frames[1], (medidaFlechas * 3) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept3Frames[1], (medidaFlechas * 4) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept4Frames[1], (medidaFlechas * 5) + luaReceptOffsetX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept0Frames[1], (medidaFlechas) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept1Frames[1], (medidaFlechas * 2) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept2Frames[1], (medidaFlechas * 3) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept3Frames[1], (medidaFlechas * 4) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+            batch.draw(recept4Frames[1], (medidaFlechas * 5) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
@@ -495,6 +523,8 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         barRedTexture.dispose()
         barLifeTexture.dispose()
         barTipTexture.dispose()
+        fadeTexture.dispose()
+        font.dispose()
 
         if (showPadB == 1 || showPadB == 2) {
             padB.texture.dispose()

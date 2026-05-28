@@ -34,6 +34,7 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -71,6 +72,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.fingerdance.CustomAdapter.ViewHolder.Companion.md5
 import com.fingerdance.MainActivity.VideosDrive
+import com.fingerdance.ssc.ChartOffsetAdapter
 import com.fingerdance.ssc.Parser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -100,8 +102,6 @@ private lateinit var recyclerLvs: RecyclerView
 private lateinit var recyclerLvsVacios: RecyclerView
 private lateinit var recyclerCommands: ViewPager2
 private lateinit var recyclerCommandsValues: ViewPager2
-
-private lateinit var listItemsKsf: ArrayList<Song>
 
 private var animOn: Animation? = null
 private var animOff: Animation? = null
@@ -240,15 +240,15 @@ class SelectSong : AppCompatActivity() {
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            val namePreview = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
-            saveFileToDestination(it, namePreview + "_p.mp4", false)
+            val namePreview = "song_p.mp4"
+            saveFileToDestination(it, namePreview, false)
         }
     }
 
     private val pickBgaFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            val nameBGA = File(listItemsKsf[oldValue].rutaSong).name.replace(".mp3", "")
-            saveFileToDestination(it, nameBGA + ".mp4", true)
+            val nameBGA = "song.mp4"
+            saveFileToDestination(it, nameBGA, true)
         }
     }
     @RequiresApi(Build.VERSION_CODES.S)
@@ -530,24 +530,41 @@ class SelectSong : AppCompatActivity() {
         prev.visibility = View.GONE
 
         imgOffset.setOnClickListener {
-            val dialogEditOffset = AlertDialog.Builder(this)
-                .setTitle("Editar Offset")
-                .setMessage("Guadar cambios?")
-                .setCancelable(true)
-                .setPositiveButton("Aceptar") { _, _ ->
-                    val fileSsc = File(listItemsKsf[oldValue % listItemsKsf.size].rutaSsc)
-                    val original = readFileSsc(fileSsc.absolutePath)
+            val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
+            val original = readFileSsc(fileSsc.absolutePath)
+            val charts = parseSscCharts(original)
+            val dialogView = layoutInflater.inflate(R.layout.dialog_edit_offsets, null)
 
-                    val nuevoContenido = processSscOffset(original, valueOffset.toInt())
+            val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerCharts)
+            val checkAll = dialogView.findViewById<CheckBox>(R.id.checkAll)
+            val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
+            val adapter = ChartOffsetAdapter(charts)
+            recycler.layoutManager = LinearLayoutManager(this)
+            recycler.adapter = adapter
+            checkAll.setOnCheckedChangeListener { _, checked ->
+                charts.forEach {
+                    it.checked = checked
+                }
+                adapter.notifyDataSetChanged()
+            }
 
-                    // si quieres sobrescribir archivo
-                    fileSsc.writeText(nuevoContenido)
-                }
-                .setNegativeButton("Cancelar") { dialog, _ ->
-                    dialog.dismiss()
-                }
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
                 .create()
-            dialogEditOffset.show()
+
+            btnSave.setOnClickListener {
+
+                val updated = processSscOffsets(
+                    original,
+                    charts.filter { it.checked },
+                    valueOffset.toInt()
+                )
+
+                fileSsc.writeText(updated)
+                dialog.dismiss()
+            }
+
+            dialog.show()
         }
 
         nextPlayer = MediaPlayer().apply {
@@ -610,13 +627,10 @@ class SelectSong : AppCompatActivity() {
         }
         llenaLvsVacios(listVacios)
 
-        if (AppResources.listSongsChannelKsf.isNotEmpty()){
-            listItemsKsf = AppResources.listSongsChannelKsf
-        }
 
         //setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
 
-        carouselSong.setSongs(listItemsKsf)
+        carouselSong.setSongs(AppResources.listSongsChannelKsf)
         oldValue = carouselSong.getSelectedIndex()
         isFocus(oldValue)
 
@@ -686,7 +700,7 @@ class SelectSong : AppCompatActivity() {
 
         imgFavorite.setOnClickListener {
             saveFavorites = true
-            val song = listItemsKsf[oldValue]
+            val song = AppResources.listSongsChannelKsf[oldValue]
             val favChannel = listChannels.find { it.nombre == "06-FAVORITES" }
 
             if (song.isFavorite) {
@@ -1220,34 +1234,71 @@ class SelectSong : AppCompatActivity() {
         mediPlayer.start()
     }
 
-    fun processSscOffset(sscContent: String, valueOffset: Int): String {
+    fun parseSscCharts(content: String): MutableList<SscChart> {
 
-        // 🔍 Regex para encontrar OFFSET
-        val regex = Regex("#OFFSET:([-+]?[0-9]*\\.?[0-9]+);")
+        val result = mutableListOf<SscChart>()
 
-        val firstMatch = regex.find(sscContent)
-            ?: return sscContent // si no hay OFFSET, no haces nada
+        val blocks = content.split("#NOTEDATA:;")
 
-        // 🔥 1. Obtener offset original (segundos)
-        val offsetSsc = firstMatch.groupValues[1].toDouble()
+        blocks.forEachIndexed { index, block ->
 
-        // 🔥 2. Convertir a milisegundos
-        val offsetMs = offsetSsc * 1000
+            if (!block.contains("#STEPSTYPE:"))
+                return@forEachIndexed
 
-        // 🔥 3. Aplicar tu offset custom
-        val newOffsetMs = offsetMs + (valueOffset * 10)
+            fun get(tag: String): String {
 
-        // 🔥 4. Volver a segundos
-        val newOffsetSeconds = newOffsetMs / 1000.0
+                return Regex("#$tag:(.*?);").find(block)?.groupValues?.get(1)?.trim() ?: ""
+            }
 
-        // 🔥 5. Formato con 6 decimales (como SSC)
-        val formatted = String.format("%.6f", newOffsetSeconds)
+            val stepType = get("STEPSTYPE")
 
-        // 🔥 6. Reemplazar TODOS los OFFSET del archivo
-        return regex.replace(sscContent) {
-            "#OFFSET:$formatted;"
+            if (stepType == "pump-double") return@forEachIndexed
+
+            result.add(
+                SscChart(
+                    blockIndex = index,
+                    stepType = stepType,
+                    level = get("METER"),
+                    difficulty = get("DIFFICULTY"),
+                    description = get("DESCRIPTION"),
+                    chartName = get("CHARTNAME"),
+                    credit = get("CREDIT"),
+                    offset = get("OFFSET").toDoubleOrNull() ?: 0.0
+                )
+            )
         }
+
+        return result
     }
+    fun processSscOffsets(content: String, selected: List<SscChart>, valueOffset: Int): String {
+        val blocks = content.split("#NOTEDATA:;").toMutableList()
+        selected.forEach { chart ->
+            val index = chart.blockIndex
+
+            if (index >= blocks.size)
+                return@forEach
+
+            val block = blocks[index]
+            val regex = Regex("#OFFSET:([-+]?[0-9]*\\.?[0-9]+);")
+
+            val match = regex.find(block)
+            val currentOffset = match?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+
+            val newOffset = currentOffset + ((valueOffset * 10) / 1000.0)
+            val formatted = String.format("%.6f", newOffset)
+            val newBlock = if (match != null) {
+                regex.replace(block) {
+                    "#OFFSET:$formatted;"
+                }
+            } else {
+                block + "\n#OFFSET:$formatted;"
+            }
+            blocks[index] = newBlock
+        }
+
+        return blocks.joinToString("#NOTEDATA:;")
+    }
+
 
     private fun showSelectMode() {
         // 🔥 sube los controles SOBRE el overlay
@@ -1461,7 +1512,7 @@ class SelectSong : AppCompatActivity() {
 
     private fun goGameScreenActivity(anim: Animation, txPlayerName: TextView, txNameChannel: TextView) {
         val real = getRealIndex(oldValue)
-        val song = listItemsKsf[real]
+        val song = AppResources.listSongsChannelKsf[real]
         soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         imgAceptar.isEnabled = false
 
@@ -1517,12 +1568,24 @@ class SelectSong : AppCompatActivity() {
             setDataSource(File(playerSong.rutaCancion!!).absolutePath)
             prepare()
         }
-        val isHalfDouble = song.listKsf[positionActualLvs].typePlayer == "B"
+
+        val level = song.listKsf[positionActualLvs]
+        val isHalfDouble = level.typePlayer == "B"
+        playerSong.level = level.level
+        playerSong.player = level.typePlayer
+        playerSong.type = level.typeSteps
+        playerSong.chartName = level.chartName
+        playerSong.stepMaker = level.stepmaker
+        playerSong.difficulty = level.difficulty
 
         if(song.isSSC){
             val ssc = readFileSsc(song.rutaSsc)
             val seccions = ssc.split("#NOTEDATA:;")
-            chart = Parser().parseSSC(seccions[song.listKsf[positionActualLvs].steps], song.rutaSong)
+            chart = Parser().parseSSC(
+                    "${seccions[0]}\n",
+                    seccions[level.steps],
+                    song.rutaSong
+                )
             playerSong.isSSC = true
             if(playerSong.mirror){
                 if(!isHalfDouble){
@@ -1530,16 +1593,16 @@ class SelectSong : AppCompatActivity() {
                 }else{
                     chart.notes = Parser().makeMirrorHD(chart.notes)
                 }
-                if(playerSong.rs){
-                    if(!isHalfDouble){
-                        chart.notes = Parser().makeRandom(chart.notes)
-                    }else{
-                        chart.notes = Parser().makeRandomHD(chart.notes)
-                    }
+            }
+            if(playerSong.rs){
+                if(!isHalfDouble){
+                    chart.notes = Parser().makeRandom(chart.notes)
+                }else{
+                    chart.notes = Parser().makeRandomHD(chart.notes)
                 }
             }
         }else{
-            playerSong.rutaKsf = song.listKsf[positionActualLvs].rutaKsf
+            playerSong.rutaKsf = level.rutaKsf
             playerSong.isSSC = false
             load(playerSong.rutaKsf, isHalfDouble)
             if(playerSong.mirror){
@@ -1612,7 +1675,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun getRealIndex(pos: Int): Int {
-        val size = listItemsKsf.size
+        val size = AppResources.listSongsChannelKsf.size
         return ((pos % size) + size) % size
     }
 
@@ -1767,7 +1830,7 @@ class SelectSong : AppCompatActivity() {
             }
         }
 
-        if(File(listItemsKsf[oldValue].rutaPreview).exists()){
+        if(File(AppResources.listSongsChannelKsf[oldValue].rutaPreview).exists() && AppResources.listSongsChannelKsf[oldValue].rutaPreview.endsWith(".mp4")){
             previewDowloaded = true
             textBtnDownloadPreview = "Eliminar Preview"
         }else{
@@ -1775,7 +1838,7 @@ class SelectSong : AppCompatActivity() {
             textBtnDownloadPreview = "Descargar Preview " + if(sizePreview.isNotEmpty()) "(${ "%.2f".format(sizePreview.toLong() / (1024.0 * 1024.0))} MB)" else ""
         }
 
-        if(File(listItemsKsf[oldValue].rutaBGA).exists()){
+        if(File(AppResources.listSongsChannelKsf[oldValue].rutaBGA).exists() && AppResources.listSongsChannelKsf[oldValue].rutaPreview.endsWith(".mp4")){
             bgaDowloaded = true
             textBtnDownloadBga = "Eliminar BGA"
         }else{
@@ -1793,7 +1856,7 @@ class SelectSong : AppCompatActivity() {
             existInDrive = existPreviewDrive,
             onDownloadClick = if(previewDowloaded){
                 {
-                    File(listItemsKsf[oldValue].rutaPreview).delete()
+                    File(AppResources.listSongsChannelKsf[oldValue].rutaPreview).delete()
                     isFocus(oldValue )
                     btnCancel.performClick()
                     mediPlayer.start()
@@ -1839,7 +1902,7 @@ class SelectSong : AppCompatActivity() {
             existInDrive = existBgaDrive,
             onDownloadClick = if(bgaDowloaded){
                 {
-                    File(listItemsKsf[oldValue].rutaBGA).delete()
+                    File(AppResources.listSongsChannelKsf[oldValue].rutaBGA).delete()
                     isFocus(oldValue)
                     btnCancel.performClick()
                     mediPlayer.start()
@@ -1944,7 +2007,7 @@ class SelectSong : AppCompatActivity() {
     private fun getVideosPreview(): ArrayList<VideosDrive> {
         val listSongsDrive = listChannelsDrive.find { it.name == currentChannel.replace("-SSC", "") }?.songs ?: emptyList()
         if(listSongsDrive.isNotEmpty()) {
-            val rp = File(listItemsKsf[oldValue].rutaPreview).parentFile!!.name
+            val rp = File(AppResources.listSongsChannelKsf[oldValue].rutaPreview).parentFile!!.name
             val songDrive = listSongsDrive.find { it.name == rp }
 
             return songDrive?.videos ?: ArrayList()
@@ -1970,9 +2033,9 @@ class SelectSong : AppCompatActivity() {
             val fileLength = body.contentLength()
 
             val outputFile = if (isBGA) {
-                File(listItemsKsf[oldValue].rutaBGA)
+                File(AppResources.listSongsChannelKsf[oldValue].rutaBGA).parentFile!!.resolve("song.mp4")
             } else {
-                File(listItemsKsf[oldValue].rutaPreview)
+                File(AppResources.listSongsChannelKsf[oldValue].rutaPreview).parentFile!!.resolve("song_p.mp4")
             }
 
             body.byteStream().use { input ->
@@ -2593,7 +2656,7 @@ class SelectSong : AppCompatActivity() {
 
     private fun moverLvs() {
         val realPosition = getRealIndex(oldValue) // 🔥 CLAVE
-        val lv = listItemsKsf[realPosition].listKsf[positionActualLvs]
+        val lv = AppResources.listSongsChannelKsf[realPosition].listKsf[positionActualLvs]
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
 
         lbLvActive.text = lv.level
@@ -2620,12 +2683,6 @@ class SelectSong : AppCompatActivity() {
             lbWorldScore.text = "0"
             currentWorldScore = listOf("1000000", "1000000", "1000000")
         }
-
-        playerSong.level = lv.level
-        playerSong.player = lv.typePlayer
-        playerSong.type = lv.typeSteps
-        playerSong.chartName = lv.chartName
-        playerSong.stepMaker = lv.stepmaker
     }
 
     private fun moverCanciones(flecha: ImageView, isNext: Boolean = false) {
@@ -2645,7 +2702,7 @@ class SelectSong : AppCompatActivity() {
             currentChannel == "04-REMIX - V2" ||
             currentChannel == "05-FULLSONGS - V2") {
 
-            val currentNumberChannel = File(listItemsKsf[real].rutaSong).parentFile?.name!!.substringBefore("-").trim()
+            val currentNumberChannel = File(AppResources.listSongsChannelKsf[real].rutaSong).parentFile?.name!!.substringBefore("-").trim()
             if (currentNumberChannel != numberChannel) {
                 numberChannel = currentNumberChannel
 
@@ -2666,9 +2723,9 @@ class SelectSong : AppCompatActivity() {
     private fun isFocus (position: Int){
         ImageScheduler.newGeneration()
 
-        val size = listItemsKsf.size
+        val size = AppResources.listSongsChannelKsf.size
 
-        fun get(i: Int) = listItemsKsf[((i % size) + size) % size]
+        fun get(i: Int) = AppResources.listSongsChannelKsf[((i % size) + size) % size]
 
         // 🔥 PRIORIDAD 3 → visible
         val center = get(position)
@@ -2687,7 +2744,7 @@ class SelectSong : AppCompatActivity() {
         }
 
         val real = getRealIndex(position)
-        val item = listItemsKsf[real]
+        val item = AppResources.listSongsChannelKsf[real]
         currentPathSong = item.rutaSong
         timer?.cancel()
         timer = object : CountDownTimer(10000, 1000) {
@@ -2722,7 +2779,8 @@ class SelectSong : AppCompatActivity() {
                     type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
                     player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
                     chartName = nivel.chartName,
-                    credit = nivel.stepmaker
+                    credit = nivel.stepmaker,
+                    difficulty = nivel.difficulty
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
@@ -2750,18 +2808,27 @@ class SelectSong : AppCompatActivity() {
                     || item.rutaPreview.endsWith(".jpg", true)
                     || item.rutaPreview.endsWith(".bpm", true)
                     || item.rutaPreview.endsWith(".mpg", true)
+                    || item.rutaPreview.endsWith(".avi", true)
                     || item.rutaPreview.isEmpty())
 
             if (isVideo) {
+                video_fondo.visibility = View.INVISIBLE
+
+                video_preview.stopSafely()
                 video_preview.reset()
+
                 video_preview.apply {
-                    reset()
                     setDataSource(item.rutaPreview)
                     isLooping = true
                     setVolume(0f, 0f)
-                    prepare()
+
+                    setOnPreparedListener {
+                        video_fondo.visibility = View.VISIBLE
+                        start()
+                    }
+                    prepareAsync()
                 }
-                video_fondo.visibility = View.VISIBLE
+
                 imgPrev.visibility = View.INVISIBLE
 
                 playMedia(item.rutaSong)
@@ -2787,7 +2854,7 @@ class SelectSong : AppCompatActivity() {
             lbNameSong.text = item.title
         }
         lbNameSong.startAnimation(AppResources.animNameSong)
-        txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, listItemsKsf.size)
+        txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, AppResources.listSongsChannelKsf.size)
 
         if(item.artist == ""){
             lbArtist.text = "NO ARTIST"
@@ -2801,6 +2868,13 @@ class SelectSong : AppCompatActivity() {
         displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
         recyclerLvs.adapter?.notifyDataSetChanged()
         llenaLvsKsf(item.listKsf)
+    }
+
+    private fun MediaPlayer.stopSafely() {
+        try {
+            if (isPlaying) stop()
+        } catch (_: Exception) {
+        }
     }
 
     fun preload(path: String, priority: Int) {
@@ -3196,7 +3270,7 @@ class SelectSong : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        //isFocus(oldValue)
+        isFocus(oldValue)
         resetRunnable()
         detenerContador()
         if (!isRunning) {

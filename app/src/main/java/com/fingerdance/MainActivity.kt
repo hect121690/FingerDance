@@ -126,8 +126,6 @@ var listEfectsDisplay: ArrayList<CommandValues> = ArrayList()
 var bgaPathSelectChannel = ""
 var bgaPathSelectSong = ""
 
-private val ls = LoadSongsKsf()
-
 lateinit var arrayGrades : ArrayList<Bitmap>
 lateinit var arrGradesDesc : ArrayList<Bitmap>
 lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
@@ -1044,51 +1042,33 @@ class MainActivity : AppCompatActivity(), Serializable {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionApp = packageInfo.versionName ?: ""
         ksfsEliminados = themes.getBoolean("ksfsEliminados", false)
-        if(versionApp == "3.0.0" && !ksfsEliminados){
+        if(versionApp == "3.0.5" && !ksfsEliminados){
+            deleteLuasRIP()
             showUpdateDialog(this)
         }
     }
 
     private var ksfsEliminados = false
-    private fun deleteAllChannelsKsf(dialog: Dialog) {
+    private fun deleteLuasRIP() {
         val baseDir = getExternalFilesDir(null)
 
         val pathChannels = "FingerDance/Songs/Channels"
         val channels = listOf(
-            "$pathChannels/03-SHORT CUT - V2",
-            "$pathChannels/04-REMIX - V2",
-            "$pathChannels/05-FULLSONGS - V2",
-            "$pathChannels/10-PIU 1st TO PERFECT COLLECTION",
-            "$pathChannels/11-EXTRA TO PREX 3",
-            "$pathChannels/12-EXCEED TO ZERO",
-            "$pathChannels/13-NX TO NXA",
-            "$pathChannels/14-FIESTA TO FIESTA 2 - V2",
-            "$pathChannels/17-PRIME",
-            "$pathChannels/18-PRIME 2",
-            "$pathChannels/19-XX ANIVERSARY",
-            "$pathChannels/20-PHOENIX"
+            "$pathChannels/18A40 - Hymn of Golden Glory/CF_COOP_FLASH.lua",
+            "$pathChannels/18A40 - Hymn of Golden Glory/CF_D28_FLASH.lua",
+            "$pathChannels/18A80 - Imaginarized City/Thumbs.db",
+            "$pathChannels/18238.7.1 - this game does not exist/Flashdoubles/default.lua",
+            "$pathChannels/18015 - BOOM!!/FlashCOOPUCS/default.lua",
         )
 
         channels.forEach { path ->
             val dir = File(baseDir, path)
-
-            if (dir.exists() && dir.isDirectory) {
-                dir.deleteRecursively()
+            if (dir.exists() && dir.isFile) {
+                dir.delete()
             }
         }
         ksfsEliminados = true
-        themes.edit().putBoolean("ksfsEliminados", true).apply()
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            Toast.makeText(
-                this,
-                "Canales KSF eliminados correctamente",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            dialog.dismiss()
-
-        }, 2000)
+        themes.edit().putBoolean("ksfsEliminados", ksfsEliminados).apply()
     }
 
     private fun showUpdateDialog(context: Context) {
@@ -1111,16 +1091,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
 
-        val btnDelete = dialog.findViewById<Button>(R.id.btnDeleteChannels)
         val btnClose = dialog.findViewById<Button>(R.id.btnClose)
-
-        btnDelete.setOnClickListener {
-            btnDelete.isEnabled = false
-            btnClose.isEnabled = false
-            Toast.makeText(context, "Eliminando Canales KSF", Toast.LENGTH_SHORT).show()
-            deleteAllChannelsKsf(dialog)
-        }
-
         btnClose.setOnClickListener {
             dialog.dismiss()
         }
@@ -1571,13 +1542,9 @@ class MainActivity : AppCompatActivity(), Serializable {
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-            listChannels = ls.getChannels(this@MainActivity)
+            val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
             val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
-            if(listSongsSsc.isNotEmpty()){
-                for(i in listSongsSsc){
-                    listChannels.add(i)
-                }
-            }
+            listChannels = ArrayList(listSongsKsf + listSongsSsc)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
         }
@@ -1632,13 +1599,9 @@ class MainActivity : AppCompatActivity(), Serializable {
             val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
             val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
             listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-            listChannels = ls.getChannels(this@MainActivity)
+            val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
             val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
-            if(listSongsSsc.isNotEmpty()){
-                for(i in listSongsSsc){
-                    listChannels.add(i)
-                }
-            }
+            listChannels = ArrayList(listSongsKsf + listSongsSsc)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
             themes.edit().putString("efects", gson.toJson(listCommands)).apply()
 
@@ -1792,7 +1755,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                         }
                         override fun onCancelled(error: DatabaseError) {}
                     })
-                    listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
+                    listChannelsOnline = LoadSongsKsf().getChannelsOnline(this@MainActivity)
                     if(themes.getString("efects", "").toString() == ""){
                         listCommands = getFilesCW(this@MainActivity)
                         val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
@@ -2088,7 +2051,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun getSalas(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase!!.getReference("rooms")
+        val databaseRef = firebaseDatabase.getReference("rooms")
         val listResult = arrayListOf<String>()
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -2122,7 +2085,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 alertDialog.dismiss()
                 d.dismiss()
 
-                listChannelsOnline = ls.getChannelsOnline(this@MainActivity)
+                listChannelsOnline = LoadSongsKsf().getChannelsOnline(this@MainActivity)
                 if(themes.getString("efects", "").toString() == ""){
                     listCommands = getFilesCW(this@MainActivity)
                     val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
@@ -2401,6 +2364,7 @@ class ObjPuntaje(
     var player: String,
     var chartName: String,
     var credit: String,
+    var difficulty: String
 )
 
 data class Resultado(

@@ -134,9 +134,22 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         if(!isOnline){
             if(!isOffline){
                 if(playerSong.isSSC) {
-                    val ssc = readFileSsc(listChannels[channelIndex].listCanciones[songIndex].rutaSsc)
-                    val seccions = ssc.split("#NOTEDATA:;")
-                    val chartString = seccions[listChannels[channelIndex].listCanciones[songIndex].listKsf[positionActualLvs].steps]
+                    val ssc = readFileSsc(listChannels.find { e-> e.nombre == currentChannel }!!.listCanciones[songIndex].rutaSsc)
+                    val charts = ssc.split("#NOTEDATA:;").drop(1).filter {
+                        it.contains("#STEPSTYPE:pump-single", true) ||
+                                it.contains("#STEPSTYPE:pump-halfdouble", true)
+                    }.sortedWith(
+                        compareBy<String> {
+                            when {
+                                it.contains("#STEPSTYPE:pump-single", true) -> 0
+                                it.contains("#STEPSTYPE:pump-halfdouble", true) -> 1
+                                else -> 2
+                            }
+                        }.thenBy {
+                            Regex("#METER:(\\d+);").find(it)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        }
+                    )
+                    val chartString = charts[positionActualLvs]
                     checkedValuesKsfLocal = generateCheckedValuesSsc(chartString) + "|" + File(playerSong.rutaCancion!!).length()
                 }else{
                     checkedValuesKsfLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
@@ -266,40 +279,47 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
 
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-            if(currentChannel == "06-FAVORITES"){
+            if(currentChannel == "06-FAVORITES") {
                 val nameChannels = AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel
                 listenScoreChannel(nameChannels.toString()) { listaCanciones ->
                     listGlobalRanking = listaCanciones
-                }
-                thisHandler.postDelayed({
-                    val rankingItem = listGlobalRanking.find { it.cancion == currentSong }
-                    if(rankingItem != null) {
-                        currentWorldScore = if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
-                            listOf(
-                                rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
-                                rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
-                                rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
-                            )
-                        }else{
-                            listOf("1000000", "1000000", "1000000")
-                        }
+                    val rankingItem = listGlobalRanking.find {
+                        it.cancion == currentSong
                     }
-                }, 7000)
+                    if(rankingItem != null) {
+                        currentWorldScore =
+                            if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
+                                listOf(
+                                    rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
+                                    rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
+                                    rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
+                                )
+                            } else {
+                                listOf("1000000", "1000000", "1000000")
+                            }
+                    }
+                }
             }
             thisHandler.postDelayed({
                 getEndSong()
-            },1000)
+            }, 500)
             thisHandler.postDelayed({
-                val intent = Intent(this,
-                    if(isVertical){
+                isEndingFade = true
+            }, 2300)
+
+            thisHandler.postDelayed({
+                val intent = Intent(
+                    this,
+                    if(isVertical) {
                         DanceGrade()::class.java
-                    }else{
+                    } else {
                         DanceGradeHorizontal()::class.java
                     }
                 )
                 startActivity(intent)
-                this.finish()
-            }, 4000)
+                overridePendingTransition(0, 0)
+                finish()
+            }, 3500)
         }
 
     }
@@ -335,6 +355,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                             val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
                             val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
                             val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
+                            val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -342,7 +363,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                                 val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))
@@ -384,32 +405,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             isPlayingEndSong = soundPoolSelectSong.play(no_miss, 1.0f, 1.0f, 1, 0, 1.0f)
         }
         imgEndSong.bringToFront()
-    }
-
-    private fun generateCheckedValues(file: File): String {
-        var inStepBlock = false
-        var count1 = 0
-        var count4 = 0
-
-        file.forEachLine { line ->
-            if (!inStepBlock && line.startsWith("#STEP:")) {
-                inStepBlock = true
-                return@forEachLine
-            }
-
-            if (inStepBlock) {
-                if (line.startsWith("22222")) return@forEachLine
-                if (line.startsWith("|")) return@forEachLine
-                line.forEach { char ->
-                    when (char) {
-                        '1' -> count1++
-                        '4' -> count4++
-                    }
-                }
-            }
-        }
-
-        return "$count1|$count4"
     }
 
     override fun onDestroy() {

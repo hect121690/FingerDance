@@ -36,6 +36,7 @@ var listThemesDrive = arrayListOf<Pair<String, String>>()
 var listChannelsDrive = mutableListOf<MainActivity.ChannelsDrive>()
 
 var chart = Chart(
+    chartPath = "",
     offset = 0.0,
     bpms = emptyList(),
     tickcounts = emptyList(),
@@ -46,7 +47,7 @@ var chart = Chart(
     speeds = emptyList(),
     scrolls = emptyList(),
     notes = emptyList(),
-    luaEvents = emptyList()
+    fgChanges = mutableListOf()
 )
 
 var aBatch = 0
@@ -169,6 +170,7 @@ var TIME_ADJUST = 0L
 var timeToPresiscionHD = 0L
 var timeToPresiscion = 0L
 var versionUpdate = ""
+var allowCheckValues = false
 lateinit var validFolders : List<String>
 
 // ========== VARIABLES GLOBALES - SETTINGS ==========
@@ -194,6 +196,14 @@ var gradeDescriptionAbrev = ""
 
 var ready = 0
 
+var luaNotes = LuaTransform()
+var luaRecepts = LuaTransform()
+var luaFlare = LuaTransform()
+var luaJudge = LuaTransform()
+
+var isEndingFade = false
+var endingFadeAlpha = 0f
+
 // ========== FUNCIONES HELPER ==========
 
 fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
@@ -214,6 +224,7 @@ fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Un
                         val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
                         val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
                         val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
+                        val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
                         val rankings = arrayListOf<FirstRank>()
                         for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                             val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -222,7 +233,7 @@ fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Un
                             rankings.add(FirstRank(nombre, puntaje, grade))
                         }
 
-                        niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
+                        niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
                     }
 
                     listResult.add(Cancion(nombreCancion, niveles))
@@ -754,6 +765,7 @@ data class Nivel(
     val player: String = "",
     val chartName: String = "",
     val stepmaker: String = "",
+    val difficulty: String = "",
     val fisrtRank: ArrayList<FirstRank> = arrayListOf()
 )
 
@@ -782,3 +794,24 @@ enum class VisualTarget {
 enum class OrientationMode {
     HORIZONTAL, VERTICAL
 }
+
+data class LuaTransform(
+    var screenX: Float = 0f,
+    var screenY: Float = 0f,
+    var screenZ: Float = 0f,
+    var zoom: Float = 1f,
+    var alpha: Float = 1f,
+    var rotation: Float = 0f
+)
+
+data class SscChart(
+    val blockIndex: Int,
+    val stepType: String,
+    val level: String,
+    val difficulty: String,
+    val description: String,
+    val chartName: String,
+    val credit: String,
+    val offset: Double,
+    var checked: Boolean = false
+)

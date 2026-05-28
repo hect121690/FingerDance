@@ -9,6 +9,21 @@
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toBottomOf="@+id/btnCanciones">
 
+    <Button
+        android:id="@+id/installChannel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#EF6C00"
+        android:text="Instalar canal"
+        android:textSize="10dp"
+        app:icon="@android:drawable/stat_sys_download"
+        app:iconPadding="2dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.05"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.90" />
 
     <Button
         android:id="@+id/createChannel"
@@ -46,7 +61,6 @@
         android:id="@+id/scrollChannels"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
         android:fillViewport="true"
         android:scrollbars="vertical"
         app:layout_constraintStart_toStartOf="parent"
@@ -105,7 +119,7 @@
             android:elevation="4dp"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
-            android:padding="12dp"
+            android:padding="8dp"
             android:textColor="@color/texto_textview_vibrante"
             android:textSize="18sp"
             android:textStyle="bold"

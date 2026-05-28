@@ -28,5 +28,7 @@ data class Ksf(var rutaKsf: String = "",
                var checkedValues: String = "",
                var typeSteps: String = "",
                var songFile: String = "",
-               var chartName: String = "")
+               var chartName: String = "",
+               var difficulty: String = ""
+)
 

@@ -98,18 +98,6 @@ class LoadingSongs {
                                 val songSplit = line.split("/")
                                 rutaCancion = resolveRealFile(dir, songSplit.last())
                             }
-
-                            if (rutaCancion.endsWith(".mp3", true) || rutaCancion.endsWith(".ogg", true)) {
-                                rutaBga = "$ruta/${rutaCancion.substringBeforeLast(".")}.mp4"
-                            }
-                        }
-
-                        line.startsWith("#PREVIEW") -> {
-                            rutaPreview = "$ruta/${getValue(line)}"
-                            if(line.contains("/") || line.contains("..")){
-                                val prevSplit = line.split("/")
-                                rutaPreview = "$ruta/${prevSplit.last()}"
-                            }
                         }
 
                         line.startsWith("#DISPLAYBPM:") -> {
@@ -118,7 +106,6 @@ class LoadingSongs {
                             }
                             displayBpm = getDisplayBpm(line)
                         }
-
                         line.startsWith("#BPMS:") -> {
                             if(displayBpm == "") {
                                 if(line.contains("=", true)) {
@@ -130,20 +117,9 @@ class LoadingSongs {
                         }
                     }
                 }
-
-                if(rutaPreview.endsWith("mpg", true)){
-                    when {
-                        rutaCancion.endsWith(".mp3", true) -> {
-                            rutaPreview = rutaCancion.replace(".mp3", "_p.mp4", ignoreCase = true)
-                        }
-                        rutaCancion.endsWith(".ogg", true) -> {
-                            rutaPreview = rutaCancion.replace(".ogg", "_p.mp4", ignoreCase = true)
-                        }
-                    }
-                }
-
+                rutaBga = "$ruta/song.mp4"
+                rutaPreview = "$ruta/song_p.mp4"
                 val listLevels = arrayListOf<Ksf>()
-
                 // 🔹 NOTEDATA (INTACTO)
                 for (index in 1 until seccions.size) {
 
@@ -153,6 +129,7 @@ class LoadingSongs {
                     var typeSteps = "NORMAL"
                     var checkedValues = ""
                     var credit = ""
+                    var difficulty = ""
 
                     val arr2 = seccions[index].split(Regex("\\r?\\n"))
 
@@ -166,6 +143,7 @@ class LoadingSongs {
                             line.startsWith("#METER:") -> numberLevel = getValue(line).padStart(2, '0')
                             line.startsWith("#CHARTNAME:") -> chartName = getValue(line)
                             line.startsWith("#CREDIT:") -> credit = getValue(line)
+                            line.startsWith("#DIFFICULTY:") -> difficulty = getValue(line)
                             line.startsWith("#NOTES:") -> break
                         }
                     }
@@ -184,7 +162,7 @@ class LoadingSongs {
                     ) {
 
                         val player = if (typePlayer.contains("half", true)) "B" else "A"
-                        checkedValues = generateCheckedValuesSsc(seccions[index]) + "|${File(rutaCancion).length()}"
+                        //checkedValues = generateCheckedValuesSsc(seccions[index]) + "|${File(rutaCancion).length()}"
                         val icon = if (player == "B") rutaBitActiveHalfDouble else rutaBitActiveSingle
 
                         listLevels.add(
@@ -197,6 +175,7 @@ class LoadingSongs {
                                 checkedValues = checkedValues,
                                 stepmaker = credit,
                                 chartName = chartName,
+                                difficulty = difficulty
                             )
                         )
                     }

@@ -375,7 +375,7 @@
                 android:textAlignment="viewStart"
                 android:textAllCaps="true"
                 android:textColor="#FFEB3B"
-                android:textSize="3dp"
+                android:textSize="2.5dp"
                 android:textStyle="normal"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"

@@ -1764,8 +1764,9 @@ class SelectSongHorizontal : AppCompatActivity() {
 
     private fun goGameScreenActivity(){
         soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-
-        val bit = BitmapFactory.decodeFile(AppResources.listSongsChannelKsf[oldValue].rutaDisc)
+        val song = AppResources.listSongsChannelKsf[oldValue]
+        val level = song.listKsf[positionActualLvs]
+        val bit = BitmapFactory.decodeFile(song.rutaDisc)
         imgLoading.setImageBitmap(bit)
         linearLoading.isVisible = true
         linearLoading.bringToFront()
@@ -1777,7 +1778,7 @@ class SelectSongHorizontal : AppCompatActivity() {
         imgLoading.isVisible = true
         showProgressBar()
         mediPlayer.pause()
-        playerSong.rutaBanner = AppResources.listSongsChannelKsf[oldValue].rutaDisc
+        playerSong.rutaBanner = song.rutaDisc
         txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
 
         playerSong.speed = txVelocidadActual.text.toString()
@@ -1794,20 +1795,20 @@ class SelectSongHorizontal : AppCompatActivity() {
             }
         }
         //hideLvs()
-        playerSong.rutaVideo = AppResources.listSongsChannelKsf[oldValue].rutaBGA
-        playerSong.rutaCancion = AppResources.listSongsChannelKsf[oldValue].rutaSong
+        playerSong.rutaVideo = song.rutaBGA
+        playerSong.rutaCancion = song.rutaSong
 
-        if(AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs].songFile != ""){
-            playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs].songFile
+        if(level.songFile != ""){
+            playerSong.rutaCancion = File(playerSong.rutaCancion!!).parent!! + "/" + level.songFile
         }
 
         if(!isFileExists(File(playerSong.rutaCancion!!))) {
-            val rs = File(AppResources.listSongsChannelKsf[oldValue].rutaSong).name
+            val rs = File(song.rutaSong).name
             val sf = File(playerSong.rutaCancion!!).name
             playerSong.rutaCancion = playerSong.rutaCancion!!.replace(sf, rs, ignoreCase = true)
         }
 
-        playerSong.rutaKsf = AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs].rutaKsf
+        playerSong.rutaKsf = level.rutaKsf
 
         mediaPlayer = MediaPlayer().apply {
             setAudioAttributes(
@@ -1819,13 +1820,22 @@ class SelectSongHorizontal : AppCompatActivity() {
             setDataSource(File(playerSong.rutaCancion!!).absolutePath)
             prepare()
         }
-        val isHalfDouble = AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
-        val song = AppResources.listSongsChannelKsf[oldValue]
+        val isHalfDouble = level.typePlayer == "B"
+        playerSong.level = level.level
+        playerSong.player = level.typePlayer
+        playerSong.type = level.typeSteps
+        playerSong.chartName = level.chartName
+        playerSong.stepMaker = level.stepmaker
+        playerSong.difficulty = level.difficulty
 
         if(song.isSSC){
             val ssc = readFileSsc(song.rutaSsc)
             val seccions = ssc.split("#NOTEDATA:;")
-            chart = Parser().parseSSC(seccions[song.listKsf[positionActualLvs].steps], song.rutaSong)
+            chart = Parser().parseSSC(
+                "${seccions[0]}\n",
+                seccions[level.steps],
+                song.rutaSong
+            )
             playerSong.isSSC = true
             if(playerSong.mirror){
                 if(!isHalfDouble){
@@ -1833,12 +1843,12 @@ class SelectSongHorizontal : AppCompatActivity() {
                 }else{
                     chart.notes = Parser().makeMirrorHD(chart.notes)
                 }
-                if(playerSong.rs){
-                    if(!isHalfDouble){
-                        chart.notes = Parser().makeRandom(chart.notes)
-                    }else{
-                        chart.notes = Parser().makeRandomHD(chart.notes)
-                    }
+            }
+            if(playerSong.rs){
+                if(!isHalfDouble){
+                    chart.notes = Parser().makeRandom(chart.notes)
+                }else{
+                    chart.notes = Parser().makeRandomHD(chart.notes)
                 }
             }
         }else {
@@ -1849,7 +1859,6 @@ class SelectSongHorizontal : AppCompatActivity() {
                 } else {
                     ksfHD.makeMirror()
                 }
-
             }
             if (playerSong.rs) {
                 if (!isHalfDouble) {
@@ -2144,7 +2153,8 @@ class SelectSongHorizontal : AppCompatActivity() {
                     type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
                     player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
                     chartName = nivel.chartName,
-                    credit = nivel.stepmaker
+                    credit = nivel.stepmaker,
+                    difficulty = nivel.difficulty,
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
@@ -2239,11 +2249,6 @@ class SelectSongHorizontal : AppCompatActivity() {
             lbWorldScore.text = "0"
             currentWorldScore = listOf("1000000", "1000000", "1000000")
         }
-
-        playerSong.level = lv.level
-        playerSong.player = lv.typePlayer
-        playerSong.type = lv.typeSteps
-        playerSong.stepMaker = lv.stepmaker
     }
 
     private fun hideLvs() {

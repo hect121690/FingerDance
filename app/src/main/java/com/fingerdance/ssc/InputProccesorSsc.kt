@@ -133,6 +133,28 @@ class InputProcessorSsc : InputAdapter() {
     // ---------------- UPDATE (🔥 CLAVE) ----------------
 
     fun update() {
+        val activePointers = mutableSetOf<Int>()
+
+        for (i in 0 until 20) {
+
+            if (Gdx.input.isTouched(i)) {
+                activePointers.add(i)
+            }
+        }
+        pointerToPadMap.keys.toList().forEach { pointer ->
+
+            if (
+                pointer >= 0 &&
+                pointer !in activePointers
+            ) {
+
+                pointerToPadMap.remove(pointer)
+
+                for (i in padPointers.indices) {
+                    padPointers[i].remove(pointer)
+                }
+            }
+        }
 
         for (i in padPositions.indices) {
 

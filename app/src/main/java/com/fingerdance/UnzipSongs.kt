@@ -7,6 +7,8 @@ import android.os.Looper
 import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.lifecycle.MutableLiveData
+import com.fingerdance.MainActivity
+import com.fingerdance.ssc.LoadingSongs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.lingala.zip4j.ZipFile
@@ -15,7 +17,9 @@ import java.io.File
 class UnzipSongs(
     private val context: Context,
     private val nombreChannel: String,
-    private val textView: TextView
+    private val textView: TextView,
+    private val message: String,
+    private val deleteZip: Boolean
 ) {
     val finishActivity = MutableLiveData<Boolean>()
 
@@ -27,18 +31,19 @@ class UnzipSongs(
         }
 
         withContext(Dispatchers.Main) {
-            val ls = LoadSongsKsf()
             listChannels.clear()
             listEfectsDisplay.clear()
-            listChannels = ls.getChannels(context)
+            val listSongsKsf = LoadSongsKsf().getChannels(context)
+            val listSongsSsc = LoadingSongs().getChannels(context)
+            listChannels = ArrayList(listSongsKsf + listSongsSsc)
             themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-            textView.text = "Recarga de canales completada."
+            textView.text = message
 
             val zipFolder = File(
                 context.getExternalFilesDir(null),
                 "FingerDance/Songs/Channels/$nombreChannel"
             )
-            zipFolder.deleteRecursively()
+            if(deleteZip) zipFolder.deleteRecursively()
 
             Handler(Looper.getMainLooper()).postDelayed({
                 textView.isVisible = false

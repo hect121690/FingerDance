@@ -230,7 +230,8 @@ class SelectChannel : AppCompatActivity() {
                             val player = listChannels[i].listCanciones[a].listKsf[b].typePlayer
                             val chartName = listChannels[i].listCanciones[a].listKsf[b].chartName
                             val stepmaker = listChannels[i].listCanciones[a].listKsf[b].stepmaker
-                            val n = Nivel(level, checkedValues, type, player, chartName, stepmaker, ArrayList(List(3) { FirstRank() }))
+                            val difficulty = listChannels[i].listCanciones[a].listKsf[b].difficulty
+                            val n = Nivel(level, checkedValues, type, player, chartName, stepmaker, difficulty, ArrayList(List(3) { FirstRank() }))
                             listNiveles.add(n)
                         }
                         val cancion = Cancion(listChannels[i].listCanciones[a].title, listNiveles)
@@ -243,7 +244,6 @@ class SelectChannel : AppCompatActivity() {
                 val json = gson.toJson(listCanales)
                 Log.d("JSON", json)
                 */
-
 
                 if(!isOffline){
                     listenScoreChannel(channelSelected.nombre) { listSongs ->

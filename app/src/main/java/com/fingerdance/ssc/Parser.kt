@@ -1,8 +1,5 @@
 package com.fingerdance.ssc
 
-import com.fingerdance.KsfProccess.LuaVisualEvent
-import com.fingerdance.VisualTarget
-import java.io.File
 import kotlin.math.max
 
 class Parser {
@@ -11,7 +8,7 @@ class Parser {
     // DATA
     // =========================
 
-    enum class NoteType { TAP, HOLD, MINE }
+    enum class NoteType { TAP, HOLD }
 
     data class Note(
         val column: Int,
@@ -20,7 +17,15 @@ class Parser {
         val isFake: Boolean = false,
         val isVanish: Boolean = false,
         val isPhantom: Boolean = false,
+        val isMine: Boolean = false,
         val type: NoteType
+    )
+
+    data class FGChange(
+        val beat: Double,
+        val script: String,
+        val duration: Float = 0f,
+        var executed: Boolean = false
     )
 
     data class BpmSegment(val beat: Double, val bpm: Double)
@@ -29,14 +34,11 @@ class Parser {
     data class Delay(val beat: Double, val durationMs: Double)
     data class Warp(val beat: Double, val duration: Double)
     data class Fake(val beat: Double, val duration: Double)
-
     data class Speed(val beat: Double, val ratio: Double, val duration: Double, val mode: Int)
     data class Scroll(val beat: Double, val ratio: Double)
 
-    private var luaFileName: String? = null
-    private val luaEvents = mutableListOf<LuaVisualEvent>()
-
     data class Chart(
+        val chartPath: String = "",
         val offset: Double = 0.0,
         val bpms: List<BpmSegment>,
         val tickcounts: List<TickCountSegment>,
@@ -47,31 +49,29 @@ class Parser {
         val speeds: List<Speed>,
         val scrolls: List<Scroll>,
         var notes: List<Note>,
-        val luaEvents: List<LuaVisualEvent> = emptyList()
+        val fgChanges: MutableList<FGChange> = mutableListOf()
     )
 
     // =========================
     // PUBLIC
     // =========================
 
-    fun parseSSC(text: String, pathFile: String): Chart {
-        val offset = extractTag(text, "OFFSET")?.toDoubleOrNull() ?: 0.0
-        luaFileName = extractTag(text, "LUA")
-        val bpms = parsePairs(text, "BPMS").map { BpmSegment(it.first, it.second) }
-        val tickcounts = parsePairs(text, "TICKCOUNTS").map { TickCountSegment(it.first, it.second.toInt()) }
-        val stops = parsePairs(text, "STOPS").map { Stop(it.first, it.second * 1000) }
-        val delays = parsePairs(text, "DELAYS").map { Delay(it.first, it.second * 1000) }
-        val warps = parsePairs(text, "WARPS").map { Warp(it.first, it.second) }
-        val fakes = parsePairs(text, "FAKES").map { Fake(it.first, it.second) }
-
-        val speeds = parseSpeeds(text)
-        val scrolls = parseScrolls(text)
-
-        val (notes, extendedNotes) = parseNotes(text, fakes)
+    fun parseSSC(textHeader: String, textChart: String, pathFile: String): Chart {
+        val offset = extractTag(textChart, "OFFSET")?.toDoubleOrNull() ?: 0.0
+        val fgChanges = parseFGChanges(textHeader)
+        val bpms = parsePairs(textChart, "BPMS").map { BpmSegment(it.first, it.second) }
+        val tickcounts = parsePairs(textChart, "TICKCOUNTS", true).map { TickCountSegment(it.first, it.second.toInt()) }
+        val stops = parsePairs(textChart, "STOPS").map { Stop(it.first, it.second * 1000) }
+        val delays = parsePairs(textChart, "DELAYS").map { Delay(it.first, it.second * 1000) }
+        val warps = parsePairs(textChart, "WARPS").map { Warp(it.first, it.second) }
+        val fakes = parsePairs(textChart, "FAKES").map { Fake(it.first, it.second) }
+        val speeds = parseSpeeds(textChart)
+        val scrolls = parseScrolls(textChart)
+        val (notes, extendedNotes) = parseNotes(textChart, fakes)
         val allNotes = (notes + extendedNotes).sortedBy { it.beat }
-        loadLuaEvents(pathFile)
 
         return Chart(
+            chartPath = pathFile,
             offset = offset,
             bpms = bpms,
             tickcounts = tickcounts,
@@ -82,7 +82,7 @@ class Parser {
             speeds = speeds,
             scrolls = scrolls,
             notes = allNotes,
-            luaEvents = luaEvents
+            fgChanges = fgChanges
         )
     }
 
@@ -163,7 +163,8 @@ class Parser {
                                     isFake = isFake,
                                     isVanish = isVanish,
                                     isPhantom = false,
-                                    type = NoteType.MINE
+                                    isMine = true,
+                                    type = NoteType.TAP
                                 )
                             )
                         }
@@ -258,7 +259,8 @@ class Parser {
                                     beat = beat,
                                     isFake = fake,
                                     isPhantom = false,
-                                    type = NoteType.MINE
+                                    isMine = true,
+                                    type = NoteType.TAP
                                 )
                             )
                         }
@@ -367,62 +369,48 @@ class Parser {
     // HELPERS
     // =========================
 
-    private fun loadLuaEvents(ksfPath: String) {
-        val luaName = luaFileName ?: return
+    private fun parseFGChanges(text: String): MutableList<FGChange> {
 
-        val luaFile = File(File(ksfPath).parentFile, luaName)
-        if (!luaFile.exists()) return
+        val raw = extractTag(text, "FGCHANGES")
+            ?: return mutableListOf()
 
-        luaFile.forEachLine { line ->
+        val result = mutableListOf<FGChange>()
+
+        raw.split(",").forEach { line ->
+
             val clean = line.trim()
-            if (clean.isEmpty() || clean.startsWith("--")) return@forEachLine
 
-            // split: setRecept(...) , 52000
-            val parts = clean.split("),")
-            if (parts.size != 2) return@forEachLine
+            if (clean.isEmpty()) return@forEach
 
-            val callPart = parts[0] + ")"
-            val beat = parts[1].trim().toFloat()
+            val parts = clean.split("=")
 
-            // 🔹 nombre de la función
-            val funcName = callPart.substringBefore("(").trim()
+            if (parts.size < 2) return@forEach
 
-            val target = when (funcName) {
-                "setRecept" -> VisualTarget.RECEPTOR
-                "setNotes"  -> VisualTarget.NOTES
-                else -> return@forEachLine
-            }
+            try {
 
-            // args
-            val nameAndArgs = callPart.substringAfter("(").substringBefore(")")
-            val args = nameAndArgs.split(",")
+                val beat = parts[0].trim().toDouble()
 
-            val paramMap = mutableMapOf<String, Float>()
-            var duration = 0F
+                val script = parts[1].trim()
 
-            args.forEach {
-                val pair = it.split("=")
-                if (pair.size == 2) {
-                    val key = pair[0].trim()
-                    val value = pair[1].trim().toFloat()
+                val duration =
+                    parts.getOrNull(2)
+                        ?.trim()
+                        ?.toFloatOrNull()
+                        ?: 0f
 
-                    if (key == "time") {
-                        duration = value.toFloat()
-                    } else {
-                        paramMap[key] = value
-                    }
-                }
-            }
-
-            luaEvents.add(
-                LuaVisualEvent(
-                    startBeat = beat,
-                    durationBeat = duration,
-                    target = target,
-                    params = paramMap
+                result.add(
+                    FGChange(
+                        beat = beat,
+                        script = script,
+                        duration = duration
+                    )
                 )
-            )
+
+            } catch (_: Exception) {
+            }
         }
+
+        return result
     }
 
     private fun parseSpeeds(text: String): List<Speed> {
@@ -459,13 +447,24 @@ class Parser {
         }
     }
 
-    private fun parsePairs(text: String, tag: String): List<Pair<Double, Double>> {
+    private fun parsePairs(text: String, tag: String, isTickcount: Boolean = false): List<Pair<Double, Double>> {
         val raw = extractTag(text, tag) ?: return emptyList()
         return raw.split(",").mapNotNull {
             val p = it.split("=")
-            if (p.size == 2) p[0].toDoubleOrNull()?.let { b ->
-                p[1].toDoubleOrNull()?.let { v -> b to v }
+            if (p.size == 2) {
+                p[0].toDoubleOrNull()?.let { b ->
+                    p[1].toDoubleOrNull()?.let { originalValue ->
+                        val value = if (isTickcount && originalValue == 0.0) {
+                            1.0
+                        } else {
+                            originalValue
+                        }
+                        b to value
+                    }
+                }
+
             } else null
+
         }.sortedBy { it.first }
     }
 
@@ -488,14 +487,14 @@ class Parser {
         return remapColumns(notes, mirrorMap)
     }
 
-    fun makeRandom(notes: List<Note>): List<Note> {
-        val map = generatePumpRandomMap()
-        return remapColumns(notes, map)
-    }
-
     fun makeMirrorHD(notes: List<Note>): List<Note> {
         val mirrorMap = intArrayOf(0, 1, 7, 6, 5, 4, 3, 2, 8, 9)
         return remapColumns(notes, mirrorMap)
+    }
+
+    fun makeRandom(notes: List<Note>): List<Note> {
+        val map = generatePumpRandomMap()
+        return remapColumns(notes, map)
     }
 
     fun makeRandomHD(notes: List<Note>): List<Note> {
@@ -504,137 +503,78 @@ class Parser {
     }
 
     private fun remapColumns(notes: List<Note>, map: IntArray): List<Note> {
-
-        fun transform(notes: List<Note>): List<Note> {
-            return notes.map { note ->
-
-                if (note.type == NoteType.MINE) {
-                    note
-                } else {
-                    note.copy(
-                        column = map.getOrElse(note.column) { note.column }
-                    )
-                }
+        return notes.map { note ->
+            if (note.isMine && note.isFake) {
+                note
+            } else {
+                note.copy(column = map.getOrElse(note.column) { note.column })
             }
         }
-
-        return transform(notes)
-
     }
+
+// =====================================================
+// SINGLE RANDOM
+// =====================================================
 
     private fun generatePumpRandomMap(): IntArray {
 
-        val map = intArrayOf(0, 1, 2, 3, 4)
-
-        repeat(2) {
-
-            when ((0..3).random()) {
-
-                // swap izquierda
-                0 -> {
-                    map.swap(0, 1)
-                }
-
-                // swap derecha
-                1 -> {
-                    map.swap(3, 4)
-                }
-
-                // mover centro ligeramente
-                2 -> {
-
-                    val target = listOf(
-                        1,
-                        3
-                    ).random()
-
-                    map.swap(2, target)
-                }
-
-                // diagonal suave
-                3 -> {
-
-                    if ((0..1).random() == 0) {
-                        map.swap(0, 3)
-                    } else {
-                        map.swap(1, 4)
-                    }
-                }
-            }
-        }
-
-        return map
+        return singleRandomMaps.random()
     }
 
-    private fun IntArray.swap(a: Int, b: Int) {
+    private val singleRandomMaps = listOf(
 
-        val tmp = this[a]
-        this[a] = this[b]
-        this[b] = tmp
-    }
+        // mirror
+        intArrayOf(4,3,2,1,0),
+
+        // swap esquinas
+        intArrayOf(1,0,2,4,3),
+
+        // cruzado suave
+        intArrayOf(3,4,2,0,1),
+
+        // diagonales
+        intArrayOf(1,3,2,0,4),
+
+        // shuffle arcade
+        intArrayOf(4,0,2,3,1),
+
+        // crossover ligero
+        intArrayOf(3,1,2,4,0),
+
+        // variante rara
+        intArrayOf(0,4,2,1,3)
+    )
+
+// =====================================================
+// HALF DOUBLE RANDOM
+// =====================================================
 
     private fun generatePumpRandomMapHD(): IntArray {
 
-        val map = IntArray(10) { it }
-
-        repeat(3) {
-
-            when ((0..5).random()) {
-
-                // lado izquierdo swap
-                0 -> {
-                    map.swap(2, 3)
-                }
-
-                // lado derecho swap
-                1 -> {
-                    map.swap(6, 7)
-                }
-
-                // centro interno
-                2 -> {
-                    map.swap(4, 5)
-                }
-
-                // diagonal suave
-                3 -> {
-
-                    if ((0..1).random() == 0) {
-                        map.swap(3, 5)
-                    } else {
-                        map.swap(4, 6)
-                    }
-                }
-
-                // center expand
-                4 -> {
-
-                    val target = listOf(
-                        3,
-                        4,
-                        5,
-                        6
-                    ).random()
-
-                    if ((0..1).random() == 0) {
-                        map.swap(2, target)
-                    } else {
-                        map.swap(7, target)
-                    }
-                }
-
-                // cross suave rara
-                5 -> {
-
-                    if ((0..1).random() == 0) {
-                        map.swap(2, 6)
-                    } else {
-                        map.swap(3, 7)
-                    }
-                }
-            }
-        }
-
-        return map
+        return hdRandomMaps.random()
     }
+
+    private val hdRandomMaps = listOf(
+
+        // mirror interno
+        intArrayOf(0,1,7,6,5, 4,3,2,8,9),
+
+        // swap centros
+        intArrayOf(0,1,3,2,5, 4,7,6,8,9),
+
+        // crossover suave
+        intArrayOf(0,1,6,3,4, 5,2,7,8,9),
+
+        // expandido
+        intArrayOf(0,1,5,4,3, 2,6,7,8,9),
+
+        // diagonales
+        intArrayOf(0,1,7,4,5, 2,3,6,8,9),
+
+        // raro arcade
+        intArrayOf(0,1,4,5,2, 7,3,6,8,9),
+
+        // shuffle fuerte
+        intArrayOf(0,1,6,5,4, 3,2,7,8,9)
+    )
 }

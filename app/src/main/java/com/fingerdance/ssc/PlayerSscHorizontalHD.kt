@@ -1,5 +1,7 @@
 package com.fingerdance.ssc
 
+import LuaEngine
+import android.util.Log
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
@@ -21,6 +23,9 @@ import com.fingerdance.heightBtnsHorizontal
 import com.fingerdance.heightJudges
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
+import com.fingerdance.luaFlare
+import com.fingerdance.luaNotes
+import com.fingerdance.luaRecepts
 import com.fingerdance.medidaFlechas
 import com.fingerdance.medidaFlechasHorizontal
 import com.fingerdance.padPositionsHorizontalHD
@@ -38,7 +43,11 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScreenActivityHorizontal) : GameScreenSscHorizontalHD(activity){
+class PlayerSscHorizontalHD (
+    val screen : GameScreenSscHorizontalHD,
+    private val batch: SpriteBatch,
+    private val activity: GameScreenActivityHorizontal
+) {
 
     private val bpms = chart.bpms
     private val tickcounts = chart.tickcounts
@@ -52,17 +61,16 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
     private val sizeScale = medidaFlechasHorizontal * 1.2f
     private val topPos = medidaFlechasHorizontal *  0.9f
     private val posX = medidaFlechasHorizontal * 0.1f
-    private val xFlare1 = medidaFlechasHorizontal * 2.1f
     private val animationDuration: Long = 300L
     val STEPSIZE = medidaFlechasHorizontal.toInt()
 
     companion object {
         const val MINUTE = 60000f
 
-        private var ZONE_PERFECT: Long = if (playerSong.hj) 25 else 45
-        private var ZONE_GREAT: Long = if (playerSong.hj) 41 else 75
-        private var ZONE_GOOD: Long = if (playerSong.hj) 58 else 105
-        private var ZONE_BAD: Long = if (playerSong.hj) 85 else 135
+        private var ZONE_PERFECT: Long = if (playerSong.hj) 25 else 50
+        private var ZONE_GREAT: Long = if (playerSong.hj) 41 else 82
+        private var ZONE_GOOD: Long = if (playerSong.hj) 115 else 115
+        private var ZONE_BAD: Long = if (playerSong.hj) 140 else 150
 
         const val JUDGE_PERFECT = 0
         const val JUDGE_GREAT = 1
@@ -161,10 +169,10 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
     private var digitWidth = medidaFlechasHorizontal * 0.7f
     private var digitHeight = heightJudges * 1.3f
 
-    private val gaugeInc = if (playerSong.hj) gaugeIncHJ else gaugeIncNormal
+    private val gaugeInc = if (playerSong.hj) screen.gaugeIncHJ else screen.gaugeIncNormal
     val tipWidth = (medidaFlechasHorizontal / 4f)
     val tipHeight = medidaFlechasHorizontal / 1.5f
-    val tipY = 0f - (medidaFlechasHorizontal * 0.05f) + (posYGauje)
+    val tipY = 0f - (medidaFlechasHorizontal * 0.05f) + (screen.posYGauje)
 
     private val columnNotes = Array(10) { mutableListOf<Parser.Note>() }
     private val columnIndex = IntArray(10) { 0 }
@@ -173,8 +181,11 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
     private var isVanish = playerSong.vanish
     private var isAp = playerSong.ap
 
+    private var luaFlashStartTime = 0L
+    private var luaFlashDuration = 0L
+    lateinit var luaEngine: LuaEngine
     init {
-        currentTimeToExpands = timeGetTime()
+        currentTimeToExpands = screen.timeGetTime()
         initCommonInfo()
 
         Gdx.input.inputProcessor = inputProcessor
@@ -268,6 +279,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         createWhiteTexture()
         initColumnNotes()
         inputProcessor.resetState()
+        luaEngine = LuaEngine(playerSscHorizontalHD = this, widthNotes = medidaFlechasHorizontal * 6f)
     }
 
     private data class LongNotePress(
@@ -291,9 +303,6 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         }
     }
 
-    var luaReceptOffsetX = 0.0
-    private var luaNoteOffsetX = 0.0
-
     private var beatWindow = WINDOW_BEAT_ALLOW
     private val iLongTop = LongArray(10)
 
@@ -313,7 +322,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
     )
 
     fun render(songTimeMs: Long) {
-        val timeCom = timeGetTime()
+        val timeCom = screen.timeGetTime()
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
 
@@ -326,7 +335,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         val msPorBeat = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
         val msPorFrame = msPorBeat / 5f
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
-        //updateLuaEvents(currentBeat)
+        updateFGChanges(currentBeat)
 
         // Encuentra la próxima nota hacia adelante y atrás
         val prevNoteBeat = notes.lastOrNull { it.beat <= currentBeat }?.beat
@@ -370,15 +379,12 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
                 Parser.NoteType.TAP -> {
                     if (hitNotes.contains(n)) continue
                     val y = yForBeat(n.beat, currentBeat, nowMs)
-                    if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                        drawNote(n.column, y, n)
-                    }
-                }
-
-                Parser.NoteType.MINE -> {
-                    val y = yForBeat(n.beat, currentBeat, nowMs)
-                    if (y > -STEPSIZE && y < gdxHeight + STEPSIZE) {
-                        drawMines(n.column, y, n)
+                    if (y > -STEPSIZE && y < screen.gdxHeight + STEPSIZE) {
+                        if(n.isMine){
+                            drawMines(n.column, y, n)
+                        }else {
+                            drawNote(n.column, y, n)
+                        }
                     }
                 }
 
@@ -394,7 +400,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
                     var yHead = yForBeat(n.beat, currentBeat, nowMs)
                     val yTail = yForBeat(endBeat, currentBeat, nowMs)
 
-                    if (yHead < gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
+                    if (yHead < screen.gdxHeight + STEPSIZE && yTail > -STEPSIZE) {
                         val col = n.column
                         val locked = LONGNOTE[col].pressed && currentBeat in n.beat..endBeat
 
@@ -441,7 +447,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         }
 
         drawMineFlash(timeCom)
-
+        drawLuaFlash(timeCom)
         if (m_judge.startTime == 0L) return
         if (m_judge.startTime + 2500 < timeCom) {
             m_judge.startTime = 0
@@ -481,6 +487,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         val prevBeat = timeToBeat(prevSongTimeMs.toDouble())
         val nowBeat  = timeToBeat(songTimeMs.toDouble())
         for (col in 0 until m_iStepWidth) {
+
             when (key[col]) {
                 KEY_DOWN -> {
                     showExpand(col)
@@ -506,14 +513,13 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             if (!LONGNOTE[col].pressed && (key[col] == KEY_PRESS || key[col] == KEY_DOWN)) {
                 for (i in columnIndex[col] until notesInCol.size) {
                     val n = notesInCol[i]
-
+                    if(n.isFake) continue
                     if (n.type != Parser.NoteType.HOLD) continue
                     if (finishedHolds.contains(n)) continue
                     val headBeat = n.beat
                     //val endBeat = n.endBeat ?: n.beat
 
                     val isPressing = (key[col] == KEY_PRESS || key[col] == KEY_DOWN)
-
                     val lateCatch = isPressing && nowBeat > n.beat //&& nowBeat > endBeat
 
                     // ¿El head fue "cruzado" entre frames?
@@ -542,7 +548,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             m_fGauge = 1.0f
         } else if (m_fGauge < -0.5f) {
             if (!isOnline && breakSong) {
-                a.breakDance()
+                activity.breakDance()
             }
         }
     }
@@ -556,7 +562,11 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
 
             while (idx < notesInCol.size) {
                 val n = notesInCol[idx]
-
+                if (n.isFake) {
+                    idx++
+                    columnIndex[col] = idx
+                    continue
+                }
                 if (hitNotes.contains(n)) {
                     idx++
                     columnIndex[col] = idx
@@ -572,7 +582,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
                 val deltaMs = getDeltaMsForNote(n.beat, songTimeMs)
                 // Si se pasó de la zona BAD por mucho, marcamos miss y saltamos a la siguiente
                 if (deltaMs > ZONE_BAD) {
-                    if (n.type == Parser.NoteType.MINE){
+                    if (n.isMine){
                         idx++
                         columnIndex[col] = idx
                         continue
@@ -588,7 +598,6 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
     }
 
     private fun processTapAndHeadOnColumn(col: Int, timeMs: Long) {
-
         val notesInCol = columnNotes[col]
         val nowBeat = timeToBeat(timeMs.toDouble())
 
@@ -601,6 +610,11 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
 
             val note = notesInCol[i]
 
+            // IGNORAR FAKES COMPLETAMENTE
+            if (note.isFake) {
+                continue
+            }
+
             if (timingData.isBeatInWarp(note.beat)) {
                 continue
             }
@@ -612,14 +626,12 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             }
 
             // MINE
-            if (note.type == Parser.NoteType.MINE) {
-
+            if (note.isMine) {
                 if (abs(deltaMs) <= ZONE_BAD) {
                     applyJudge(col, JUDGE_MISS, isFromInput = true, isMine = true, note = note)
                     hitNotes.add(note)
                     columnIndex[col] = i + 1
-
-                    onMineHit(timeGetTime())
+                    onMineHit(screen.timeGetTime())
                 }
 
                 continue
@@ -644,18 +656,16 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             }
         }
 
-        if (bestIdx == -1) return
+        if (bestIdx == -1) {
+            return
+        }
 
         val n = notesInCol[bestIdx]
 
         if (n.type == Parser.NoteType.HOLD) {
-
             applyJudge(col, JUDGE_PERFECT, isFromInput = true, note = n)
-
             startLongNote(col, n, timeMs)
-
             LONGNOTE[col].lastTickBeat = nowBeat
-
             columnIndex[col] = bestIdx + 1
 
         } else {
@@ -704,6 +714,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         // buscar cualquier HOLD 'viva' bajo el receptor
         for (i in notesInCol.indices) {
             val n = notesInCol[i]
+            if(n.isFake) continue
             if (n.type != Parser.NoteType.HOLD) continue
             if (finishedHolds.contains(n)) continue
 
@@ -788,6 +799,30 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         }
     }
 
+    private fun updateFGChanges(currentBeat: Double) {
+        for (event in chart.fgChanges) {
+            if (event.executed) continue
+            if (currentBeat >= event.beat) {
+                event.executed = true
+                val stepsFolder = File(chart.chartPath).parentFile
+                val target = File(stepsFolder, event.script)
+                val luaFile = if (target.isDirectory) {
+                    target.listFiles()?.firstOrNull { it.isFile && it.extension.equals("lua", true) }
+                } else {
+                    target
+                }
+                if (luaFile != null && luaFile.exists()) {
+                    Log.d("NOTE_DEBUG", "target: ${target.absolutePath}")
+                    Log.d("NOTE_DEBUG", "isDirectory: ${target.isDirectory}")
+                    Log.d("NOTE_DEBUG", "luaFile: ${luaFile.absolutePath}")
+                    luaEngine.executeLua(luaFile.absolutePath)
+                } else {
+                    Log.d("NOTE_DEBUG", "Lua no encontrado: $target")
+                }
+            }
+        }
+    }
+
     private fun applyJudge(col: Int, judge: Int, isBodyLongNote: Boolean = false, isFromInput: Boolean, isMine: Boolean = false, note: Parser.Note? = null) {
         if (note != null && note.isFake) return
         when (judge) {
@@ -851,7 +886,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             }
         }
 
-        val now = timeGetTime()
+        val now = screen.timeGetTime()
         m_judge.judge = judge
         m_judge.startTime = now
 
@@ -880,9 +915,9 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
 
     private val MEASURE = (decimoHeigtn * 2.5).toDouble()
     private val MEASUREVANISH = if(isMidLine) (decimoHeigtn * 2.375).toDouble() else (decimoHeigtn * 3.5).toDouble()
-    private val initArrow = (gdxHeight * 0.575)
-    private var rangeAlpha = (gdxHeight * 0.1)
-    private val segmentHeight = gdxHeight * 0.001f
+    private val initArrow = (screen.gdxHeight * 0.575)
+    private var rangeAlpha = (screen.gdxHeight * 0.1)
+    private val segmentHeight = screen.gdxHeight * 0.001f
     private var heightBodyHead = (medidaFlechasHorizontal * 0.3f)
     private var middleSizeFlechas = medidaFlechasHorizontal * 0.5f
     private val amplitude = medidaFlechasHorizontal / 3f
@@ -1131,7 +1166,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             }
         }
 
-        return baseX + offsetX + luaNoteOffsetX.toFloat()
+        return baseX + offsetX + luaNotes.screenX
     }
 
     private fun getAlpha(y: Float, init: Double): Float {
@@ -1143,7 +1178,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
     }
 
     private fun drawFlare(x: Int, frame: Int) {
-        val left = getLaneX(x) - ((widthFlare - medidaFlechasHorizontal) / 2f) + offsetX + luaNoteOffsetX.toFloat()
+        val left = getLaneX(x) - ((widthFlare - medidaFlechasHorizontal) / 2f) + offsetX + luaFlare.screenX
         val flareSprite = flareSprites[frame]
         flareSprite.setBounds(left, yFlare, widthFlare, widthFlare)
         aBatch = batch.blendSrcFunc
@@ -1152,7 +1187,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         flareSprite.draw(batch)
         batch.setBlendFunction(aBatch, bBatch)
 
-        val elapsed = (timeGetTime() - currentTimeToExpands) % animationDuration
+        val elapsed = (screen.timeGetTime() - currentTimeToExpands) % animationDuration
 
         val (alpha, zoom) = calculateAlphaAndZoom(elapsed)
 
@@ -1161,7 +1196,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
 
         batch.draw(
             arrArrows[x][arrowFrame],
-            getLaneX(x) - ((medidaFlechasHorizontal * zoom) - medidaFlechasHorizontal) / 2f,
+            luaFlare.screenX + getLaneX(x) - ((medidaFlechasHorizontal * zoom) - medidaFlechasHorizontal) / 2f,
             STEPSIZE.toFloat() - ((medidaFlechasHorizontal * zoom) - medidaFlechasHorizontal) / 2,
             medidaFlechasHorizontal * zoom,
             medidaFlechasHorizontal * zoom
@@ -1176,7 +1211,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         return (
                 medidaFlechasHorizontal *
                         (if (x > 2) x - 2 else 0)
-                ) + spaceInitHorizontalHD
+                ) + screen.spaceInitHorizontalHD
     }
 
     private val flareSprites = Array(flareArrowFrame.size) { i ->
@@ -1205,12 +1240,12 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         batch.setColor(1f, 1f, 1f, 0.7f)
 
         when (x) {
-            2 -> batch.draw(receptCE[2], spaceInitHorizontalHD - posX, topPos, sizeScale, sizeScale)
-            3 -> batch.draw(receptRU[2], (medidaFlechasHorizontal) - posX + spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            4 -> batch.draw(receptRD[2], (medidaFlechasHorizontal * 2) - posX + spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            5 -> batch.draw(receptLD[2], (medidaFlechasHorizontal * 3) - posX + spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            6 -> batch.draw(receptLU[2], (medidaFlechasHorizontal * 4) - posX + spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            7 -> batch.draw(receptCE[2], (medidaFlechasHorizontal * 5) - posX + spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
+            2 -> batch.draw(screen.receptCE[2], luaRecepts.screenX + screen.spaceInitHorizontalHD - posX, topPos, sizeScale, sizeScale)
+            3 -> batch.draw(screen.receptRU[2], luaRecepts.screenX + (medidaFlechasHorizontal) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
+            4 -> batch.draw(screen.receptRD[2], luaRecepts.screenX + (medidaFlechasHorizontal * 2) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
+            5 -> batch.draw(screen.receptLD[2], luaRecepts.screenX + (medidaFlechasHorizontal * 3) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
+            6 -> batch.draw(screen.receptLU[2], luaRecepts.screenX + (medidaFlechasHorizontal * 4) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
+            7 -> batch.draw(screen.receptCE[2], luaRecepts.screenX + (medidaFlechasHorizontal * 5) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
         }
 
         if (showPadB == 3) {
@@ -1218,7 +1253,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             batch.setColor(1f, 1f, 1f, 1f)
 
             batch.draw(
-                arrayPad4[x % 5],
+                screen.arrayPad4[x % 5],
                 padPositionsHorizontalHD[x][0],
                 padPositionsHorizontalHD[x][1],
                 widthBtnsHorizontal,
@@ -1252,7 +1287,7 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
             alpha = 1.0f
         }
 
-        judgeSprite.setRegion(imgsJudge[m_judge.judge])
+        judgeSprite.setRegion(screen.imgsJudge[m_judge.judge])
         val judgeW = widthJudges * ftX
         val judgeH = heightJudges * ftY
 
@@ -1272,9 +1307,9 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
 
         if (curCombo >= 4 || curComboMiss >= 4) {
             val isMiss = curComboMiss >= 4
-            comboSprite.setRegion(if (isMiss) imgsTypeCombo[1] else (imgsTypeCombo[0]))
+            comboSprite.setRegion(if (isMiss) screen.imgsTypeCombo[1] else (screen.imgsTypeCombo[0]))
             val count = if (isMiss) curComboMiss else curCombo
-            val numberList = if (isMiss) listNumbersMiss else listNumbers
+            val numberList = if (isMiss) screen.listNumbersMiss else screen.listNumbers
 
             comboSprite.setSize(comboWidth, comboHeight)
             comboSprite.setOriginCenter()
@@ -1300,54 +1335,54 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         }
     }
 
-    private val initGaujePosition = spaceInitHorizontalHD - (medidaFlechasHorizontal * 0.5f)
+    private val initGaujePosition = screen.spaceInitHorizontalHD - (medidaFlechasHorizontal * 0.5f)
     private fun drawGauge(gauge: Float) {
         val previousSrcFunc = batch.blendSrcFunc
         val previousDstFunc = batch.blendDstFunc
 
-        val barToDraw = if (gauge <= 0.2f) barRed else barBlack
-        barToDraw.setSize(maxWidth, maxlHeight)
-        barToDraw.setPosition(initGaujePosition, posYGauje)
+        val barToDraw = if (gauge <= 0.2f) screen.barRed else screen.barBlack
+        barToDraw.setSize(screen.maxWidth, screen.maxlHeight)
+        barToDraw.setPosition(initGaujePosition, screen.posYGauje)
         barToDraw.draw(batch)
 
-        val visibleWidth = maxWidth * gauge
-        val regionWidth = (barColors.texture.width * gauge).toInt()
+        val visibleWidth = screen.maxWidth * gauge
+        val regionWidth = (screen.barColors.texture.width * gauge).toInt()
 
         if (regionWidth > 0.1 && visibleWidth > 0.1f) {
-            barColors.setRegion(0, 0, regionWidth, barColors.texture.height)
-            barColors.setSize(visibleWidth, maxlHeight)
-            barColors.setPosition(initGaujePosition, posYGauje)
-            barColors.draw(batch)
+            screen.barColors.setRegion(0, 0, regionWidth, screen.barColors.texture.height)
+            screen.barColors.setSize(visibleWidth, screen.maxlHeight)
+            screen.barColors.setPosition(initGaujePosition, screen.posYGauje)
+            screen.barColors.draw(batch)
         }
 
         if (gauge >= 1.0f) {
-            val currentTime = (timeGetTime() / 100L) % 2 == 0L
+            val currentTime = (screen.timeGetTime() / 100L) % 2 == 0L
 
             if (currentTime) {
-                val time = (timeGetTime() % 200L) / 200f
+                val time = (screen.timeGetTime() % 200L) / 200f
                 val shine = 1f + 0.5f * Math.sin(time * Math.PI).toFloat()
                 batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-                barColors.setColor(shine, shine, shine, 1f)
-                barColors.draw(batch)
+                screen.barColors.setColor(shine, shine, shine, 1f)
+                screen.barColors.draw(batch)
                 batch.setBlendFunction(previousSrcFunc, previousDstFunc )
             } else {
-                barColors.setColor(1f, 1f, 1f, 1f)
-                barColors.draw(batch)
+                screen.barColors.setColor(1f, 1f, 1f, 1f)
+                screen.barColors.draw(batch)
             }
         }else{
-            barColors.setColor(1f, 1f, 1f, 1f)
+            screen.barColors.setColor(1f, 1f, 1f, 1f)
         }
-        barFrame.setSize(maxWidth, maxlHeight)
-        barFrame.setPosition(initGaujePosition, posYGauje)
-        barFrame.draw(batch)
+        screen.barFrame.setSize(screen.maxWidth, screen.maxlHeight)
+        screen.barFrame.setPosition(initGaujePosition, screen.posYGauje)
+        screen.barFrame.draw(batch)
 
         val tipX: Float
 
         if(gauge <= 0.99f && gauge > 0f){
             tipX = visibleWidth + initGaujePosition
-            barTip.setSize(tipWidth, tipHeight)
-            barTip.setPosition(tipX, tipY)
-            barTip.draw(batch)
+            screen.barTip.setSize(tipWidth, tipHeight)
+            screen.barTip.setPosition(tipX, tipY)
+            screen.barTip.draw(batch)
         }
 
     }
@@ -1449,7 +1484,26 @@ class PlayerSscHorizontalHD (private val batch: SpriteBatch, activity: GameScree
         val alpha = 1f - (t * t)
 
         batch.setColor(1f, 1f, 1f, alpha)
-        batch.draw(whiteTex, 0f, 0f, gdxWidth.toFloat(), gdxHeight.toFloat())
+        batch.draw(whiteTex, 0f, 0f, screen.gdxWidth.toFloat(), screen.gdxHeight.toFloat())
+        batch.setColor(Color.WHITE)
+    }
+
+    fun triggerLuaFlash(duration: Long) {
+        luaFlashDuration = duration
+        luaFlashStartTime = screen.timeGetTime()
+    }
+
+    private fun drawLuaFlash(timeCom: Long) {
+        if (luaFlashStartTime == 0L) return
+        val elapsed = timeCom - luaFlashStartTime
+        if (elapsed >= luaFlashDuration) {
+            luaFlashStartTime = 0L
+            return
+        }
+        val t = elapsed.toFloat() / luaFlashDuration
+        val alpha = 1f - (t * t)
+        batch.setColor(1f, 1f, 1f, alpha)
+        batch.draw(whiteTex, 0f, 0f, screen.gdxWidth.toFloat(), screen.gdxHeight.toFloat())
         batch.setColor(Color.WHITE)
     }
 

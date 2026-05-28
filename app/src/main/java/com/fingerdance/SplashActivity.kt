@@ -50,6 +50,7 @@ class SplashActivity : AppCompatActivity() {
         val timeAdjust: Long,
         var valiedFolders: List<String> = emptyList(),
         val version: String,
+        val allowCheckValues: Boolean
     )
 
     private val MINIMUM_DISPLAY_TIME = 2000L
@@ -128,6 +129,7 @@ class SplashActivity : AppCompatActivity() {
         timeToPresiscion = config.timeToPresiscion
         timeToPresiscionHD = config.timeHalfDouble
         versionUpdate = config.version
+        allowCheckValues = config.allowCheckValues
     }
 
     private fun getValidFolders(callback: (ArrayList<String>) -> Unit) {
@@ -166,6 +168,7 @@ class SplashActivity : AppCompatActivity() {
                             timeToPresiscion = snapshot.child("timeToPresiscion").getValue(String::class.java)?.toLong() ?: 0L,
                             timeAdjust = snapshot.child("time_adjust").getValue(String::class.java)?.toLong() ?: 0L,
                             version = snapshot.child("value").getValue(String::class.java) ?: "",
+                            allowCheckValues = snapshot.child("allowCheckValues").getValue(Boolean::class.java) ?: false
                         )
                         continuation.resume(config, null)
 

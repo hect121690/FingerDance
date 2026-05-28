@@ -13,6 +13,7 @@
     <application
         android:name=".FingerDanceApp"
         android:allowBackup="true"
+        android:allowAudioPlaybackCapture="true"
         android:appCategory="game"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

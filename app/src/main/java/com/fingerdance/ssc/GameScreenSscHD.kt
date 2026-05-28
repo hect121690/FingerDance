@@ -16,7 +16,6 @@ import com.fingerdance.*
 import kotlin.math.abs
 
 open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
-
     val a = activity
 
     private lateinit var batch: SpriteBatch
@@ -28,68 +27,35 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     // PADS
     // ---------------------------------------------------
 
-    private val padLefDown =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/left_down.png")))
-
-    private val padLeftUp =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/left_up.png")))
-
-    private val padCenter =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/center.png")))
-
-    private val padRightUp =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/right_up.png")))
-
-    private val padRightDown =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/right_down.png")))
+    private val padLefDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/left_down.png")))
+    private val padLeftUp = TextureRegion(Texture(Gdx.files.external("$rutaPads/left_up.png")))
+    private val padCenter = TextureRegion(Texture(Gdx.files.external("$rutaPads/center.png")))
+    private val padRightUp = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_up.png")))
+    private val padRightDown = TextureRegion(Texture(Gdx.files.external("$rutaPads/right_down.png")))
 
     // ---------------------------------------------------
     // JUDGES
     // ---------------------------------------------------
 
-    private val imgPerfect =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/perfect.png")))
+    private val imgPerfect = TextureRegion(Texture(Gdx.files.external("$rutaPads/perfect.png")))
+    private val imgGreat = TextureRegion(Texture(Gdx.files.external("$rutaPads/great.png")))
+    private val imgGood = TextureRegion(Texture(Gdx.files.external("$rutaPads/good.png")))
+    private val imgBad = TextureRegion(Texture(Gdx.files.external("$rutaPads/bad.png")))
+    private val imgMiss = TextureRegion(Texture(Gdx.files.external("$rutaPads/miss.png")))
 
-    private val imgGreat =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/great.png")))
-
-    private val imgGood =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/good.png")))
-
-    private val imgBad =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/bad.png")))
-
-    private val imgMiss =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/miss.png")))
-
-    val imgsJudge = arrayOf(
-        imgPerfect,
-        imgGreat,
-        imgGood,
-        imgBad,
-        imgMiss
-    )
+    val imgsJudge = arrayOf(imgPerfect, imgGreat, imgGood, imgBad, imgMiss)
 
     // ---------------------------------------------------
     // COMBO
     // ---------------------------------------------------
 
-    private val imgCombo =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/combo.png")))
+    private val imgCombo = TextureRegion(Texture(Gdx.files.external("$rutaPads/combo.png")))
+    private val imgComboMiss = TextureRegion(Texture(Gdx.files.external("$rutaPads/comboMiss.png")))
 
-    private val imgComboMiss =
-        TextureRegion(Texture(Gdx.files.external("$rutaPads/comboMiss.png")))
+    val imgsTypeCombo = arrayOf(imgCombo, imgComboMiss)
 
-    val imgsTypeCombo = arrayOf(
-        imgCombo,
-        imgComboMiss
-    )
-
-    val imgNumbers =
-        Texture(Gdx.files.external("$rutaPads/numbersCombo.png"))
-
-    val imgNumbersMiss =
-        Texture(Gdx.files.external("$rutaPads/numbersComboMiss.png"))
+    val imgNumbers = Texture(Gdx.files.external("$rutaPads/numbersCombo.png"))
+    val imgNumbersMiss = Texture(Gdx.files.external("$rutaPads/numbersComboMiss.png"))
 
     val listNumbers = getListNumbers(imgNumbers)
     val listNumbersMiss = getListNumbers(imgNumbersMiss)
@@ -98,26 +64,17 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     // LIFE BAR
     // ---------------------------------------------------
 
-    private val backgroundTexture =
-        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife0.png"))
-
-    private val barBlackTexture =
-        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png"))
-
-    private val barRedTexture =
-        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife2.png"))
-
-    private val barLifeTexture =
-        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife3.png"))
+    private val backgroundTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife0.png"))
+    private val barBlackTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife1.png"))
+    private val barRedTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife2.png"))
+    private val barLifeTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barLife3.png"))
 
     val barFrame = Sprite(backgroundTexture)
     val barBlack = Sprite(barBlackTexture)
     val barRed = Sprite(barRedTexture)
     val barColors = Sprite(barLifeTexture)
 
-    private val barTipTexture =
-        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/bar_tip.png"))
-
+    private val barTipTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/bar_tip.png"))
     val barTip = Sprite(barTipTexture)
 
     // ---------------------------------------------------
@@ -143,14 +100,9 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     // RECEPTORS
     // ---------------------------------------------------
 
-    private val textureLD =
-        Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
-
-    private val textureLU =
-        Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
-
-    private val textureCE =
-        Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
+    private val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
+    private val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
+    private val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
 
     val receptLD = getReceptsTexture(textureLD)
     val receptLU = getReceptsTexture(textureLU)
@@ -170,8 +122,7 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     private var isPaused = false
 
-    private val posYpadB =
-        height.toFloat() - (width.toFloat() * 1.1f)
+    private val posYpadB = height.toFloat() - (width.toFloat() * 1.1f)
 
     private var timer = 0f
     private var showOverlay = false
@@ -185,156 +136,67 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
 
-    val gaugeIncNormal =
-        floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
+    val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
+    val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
-    val gaugeIncHJ =
-        floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
+    private val fadeTexture = Texture(Gdx.files.internal("black.png"))
 
     // ---------------------------------------------------
 
     init {
 
         if (showPadB == 1) {
-
-            padB = TextureRegion(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsB/$skinPad.png")
-                )
-            )
-
+            padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsB/$skinPad.png")))
             spritePadB = Sprite(padB).apply {
                 flip(false, true)
             }
 
         } else if (showPadB == 2) {
-
-            padB = TextureRegion(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsC/$skinPad/BG.png")
-                )
-            )
-
+            padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/BG.png")))
             padB.flip(false, true)
+            padLefDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownLeft.png")))
+            padLeftUpC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/UpLeft.png")))
+            padCenterC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/Center.png")))
+            padRightUpC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/UpRight.png")))
+            padRightDownC = getPadC(Texture(Gdx.files.external("/FingerDance/PadsC/$skinPad/DownRight.png")))
 
-            padLefDownC = getPadC(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsC/$skinPad/DownLeft.png")
-                )
-            )
-
-            padLeftUpC = getPadC(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsC/$skinPad/UpLeft.png")
-                )
-            )
-
-            padCenterC = getPadC(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsC/$skinPad/Center.png")
-                )
-            )
-
-            padRightUpC = getPadC(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsC/$skinPad/UpRight.png")
-                )
-            )
-
-            padRightDownC = getPadC(
-                Texture(
-                    Gdx.files.external("/FingerDance/PadsC/$skinPad/DownRight.png")
-                )
-            )
-
-            arrPadsC = arrayOf(
-                padLefDownC,
-                padLeftUpC,
-                padCenterC,
-                padRightUpC,
-                padRightDownC
-            )
+            arrPadsC = arrayOf(padLefDownC, padLeftUpC, padCenterC, padRightUpC, padRightDownC)
 
         } else if (showPadB == 3) {
-
             when (typePadD) {
-
                 0 -> {
-                    arrayPad4Bg = getTexturePad4(
-                        Texture(
-                            Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")
-                        )
-                    )
-
-                    arrayPad4 = getTexturePad4(
-                        Texture(
-                            Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")
-                        )
-                    )
+                    arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg.png")))
+                    arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad.png")))
                 }
 
                 1 -> {
-                    arrayPad4Bg = getTexturePad4(
-                        Texture(
-                            Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg_m.png")
-                        )
-                    )
-
-                    arrayPad4 = getTexturePad4(
-                        Texture(
-                            Gdx.files.external("/FingerDance/PadsD/arrows_pad_m.png")
-                        )
-                    )
+                    arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg_m.png")))
+                    arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_m.png")))
                 }
 
                 2 -> {
-                    arrayPad4Bg = getTexturePad4(
-                        Texture(
-                            Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg_n.png")
-                        )
-                    )
-
-                    arrayPad4 = getTexturePad4(
-                        Texture(
-                            Gdx.files.external("/FingerDance/PadsD/arrows_pad_n.png")
-                        )
-                    )
+                    arrayPad4Bg = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_bg_n.png")))
+                    arrayPad4 = getTexturePad4(Texture(Gdx.files.external("/FingerDance/PadsD/arrows_pad_n.png")))
                 }
             }
         }
-
-        imgsJudge.forEach {
-            it.flip(false, true)
-        }
-
-        imgsTypeCombo.forEach {
-            it.flip(false, true)
-        }
+        imgsJudge.forEach { it.flip(false, true) }
+        imgsTypeCombo.forEach { it.flip(false, true) }
     }
 
     // ---------------------------------------------------
 
     override fun show() {
-
         batch = SpriteBatch()
-
         stage = Stage(ScreenViewport())
-
-        camera = OrthographicCamera(
-            Gdx.graphics.width.toFloat(),
-            Gdx.graphics.height.toFloat()
-        )
-
+        camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
-        player = PlayerSscHD(batch, a)
-
+        player = PlayerSscHD(this, batch, a)
         rithymAnim = (60f / displayBPM)
-
         targetTop = medidaFlechas
 
         if (showPadB == 0) {
-
             padLefDown.flip(false, true)
             padLeftUp.flip(false, true)
             padCenter.flip(false, true)
@@ -346,38 +208,26 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     // ---------------------------------------------------
 
     override fun render(delta: Float) {
-
         ScreenUtils.clear(0f, 0f, 0f, 0f)
-
         camera.update()
-
         batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
-
             val songTimeMs = a.getSongTimeMs()
-
             elapsedTime += delta
-
             batch.begin()
-
             showBgPads()
-
             player.updateStepData(songTimeMs)
 
             if (!playerSong.fd) {
-
-                intervalOverlay =
-                    (60 / abs(player.m_fCurBPM)) / 2f
-
+                intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
                 timer += delta
-
                 if (timer >= intervalOverlay) {
                     timer -= intervalOverlay
                     showOverlay = !showOverlay
                 }
 
-                drawRecepts(player.luaReceptOffsetX.toFloat())
+                drawRecepts()
             }
 
             player.render(songTimeMs)
@@ -388,8 +238,17 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
             barRed.setSize(maxWidth, maxlHeight)
             barRed.setPosition(medidaFlechas, 0f)
 
-            batch.end()
+            if (isEndingFade) {
+                endingFadeAlpha += delta * 1.8f
+                if (endingFadeAlpha > 1f) {
+                    endingFadeAlpha = 1f
+                }
+                batch.setColor(0f, 0f, 0f, endingFadeAlpha)
+                batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+                batch.setColor(1f, 1f, 1f, 1f)
+            }
 
+            batch.end()
             stage.act(delta)
         }
 
@@ -511,113 +370,24 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     // ---------------------------------------------------
 
-    private fun drawRecepts(luaReceptOffsetX: Float) {
-
-        batch.draw(
-            receptCE[0],
-            arrowsSize,
-            targetTop,
-            arrowsSize,
-            arrowsSize
-        )
-
-        batch.draw(
-            receptRU[0],
-            arrowsSize * 2,
-            targetTop,
-            arrowsSize,
-            arrowsSize
-        )
-
-        batch.draw(
-            receptRD[0],
-            arrowsSize * 3,
-            targetTop,
-            arrowsSize,
-            arrowsSize
-        )
-
-        batch.draw(
-            receptLD[0],
-            arrowsSize * 4,
-            targetTop,
-            arrowsSize,
-            arrowsSize
-        )
-
-        batch.draw(
-            receptLU[0],
-            arrowsSize * 5,
-            targetTop,
-            arrowsSize,
-            arrowsSize
-        )
-
-        batch.draw(
-            receptCE[0],
-            arrowsSize * 6,
-            targetTop,
-            arrowsSize,
-            arrowsSize
-        )
+    private fun drawRecepts() {
+        batch.draw(receptCE[0], arrowsSize + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+        batch.draw(receptRU[0], (arrowsSize * 2) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+        batch.draw(receptRD[0], (arrowsSize * 3) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+        batch.draw(receptLD[0], (arrowsSize * 4) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+        batch.draw(receptLU[0], (arrowsSize * 5) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+        batch.draw(receptCE[0], (arrowsSize * 6) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
 
         if (showOverlay) {
-
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
-
-            batch.setBlendFunction(
-                GL20.GL_SRC_ALPHA,
-                GL20.GL_ONE
-            )
-
-            batch.draw(
-                receptCE[1],
-                arrowsSize,
-                targetTop,
-                arrowsSize,
-                arrowsSize
-            )
-
-            batch.draw(
-                receptRU[1],
-                arrowsSize * 2,
-                targetTop,
-                arrowsSize,
-                arrowsSize
-            )
-
-            batch.draw(
-                receptRD[1],
-                arrowsSize * 3,
-                targetTop,
-                arrowsSize,
-                arrowsSize
-            )
-
-            batch.draw(
-                receptLD[1],
-                arrowsSize * 4,
-                targetTop,
-                arrowsSize,
-                arrowsSize
-            )
-
-            batch.draw(
-                receptLU[1],
-                arrowsSize * 5,
-                targetTop,
-                arrowsSize,
-                arrowsSize
-            )
-
-            batch.draw(
-                receptCE[1],
-                arrowsSize * 6,
-                targetTop,
-                arrowsSize,
-                arrowsSize
-            )
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+            batch.draw(receptCE[1], arrowsSize + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+            batch.draw(receptRU[1], (arrowsSize * 2) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+            batch.draw(receptRD[1], (arrowsSize * 3) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+            batch.draw(receptLD[1], (arrowsSize * 4) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+            batch.draw(receptLU[1], (arrowsSize * 5) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+            batch.draw(receptCE[1], (arrowsSize * 6) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
 
             batch.setBlendFunction(aBatch, bBatch)
         }
@@ -783,6 +553,7 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         barRedTexture.dispose()
         barLifeTexture.dispose()
         barTipTexture.dispose()
+        fadeTexture.dispose()
 
         if (showPadB == 1 || showPadB == 2) {
             padB.texture.dispose()

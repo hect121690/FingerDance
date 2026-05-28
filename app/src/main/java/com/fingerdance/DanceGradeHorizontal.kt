@@ -107,6 +107,7 @@ class DanceGradeHorizontal : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        overridePendingTransition(0, 0)
         setContentView(R.layout.activity_dance_grade_horizontal)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
         onWindowFocusChanged(true)
@@ -147,14 +148,27 @@ class DanceGradeHorizontal : AppCompatActivity() {
 
         if(currentChannel == "06-FAVORITES"){
             checkedValuesMock = mockListChannels[channelIndex].canciones[songIndex].niveles
-                .find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player }!!
+                .find {
+                    it.nivel == currentLevel &&
+                    it.type == playerSong.type &&
+                    it.player == playerSong.player &&
+                    it.chartName == playerSong.chartName &&
+                    it.stepmaker == playerSong.stepMaker
+                }!!
 
         }else {
             val channelMock = mockListChannels.find { it.canal.equals(currentChannel, ignoreCase = true) }
             if (channelMock != null) {
                 val songChannel = channelMock.canciones.find { it.cancion.equals(currentSong, ignoreCase = true) }
                 if (songChannel != null) {
-                    checkedValuesMock = songChannel.niveles.find { it.nivel == currentLevel && it.type == playerSong.type && it.player == playerSong.player } ?: Nivel()
+                    checkedValuesMock = songChannel.niveles
+                        .find {
+                            it.nivel == currentLevel &&
+                            it.type == playerSong.type &&
+                            it.player == playerSong.player &&
+                            it.chartName == playerSong.chartName &&
+                            it.stepmaker == playerSong.stepMaker
+                        } ?: Nivel()
                 }
             }
         }
@@ -433,28 +447,60 @@ class DanceGradeHorizontal : AppCompatActivity() {
     }
 
     private fun resolveInitialFlow() {
+        // Multiplayer u Offline -> nunca guardar
         if (isOffline || isOnline) {
             enabledSaveScore = false
             return
         }
 
+        // Canción no oficial -> solo score local
         if (!isOficialSong) {
             enabledSaveScore = true
             return
         }
 
-        getFirstRankFromFirebase()
+        validateOfficialLevel()
     }
 
-    private fun getFirstRankFromFirebase() {
-
-        if(checkedValuesMock.checkedValues.trim() != checkedValuesKsfLocal.trim()){
+    private fun validateOfficialLevel() {
+        val nivelLocal = findLocalNivel()
+        // No existe el nivel local
+        if (nivelLocal == null) {
             enabledSaveScore = false
             return
         }
-        //validateCheckedValues()
 
-        val nivelRef = firebaseDatabase!!
+        checkedValuesMock = nivelLocal
+        val localChecked = checkedValuesKsfLocal.normalizeChecked()
+        val mockChecked = checkedValuesMock.checkedValues.normalizeChecked()
+
+        if (localChecked != mockChecked) {
+            enabledSaveScore = false
+            return
+        }
+        loadFirebaseRanking()
+    }
+
+    private fun findLocalNivel(): Nivel? {
+        val niveles = if (currentChannel == "06-FAVORITES") {
+            mockListChannels.getOrNull(channelIndex)?.canciones?.getOrNull(songIndex)?.niveles
+        } else {
+            mockListChannels.find { it.canal.normalizeText() == currentChannel.normalizeText() }
+                ?.canciones?.find { it.cancion.normalizeText() == currentSong.normalizeText() }
+                ?.niveles
+        }
+
+        return niveles?.find { nivel ->
+            nivel.nivel.normalizeText() == currentLevel.normalizeText() &&
+                    nivel.type.normalizeText() == playerSong.type.normalizeText() &&
+                    nivel.player.normalizeText() == playerSong.player.normalizeText() &&
+                    nivel.chartName.normalizeText() == playerSong.chartName.normalizeText() &&
+                    nivel.stepmaker.normalizeText() == playerSong.stepMaker.normalizeText()
+        }
+    }
+
+    private fun loadFirebaseRanking() {
+        val nivelRef = firebaseDatabase
             .getReference("channels")
             .child(channelIndex.toString())
             .child("canciones")
@@ -464,18 +510,24 @@ class DanceGradeHorizontal : AppCompatActivity() {
         nivelRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 var nivelEncontrado: DataSnapshot? = null
-
                 for (nivelSnap in snapshot.children) {
-                    val nivel = nivelSnap.child("nivel").getValue(String::class.java)
-                    val type = nivelSnap.child("type").getValue(String::class.java)
-                    val player = nivelSnap.child("player").getValue(String::class.java)
-
+                    val nivel = nivelSnap.getValue(Nivel::class.java) ?: continue
+                    val sameNivel = nivel.nivel.normalizeText() == currentLevel.normalizeText()
+                    val sameType = nivel.type.normalizeText() == playerSong.type.normalizeText()
+                    val samePlayer = nivel.player.normalizeText() == playerSong.player.normalizeText()
+                    val sameChart = nivel.chartName.normalizeText() == playerSong.chartName.normalizeText()
+                    val sameStep = nivel.stepmaker.normalizeText() == playerSong.stepMaker.normalizeText()
+                    val sameDifficulty = nivel.difficulty.normalizeText() == playerSong.difficulty.normalizeText()
                     if (
-                        nivel == currentLevel &&
-                        type == playerSong.type &&
-                        player == playerSong.player
+                        sameNivel &&
+                        sameType &&
+                        samePlayer &&
+                        sameChart &&
+                        sameStep &&
+                        sameDifficulty
                     ) {
                         nivelEncontrado = nivelSnap
+                        checkedValuesFirebase = nivel
                         break
                     }
                 }
@@ -484,10 +536,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
                     enabledSaveScore = false
                     return
                 }
-
-                checkedValuesFirebase = nivelEncontrado.getValue(Nivel::class.java)!!
                 rankRef = nivelEncontrado.ref
-                getRankList()
+                loadRankList()
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -496,11 +546,10 @@ class DanceGradeHorizontal : AppCompatActivity() {
         })
     }
 
-    private fun getRankList() {
+    private fun loadRankList() {
         enabledSaveScore = true
-
         rankList.clear()
-        for (rank in checkedValuesFirebase.fisrtRank) {
+        checkedValuesFirebase.fisrtRank.forEach { rank ->
             rankList.add(
                 mapOf(
                     "nombre" to rank.nombre,
@@ -509,6 +558,20 @@ class DanceGradeHorizontal : AppCompatActivity() {
                 )
             )
         }
+    }
+
+    private fun String?.normalizeText(): String {
+        return this
+            ?.trim()
+            ?.lowercase()
+            ?: ""
+    }
+
+    private fun String?.normalizeChecked(): String {
+        return this
+            ?.replace(" ", "")
+            ?.trim()
+            ?: ""
     }
 
     private fun handleOfflineResult(
@@ -547,35 +610,35 @@ class DanceGradeHorizontal : AppCompatActivity() {
 
     private fun resolveSaveScenario(): SaveResult {
         // Offline u Online → No guardar
-        if (isOffline || isOnline) return SaveResult.NONE
+        if (isOffline || isOnline){
+            return SaveResult.NONE
+        }
+
+        val superaLocal = totalScore > currentScore.toInt()
 
         // No oficial → solo local si supera puntaje
         if (!isOficialSong) {
-            return if (totalScore > currentScore.toInt())
+            return if (superaLocal)
                 SaveResult.LOCAL
             else
                 SaveResult.NONE
         }
 
         // Oficial pero nivel modificado
-        if (!enabledSaveScore) {
+        if (!enabledSaveScore && allowCheckValues) {
             return SaveResult.INVALID_LEVEL
         }
 
-        // No supera el puntaje actual
-        if (totalScore <= currentScore.toInt()) {
-            return SaveResult.NONE
-        }
-
-        // Verificar si entra al ranking
+        // Verificar si entra al ranking global
         val entraRanking = rankList.any {
             totalScore > (it["puntaje"] as Int)
         }
 
-        return if (entraRanking)
-            SaveResult.LOCAL_AND_FIREBASE
-        else
-            SaveResult.LOCAL
+        return when {
+            entraRanking -> SaveResult.LOCAL_AND_FIREBASE
+            superaLocal -> SaveResult.LOCAL
+            else -> SaveResult.NONE
+        }
     }
 
     private fun saveLocalScore(dbDG: DataBasePlayer, imgMyBestGrade: ImageView, lbBestScoreDG: TextView) {
@@ -594,7 +657,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
             nuevoPuntaje = totalScore.toString(),
             nuevoGrade = newGrade,
             chartName = playerSong.chartName,
-            credit = playerSong.stepMaker
+            credit = playerSong.stepMaker,
+            difficulty = playerSong.difficulty
         )
 
         imgMyBestGrade.setImageBitmap(bitmapGrade)
@@ -663,7 +727,7 @@ class DanceGradeHorizontal : AppCompatActivity() {
                 "fecha" to fechaHora
             )
 
-            firebaseDatabase!!
+            firebaseDatabase
                 .getReference("banDevices")
                 .child(key)
                 .get()
@@ -851,7 +915,6 @@ class DanceGradeHorizontal : AppCompatActivity() {
         }, 500L)
     }
 
-
     private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
         val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
         val listResult = arrayListOf<Cancion>()
@@ -869,7 +932,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
                             val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
                             val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
                             val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
-                            val stepmaker = nivelSnapshot.child("stepMaker").getValue(String::class.java) ?: ""
+                            val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
+                            val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
                             val rankings = arrayListOf<FirstRank>()
                             for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
                                 val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
@@ -877,7 +941,7 @@ class DanceGradeHorizontal : AppCompatActivity() {
                                 val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
                                 rankings.add(FirstRank(nombre, puntaje, grade))
                             }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, rankings))
+                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
                         }
 
                         listResult.add(Cancion(nombreCancion, niveles))
@@ -1412,6 +1476,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
         animateSetTraslation.repeatMode = Animation.REVERSE
         imgAceptar.startAnimation(animateSetTraslation)
         //imgAceptar.bringToFront()
+        isEndingFade = false
+        endingFadeAlpha = 0f
     }
 
     override fun onDestroy() {

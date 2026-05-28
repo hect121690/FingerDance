@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.animation.ObjectAnimator
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -11,6 +12,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.ClipDrawable
+import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -25,10 +27,12 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -58,7 +62,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
-import com.fingerdance.MainActivity
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.firebase.FirebaseApp
@@ -130,6 +133,7 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
     override fun onBackPressed() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
+        super.onBackPressed()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -170,6 +174,60 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode != 1001 || resultCode != AppCompatActivity.RESULT_OK) {
+            return
+        }
+
+        val uri = data?.data ?: return
+
+        txProgressDownloadChannel.isVisible = true
+        txProgressDownloadChannel.text = "Instalando canal, espere por favor..."
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val tempZip = File(requireContext().cacheDir, "temp_channel.zip")
+                requireContext().contentResolver.openInputStream(uri)
+                    ?.use { input ->
+                        tempZip.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                val unzipSongs = UnzipSongs(
+                    requireActivity(),
+                    fileNameChannel,
+                    txProgressDownloadChannel,
+                    "Instalación completada",
+                    false
+                )
+
+                unzipSongs.performUnzip(tempZip.absolutePath)
+                tempZip.delete()
+                withContext(Dispatchers.Main) {
+                    unzipSongs.finishActivity.observe(requireActivity()) { shouldFinish ->
+                        if (shouldFinish) {
+                            requireActivity().finish()
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    txProgressDownloadChannel.text = "Error al instalar canal"
+                    val dialog = AlertDialog.Builder(requireContext())
+                        .setTitle("Error")
+                        .setMessage("${e.message}")
+                        .setPositiveButton("Aceptar") { d, _ -> d.dismiss() }
+                        .create()
+                        .show()
+                }
+            }
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -181,8 +239,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         val arrowIndicator = view.findViewById<ImageView>(R.id.arrowIndicator)
         val txSlide = view.findViewById<TextView>(R.id.txSlide)
 
-        scrollChannels.layoutParams.height = (height * 0.5).toInt()
-        //scrollChannels.layoutParams.width = (width * 0.7).toInt()
+        scrollChannels.layoutParams.height = (height * 0.45).toInt()
 
         scrollChannels.setOnScrollChangeListener { v: NestedScrollView, _, scrollY, _, oldScrollY ->
             if (scrollY > oldScrollY) {
@@ -198,6 +255,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         setupChannelsList()
         setupDeleteChannel(view)
         setupCreateChannel(view)
+        setupInstallChannels(view)
         setupDownloadChannel()
     }
 
@@ -299,6 +357,33 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
     }
 
+    private fun setupInstallChannels(view: View) {
+        val btnInstallChannel = view.findViewById<Button>(R.id.installChannel)
+        btnInstallChannel.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Instalar canal")
+                .setMessage("Seleccione el archivo ZIP del canal que desea instalar.")
+                .setPositiveButton("Continuar") { _, _ ->
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/zip"
+                            putExtra(
+                                DocumentsContract.EXTRA_INITIAL_URI,
+                                Uri.fromFile(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS))
+                            )
+                        }
+
+                    startActivityForResult(
+                        intent,
+                        1001
+                    )
+                }
+
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+    }
+
     private fun showCreateChannelDialog() {
 
         val options = arrayOf("Canal KSF", "Canal SSC", "Cancelar")
@@ -377,12 +462,15 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
                         "Recargando canales. Este proceso puede tomar varios segundos, no cierre esta pantalla."
                 }
             }
+
             if (downloadedFile != null) {
                 lifecycleScope.launch(Dispatchers.IO) {
                     val unzipSongs = UnzipSongs(
                         requireActivity(),
                         fileNameChannel,
-                        txProgressDownloadChannel
+                        txProgressDownloadChannel,
+                        "Recarga de canales completada.",
+                        true
                     )
                     unzipSongs.performUnzip(downloadedFile.absolutePath)
                     withContext(Dispatchers.Main) {
@@ -462,12 +550,12 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
     }
 
-    fun createChannelKSF() {
+    private fun createChannelKSF() {
         isSscChannel = false
         showInputNameChannel()
     }
 
-    fun createChannelSSC() {
+    private fun createChannelSSC() {
         isSscChannel = true
         showInputNameChannel()
     }
