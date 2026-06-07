@@ -724,7 +724,7 @@ class DanceGrade : AppCompatActivity() {
                 "fecha" to fechaHora
             )
 
-            firebaseDatabase!!
+            firebaseDatabase
                 .getReference("banDevices")
                 .child(key)
                 .get()

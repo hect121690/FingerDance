@@ -36,7 +36,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
         android:id="@+id/imgCircleRotate"
@@ -65,16 +65,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center_horizontal|center_vertical"
+        android:inputType="none"
         android:text="2.0X"
         android:textAlignment="center"
         android:textColor="@color/white"
         android:textSize="15dp"
-        android:inputType="none"
         android:textStyle="bold|italic"
         app:layout_constraintBottom_toBottomOf="@+id/imgVelocidadActualHorizontal"
         app:layout_constraintEnd_toEndOf="@+id/imgVelocidadActualHorizontal"
         app:layout_constraintStart_toStartOf="@+id/imgVelocidadActualHorizontal"
-        app:layout_constraintTop_toTopOf="@+id/imgVelocidadActualHorizontal"/>
+        app:layout_constraintTop_toTopOf="@+id/imgVelocidadActualHorizontal" />
 
     <ImageView
         android:id="@+id/imgDisplayHorizontal"
@@ -82,10 +82,10 @@
         android:layout_height="40dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.98"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgVelocidadActualHorizontal"
-        app:layout_constraintHorizontal_bias="0.98"
-        app:layout_constraintVertical_bias="0.0"/>
+        app:layout_constraintVertical_bias="0.0" />
 
     <ImageView
         android:id="@+id/imgJudgeHorizontal"
@@ -93,10 +93,10 @@
         android:layout_height="40dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.98"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgDisplayHorizontal"
-        app:layout_constraintHorizontal_bias="0.98"
-        app:layout_constraintVertical_bias="0.0"/>
+        app:layout_constraintVertical_bias="0.0" />
 
     <ImageView
         android:id="@+id/imgNoteSkinFondoHorizontal"
@@ -104,10 +104,10 @@
         android:layout_height="40dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.98"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgJudgeHorizontal"
-        app:layout_constraintHorizontal_bias="0.98"
-        app:layout_constraintVertical_bias="0.0"/>
+        app:layout_constraintVertical_bias="0.0" />
 
     <ImageView
         android:id="@+id/imgNoteSkinHorizontal"
@@ -115,10 +115,10 @@
         android:layout_height="40dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.98"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgJudgeHorizontal"
-        app:layout_constraintHorizontal_bias="0.98"
-        app:layout_constraintVertical_bias="0.0"/>
+        app:layout_constraintVertical_bias="0.0" />
 
     <ImageView
         android:id="@+id/imgOffsetActualHorizontal"
@@ -126,9 +126,9 @@
         android:layout_height="40dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.98"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imgNoteSkinHorizontal"
-        app:layout_constraintHorizontal_bias="0.98"
         app:layout_constraintVertical_bias="0.0" />
 
     <TextView
@@ -200,13 +200,24 @@
         app:layout_constraintVertical_bias="1.1">
 
         <ImageView
+            android:id="@+id/btnCommandWindow"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:scaleType="centerCrop"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/imgLvSelectedHorizontal"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:srcCompat="@tools:sample/avatars" />
+
+        <ImageView
             android:id="@+id/imgLvSelectedHorizontal"
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:layout_alignParentStart="true"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.25"
+            app:layout_constraintHorizontal_bias="0.20"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 

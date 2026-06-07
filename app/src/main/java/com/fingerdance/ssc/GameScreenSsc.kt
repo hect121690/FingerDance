@@ -254,10 +254,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         camera.update()
     }
 
-    fun startEndingFade() {
-        isEndingFade = true
-    }
-
     fun timeGetTime(): Long{
         return SystemClock.uptimeMillis()
     }

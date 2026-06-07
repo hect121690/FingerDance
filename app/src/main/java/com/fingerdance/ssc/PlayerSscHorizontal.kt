@@ -385,7 +385,11 @@ class PlayerSscHorizontal(
 
                         if (locked) yHead = medidaFlechasHorizontal.toInt()
                         if (finishedHolds.contains(n)) continue
-                        drawLongNote(col, yHead, yTail, n)
+                        if(n.isFake && n.isPressed){
+                            drawLongNote(col, medidaFlechas.toInt(), yTail, n)
+                        }else{
+                            drawLongNote(col, yHead, yTail, n)
+                        }
                     }
                 }
             }

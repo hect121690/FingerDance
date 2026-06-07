@@ -115,9 +115,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(COLUMN_PUNTAJE, nuevoPuntaje)
             put(COLUMN_GRADE, nuevoGrade)
         }
-        if(type == ""){
-            type == "NORMAL"
-        }
+
         db.update(
             TABLE_NIVELES,
             values,
@@ -129,7 +127,7 @@ class DataBasePlayer(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             "$COLUMN_CHARTNAME = ? AND " +
             "$COLUMN_CREDIT = ? AND " +
             "$COLUMN_DIFFICULTY = ?",
-            arrayOf(canal, cancion, nivel, type, player, chartName, credit, difficulty)
+            arrayOf(canal, cancion, nivel, if(type == "") "NORMAL" else type, player, chartName, credit, difficulty)
         )
 
         db.close()

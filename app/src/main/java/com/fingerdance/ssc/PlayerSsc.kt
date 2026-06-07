@@ -67,6 +67,7 @@ class PlayerSsc(
     private val xFlare4 = medidaFlechas * 2.05f
     private val xFlare5 = medidaFlechas * 2.05f
     private val animationDuration: Long = 300L
+    private val multiplerCombo = 1
 
     companion object {
         val STEPSIZE = medidaFlechas.toInt()
@@ -365,7 +366,12 @@ class PlayerSsc(
 
                         if (locked) yHead = medidaFlechas.toInt()
                         if (finishedHolds.contains(n)) continue
-                        drawLongNote(col, yHead, yTail, n)
+
+                        if(n.isFake && n.isPressed){
+                            drawLongNote(col, medidaFlechas.toInt(), yTail, n)
+                        }else{
+                            drawLongNote(col, yHead, yTail, n)
+                        }
                     }
                 }
             }
@@ -793,6 +799,7 @@ class PlayerSsc(
 
     private fun applyJudge(col: Int, judge: Int, isBodyLongNote: Boolean = false, isFromInput: Boolean, isMine: Boolean = false, note: Parser.Note? = null) {
         if (note != null && note.isFake) return
+
         when (judge) {
             JUDGE_PERFECT -> {
                 resultSong.perfect++
@@ -864,6 +871,7 @@ class PlayerSsc(
             //showExpand(col)
         }
     }
+
 
     private fun yForBeat(beat: Double, currentBeat: Double, songTimeMs: Double): Int {
         val baseOffset = timingData.getYOffsetForBeat(
@@ -1535,17 +1543,6 @@ class PlayerSsc(
     }
 
     fun disposePlayer() {
-        downLeftTap.dispose()
-        upLeftTap.dispose()
-        centerTap.dispose()
-        downLeftBody.dispose()
-        upLeftBody.dispose()
-        centerBody.dispose()
-        downLeftBottom.dispose()
-        upLeftBottom.dispose()
-        centerBottom.dispose()
-        sprFlare.dispose()
-
         arrMines.forEach { it.texture.dispose() }
 
         arrArrows.forEach { frameArray ->
@@ -1560,6 +1557,7 @@ class PlayerSsc(
             frameArray.forEach { it.texture.dispose() }
         }
         sprFlare.dispose()
+        whiteTex.dispose()
         curCombo = 0
         inputProcessor.dispose()
     }

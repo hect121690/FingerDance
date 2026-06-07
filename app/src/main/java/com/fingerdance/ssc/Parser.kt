@@ -18,6 +18,7 @@ class Parser {
         val isVanish: Boolean = false,
         val isPhantom: Boolean = false,
         val isMine: Boolean = false,
+        val isPressed: Boolean = false,
         val type: NoteType
     )
 
@@ -33,9 +34,29 @@ class Parser {
     data class Stop(val beat: Double, val durationMs: Double)
     data class Delay(val beat: Double, val durationMs: Double)
     data class Warp(val beat: Double, val duration: Double)
-    data class Fake(val beat: Double, val duration: Double)
+
+    data class Fake(
+        val beat: Double,
+        val duration: Double,
+        val isPressed: Boolean = false
+    )
+
     data class Speed(val beat: Double, val ratio: Double, val duration: Double, val mode: Int)
     data class Scroll(val beat: Double, val ratio: Double)
+    data class Combo(val beat: Double, val number: Int)
+
+    data class ExtendedToken(
+        val code: Char,
+        val isVanish: Boolean,
+        val isFake: Boolean,
+        val isPressed: Boolean
+    )
+
+    data class HoldData(
+        val beat: Double,
+        val isFake: Boolean,
+        val isPressed: Boolean
+    )
 
     data class Chart(
         val chartPath: String = "",
@@ -48,6 +69,7 @@ class Parser {
         val fakes: List<Fake>,
         val speeds: List<Speed>,
         val scrolls: List<Scroll>,
+        val combos: List<Combo>,
         var notes: List<Note>,
         val fgChanges: MutableList<FGChange> = mutableListOf()
     )
@@ -57,18 +79,33 @@ class Parser {
     // =========================
 
     fun parseSSC(textHeader: String, textChart: String, pathFile: String): Chart {
+
         val offset = extractTag(textChart, "OFFSET")?.toDoubleOrNull() ?: 0.0
         val fgChanges = parseFGChanges(textHeader)
+
         val bpms = parsePairs(textChart, "BPMS").map { BpmSegment(it.first, it.second) }
         val tickcounts = parsePairs(textChart, "TICKCOUNTS", true).map { TickCountSegment(it.first, it.second.toInt()) }
         val stops = parsePairs(textChart, "STOPS").map { Stop(it.first, it.second * 1000) }
         val delays = parsePairs(textChart, "DELAYS").map { Delay(it.first, it.second * 1000) }
         val warps = parsePairs(textChart, "WARPS").map { Warp(it.first, it.second) }
-        val fakes = parsePairs(textChart, "FAKES").map { Fake(it.first, it.second) }
+        val combos = parsePairs(textChart, "COMBOS").map { Combo(it.first, it.second.toInt()) }
+        val baseFakes = parsePairs(textChart, "FAKES").map {
+            Fake(it.first, it.second)
+        }
+
         val speeds = parseSpeeds(textChart)
         val scrolls = parseScrolls(textChart)
-        val (notes, extendedNotes) = parseNotes(textChart, fakes)
-        val allNotes = (notes + extendedNotes).sortedBy { it.beat }
+
+        val (notes, extendedNotes, tokenFakes) =
+            parseNotes(textChart, baseFakes)
+
+        val fakes =
+            (baseFakes + tokenFakes)
+                .sortedBy { it.beat }
+
+        val allNotes =
+            (notes + extendedNotes)
+                .sortedBy { it.beat }
 
         return Chart(
             chartPath = pathFile,
@@ -81,25 +118,32 @@ class Parser {
             fakes = fakes,
             speeds = speeds,
             scrolls = scrolls,
+            combos = combos,
             notes = allNotes,
             fgChanges = fgChanges
         )
     }
 
     // =========================
-    // NOTES (con soporte correcto de FAKE)
+    // NOTES
     // =========================
 
-    private fun parseNotes(text: String, fakes: List<Fake>): Pair<List<Note>, List<Note>> {
+    private fun parseNotes(
+        text: String,
+        fakes: List<Fake>
+    ): Triple<List<Note>, List<Note>, List<Fake>> {
 
-        val notes = mutableListOf<Note>()          // jugables normales
-        val extendedNotes = mutableListOf<Note>()  // de tokens extendidos
+        val notes = mutableListOf<Note>()
+        val extendedNotes = mutableListOf<Note>()
+        val tokenFakes = mutableListOf<Fake>()
 
-        val holds = mutableMapOf<Int, Double>()    // holds HEAD '2'
-        val phantomHolds = mutableMapOf<Int, Double>() // HEAD '6' (fantom rolls)
-        val extHolds = mutableMapOf<Int, Pair<Double, Boolean>>() // holds de tokens extendidos 2/3
+        val holds = mutableMapOf<Int, Double>()
+        val phantomHolds = mutableMapOf<Int, Double>()
 
-        val block = extractNotesBlock(text) ?: return notes to extendedNotes
+        val extHolds = mutableMapOf<Int, HoldData>()
+
+        val block = extractNotesBlock(text) ?: return Triple(notes, extendedNotes, tokenFakes)
+
         val measures = block.split(",")
 
         var currentBeat = 0.0
@@ -113,15 +157,30 @@ class Parser {
             val step = 4.0 / max(rows.size, 1)
 
             for ((i, rowRaw) in rows.withIndex()) {
+
                 val normalizedRow = normalizeRowForHD(rowRaw)
-                val (row, extTokens) = tokenize(normalizedRow)
+
+                val (rowMap, extTokens) = tokenize(normalizedRow)
+
                 val beat = currentBeat + i * step
 
-                // 1) Procesar tokens extendidos ({...} excepto 108)
+                val parsedCols = mutableSetOf<Int>()
+
+                // =========================
+                // TOKENS EXTENDIDOS
+                // =========================
+
                 for ((col, data) in extTokens) {
-                    val (code, isVanish, isFake) = data
+
+                    val code = data.code
+                    val isVanish = data.isVanish
+                    val isFake = data.isFake
+                    val isPressed = data.isPressed
+
                     when (code) {
+
                         '1' -> {
+
                             extendedNotes.add(
                                 Note(
                                     column = col,
@@ -129,33 +188,66 @@ class Parser {
                                     isFake = isFake,
                                     isVanish = isVanish,
                                     isPhantom = false,
+                                    isPressed = isPressed,
                                     type = NoteType.TAP
                                 )
                             )
+
+                            if (isFake) {
+                                tokenFakes.add(
+                                    Fake(
+                                        beat = beat,
+                                        duration = 0.0,
+                                        isPressed = isPressed
+                                    )
+                                )
+                            }
                         }
+
                         '2' -> {
-                            extHolds[col] = beat to isFake
+
+                            extHolds[col] =
+                                HoldData(
+                                    beat = beat,
+                                    isFake = isFake,
+                                    isPressed = isPressed
+                                )
                         }
 
                         '3' -> {
-                            val (startBeat, startFake) = extHolds[col] ?: continue
-                            val fake = startFake || isFake
+
+                            val holdData = extHolds[col] ?: continue
+
+                            val fake = holdData.isFake || isFake
+
                             extendedNotes.add(
                                 Note(
                                     column = col,
-                                    beat = startBeat,
+                                    beat = holdData.beat,
                                     endBeat = beat,
                                     isFake = fake,
                                     isVanish = isVanish,
                                     isPhantom = false,
+                                    isPressed = holdData.isPressed,
                                     type = NoteType.HOLD
                                 )
                             )
+
+                            if (fake) {
+                                tokenFakes.add(
+                                    Fake(
+                                        beat = holdData.beat,
+                                        duration = beat - holdData.beat,
+                                        isPressed = holdData.isPressed
+                                    )
+                                )
+                            }
 
                             extHolds.remove(col)
                         }
 
                         'M', 'm' -> {
+
                             extendedNotes.add(
                                 Note(
                                     column = col,
@@ -169,12 +261,22 @@ class Parser {
                             )
                         }
                     }
+
+                    parsedCols.add(col)
                 }
 
-                // 2) Procesar tokens planos (0,1,2,3,5,6,M,m, etc.)
-                for (col in 0 until row.size) {
-                    when (row[col]) {
+                // =========================
+                // TOKENS NORMALES
+                // =========================
+
+                for ((col, value) in rowMap) {
+
+                    if (parsedCols.contains(col)) continue
+
+                    when (value) {
+
                         'F', 'f' -> {
+
                             notes.add(
                                 Note(
                                     column = col,
@@ -185,8 +287,11 @@ class Parser {
                                 )
                             )
                         }
+
                         '1' -> {
+
                             val fake = isFake(beat, fakes)
+
                             notes.add(
                                 Note(
                                     column = col,
@@ -197,16 +302,22 @@ class Parser {
                                 )
                             )
                         }
+
                         '2' -> {
                             holds[col] = beat
                         }
+
                         '3' -> {
-                            // Normal: cierra hold iniciado con '2'
+
                             if (holds.contains(col)) {
+
                                 val startBeat = holds[col]!!
+
                                 val isStartFake = isFake(startBeat, fakes)
                                 val isEndFake = isFake(beat, fakes)
+
                                 val fake = isStartFake || isEndFake
+
                                 notes.add(
                                     Note(
                                         column = col,
@@ -217,11 +328,13 @@ class Parser {
                                         type = NoteType.HOLD
                                     )
                                 )
+
                                 holds.remove(col)
-                            }
-                            // PHANTOM: cierra hold iniciado con '6'
-                            else if (phantomHolds.contains(col)) {
+
+                            } else if (phantomHolds.contains(col)) {
+
                                 val startBeat = phantomHolds[col]!!
+
                                 notes.add(
                                     Note(
                                         column = col,
@@ -232,11 +345,13 @@ class Parser {
                                         type = NoteType.HOLD
                                     )
                                 )
+
                                 phantomHolds.remove(col)
                             }
                         }
+
                         '5' -> {
-                            // PHANTOM NOTE: tail sola, tap "fantasma"
+
                             notes.add(
                                 Note(
                                     column = col,
@@ -247,12 +362,15 @@ class Parser {
                                 )
                             )
                         }
+
                         '6' -> {
-                            // PHANTOM: empieza phantom hold
                             phantomHolds[col] = beat
                         }
+
                         'M', 'm' -> {
+
                             val fake = isFake(beat, fakes)
+
                             notes.add(
                                 Note(
                                     column = col,
@@ -264,25 +382,27 @@ class Parser {
                                 )
                             )
                         }
+
                         'X' -> {
-                            // Ignora
-                        }
-                        else -> {
-                            // '0' y cualquier otro carácter => nada
+                            // ignore
                         }
                     }
                 }
             }
+
             currentBeat += 4.0
         }
-        return notes to extendedNotes
+
+        return Triple(notes, extendedNotes, tokenFakes)
     }
 
     private fun normalizeRowForHD(row: String): String {
 
-        val (parsed, _) = tokenize(row)
+        val (parsed, ext) = tokenize(row)
 
-        return if (parsed.size == 6) {
+        val totalCols = parsed.size + ext.size
+
+        return if (totalCols == 6) {
             "00$row" + "00"
         } else {
             row
@@ -293,17 +413,13 @@ class Parser {
     // TOKENIZER
     // =========================
 
-    /**
-     * Devuelve:
-     *  - tokens planos (List<Char>) para la lógica normal de notas
-     *  - meta extendido por columna (Map<col, codeChar>) para tokens {code|...}
-     */
-    private fun tokenize(row: String): Pair<List<Char>, Map<Int, Triple<Char, Boolean, Boolean>>> {
+    private fun tokenize(
+        row: String
+    ): Pair<Map<Int, Char>, Map<Int, ExtendedToken>> {
 
-        val result = mutableListOf<Char>()
+        val result = mutableMapOf<Int, Char>()
 
-        // 👇 ahora guardamos: code + isVanish + isFake
-        val extTokens = mutableMapOf<Int, Triple<Char, Boolean, Boolean>>()
+        val extTokens = mutableMapOf<Int, ExtendedToken>()
 
         var i = 0
         var colIndex = 0
@@ -319,34 +435,36 @@ class Parser {
                 if (end != -1) {
 
                     val inside = row.substring(i + 1, end)
-                    // ejemplo: "2|v|0|0"
 
                     val parts = inside.split("|")
 
-                    if (parts.size == 1) {
-                        val code = parts[0]
-
-                        if (code == "108") {
-                            // ignorado completamente
-                        }
-
-                    } else {
-                        // Formato extendido: "2|v|0|0"
+                    if (parts.size > 1) {
 
                         val codeChar = parts[0].firstOrNull() ?: ' '
 
-                        // 👇 detectar vanish
                         val modifier = parts.getOrNull(1)
+
                         val isVanish = modifier == "v"
 
                         val fakeFlag = parts.getOrNull(2) == "1"
-                        // solo aplica para 1/2/3
+
                         val isFake =
                             fakeFlag &&
-                                    (codeChar == '1' || codeChar == '2' || codeChar == '3')
+                                    (codeChar == '1'
+                                            || codeChar == '2'
+                                            || codeChar == '3')
+
+                        val isPressed =
+                            modifier == "n" &&
+                                    parts.getOrNull(3) == "1"
 
                         extTokens[colIndex] =
-                            Triple(codeChar, isVanish, isFake)
+                            ExtendedToken(
+                                code = codeChar,
+                                isVanish = isVanish,
+                                isFake = isFake,
+                                isPressed = isPressed
+                            )
 
                         colIndex++
                     }
@@ -356,8 +474,8 @@ class Parser {
                 }
             }
 
-            // Carácter plano normal
-            result.add(ch)
+            result[colIndex] = ch
+
             colIndex++
             i++
         }
@@ -389,7 +507,6 @@ class Parser {
             try {
 
                 val beat = parts[0].trim().toDouble()
-
                 val script = parts[1].trim()
 
                 val duration =
@@ -414,25 +531,31 @@ class Parser {
     }
 
     private fun parseSpeeds(text: String): List<Speed> {
+
         val raw = extractTag(text, "SPEEDS") ?: return emptyList()
 
         return raw
-            .replace(";", "") // quitar terminador
+            .replace(";", "")
             .split(",")
             .mapNotNull { entry ->
+
                 val clean = entry.trim()
+
                 if (clean.isEmpty()) return@mapNotNull null
 
                 val p = clean.split("=")
+
                 if (p.size < 3) return@mapNotNull null
 
                 try {
+
                     Speed(
-                        p[0].trim().toDouble(),  // beat
-                        p[1].trim().toDouble(),  // ratio
-                        p[2].trim().toDouble(),  // duration
-                        p.getOrNull(3)?.trim()?.toIntOrNull() ?: 0  // mode
+                        p[0].trim().toDouble(),
+                        p[1].trim().toDouble(),
+                        p[2].trim().toDouble(),
+                        p.getOrNull(3)?.trim()?.toIntOrNull() ?: 0
                     )
+
                 } catch (e: NumberFormatException) {
                     null
                 }
@@ -440,25 +563,44 @@ class Parser {
     }
 
     private fun parseScrolls(text: String): List<Scroll> {
+
         val raw = extractTag(text, "SCROLLS") ?: return emptyList()
+
         return raw.split(",").mapNotNull {
+
             val p = it.split("=")
-            if (p.size == 2) Scroll(p[0].toDouble(), p[1].toDouble()) else null
+
+            if (p.size == 2)
+                Scroll(p[0].toDouble(), p[1].toDouble())
+            else
+                null
         }
     }
 
-    private fun parsePairs(text: String, tag: String, isTickcount: Boolean = false): List<Pair<Double, Double>> {
+    private fun parsePairs(
+        text: String,
+        tag: String,
+        isTickcount: Boolean = false
+    ): List<Pair<Double, Double>> {
+
         val raw = extractTag(text, tag) ?: return emptyList()
+
         return raw.split(",").mapNotNull {
+
             val p = it.split("=")
+
             if (p.size == 2) {
+
                 p[0].toDoubleOrNull()?.let { b ->
+
                     p[1].toDoubleOrNull()?.let { originalValue ->
-                        val value = if (isTickcount && originalValue == 0.0) {
-                            1.0
-                        } else {
-                            originalValue
-                        }
+
+                        val value =
+                            if (isTickcount && originalValue == 0.0)
+                                1.0
+                            else
+                                originalValue
+
                         b to value
                     }
                 }
@@ -469,17 +611,35 @@ class Parser {
     }
 
     private fun extractTag(text: String, tag: String): String? {
-        val regex = Regex("#$tag\\s*:(.*?);", RegexOption.DOT_MATCHES_ALL)
-        return regex.find(text)?.groupValues?.get(1)?.trim()
+
+        val regex =
+            Regex("#$tag\\s*:(.*?);", RegexOption.DOT_MATCHES_ALL)
+
+        return regex.find(text)
+            ?.groupValues
+            ?.get(1)
+            ?.trim()
     }
 
     private fun extractNotesBlock(text: String): String? {
-        val regex = Regex("#NOTES\\s*:(.*?);", RegexOption.DOT_MATCHES_ALL)
-        return regex.find(text)?.groupValues?.get(1)
+
+        val regex =
+            Regex("#NOTES\\s*:(.*?);", RegexOption.DOT_MATCHES_ALL)
+
+        return regex.find(text)
+            ?.groupValues
+            ?.get(1)
     }
 
-    private fun isFake(beat: Double, fakes: List<Fake>): Boolean {
-        return fakes.any { beat >= it.beat && beat < it.beat + it.duration }
+    private fun isFake(
+        beat: Double,
+        fakes: List<Fake>
+    ): Boolean {
+
+        return fakes.any {
+            beat >= it.beat &&
+                    beat < it.beat + it.duration
+        }
     }
 
     fun makeMirror(notes: List<Note>): List<Note> {
@@ -512,9 +672,9 @@ class Parser {
         }
     }
 
-// =====================================================
-// SINGLE RANDOM
-// =====================================================
+    // =====================================================
+    // SINGLE RANDOM
+    // =====================================================
 
     private fun generatePumpRandomMap(): IntArray {
 
@@ -545,9 +705,9 @@ class Parser {
         intArrayOf(0,4,2,1,3)
     )
 
-// =====================================================
-// HALF DOUBLE RANDOM
-// =====================================================
+    // =====================================================
+    // HALF DOUBLE RANDOM
+    // =====================================================
 
     private fun generatePumpRandomMapHD(): IntArray {
 

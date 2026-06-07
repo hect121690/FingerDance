@@ -532,6 +532,17 @@
             app:layout_constraintVertical_bias="0.65" />
 
         <ImageView
+            android:id="@+id/btnCommandWindowVertical"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/nav_der_song"
+            app:layout_constraintStart_toEndOf="@+id/nav_izq_song"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.60"
+            tools:srcCompat="@tools:sample/avatars" />
+
+        <ImageView
             android:id="@+id/back_izq"
             android:layout_width="50dp"
             android:layout_height="50dp"

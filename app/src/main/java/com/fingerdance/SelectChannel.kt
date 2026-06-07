@@ -33,6 +33,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.google.gson.GsonBuilder
 import java.io.File
+import java.security.MessageDigest
 
 class SelectChannel : AppCompatActivity() {
 
@@ -244,6 +245,35 @@ class SelectChannel : AppCompatActivity() {
                 val json = gson.toJson(listCanales)
                 Log.d("JSON", json)
                 */
+                val gson = GsonBuilder().setPrettyPrinting().create()
+                val listCanales = arrayListOf<Canal>()
+                for(i in 0 until listChannels.size) {
+                    val listCanciones = arrayListOf<Cancion>()
+                    for (a in 0 until listChannels[i].listCanciones.size) {
+                        val listNiveles = arrayListOf<Nivel>()
+                        for (b in 0 until listChannels[i].listCanciones[a].listKsf.size) {
+                            val checkedValues = listChannels[i].listCanciones[a].listKsf[b].checkedValues
+                            val level = listChannels[i].listCanciones[a].listKsf[b].level
+                            val type = listChannels[i].listCanciones[a].listKsf[b].typeSteps
+                            val player = listChannels[i].listCanciones[a].listKsf[b].typePlayer
+                            val chartName = listChannels[i].listCanciones[a].listKsf[b].chartName
+                            val stepmaker = listChannels[i].listCanciones[a].listKsf[b].stepmaker
+                            val difficulty = listChannels[i].listCanciones[a].listKsf[b].difficulty
+
+                            val uniqueId = generateId("$level|$type|$player|$chartName|$stepmaker|$difficulty")
+                            val n = Nivel(level, checkedValues, type, player, chartName, stepmaker, difficulty, ArrayList(List(3) { FirstRank() }))
+                            listNiveles.add(n)
+                        }
+                        val cancion = Cancion(listChannels[i].listCanciones[a].title, listNiveles)
+                        listCanciones.add(cancion)
+                    }
+                    val canal = Canal(listChannels[i].nombre, listCanciones)
+                    listCanales.add(canal)
+                }
+
+                val json = gson.toJson(listCanales)
+                Log.d("JSON", json)
+
 
                 if(!isOffline){
                     listenScoreChannel(channelSelected.nombre) { listSongs ->
@@ -269,6 +299,11 @@ class SelectChannel : AppCompatActivity() {
         imgFloor.setOnClickListener { imgAceptar.performClick() }
     }
 
+    private fun generateId(text: String): String {
+        val md = MessageDigest.getInstance("MD5")
+        val digest = md.digest(text.toByteArray())
+        return digest.joinToString("") { "%02x".format(it) }
+    }
 
     private fun animaNavs(bitmap: android.graphics.Bitmap): AnimationDrawable {
 

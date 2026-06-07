@@ -184,6 +184,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var imgLoading: ImageView
     private lateinit var imgAceptar: ImageView
     private lateinit var imgFloor: ImageView
+    private lateinit var btnCommandWindow: ImageView
 
     private lateinit var txInfoCurrentSong: TextView
     private lateinit var imgLvSelected: ImageView
@@ -410,6 +411,17 @@ class SelectSong : AppCompatActivity() {
         recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)
         recyclerCommandsValues.layoutParams.width = anchoRecyclerCommands
 
+        btnCommandWindow = findViewById<ImageView>(R.id.btnCommandWindowVertical)
+        btnCommandWindow.apply {
+            layoutParams.width = (width * 0.3).toInt()
+            layoutParams.height = medidaFlechas.toInt()
+            setImageDrawable(Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/btnShowCW.png"))
+            visibility = View.GONE
+            setOnClickListener {
+                showCommandWindow(true)
+            }
+        }
+
         val anchoTxInfo = linearMenus.layoutParams.width - linearMenus.layoutParams.width / 7
         showCommandWindow(false)
 
@@ -530,6 +542,7 @@ class SelectSong : AppCompatActivity() {
         prev.visibility = View.GONE
 
         imgOffset.setOnClickListener {
+
             val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
             val original = readFileSsc(fileSsc.absolutePath)
             val charts = parseSscCharts(original)
@@ -1775,7 +1788,7 @@ class SelectSong : AppCompatActivity() {
 
         // ---------- CANCEL ----------
         val btnCancel = Button(this).apply {
-            text = "✖ CANCELAR"
+            text = "CANCELAR"
             setTextColor(0xFFFF4444.toInt())
             textSize = 14f
             setTypeface(null, Typeface.BOLD)
@@ -1849,7 +1862,7 @@ class SelectSong : AppCompatActivity() {
         // ---------- FILA PREVIEW ----------
         val previewRowData = createMediaRow(
             imageAsset = "preview.png",
-            mainButtonText = if(isBGA) "Reemplazar Preview" else "Agregar Preview",
+            mainButtonText = if(previewDowloaded) "Reemplazar Preview" else "Agregar Preview",
             downloadButtonText = textBtnDownloadPreview,
             onMainClick = { pickPreviewFile.launch(arrayOf("video/mp4")) },
             existDownloaded = previewDowloaded,
@@ -1895,7 +1908,7 @@ class SelectSong : AppCompatActivity() {
         // ---------- FILA BGA ----------
         val bgaRowData = createMediaRow(
             imageAsset = "bga.png",
-            mainButtonText = "Agregar BGA",
+            mainButtonText = if(bgaDowloaded) "Reemplazar BGA" else "Agregar BGA",
             downloadButtonText = textBtnDownloadBga,
             onMainClick = { pickBgaFile.launch(arrayOf("video/mp4")) },
             existDownloaded = bgaDowloaded,
@@ -2553,6 +2566,7 @@ class SelectSong : AppCompatActivity() {
             linearBottom.visibility = View.VISIBLE
             lbCurrentBpm.visibility = View.VISIBLE
             txCurrentBpm.visibility = View.VISIBLE
+            btnCommandWindow.visibility = View.GONE
 
             commandWindow.startAnimation(animOn)
             commandWindowBG.startAnimation(animOn)
@@ -2572,6 +2586,7 @@ class SelectSong : AppCompatActivity() {
             linearBottom.visibility = View.GONE
             lbCurrentBpm.visibility = View.GONE
             txCurrentBpm.visibility = View.GONE
+            btnCommandWindow.visibility = View.VISIBLE
 
             commandWindow.startAnimation(animOff)
             commandWindowBG.startAnimation(animOff)
@@ -2862,10 +2877,9 @@ class SelectSong : AppCompatActivity() {
             lbArtist.text = item.artist
         }
 
-        val dbpm = if(item.displayBpm != "") item.displayBpm else "0.0"
-        val lbDbpm = "BPM:" + String.format("%.2f", abs(dbpm.toDouble()))
+        val lbDbpm = "BPM ${item.displayBpm}"
         lbBpm.text = lbDbpm
-        displayBPM = item.displayBpm.replace("BPM ", "").toFloat()
+        displayBPM = item.displayBpm.replace("BPM ", "").substringBefore("-").toFloat()
         recyclerLvs.adapter?.notifyDataSetChanged()
         llenaLvsKsf(item.listKsf)
     }
@@ -3281,7 +3295,7 @@ class SelectSong : AppCompatActivity() {
         if(listEfectsDisplay.isNotEmpty()) {
             handler.postDelayed(runnable, 1200)
         }
-
+        updateRecycler()
         // Reproducir el MediaPlayer después de que isFocus() haya preparado la canción
         handler.postDelayed({
             if (!mediPlayer.isPlaying) {
@@ -3291,7 +3305,8 @@ class SelectSong : AppCompatActivity() {
                 }
             }
         }, 500)
-
+        isEndingFade = false
+        endingFadeAlpha = 0f
     }
 
     override fun onDestroy() {

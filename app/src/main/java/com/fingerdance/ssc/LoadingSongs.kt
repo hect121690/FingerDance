@@ -77,43 +77,30 @@ class LoadingSongs {
                 var rutaPreview = ""
                 var rutaCancion = ""
                 var rutaBga = ""
-
+                var bpmsLine = ""
                 val ssc = readFileSsc(fileSSC.absolutePath)
 
                 val seccions = ssc.split("#NOTEDATA:;")
                 val arr = seccions[0].split(Regex("\\r?\\n"))
 
                 for (lineRaw in arr) {
-
                     val line = lineRaw.trim()
-
                     when {
                         line.startsWith("#TITLE:") -> name = getValue(line)
                         line.startsWith("#ARTIST:") -> artist = getValue(line)
-
                         line.startsWith("#MUSIC:") -> {
                             val song = getValue(line)
                             rutaCancion = resolveRealFile(dir, song)
-                            if(line.contains("/")){
+                            if (line.contains("/")) {
                                 val songSplit = line.split("/")
                                 rutaCancion = resolveRealFile(dir, songSplit.last())
                             }
                         }
-
-                        line.startsWith("#DISPLAYBPM:") -> {
-                            if(name == "Switronic"){
-                                name
-                            }
-                            displayBpm = getDisplayBpm(line)
+                        line.startsWith("#DISPLAYBPM:", true) -> {
+                            displayBpm = parseDisplayBpm(line) ?: ""
                         }
-                        line.startsWith("#BPMS:") -> {
-                            if(displayBpm == "") {
-                                if(line.contains("=", true)) {
-                                    displayBpm = extractBpmsInHeader(line)
-                                }else{
-                                    displayBpm = getDisplayBpm(line)
-                                }
-                            }
+                        line.startsWith("#BPMS:", true) -> {
+                            bpmsLine = line
                         }
                     }
                 }
@@ -144,16 +131,13 @@ class LoadingSongs {
                             line.startsWith("#CHARTNAME:") -> chartName = getValue(line)
                             line.startsWith("#CREDIT:") -> credit = getValue(line)
                             line.startsWith("#DIFFICULTY:") -> difficulty = getValue(line)
+                            line.startsWith("#DISPLAYBPM:") -> displayBpm = parseDisplayBpm(line) ?: ""
                             line.startsWith("#NOTES:") -> break
                         }
                     }
 
-                    if (displayBpm == "") {
-                        displayBpm = extractFromBPMS(arr2.toList())
-                    }
-
-                    if (displayBpm.toDoubleOrNull()!! < 10.0) {
-                        displayBpm = extractFromBPMS(arr2.toList())
+                    if (displayBpm.isBlank() && bpmsLine.isNotBlank()) {
+                        displayBpm = extractDisplayBpmFromBpms(listOf(bpmsLine))
                     }
 
                     if (
@@ -242,27 +226,90 @@ class LoadingSongs {
         return listSongs
     }
 
-    private fun extractFromBPMS(header: List<String>): String {
-        val line = header.find { it.startsWith("#BPMS:") } ?: return "0.00"
-        val bpm = line.substringAfter("=").substringBefore(",").substringBefore(";")
-        return "%.2f".format(bpm.toDoubleOrNull() ?: 0.0)
-    }
-
-    private fun extractBpmsInHeader(line: String): String {
-        val bpm = line.substringAfter("=").substringBefore(",").substringBefore(";")
-        return "%.2f".format(bpm.toDoubleOrNull() ?: 0.0)
-    }
-
-    private fun isFileExists(file: File): Boolean {
-        return file.exists() && !file.isDirectory
-    }
-
-    private fun getDisplayBpm(line: String): String {
-        val bpm = line.substringAfter(":").substringBefore(";")
-        if(bpm.contains(":") || bpm.contains("-")){
-            return "%.2f".format(bpm.substringAfter(":").toDoubleOrNull())
+    private fun formatBpm(value: Double): String {
+        val rounded = String.format(java.util.Locale.US, "%.2f", value)
+        return if (rounded.endsWith(".00")) {
+            rounded.dropLast(3)
+        } else {
+            rounded.trimEnd('0').trimEnd('.')
         }
-        return "%.2f".format(bpm.toDoubleOrNull() ?: 0.0)
+    }
+
+    private fun parseDisplayBpm(line: String): String? {
+
+        val value = getValue(line)
+
+        if (value.isBlank()) return null
+        if (value == "*") return null
+
+        val separator = when {
+            value.contains(":") -> ":"
+            value.contains("-") -> "-"
+            else -> null
+        }
+
+        if (separator != null) {
+
+            val parts = value
+                .split(separator)
+                .map { it.trim() }
+
+            if (parts.size >= 2) {
+
+                val min = parts[0].toDoubleOrNull()
+                val max = parts[1].toDoubleOrNull()
+
+                if (min != null && max != null) {
+                    return "${formatBpm(min)}-${formatBpm(max)}"
+                }
+            }
+
+            return null
+        }
+
+        return value.toDoubleOrNull()?.let {
+            formatBpm(it)
+        }
+    }
+
+    private fun extractDisplayBpmFromBpms(lines: List<String>): String {
+
+        val bpms = mutableListOf<Double>()
+
+        lines.forEach { line ->
+
+            if (!line.startsWith("#BPMS:", true)) return@forEach
+
+            val values = line
+                .substringAfter(":")
+                .substringBefore(";")
+                .split(",")
+
+            values.forEach { entry ->
+
+                val bpm = entry
+                    .substringAfter("=")
+                    .trim()
+                    .toDoubleOrNull()
+
+                if (bpm != null) {
+                    bpms.add(bpm)
+                }
+            }
+        }
+
+        if (bpms.isEmpty()) {
+            return "0"
+        }
+
+        val min = bpms.minOrNull() ?: return "0"
+        val max = bpms.maxOrNull() ?: return "0"
+
+        return if (min == max) {
+            formatBpm(min)
+        } else {
+            "${formatBpm(min)}-${formatBpm(max)}"
+        }
     }
 
     private fun getValue(line: String): String {

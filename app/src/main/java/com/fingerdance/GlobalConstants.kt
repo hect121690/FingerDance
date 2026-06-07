@@ -17,7 +17,6 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import java.io.File
 import java.io.FileInputStream
-import java.nio.IntBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -46,6 +45,7 @@ var chart = Chart(
     fakes = emptyList(),
     speeds = emptyList(),
     scrolls = emptyList(),
+    combos = emptyList(),
     notes = emptyList(),
     fgChanges = mutableListOf()
 )

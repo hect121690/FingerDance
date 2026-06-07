@@ -127,6 +127,8 @@ class SelectSongHorizontal : AppCompatActivity() {
     private lateinit var imgNoteSkin: ImageView
     private lateinit var imgNoteSkinFondo: ImageView
 
+    private lateinit var btnCommandWindow: ImageView
+
     private lateinit var imgOffset: ImageView
     private lateinit var txOffset: TextView
 
@@ -325,6 +327,17 @@ class SelectSongHorizontal : AppCompatActivity() {
         val anchoTxInfo = linearMenus.layoutParams.width - linearMenus.layoutParams.width / 5
         txInfoCW = findViewById(R.id.txInfoHorizontal)
         txInfoCW.layoutParams.width = anchoTxInfo
+
+        btnCommandWindow = findViewById(R.id.btnCommandWindow)
+        btnCommandWindow.apply {
+            layoutParams.width = (screenWidth * 0.2).toInt()
+            layoutParams.height = medidaFlechasHorizontal.toInt()
+            setImageDrawable(Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/btnShowCW.png"))
+            visibility = View.GONE
+            setOnClickListener {
+                showCommandWindow(true)
+            }
+        }
 
         showCommandWindow(false)
 
@@ -1947,6 +1960,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             linearBottom.visibility = View.VISIBLE
             lbCurrentBpm.visibility = View.VISIBLE
             txCurrentBpm.visibility = View.VISIBLE
+            btnCommandWindow.visibility = View.GONE
 
             commandWindow.startAnimation(animOn)
             linearCommands.startAnimation(animOn)
@@ -1964,6 +1978,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             linearBottom.visibility = View.GONE
             lbCurrentBpm.visibility = View.GONE
             txCurrentBpm.visibility = View.GONE
+            btnCommandWindow.visibility = View.VISIBLE
 
             commandWindow.startAnimation(animOff)
             linearCurrent.startAnimation(animOff)
@@ -2179,7 +2194,8 @@ class SelectSongHorizontal : AppCompatActivity() {
         txInfoCurrentSong.text = String.format("%03d/%03d", focusedIndex + 1, AppResources.listSongsChannelKsf.size)
         lbNameSong.text = song.title
         lbArtist.text = song.artist
-        lbBpm.text = "BPM: ${song.displayBpm}"
+        lbBpm.text = "BPM ${song.displayBpm}"
+        displayBPM = song.displayBpm.replace("BPM ", "").substringBefore("-").toFloat()
         lbNameSong.startAnimation(AppResources.animNameSong)
         startSongPlayback(song.rutaSong)
         recyclerLvs.adapter?.notifyDataSetChanged()
@@ -2744,6 +2760,8 @@ class SelectSongHorizontal : AppCompatActivity() {
                 }
             }
         }, 500)
+        isEndingFade = false
+        endingFadeAlpha = 0f
     }
 
     override fun onPause() {
