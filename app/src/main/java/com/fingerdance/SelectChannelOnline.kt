@@ -77,7 +77,7 @@ private lateinit var objectAnimator : ObjectAnimator
 private var animIndicator: Animation? = null
 private var position : Int = 0
 
-private lateinit var valueEventListener: ValueEventListener
+//private lateinit var valueEventListener: ValueEventListener
 
 private lateinit var linearWaitPlayer : LinearLayout
 private lateinit var txWaitForPlayer: TextView
@@ -86,7 +86,6 @@ var victoriesP1 = 0
 var victoriesP2 = 0
 
 var getSelectChannel = false
-var readyPlay = false
 
 val handlerChannelOnline = Handler(Looper.getMainLooper())
 class SelectChannelOnline : AppCompatActivity() {

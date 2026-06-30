@@ -179,7 +179,7 @@ class SelectSongOnline : AppCompatActivity() {
 
             mediaPlayer = MediaPlayer()
 
-            playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false,
+            playerSong = PlayerSong("","", "",0.0,"", 0.0, "","",false,
                                      false,"", "", "")
 
             constraintMain = findViewById(R.id.constraintMain)

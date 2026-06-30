@@ -12,6 +12,8 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
+private val TOUCH_RADIUS = colWidth * 0.15f
+
 class InputProcessorSscHD : InputAdapter() {
 
     private val btnOffPress = Texture(
@@ -24,10 +26,8 @@ class InputProcessorSscHD : InputAdapter() {
 
     val getKeyBoard = IntArray(10) { KEY_NONE }
 
-    // multitouch real
-    private val pointerToPadMap = mutableMapOf<Int, Int>()
+    private val pointerToPadsMap = mutableMapOf<Int, Set<Int>>()
     private val padPointers = Array(10) { mutableSetOf<Int>() }
-
     private val wasPressed = BooleanArray(10)
 
     private val keyToPadMap = mapOf(
@@ -39,12 +39,7 @@ class InputProcessorSscHD : InputAdapter() {
         Input.Keys.D to 7
     )
 
-    // ---------------------------------------------------
-    // KEYBOARD
-    // ---------------------------------------------------
-
     override fun keyDown(keycode: Int): Boolean {
-
         keyToPadMap[keycode]?.let { pad ->
             padPointers[pad].add(-keycode)
         }
@@ -53,7 +48,6 @@ class InputProcessorSscHD : InputAdapter() {
     }
 
     override fun keyUp(keycode: Int): Boolean {
-
         keyToPadMap[keycode]?.let { pad ->
             padPointers[pad].remove(-keycode)
         }
@@ -61,22 +55,20 @@ class InputProcessorSscHD : InputAdapter() {
         return keyToPadMap.containsKey(keycode)
     }
 
-    // ---------------------------------------------------
-    // TOUCH
-    // ---------------------------------------------------
-
     override fun touchDown(
         screenX: Int,
         screenY: Int,
         pointer: Int,
         button: Int
     ): Boolean {
+        val pads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (pads.isEmpty()) return false
 
-        val pad = getPadIndex(screenX.toFloat(), screenY.toFloat())
-            ?: return false
+        pointerToPadsMap[pointer] = pads
 
-        pointerToPadMap[pointer] = pad
-        padPointers[pad].add(pointer)
+        pads.forEach { pad ->
+            padPointers[pad].add(pointer)
+        }
 
         return true
     }
@@ -87,8 +79,7 @@ class InputProcessorSscHD : InputAdapter() {
         pointer: Int,
         button: Int
     ): Boolean {
-
-        pointerToPadMap.remove(pointer)
+        pointerToPadsMap.remove(pointer)
 
         for (i in padPointers.indices) {
             padPointers[i].remove(pointer)
@@ -102,22 +93,22 @@ class InputProcessorSscHD : InputAdapter() {
         screenY: Int,
         pointer: Int
     ): Boolean {
+        val newPads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (newPads.isEmpty()) return true
 
-        val newPad = getPadIndex(screenX.toFloat(), screenY.toFloat())
-        val oldPad = pointerToPadMap[pointer]
+        val oldPads = pointerToPadsMap[pointer].orEmpty()
 
-        if (oldPad == newPad) return true
+        if (oldPads == newPads) return true
 
-        if (oldPad != null) {
+        oldPads.forEach { oldPad ->
             padPointers[oldPad].remove(pointer)
         }
 
-        if (newPad != null) {
-            pointerToPadMap[pointer] = newPad
+        newPads.forEach { newPad ->
             padPointers[newPad].add(pointer)
-        } else {
-            pointerToPadMap.remove(pointer)
         }
+
+        pointerToPadsMap[pointer] = newPads
 
         return true
     }
@@ -128,34 +119,58 @@ class InputProcessorSscHD : InputAdapter() {
         pointer: Int,
         button: Int
     ): Boolean {
-
         return touchUp(screenX, screenY, pointer, button)
     }
 
-    // ---------------------------------------------------
-    // PAD DETECTION
-    // ---------------------------------------------------
+    private fun getPadIndices(x: Float, y: Float): Set<Int> {
+        val result = mutableSetOf<Int>()
+        val radiusSq = TOUCH_RADIUS * TOUCH_RADIUS
 
-    private fun getPadIndex(x: Float, y: Float): Int? {
+        for (i in 2..7) {
+            val pad = padPositionsHD[i]
 
-        val visiblePadIndex = padPositionsHD.indexOfFirst { pad ->
+            if (pad[0] == 0f && pad[1] == 0f) continue
 
-            !(pad[0] == 0f && pad[1] == 0f) &&
-                    x in pad[0]..(pad[0] + colWidth) &&
-                    y in pad[1]..(pad[1] + heightBtns)
+            val left = pad[0]
+            val top = pad[1]
+            val right = left + colWidth
+            val bottom = top + heightBtns
+
+            val closestX = x.coerceIn(left, right)
+            val closestY = y.coerceIn(top, bottom)
+
+            val dx = x - closestX
+            val dy = y - closestY
+            val distanceSq = dx * dx + dy * dy
+
+            if (distanceSq <= radiusSq) {
+                result.add(i)
+            }
         }
 
-        return visiblePadIndex.takeIf { it >= 0 }
+        return result
     }
 
-    // ---------------------------------------------------
-    // UPDATE
-    // ---------------------------------------------------
-
     fun update() {
+        val activePointers = mutableSetOf<Int>()
+
+        for (i in 0 until 20) {
+            if (Gdx.input.isTouched(i)) {
+                activePointers.add(i)
+            }
+        }
+
+        pointerToPadsMap.keys.toList().forEach { pointer ->
+            if (pointer >= 0 && pointer !in activePointers) {
+                pointerToPadsMap.remove(pointer)
+
+                for (i in padPointers.indices) {
+                    padPointers[i].remove(pointer)
+                }
+            }
+        }
 
         for (i in 0 until 10) {
-
             val pressedNow = padPointers[i].isNotEmpty()
 
             getKeyBoard[i] = when {
@@ -169,14 +184,8 @@ class InputProcessorSscHD : InputAdapter() {
         }
     }
 
-    // ---------------------------------------------------
-    // RENDER
-    // ---------------------------------------------------
-
     fun render(batch: SpriteBatch) {
-
         for (i in 2..7) {
-
             val (x, y) = padPositionsHD[i]
 
             val texture =
@@ -192,19 +201,14 @@ class InputProcessorSscHD : InputAdapter() {
         }
     }
 
-    // ---------------------------------------------------
-    // RESET
-    // ---------------------------------------------------
-
     fun resetState() {
-
         for (i in 0 until 10) {
             padPointers[i].clear()
             wasPressed[i] = false
             getKeyBoard[i] = KEY_NONE
         }
 
-        pointerToPadMap.clear()
+        pointerToPadsMap.clear()
     }
 
     fun dispose() {

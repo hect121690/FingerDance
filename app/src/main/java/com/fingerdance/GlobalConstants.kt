@@ -11,6 +11,7 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
 import com.fingerdance.ssc.Parser.Chart
+import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -20,6 +21,7 @@ import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.security.MessageDigest
 
 // ========== CONSTANTES DE API ==========
 const val API_KEY = "AIzaSyCL1ukVSzaKtIZZo3PFqfHXdlWIAxD1hGM"
@@ -52,13 +54,16 @@ var chart = Chart(
 
 var aBatch = 0
 var bBatch = 0
+var readyPlay = false
 // ========== VARIABLES GLOBALES - USUARIO ==========
 var userName = ""
 lateinit var firebaseDatabase : FirebaseDatabase
-var listGlobalRanking = arrayListOf<Cancion>()
+var listGlobalRanking = hashMapOf<String, ArrayList<FirstRank>>()
 var listAllowDevices = arrayListOf<String>()
 var deviceIdFind = ""
 var idSala = ""
+lateinit var valueEventListener: ValueEventListener
+lateinit var rankingsListener: ChildEventListener
 
 // ========== VARIABLES GLOBALES - UI ==========
 var medidaFlechas = 0f
@@ -128,7 +133,6 @@ var prime: Int = 0
 var prime2: Int = 0
 var aniversary_xx: Int = 0
 var phoenix: Int = 0
-
 
 var command_switchKsf : Int = 0
 var command_backKsf : Int = 0
@@ -205,50 +209,6 @@ var isEndingFade = false
 var endingFadeAlpha = 0f
 
 // ========== FUNCIONES HELPER ==========
-
-fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-    val canalRef = firebaseDatabase.getReference("channels").orderByChild("canal").equalTo(canalNombre)
-    val listResult = arrayListOf<Cancion>()
-    canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
-        override fun onDataChange(snapshot: DataSnapshot) {
-            for (canalSnapshot in snapshot.children) {
-                val cancionesSnapshot = canalSnapshot.child("canciones")
-                for (cancionSnapshot in cancionesSnapshot.children) {
-                    val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
-                    val niveles = arrayListOf<Nivel>()
-
-                    for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
-                        val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                        val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
-                        val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
-                        val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
-                        val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
-                        val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
-                        val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
-                        val rankings = arrayListOf<FirstRank>()
-                        for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
-                            val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                            val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                            val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
-                            rankings.add(FirstRank(nombre, puntaje, grade))
-                        }
-
-                        niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
-                    }
-
-                    listResult.add(Cancion(nombreCancion, niveles))
-                }
-            }
-
-            callback(listResult)
-        }
-
-        override fun onCancelled(error: DatabaseError) {
-            Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
-            callback(listResult)
-        }
-    })
-}
 
 fun generateCheckedValuesKsf(file: File): String {
     var inStepBlock = false
@@ -741,6 +701,19 @@ private fun getSoundEndSong(pathSounds: String){
     no_miss = soundPoolSelectSong.load(decriptorNoMiss, 0, pathNoMiss.length(), 1)
 }
 
+fun generateId(text: String): String {
+    val md = MessageDigest.getInstance("MD5")
+    val digest = md.digest(text.toByteArray())
+    return digest.joinToString("") { "%02x".format(it) }
+}
+
+fun validateOficialSong(checkedValues: String): String {
+    val match = listGlobalRanking.keys.firstOrNull {
+        it == checkedValues
+    }
+    return match ?: ""
+}
+
 fun readFileSsc(path: String): String {
     val bytes = Files.readAllBytes(Paths.get(path))
     val utf8 = String(bytes, Charsets.UTF_8)
@@ -761,22 +734,7 @@ data class FirstRank(
 data class Nivel(
     val nivel: String = "??",
     val checkedValues: String = "",
-    val type: String = "",
-    val player: String = "",
-    val chartName: String = "",
-    val stepmaker: String = "",
-    val difficulty: String = "",
-    val fisrtRank: ArrayList<FirstRank> = arrayListOf()
-)
-
-data class Cancion(
-    val cancion: String,
-    val niveles: ArrayList<Nivel>
-)
-
-data class Canal(
-    val canal: String,
-    val canciones: ArrayList<Cancion>
+    val firstRank: ArrayList<FirstRank> = arrayListOf()
 )
 
 enum class SaveResult {

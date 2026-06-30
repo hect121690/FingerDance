@@ -8,7 +8,7 @@ class PlayerSong(
     var rutaVideo: String?,
     var rutaBanner: String?,
     var bpm: Double?,
-    var tickCount: Double?,
+    var checkedValues: String = "",
     var scroll: Double?,
     var level: String?,
     var rutaNoteSkin: String?,

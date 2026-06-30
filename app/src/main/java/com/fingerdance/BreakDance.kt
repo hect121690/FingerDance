@@ -11,18 +11,16 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
-private lateinit var video_fondo : VideoView
-private lateinit var mediaPlayerBreak : MediaPlayer
-private var currentVideoPosition : Int = 0
-
-private lateinit var linearLeft: LinearLayout
-
 class BreakDance : AppCompatActivity() {
+    private lateinit var linearLeft: LinearLayout
+    private lateinit var video_fondo : VideoView
+    private lateinit var mediaPlayerBreak : MediaPlayer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         getSupportActionBar()?.hide()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_break_dance)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
 
         linearLeft = findViewById(R.id.linearLeft)
@@ -49,7 +47,6 @@ class BreakDance : AppCompatActivity() {
 
     private fun hideSystemUI() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-
         windowInsetsController.let { controller ->
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.systemBars())

@@ -2,11 +2,10 @@ package com.fingerdance.ssc
 
 import com.fingerdance.ssc.Parser.BpmSegment
 import com.fingerdance.ssc.Parser.Delay
-import com.fingerdance.ssc.Parser.Note
+import com.fingerdance.ssc.Parser.Scroll
+import com.fingerdance.ssc.Parser.Speed
 import com.fingerdance.ssc.Parser.Stop
 import com.fingerdance.ssc.Parser.Warp
-import com.fingerdance.ssc.Parser.Speed
-import com.fingerdance.ssc.Parser.Scroll
 import kotlin.math.min
 
 class TimmingData(
@@ -19,156 +18,267 @@ class TimmingData(
     val offsetMs: Double,
     val userOffsetMs: Double
 ) {
+    companion object {
+        private const val EPS = 0.000001
+    }
+
     data class TimeSegment(
         val beatStart: Double,
         val beatEnd: Double,
         val timeStartMs: Double,
-        val timeEndMs: Double,    // <-- NUEVO
+        val timeEndMs: Double,
         val bpm: Double,
-        val isWarp: Boolean,
-        val isStop: Boolean,
-        val isDelay: Boolean
+        val isWarp: Boolean = false,
+        val isStop: Boolean = false,
+        val isDelay: Boolean = false
     )
 
-    // Segmentos "reales" para beat <-> tiempo (igual que en PlayerSsc3)
+    private data class Event(
+        val beat: Double,
+        val type: EventType,
+        val value: Double
+    )
+
+    private enum class EventType {
+        WARP,
+        BPM,
+        DELAY,
+        STOP
+    }
+
+    private val sortedBpms = bpms.sortedBy { it.beat }.ifEmpty {
+        listOf(BpmSegment(0.0, 120.0))
+    }
+
+    private val sortedStops = stops.sortedBy { it.beat }
+    private val sortedDelays = delays.sortedBy { it.beat }
+    private val sortedWarps = warps.sortedBy { it.beat }
+    private val sortedSpeeds = speeds.sortedBy { it.beat }
+    private val sortedScrolls = scrolls.sortedBy { it.beat }
+
     private val timeSegments: List<TimeSegment> = buildTimeSegments()
+    private val scrollSegments: List<ScrollSegmentInternal> = buildScrollSegments()
 
     private fun buildTimeSegments(): List<TimeSegment> {
-        data class Event(val beat: Double, val type: Int, val value: Double)
-
         val events = mutableListOf<Event>()
-        bpms.forEach { events.add(Event(it.beat, 1, it.bpm)) }
-        stops.forEach { events.add(Event(it.beat, 2, it.durationMs)) }
-        delays.forEach { events.add(Event(it.beat, 3, it.durationMs)) }
-        warps.forEach { events.add(Event(it.beat, 0, it.duration)) }
-        events.sortWith(compareBy<Event>({ it.beat }, { it.type }))
+
+        sortedBpms.forEach { events.add(Event(it.beat, EventType.BPM, it.bpm)) }
+        sortedStops.forEach { events.add(Event(it.beat, EventType.STOP, it.durationMs)) }
+        sortedDelays.forEach { events.add(Event(it.beat, EventType.DELAY, it.durationMs)) }
+        sortedWarps.forEach { events.add(Event(it.beat, EventType.WARP, it.duration)) }
+
+        events.sortWith(
+            compareBy<Event> { it.beat }
+                .thenBy {
+                    when (it.type) {
+                        EventType.BPM -> 0
+                        EventType.DELAY -> 1
+                        EventType.STOP -> 2
+                        EventType.WARP -> 3
+                    }
+                }
+        )
 
         val result = mutableListOf<TimeSegment>()
 
         var currentBeat = 0.0
-        var currentTimeMs = offsetMs + userOffsetMs
-        var currentBpm = bpms.firstOrNull()?.bpm ?: 120.0
 
-        fun addSegment(nextBeat: Double) {
-            if (nextBeat <= currentBeat) return
-            val endTime = currentTimeMs + ((nextBeat-currentBeat)/currentBpm)*60000.0
+        // StepMania usa -offset como tiempo de beat 0.
+        var currentTimeMs = offsetMs + userOffsetMs
+
+        var currentBpm = sortedBpms.firstOrNull()?.bpm ?: 120.0
+
+        fun addNormalSegment(nextBeat: Double) {
+            if (nextBeat <= currentBeat + EPS) return
+
+            val durationMs = ((nextBeat - currentBeat) / currentBpm) * 60000.0
+            val endTime = currentTimeMs + durationMs
+
             result.add(
                 TimeSegment(
                     beatStart = currentBeat,
                     beatEnd = nextBeat,
                     timeStartMs = currentTimeMs,
                     timeEndMs = endTime,
-                    bpm = currentBpm,
-                    isWarp = false,
-                    isStop = false,
-                    isDelay = false
+                    bpm = currentBpm
                 )
             )
-            currentTimeMs = endTime
+
             currentBeat = nextBeat
+            currentTimeMs = endTime
         }
 
-        for (e in events) {
-            addSegment(e.beat)
+        var i = 0
+        while (i < events.size) {
+            val e = events[i]
+            if (e.beat < currentBeat - EPS) {
+                when (e.type) {
+                    EventType.BPM -> {
+                        currentBpm = e.value
+                    }
+                    EventType.DELAY -> Unit
+                    EventType.STOP -> Unit
+                    EventType.WARP -> Unit
+                }
 
-            when (e.type) {
-                // Warp
-                0 -> {
-                    val warpEnd = e.beat + e.value
-                    result.add(TimeSegment(
-                        beatStart = e.beat,
-                        beatEnd = warpEnd,
-                        timeStartMs = currentTimeMs,
-                        timeEndMs = currentTimeMs,
+                i++
+                continue
+            }
+
+            addNormalSegment(e.beat)
+
+            val sameBeatEvents = mutableListOf<Event>()
+            while (i < events.size && kotlin.math.abs(events[i].beat - e.beat) <= EPS) {
+                sameBeatEvents.add(events[i])
+                i++
+            }
+
+            // 1. BPM primero
+            val bpmEvent = sameBeatEvents.lastOrNull { it.type == EventType.BPM }
+            if (bpmEvent != null) {
+                currentBpm = bpmEvent.value
+            }
+
+            // 2. DELAY
+            val delayEvents = sameBeatEvents.filter { it.type == EventType.DELAY }
+            for (d in delayEvents) {
+                val start = currentTimeMs
+                val end = currentTimeMs + d.value
+
+                result.add(
+                    TimeSegment(
+                        beatStart = d.beat,
+                        beatEnd = d.beat,
+                        timeStartMs = start,
+                        timeEndMs = end,
                         bpm = currentBpm,
-                        isWarp = true,
-                        isStop = false,
-                        isDelay = false
-                    ))
-                    currentBeat = warpEnd
-                    // currentTimeMs does NOT advance
-                }
-                // BPM
-                1 -> currentBpm = e.value
+                        isDelay = true
+                    )
+                )
 
-                // STOP
-                2 -> {
-                    val durationMs = e.value
+                currentTimeMs = end
+            }
+
+            // 3. STOP
+            val stopEvents = sameBeatEvents.filter { it.type == EventType.STOP }
+            for (s in stopEvents) {
+                val start = currentTimeMs
+                val end = currentTimeMs + s.value
+
+                result.add(
+                    TimeSegment(
+                        beatStart = s.beat,
+                        beatEnd = s.beat,
+                        timeStartMs = start,
+                        timeEndMs = end,
+                        bpm = currentBpm,
+                        isStop = true
+                    )
+                )
+
+                currentTimeMs = end
+            }
+            // 4. WARP al final
+            val warpEvents = sameBeatEvents.filter { it.type == EventType.WARP }
+            for (w in warpEvents) {
+                val warpStart = w.beat
+                val warpEnd = warpStart + w.value
+
+                if (warpEnd > currentBeat + EPS) {
                     result.add(
                         TimeSegment(
-                            beatStart = e.beat,
-                            beatEnd = e.beat,
+                            beatStart = warpStart,
+                            beatEnd = warpEnd,
                             timeStartMs = currentTimeMs,
-                            timeEndMs = currentTimeMs + durationMs,
+                            timeEndMs = currentTimeMs,
                             bpm = currentBpm,
-                            isWarp = false,
-                            isStop = true,
-                            isDelay = false
+                            isWarp = true
                         )
                     )
-                    currentTimeMs += durationMs
-                }
-                3 -> {
-                    val durationMs = e.value
-                    result.add(
-                        TimeSegment(
-                            beatStart = e.beat,
-                            beatEnd = e.beat,
-                            timeStartMs = currentTimeMs,
-                            timeEndMs = currentTimeMs + durationMs,
-                            bpm = currentBpm,
-                            isWarp = false,
-                            isStop = false,
-                            isDelay = true
-                        )
-                    )
-                    currentTimeMs += durationMs
+
+                    currentBeat = warpEnd
                 }
             }
         }
 
-        result.add(TimeSegment(
-            beatStart = currentBeat,
-            beatEnd = Double.POSITIVE_INFINITY,
-            timeStartMs = currentTimeMs,
-            timeEndMs = Double.POSITIVE_INFINITY,
-            bpm = currentBpm,
-            isWarp = false,
-            isStop = false,
-            isDelay = false
-        ))
+        result.add(
+            TimeSegment(
+                beatStart = currentBeat,
+                beatEnd = Double.POSITIVE_INFINITY,
+                timeStartMs = currentTimeMs,
+                timeEndMs = Double.POSITIVE_INFINITY,
+                bpm = currentBpm
+            )
+        )
+
         return result
     }
 
     fun isBeatInWarp(beat: Double): Boolean {
-        val seg = timeSegments.lastOrNull { beat >= it.beatStart }
-        return seg?.isWarp == true && beat < seg.beatEnd
+        val seg = findSegmentByBeat(beat)
+        if (!seg.isWarp) return false
+        if (beat < seg.beatStart || beat >= seg.beatEnd) return false
+
+        // StepMania permite stop/delay dentro de warp.
+        val hasStopHere = sortedStops.any { kotlin.math.abs(it.beat - beat) <= EPS }
+        val hasDelayHere = sortedDelays.any { kotlin.math.abs(it.beat - beat) <= EPS }
+
+        return !hasStopHere && !hasDelayHere
     }
 
     fun isBeatInStop(nowMs: Double): Boolean {
-        val seg = timeSegments.lastOrNull { nowMs >= it.timeStartMs }
-        return seg?.isStop == true && nowMs < seg.timeEndMs
+        val seg = findSegmentByTime(nowMs)
+        return seg.isStop && nowMs < seg.timeEndMs
     }
+
     fun isBeatInDelay(nowMs: Double): Boolean {
-        val seg = timeSegments.lastOrNull { nowMs >= it.timeStartMs }
-        return seg?.isDelay == true && nowMs < seg.timeEndMs
+        val seg = findSegmentByTime(nowMs)
+        return seg.isDelay && nowMs < seg.timeEndMs
     }
 
     private fun findSegmentByBeat(beat: Double): TimeSegment {
-        if (beat <= timeSegments.first().beatStart) return timeSegments.first()
-        if (beat >= timeSegments.last().beatStart) return timeSegments.last()
-        return timeSegments.last { beat >= it.beatStart }
+        var low = 0
+        var high = timeSegments.size - 1
+        var best = timeSegments.first()
+
+        while (low <= high) {
+            val mid = (low + high).ushr(1)
+            val seg = timeSegments[mid]
+
+            if (seg.beatStart <= beat) {
+                best = seg
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+
+        return best
     }
 
     private fun findSegmentByTime(timeMs: Double): TimeSegment {
-        if (timeMs <= timeSegments.first().timeStartMs) return timeSegments.first()
-        if (timeMs >= timeSegments.last().timeStartMs) return timeSegments.last()
-        return timeSegments.last { timeMs >= it.timeStartMs }
+        var low = 0
+        var high = timeSegments.size - 1
+        var best = timeSegments.first()
+
+        while (low <= high) {
+            val mid = (low + high).ushr(1)
+            val seg = timeSegments[mid]
+
+            if (seg.timeStartMs <= timeMs) {
+                best = seg
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+
+        return best
     }
 
-    // Dado un tiempo real -> calcula el beat
     fun timeToBeat(timeMs: Double): Double {
         val seg = findSegmentByTime(timeMs)
+
         return when {
             seg.isWarp -> seg.beatStart
             seg.isStop -> seg.beatStart
@@ -177,17 +287,23 @@ class TimmingData(
         }
     }
 
-    // Dado un beat -> calcula el tiempo real
     fun beatToTime(beat: Double): Double {
         val seg = findSegmentByBeat(beat)
+
         return when {
             seg.isWarp -> seg.timeStartMs
             seg.isStop -> seg.timeStartMs
             seg.isDelay -> seg.timeStartMs
-            else -> seg.timeStartMs + (beat - seg.beatStart) / seg.bpm * 60000.0
+            else -> seg.timeStartMs + ((beat - seg.beatStart) / seg.bpm) * 60000.0
         }
     }
 
+    private fun getDelayAtBeat(beat: Double): Double {
+        return sortedDelays
+            .firstOrNull { kotlin.math.abs(it.beat - beat) <= EPS }
+            ?.durationMs
+            ?: 0.0
+    }
 
     data class ScrollSegmentInternal(
         val beatStart: Double,
@@ -195,32 +311,28 @@ class TimmingData(
         val ratio: Double
     )
 
-    private val scrollSegments: List<ScrollSegmentInternal> = buildScrollSegments()
-
     private fun buildScrollSegments(): List<ScrollSegmentInternal> {
-        if (scrolls.isEmpty()) {
-            // un único segmento [0, ∞) con ratio 1
+        if (sortedScrolls.isEmpty()) {
             return listOf(ScrollSegmentInternal(0.0, Double.POSITIVE_INFINITY, 1.0))
         }
 
-        val sorted = scrolls.sortedBy { it.beat }
         val result = mutableListOf<ScrollSegmentInternal>()
 
         var prevBeat = 0.0
         var prevRatio = 1.0
 
-        for (s in sorted) {
-            val beat = s.beat
-            if (beat > prevBeat) {
+        for (s in sortedScrolls) {
+            if (s.beat > prevBeat) {
                 result.add(
                     ScrollSegmentInternal(
                         beatStart = prevBeat,
-                        beatEnd = beat,
+                        beatEnd = s.beat,
                         ratio = prevRatio
                     )
                 )
             }
-            prevBeat = beat
+
+            prevBeat = s.beat
             prevRatio = s.ratio
         }
 
@@ -235,7 +347,6 @@ class TimmingData(
         return result
     }
 
-    /** Beat mostrado (aplica SCROLL tipo ratio acumulado, como StepMania). */
     fun getDisplayedBeat(rawBeat: Double): Double {
         var displayed = 0.0
         val b = rawBeat
@@ -244,9 +355,9 @@ class TimmingData(
             if (b <= seg.beatStart) break
 
             val segEnd = min(b, seg.beatEnd)
+
             if (segEnd > seg.beatStart) {
-                val delta = segEnd - seg.beatStart
-                displayed += delta * seg.ratio
+                displayed += (segEnd - seg.beatStart) * seg.ratio
             }
 
             if (b <= seg.beatEnd) break
@@ -256,61 +367,77 @@ class TimmingData(
     }
 
     fun getDisplayedSpeedPercent(rawBeat: Double, rawTimeMs: Double): Double {
-        if (speeds.isEmpty()) return 1.0
+        if (sortedSpeeds.isEmpty()) return 1.0
 
-        val sorted = speeds.sortedBy { it.beat }
+        val idx = getSpeedIndexAtBeat(rawBeat)
+        if (idx < 0) return 1.0
 
-        // encontrar el último SPEED cuyo beat <= rawBeat
-        var idx = -1
-        for (i in sorted.indices) {
-            if (sorted[i].beat <= rawBeat) idx = i else break
-        }
-        if (idx == -1) return 1.0
+        val seg = sortedSpeeds[idx]
+        val first = sortedSpeeds.first()
 
-        val seg = sorted[idx]
-        val length = seg.duration
-        val mode = seg.mode
+        val startBeat = seg.beat
 
-        // valor "anterior" (lo que había justo antes de este segmento)
-        val prevRatio = if (idx > 0) sorted[idx - 1].ratio else 1.0
-        val targetRatio = seg.ratio
+        // StepMania: GetElapsedTimeFromBeat(startBeat) - GetDelayAtBeat(startBeat)
+        val startTime = beatToTime(startBeat) - getDelayAtBeat(startBeat)
 
-        // cambios instantáneos (length == 0): salto directo al targetRatio
-        if (length <= 0.0) {
-            return targetRatio
+        val endTime = if (seg.mode == 1) {
+            // UNIT_SECONDS
+            startTime + seg.duration * 1000.0
+        } else {
+            // UNIT_BEATS
+            val endBeat = startBeat + seg.duration
+            beatToTime(endBeat) - getDelayAtBeat(endBeat)
         }
 
-        // rampas: desde prevRatio hacia targetRatio durante 'length'
-        val t = when (mode) {
-            0 -> {
-                val startBeat = seg.beat
-                val endBeat = startBeat + length
-                when {
-                    rawBeat <= startBeat -> 0.0
-                    rawBeat >= endBeat   -> 1.0
-                    else                 -> (rawBeat - startBeat) / length
-                }
-            }
-            1 -> {
-                val startTime = beatToTime(seg.beat)
-                val endTime = startTime + length * 1000.0
-                when {
-                    rawTimeMs <= startTime -> 0.0
-                    rawTimeMs >= endTime   -> 1.0
-                    else                   -> (rawTimeMs - startTime) / (length * 1000.0)
-                }
-            }
-            else -> 1.0
-        }.coerceIn(0.0, 1.0)
+        val curTime = rawTimeMs
 
-        return prevRatio + (targetRatio - prevRatio) * t
+        if (idx == 0 && first.duration > 0.0 && curTime < startTime) {
+            return 1.0
+        }
+
+        if (endTime >= curTime && (idx > 0 || first.duration > 0.0)) {
+            val priorSpeed = if (idx == 0) 1.0 else sortedSpeeds[idx - 1].ratio
+
+            val duration = endTime - startTime
+            val timeUsed = curTime - startTime
+
+            val ratioUsed = if (kotlin.math.abs(duration) <= EPS) {
+                1.0
+            } else {
+                timeUsed / duration
+            }.coerceIn(0.0, 1.0)
+
+            val distance = priorSpeed - seg.ratio
+            val ratioNeed = ratioUsed * -distance
+
+            return priorSpeed + ratioNeed
+        }
+
+        return seg.ratio
     }
 
-    /**
-     * YOffset base en unidades de stepSize:
-     * (DisplayedBeat(note) - DisplayedBeat(song)) * DisplayedSpeedPercent(song).
-     * NO mete aquí baseSpeed (XMod), eso se hace fuera.
-     */
+    private fun getSpeedIndexAtBeat(beat: Double): Int {
+        if (sortedSpeeds.isEmpty()) return -1
+
+        var low = 0
+        var high = sortedSpeeds.size - 1
+        var best = -1
+
+        while (low <= high) {
+            val mid = (low + high).ushr(1)
+            val s = sortedSpeeds[mid]
+
+            if (s.beat <= beat) {
+                best = mid
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+
+        return best
+    }
+
     fun getYOffsetForBeat(
         noteBeat: Double,
         songVisibleBeat: Double,
@@ -319,11 +446,10 @@ class TimmingData(
     ): Float {
         val noteDispBeat = getDisplayedBeat(noteBeat)
         val songDispBeat = getDisplayedBeat(songVisibleBeat)
-        val deltaBeatDisp = noteDispBeat - songDispBeat
 
+        val deltaBeatDisp = noteDispBeat - songDispBeat
         val speedPercent = getDisplayedSpeedPercent(songVisibleBeat, songVisibleTimeMs)
 
-        val gapPerBeat = stepSize * speedPercent.toFloat()
-        return (deltaBeatDisp * gapPerBeat).toFloat()
+        return (deltaBeatDisp * stepSize * speedPercent).toFloat()
     }
 }

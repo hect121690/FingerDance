@@ -186,7 +186,7 @@ class SelectSongHorizontal : AppCompatActivity() {
     private val difficultedSelected = AppResources.difficultedSelected
     private val difficultedSelectedHD = AppResources.difficultedSelectedHD
 
-    private lateinit var niveles: ArrayList<Nivel>
+    private lateinit var nivel: Nivel
 
     private var contador = 0
 
@@ -266,6 +266,9 @@ class SelectSongHorizontal : AppCompatActivity() {
 
         txNameChannel.layoutParams.width = (screenWidth * 0.25).toInt()
         txPlayerName.layoutParams.width = (screenWidth * 0.25).toInt()
+
+        nivel = Nivel()
+
         commandWindow = findViewById(R.id.command_windowHorizontal)
         commandWindow.visibility = View.GONE
         commandWindow.background = Drawable.createFromPath("${rutaBase}/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Frame.png")
@@ -436,8 +439,6 @@ class SelectSongHorizontal : AppCompatActivity() {
 
         imgCursor.setImageBitmap(AppResources.bmCursor)
         indicatorLayout.setImageBitmap(AppResources.bmIndicator)
-
-        niveles = arrayListOf<Nivel>()
 
         imgCircleRotate.setImageBitmap(AppResources.bmCircle)
         imgCircleRotate.layoutParams.width = (screenWidth * 0.8).toInt()
@@ -628,6 +629,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             if (commandWindow.isVisible && !linearValues.isVisible ) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
+                oldValueCommand = 0
             }
             if (linearValues.isVisible) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -669,6 +671,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             if (commandWindow.isVisible && !linearValues.isVisible ) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
+                oldValueCommand = 0
             }
             if (linearValues.isVisible) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -1016,13 +1019,13 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         imgBestScore.setOnClickListener{
-            if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
+            if(nivel.firstRank.isNotEmpty()){
                 if(!commandWindow.isVisible){
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     rankingView.visibility = View.VISIBLE
                     rankingView.startAnimation(animOn)
                     rankingView.setIconDrawable(imgLvSelected.drawable)
-                    rankingView.setNiveles(niveles[positionActualLvs])
+                    rankingView.setNiveles(nivel)
                     constraintMain.addView(linearRanking)
                     btnBackRight.bringToFront()
                     btnBackLeft.bringToFront()
@@ -1840,7 +1843,6 @@ class SelectSongHorizontal : AppCompatActivity() {
         playerSong.chartName = level.chartName
         playerSong.stepMaker = level.stepmaker
         playerSong.difficulty = level.difficulty
-
         if(song.isSSC){
             val ssc = readFileSsc(song.rutaSsc)
             val seccions = ssc.split("#NOTEDATA:;")
@@ -1850,6 +1852,10 @@ class SelectSongHorizontal : AppCompatActivity() {
                 song.rutaSong
             )
             playerSong.isSSC = true
+            val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
+            checkedValuesLocal = generateCheckedValuesSsc(seccions[level.steps]) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
+            playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
+            isOficialSong = playerSong.checkedValues != ""
             if(playerSong.mirror){
                 if(!isHalfDouble){
                     chart.notes = Parser().makeMirror(chart.notes)
@@ -1865,7 +1871,14 @@ class SelectSongHorizontal : AppCompatActivity() {
                 }
             }
         }else {
+            playerSong.rutaKsf = level.rutaKsf
+            playerSong.isSSC = false
             load(playerSong.rutaKsf, isHalfDouble)
+            val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
+            checkedValuesLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
+            playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
+            isOficialSong = playerSong.checkedValues != ""
+
             if (playerSong.mirror) {
                 if (!isHalfDouble) {
                     ksf.makeMirror()
@@ -1879,20 +1892,6 @@ class SelectSongHorizontal : AppCompatActivity() {
                 } else {
                     ksfHD.makeRandom()
                 }
-            }
-        }
-        if(!isOnline){
-            if(!isOffline){
-                if(currentChannel == "06-FAVORITES"){
-                    val nameChannels = AppResources.listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
-                    channelIndex = validFolders.indexOf(nameChannels)
-                    val canciones = mockListChannels.find { it.canal == nameChannels }?.canciones
-                    songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
-                }else {
-                    channelIndex = validFolders.indexOf(currentChannel)
-                    songIndex = oldValue
-                }
-                levelIndex = positionActualLvs
             }
         }
 
@@ -1966,7 +1965,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             linearCommands.startAnimation(animOn)
             linearInfo.startAnimation(animOn)
             soundPoolSelectSong.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            isFocusCommandWindow(1)
+            isFocusCommandWindow(oldValueCommand)
         } else {
             commandWindow.visibility = View.GONE
             linearMenus.visibility = View.GONE
@@ -2151,46 +2150,31 @@ class SelectSongHorizontal : AppCompatActivity() {
         }else{
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
-        if(listSongScores.find { it.cancion == song.title } != null){
-            if(song.listKsf.size != listSongScores.size){
-                db.deleteCancion(song.title)
-                listSongScores = arrayOf()
-            }
+        if(song.listKsf.size != listSongScores.size){
+            db.deleteCancion(song.title)
+            listSongScores = arrayOf()
         }
+
         if(listSongScores.isEmpty()){
             for (nivel in song.listKsf) {
                 db.insertNivel(
                     canal = currentChannel,
                     cancion = currentSong,
-                    nivel = nivel.level,
-                    puntaje = "0",
-                    grade = "",
-                    type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
-                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
-                    chartName = nivel.chartName,
-                    credit = nivel.stepmaker,
-                    difficulty = nivel.difficulty,
+                    checkedValues = nivel.checkedValues
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
 
-        val rankingItem = listGlobalRanking.find { it.cancion == song.title }
-        if(rankingItem != null && !isOffline){
-            niveles = rankingItem.niveles
+        val channelOfSong = validFolders.find { it == song.channel }
+        if(channelOfSong != null && !isOffline){
             isOficialSong = true
-            if(song.isFavorite){
-                //imgFavorite.setImageBitmap(bitFavoriteListed)
-            }else{
-                //imgFavorite.setImageBitmap(bitFavorite)
-            }
         }else if (song.isFavorite) {
-            niveles = ArrayList(List(listSongScores.size) { Nivel() })
             isOficialSong = true
         }else{
-            niveles = ArrayList(List(listSongScores.size) { Nivel() })
             isOficialSong = false
         }
+
         txInfoCurrentSong.text = String.format("%03d/%03d", focusedIndex + 1, AppResources.listSongsChannelKsf.size)
         lbNameSong.text = song.title
         lbArtist.text = song.artist
@@ -2244,21 +2228,27 @@ class SelectSongHorizontal : AppCompatActivity() {
         lbLvActive.text = lv.level
 
         currentLevel = lv.level
-        lbBestScore.text = listSongScores[positionActualLvs].puntaje
+        lbBestScore.text = listSongScores.find { it.checkedValues == lv.checkedValues }?.puntaje ?: "0"
         currentScore = lbBestScore.text.toString()
 
-        currentBestGrade = getBitMapGrade(positionActualLvs)
+        currentBestGrade = getBitMapGrade(lv.checkedValues)
         imgBestGrade.setImageBitmap(currentBestGrade)
-        val currentBestWorldGrade = getWorldBitMapGrade(positionActualLvs)
+
+        val rank = listGlobalRanking[lv.checkedValues]
+        val ranking = rank ?: ArrayList(List(3) { FirstRank() })
+        nivel = Nivel(lv.level, lv.checkedValues, ranking)
+
+        val currentBestWorldGrade = getWorldBitMapGrade()
         imgWorldGrade.setImageBitmap(currentBestWorldGrade)
 
-        if(niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
-            lbWorldName.text = if (niveles[positionActualLvs].fisrtRank[0].nombre != "") niveles[positionActualLvs].fisrtRank[0].nombre else "---------"
-            lbWorldScore.text = if (niveles[positionActualLvs].fisrtRank[0].puntaje != "") niveles[positionActualLvs].fisrtRank[0].puntaje else "-"
+        if(listGlobalRanking.isNotEmpty()) {
+            val rank = listGlobalRanking[lv.checkedValues]
+            lbWorldName.text = if (rank!![0].nombre != "") rank[0].nombre else "---------"
+            lbWorldScore.text = if (rank[0].puntaje != "") rank[0].puntaje else "-"
             currentWorldScore = listOf(
-                niveles[positionActualLvs].fisrtRank[0].puntaje,
-                niveles[positionActualLvs].fisrtRank[1].puntaje,
-                niveles[positionActualLvs].fisrtRank[2].puntaje
+                rank[0].puntaje,
+                rank[1].puntaje,
+                rank[2].puntaje
             )
         }else{
             lbWorldName.text = "---------"
@@ -2421,10 +2411,9 @@ class SelectSongHorizontal : AppCompatActivity() {
     private val scaledExtraGrades = mutableMapOf<String, Bitmap>()
     private val gradeCombinationCache = mutableMapOf<String, Bitmap>()
 
-    private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
+    private fun getBitMapGrade(checkedValues: String): Bitmap {
 
-        val gradeFull = listSongScores[positionActualLvs].grade
-        if (gradeFull.isEmpty()) return emptyBitmap
+        val gradeFull = listSongScores.find { it.checkedValues ==  checkedValues }?.grade ?: return emptyBitmap
 
         if (gradeCombinationCache.containsKey(gradeFull)) {
             return gradeCombinationCache[gradeFull]!!
@@ -2463,13 +2452,11 @@ class SelectSongHorizontal : AppCompatActivity() {
         return result
     }
 
-    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
+    private fun getWorldBitMapGrade(): Bitmap {
 
-        val firstRankList = niveles[positionActualLvs].fisrtRank
-        if (firstRankList.isEmpty()) return emptyBitmap
+        if(nivel.nivel == "?") return emptyBitmap
 
-        val gradeFull = firstRankList[0].grade
-        if (gradeFull.isEmpty()) return emptyBitmap
+        val gradeFull = nivel.firstRank[0].grade
 
         // 🔥 Cache global reutilizable
         if (gradeCombinationCache.containsKey(gradeFull)) {

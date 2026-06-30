@@ -56,6 +56,7 @@ class PlayerSsc(
     private val notes = chart.notes
     private val speeds = chart.speeds
     private val scrolls = chart.scrolls
+    private val combos = chart.combos
 
     private val sizeScale = medidaFlechas * 1.2f
     private val topPos = medidaFlechas * 0.9f
@@ -67,7 +68,8 @@ class PlayerSsc(
     private val xFlare4 = medidaFlechas * 2.05f
     private val xFlare5 = medidaFlechas * 2.05f
     private val animationDuration: Long = 300L
-    private val multiplerCombo = 1
+    private var multiplierCombo = 1
+    private var comboSegmentIndex = 0
 
     companion object {
         val STEPSIZE = medidaFlechas.toInt()
@@ -191,6 +193,7 @@ class PlayerSsc(
     private var luaFlashStartTime = 0L
     private var luaFlashDuration = 0L
     lateinit var luaEngine: LuaEngine
+
     init {
         currentTimeToExpands = timeGetTime()
         initCommonInfo()
@@ -262,7 +265,7 @@ class PlayerSsc(
     private data class LongNotePress(
         var pressed: Boolean = false,
         var lastTickBeat: Double = 0.0,
-        var lastTickIndex: Int = -1,
+        var nextTickBeat: Double = 0.0,
         var note: Parser.Note? = null,
         var timeStarted: Long = 0L,
     )
@@ -290,6 +293,8 @@ class PlayerSsc(
         if (showPadB == 0) {
             inputProcessor.render(batch)
         }
+
+        updateComboMultiplier(currentBeat)
 
         val currentBpm = bpms.lastOrNull { it.beat <= currentBeat }?.bpm ?: bpms.firstOrNull()?.bpm ?: 120.0
         m_fCurBPM = currentBpm.toFloat()
@@ -335,6 +340,8 @@ class PlayerSsc(
             val n = notes[i]
             if (n.beat > maxBeat) break
             if(n.isPhantom) continue
+            //if (timingData.isBeatInWarp(n.beat)) continue
+
             when (n.type) {
                 Parser.NoteType.TAP -> {
                     if (hitNotes.contains(n)) continue
@@ -654,10 +661,22 @@ class PlayerSsc(
 
     private fun startLongNote(col: Int, note: Parser.Note, timeMs: Long) {
         val ln = LONGNOTE[col]
+        val nowBeat = timeToBeat(timeMs.toDouble())
+
         ln.pressed = true
         ln.note = note
-        ln.lastTickIndex = -1
         ln.timeStarted = timeMs
+
+        val fromBeat = max(note.beat, nowBeat)
+        ln.lastTickBeat = fromBeat
+        ln.nextTickBeat = getNextHoldTickBeat(fromBeat)
+    }
+
+    private fun getNextHoldTickBeat(fromBeat: Double): Double {
+        val ticksPerBeat = findCurrentTick(fromBeat).coerceAtLeast(1.0)
+        val separation = 1.0 / ticksPerBeat
+
+        return kotlin.math.floor(fromBeat / separation) * separation + separation
     }
 
     private fun endLongNote(col: Int, timeMs: Long) {
@@ -715,38 +734,34 @@ class PlayerSsc(
 
     private fun processLongNoteTick(col: Int, timeMs: Long) {
         if (!LONGNOTE[col].pressed) return
+
         val ln = LONGNOTE[col]
         val note = ln.note ?: return
         val nowBeat = timeToBeat(timeMs.toDouble())
-
-        val startBeat = note.beat
         val endBeat = note.endBeat ?: return
+
         if (nowBeat > endBeat) {
-            // Termina el hold, sumar puntos como corresponda
-            // Marcar como completado
             finishedHolds.add(note)
             ln.pressed = false
             ln.note = null
             return
         }
 
-        // --- Manejo de ticks para sumar puntos extra/combo ---
-        // Ejemplo: cada 1/4 de beat (ajustable con tickcount si quieres)
-        val ticksPerBeat = findCurrentTick(nowBeat) // o usa tickcount
-        val tickSeparation = 1.0 / ticksPerBeat
-        val localBeat = (nowBeat - startBeat).coerceAtLeast(0.0)
-        val currentTickIndex = (localBeat / tickSeparation).toInt()
+        while (nowBeat >= ln.nextTickBeat && ln.nextTickBeat <= endBeat) {
+            applyJudge(
+                col,
+                JUDGE_PERFECT,
+                isBodyLongNote = true,
+                isFromInput = true,
+                note = note
+            )
 
-        if (ln.lastTickIndex < 0) {
-            ln.lastTickIndex = currentTickIndex
-            ln.timeStarted = timeMs
-            return
-        }
-        if (currentTickIndex > ln.lastTickIndex) {
-            // Sumar combo/gauge (tick perfecto)
-            applyJudge(col, JUDGE_PERFECT, isBodyLongNote = true, isFromInput = true, note = note)
-            ln.lastTickIndex = currentTickIndex
-            ln.timeStarted = timeMs
+            ln.lastTickBeat = ln.nextTickBeat
+
+            val ticksPerBeat = findCurrentTick(ln.nextTickBeat).coerceAtLeast(1.0)
+            val separation = 1.0 / ticksPerBeat
+
+            ln.nextTickBeat += separation
         }
     }
 
@@ -755,6 +770,16 @@ class PlayerSsc(
             4.0 // default a 1/4
         } else {
             tickcounts.lastOrNull { it.beat <= nowBeat }?.tickcount?.toDouble() ?: 4.0
+        }
+    }
+
+    private fun updateComboMultiplier(nowBeat: Double) {
+        while (
+            comboSegmentIndex < combos.size &&
+            nowBeat >= combos[comboSegmentIndex].beat
+        ) {
+            multiplierCombo = combos[comboSegmentIndex].number
+            comboSegmentIndex++
         }
     }
 
@@ -803,13 +828,13 @@ class PlayerSsc(
         when (judge) {
             JUDGE_PERFECT -> {
                 resultSong.perfect++
-                curCombo++
+                curCombo += multiplierCombo
                 curComboMiss = 0
             }
 
             JUDGE_GREAT -> {
                 resultSong.great++
-                curCombo++
+                curCombo += multiplierCombo
                 curComboMiss = 0
             }
 
@@ -827,7 +852,7 @@ class PlayerSsc(
             JUDGE_MISS -> {
                 resultSong.miss++
                 curCombo = 0
-                curComboMiss++
+                curComboMiss += multiplierCombo
             }
         }
 
@@ -893,7 +918,7 @@ class PlayerSsc(
     private val MEASUREVANISH = if(isMidLine) (decimoHeigtn * 2.375).toDouble() else (decimoHeigtn * 3.5).toDouble()
     private val initArrow = (screen.gdxHeight * 0.575)
     private var rangeAlpha = (screen.gdxHeight * 0.1)
-    private val segmentHeight = screen.gdxHeight * 0.001f
+    private val segmentHeight = screen.gdxHeight * 0.005f
     private var heightBodyHead = (medidaFlechas * 0.3f)
     private var middleSizeFlechas = medidaFlechas * 0.5f
     private val amplitude = medidaFlechas / 3f

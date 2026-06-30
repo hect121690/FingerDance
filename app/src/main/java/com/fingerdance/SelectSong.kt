@@ -21,6 +21,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -127,7 +128,7 @@ lateinit var currentBestGrade : Bitmap
 //private var idAdd = ""
 //private var interstitialAd: InterstitialAd? = null
 
-private lateinit var niveles: ArrayList<Nivel>
+private lateinit var nivel: Nivel
 
 var isMediaPlayerPrepared = false
 val widthJudges = width / 2
@@ -139,7 +140,7 @@ private var numberChannel = ""
 
 private lateinit var difficultySelected : Bitmap
 private lateinit var difficultySelectedHD : Bitmap
-var checkedValuesKsfLocal = ""
+var checkedValuesLocal = ""
 var isOficialSong = false
 
 var isPrime = false
@@ -270,7 +271,7 @@ class SelectSong : AppCompatActivity() {
         txNameChannel.layoutParams.width = (width * 0.35).toInt()
         txPlayerName.layoutParams.width = (width * 0.35).toInt()
 
-        niveles = arrayListOf<Nivel>()
+        nivel = Nivel()
         //recyclerView = findViewById(R.id.recyclerView)
         carouselSong = findViewById(R.id.recyclerView)
 
@@ -541,45 +542,6 @@ class SelectSong : AppCompatActivity() {
         next.visibility = View.GONE
         prev.visibility = View.GONE
 
-        imgOffset.setOnClickListener {
-
-            val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
-            val original = readFileSsc(fileSsc.absolutePath)
-            val charts = parseSscCharts(original)
-            val dialogView = layoutInflater.inflate(R.layout.dialog_edit_offsets, null)
-
-            val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerCharts)
-            val checkAll = dialogView.findViewById<CheckBox>(R.id.checkAll)
-            val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
-            val adapter = ChartOffsetAdapter(charts)
-            recycler.layoutManager = LinearLayoutManager(this)
-            recycler.adapter = adapter
-            checkAll.setOnCheckedChangeListener { _, checked ->
-                charts.forEach {
-                    it.checked = checked
-                }
-                adapter.notifyDataSetChanged()
-            }
-
-            val dialog = AlertDialog.Builder(this)
-                .setView(dialogView)
-                .create()
-
-            btnSave.setOnClickListener {
-
-                val updated = processSscOffsets(
-                    original,
-                    charts.filter { it.checked },
-                    valueOffset.toInt()
-                )
-
-                fileSsc.writeText(updated)
-                dialog.dismiss()
-            }
-
-            dialog.show()
-        }
-
         nextPlayer = MediaPlayer().apply {
             setDataSource("$rutaBase/FingerDance/Themes/$tema/BGAs/next.mp4")
             isLooping = false
@@ -740,13 +702,13 @@ class SelectSong : AppCompatActivity() {
         }
 
         imgBestScore.setOnClickListener{
-            if(niveles[positionActualLvs].fisrtRank.isNotEmpty()){
+            if(nivel.firstRank.isNotEmpty()){
                 if(!commandWindow.isVisible){
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     rankingView.visibility = View.VISIBLE
                     rankingView.startAnimation(animOn)
                     rankingView.setIconDrawable(imgLvSelected.drawable)
-                    rankingView.setNiveles(niveles[positionActualLvs])
+                    rankingView.setNiveles(nivel)
                     constraintMain.addView(linearRanking)
                     nav_back_der.bringToFront()
                     nav_back_Izq.bringToFront()
@@ -822,6 +784,7 @@ class SelectSong : AppCompatActivity() {
             if (commandWindow.isVisible && !linearValues.isVisible ) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
+                oldValueCommand = 0
             }
             if (linearValues.isVisible) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -860,6 +823,7 @@ class SelectSong : AppCompatActivity() {
             if (commandWindow.isVisible && !linearValues.isVisible) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 showCommandWindow(false)
+                oldValueCommand = 0
             }
             if (linearValues.isVisible) {
                 soundPoolSelectSong.play(command_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -1241,13 +1205,63 @@ class SelectSong : AppCompatActivity() {
             true
         }
 
+        imgOffset.setOnClickListener {
+
+            //showModifyOffsetDialog()
+
+        }
+
         if(isVideo){
             video_preview.start()
         }
         mediPlayer.start()
     }
 
-    fun parseSscCharts(content: String): MutableList<SscChart> {
+    private fun showModifyOffsetDialog() {
+        val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
+        val original = readFileSsc(fileSsc.absolutePath)
+        val charts = parseSscCharts(original)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_edit_offsets, null)
+
+        val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerCharts)
+        val checkAll = dialogView.findViewById<CheckBox>(R.id.checkAll)
+        val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
+        val adapter = ChartOffsetAdapter(charts)
+        recycler.layoutManager = LinearLayoutManager(this)
+        recycler.adapter = adapter
+        checkAll.setOnCheckedChangeListener { _, checked ->
+            charts.forEach {
+                it.checked = checked
+            }
+            adapter.notifyDataSetChanged()
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        btnSave.setOnClickListener {
+
+            val updated = processSscOffsets(
+                original,
+                charts.filter { it.checked },
+                valueOffset.toInt()
+            )
+
+            fileSsc.writeText(updated)
+
+            exportModifiedSscToPublicFingerDance(
+                sourceSsc = fileSsc,
+                updatedContent = updated
+            )
+
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun parseSscCharts(content: String): MutableList<SscChart> {
 
         val result = mutableListOf<SscChart>()
 
@@ -1283,7 +1297,8 @@ class SelectSong : AppCompatActivity() {
 
         return result
     }
-    fun processSscOffsets(content: String, selected: List<SscChart>, valueOffset: Int): String {
+
+    private fun processSscOffsets(content: String, selected: List<SscChart>, valueOffset: Int): String {
         val blocks = content.split("#NOTEDATA:;").toMutableList()
         selected.forEach { chart ->
             val index = chart.blockIndex
@@ -1312,6 +1327,45 @@ class SelectSong : AppCompatActivity() {
         return blocks.joinToString("#NOTEDATA:;")
     }
 
+    private fun exportModifiedSscToPublicFingerDance(sourceSsc: File, updatedContent: String) {
+        val normalizedPath = sourceSsc.absolutePath.replace("\\", "/")
+
+        val marker = "/Channels/"
+        val index = normalizedPath.indexOf(marker)
+
+        if (index == -1) {
+            throw IllegalStateException("No se encontró /Channels/ en la ruta: $normalizedPath")
+        }
+
+        val relativeAfterChannels = normalizedPath.substring(index + marker.length)
+        val parts = relativeAfterChannels.split("/")
+
+        if (parts.size < 3) {
+            throw IllegalStateException("Ruta SSC inválida: $normalizedPath")
+        }
+
+        val channelName = parts[0]          // 17-PRIME
+        val songFolderName = parts[1]       // 1401 - Nemesis
+        val sscFileName = sourceSsc.name    // UCS Lv.19.ssc
+
+        val targetDir = File(
+            Environment.getExternalStorageDirectory(),
+            "Finger Dance/Songs/Channels/$channelName/$songFolderName"
+        )
+
+        if (!targetDir.exists()) {
+            targetDir.mkdirs()
+        }
+
+        val targetFile = File(targetDir, sscFileName)
+
+        targetFile.writeText(updatedContent)
+        Toast.makeText(this, "Offset modificado y copia guardada", Toast.LENGTH_SHORT).show()
+        txCurrentBpm.text = "0"
+        txOffset.text = txCurrentBpm.text
+        valueOffset = txOffset.text.toString().toLong()
+        themes.edit().putLong("valueOffset", valueOffset).apply()
+    }
 
     private fun showSelectMode() {
         // 🔥 sube los controles SOBRE el overlay
@@ -1590,7 +1644,6 @@ class SelectSong : AppCompatActivity() {
         playerSong.chartName = level.chartName
         playerSong.stepMaker = level.stepmaker
         playerSong.difficulty = level.difficulty
-
         if(song.isSSC){
             val ssc = readFileSsc(song.rutaSsc)
             val seccions = ssc.split("#NOTEDATA:;")
@@ -1600,6 +1653,11 @@ class SelectSong : AppCompatActivity() {
                     song.rutaSong
                 )
             playerSong.isSSC = true
+            val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
+            checkedValuesLocal = generateCheckedValuesSsc(seccions[level.steps]) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
+            playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
+            isOficialSong = playerSong.checkedValues != ""
+
             if(playerSong.mirror){
                 if(!isHalfDouble){
                     chart.notes = Parser().makeMirror(chart.notes)
@@ -1618,6 +1676,11 @@ class SelectSong : AppCompatActivity() {
             playerSong.rutaKsf = level.rutaKsf
             playerSong.isSSC = false
             load(playerSong.rutaKsf, isHalfDouble)
+            val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
+            checkedValuesLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
+            playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
+            isOficialSong = playerSong.checkedValues != ""
+
             if(playerSong.mirror){
                 if(!isHalfDouble){
                     ksf.makeMirror()
@@ -1637,15 +1700,6 @@ class SelectSong : AppCompatActivity() {
 
         if(!isOnline){
             if(!isOffline){
-                if(currentChannel == "06-FAVORITES"){
-                    val nameChannels = AppResources.listSongsChannelKsf.find { it.title == lbNameSong.text.toString() }?.channel
-                    channelIndex = validFolders.indexOf(nameChannels)
-                    val canciones = mockListChannels.find { it.canal == nameChannels }?.canciones
-                    songIndex = canciones?.indexOfFirst { it.cancion == currentSong } ?: -1
-                }else {
-                    channelIndex = validFolders.indexOf(currentChannel)
-                    songIndex = real
-                }
                 levelIndex = positionActualLvs
             }
         }
@@ -2428,10 +2482,9 @@ class SelectSong : AppCompatActivity() {
     private val scaledExtraGrades = mutableMapOf<String, Bitmap>()
     private val gradeCombinationCache = mutableMapOf<String, Bitmap>()
 
-    private fun getBitMapGrade(positionActualLvs: Int): Bitmap {
+    private fun getBitMapGrade(checkedValues: String): Bitmap {
 
-        val gradeFull = listSongScores[positionActualLvs].grade
-        if (gradeFull.isEmpty()) return emptyBitmap
+        val gradeFull = listSongScores.find { it.checkedValues == checkedValues }?.grade ?: return emptyBitmap
 
         if (gradeCombinationCache.containsKey(gradeFull)) {
             return gradeCombinationCache[gradeFull]!!
@@ -2470,13 +2523,11 @@ class SelectSong : AppCompatActivity() {
         return result
     }
 
-    private fun getWorldBitMapGrade(positionActualLvs: Int): Bitmap {
+    private fun getWorldBitMapGrade(): Bitmap {
 
-        val firstRankList = niveles[positionActualLvs].fisrtRank
-        if (firstRankList.isEmpty()) return emptyBitmap
+        if (nivel.nivel == "?") return emptyBitmap
 
-        val gradeFull = firstRankList[0].grade
-        if (gradeFull.isEmpty()) return emptyBitmap
+        val gradeFull = nivel.firstRank[0].grade
 
         // 🔥 Cache global reutilizable
         if (gradeCombinationCache.containsKey(gradeFull)) {
@@ -2573,7 +2624,7 @@ class SelectSong : AppCompatActivity() {
             linearCommands.startAnimation(animOn)
             linearInfo.startAnimation(animOn)
             soundPoolSelectSong.play(command_switchKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-            isFocusCommandWindow(1)
+            isFocusCommandWindow(oldValueCommand)
         }else{
             commandWindow.visibility = View.GONE
             commandWindowBG.visibility = View.GONE
@@ -2670,28 +2721,33 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun moverLvs() {
-        val realPosition = getRealIndex(oldValue) // 🔥 CLAVE
+        val realPosition = getRealIndex(oldValue) // CLAVE
         val lv = AppResources.listSongsChannelKsf[realPosition].listKsf[positionActualLvs]
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
 
         lbLvActive.text = lv.level
 
         currentLevel = lv.level
-        lbBestScore.text = listSongScores[positionActualLvs].puntaje
+        lbBestScore.text = listSongScores.find { it.checkedValues == lv.checkedValues }?.puntaje ?: "0"
         currentScore = lbBestScore.text.toString()
-
-        currentBestGrade = getBitMapGrade(positionActualLvs)
+        currentBestGrade = getBitMapGrade(lv.checkedValues)
         imgBestGrade.setImageBitmap(currentBestGrade)
-        val currentBestWorldGrade = getWorldBitMapGrade(positionActualLvs)
+
+        val rank = listGlobalRanking[lv.checkedValues]
+        val ranking = rank ?: ArrayList(List(3) { FirstRank() })
+        nivel = Nivel(lv.level, lv.checkedValues, ranking)
+
+        val currentBestWorldGrade = getWorldBitMapGrade()
         imgWorldGrade.setImageBitmap(currentBestWorldGrade)
 
-        if(niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
-            lbWorldName.text = if (niveles[positionActualLvs].fisrtRank[0].nombre != "") niveles[positionActualLvs].fisrtRank[0].nombre else "---------"
-            lbWorldScore.text = if (niveles[positionActualLvs].fisrtRank[0].puntaje != "") niveles[positionActualLvs].fisrtRank[0].puntaje else "-"
+        if(listGlobalRanking.isNotEmpty()) {
+
+            lbWorldName.text = if (ranking[0].nombre != "") ranking[0].nombre else "---------"
+            lbWorldScore.text = if (ranking[0].puntaje != "") ranking[0].puntaje else "-"
             currentWorldScore = listOf(
-                niveles[positionActualLvs].fisrtRank[0].puntaje,
-                niveles[positionActualLvs].fisrtRank[1].puntaje,
-                niveles[positionActualLvs].fisrtRank[2].puntaje
+                ranking[0].puntaje,
+                ranking[1].puntaje,
+                ranking[2].puntaje
             )
         }else{
             lbWorldName.text = "---------"
@@ -2712,7 +2768,6 @@ class SelectSong : AppCompatActivity() {
         lbArtist.isSelected = true
         lbNameSong.isSelected = true
 
-        // 🔥 AQUÍ estaba el bug
         if (currentChannel == "03-SHORT CUT - V2" ||
             currentChannel == "04-REMIX - V2" ||
             currentChannel == "05-FULLSONGS - V2") {
@@ -2777,45 +2832,20 @@ class SelectSong : AppCompatActivity() {
         }else{
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
         }
-        if(listSongScores.find { it.cancion == item.title } != null){
-            if(item.listKsf.size != listSongScores.size){
-                db.deleteCancion(item.title)
-                listSongScores = arrayOf()
-            }
+        if(item.listKsf.size != listSongScores.size){
+            db.deleteCancion(item.title)
+            listSongScores = arrayOf()
         }
+
         if(listSongScores.isEmpty()){
             for (nivel in item.listKsf) {
                 db.insertNivel(
                     canal = currentChannel,
-                    cancion = item.title,
-                    nivel = nivel.level,
-                    puntaje = "0",
-                    grade = "",
-                    type = if(nivel.typeSteps == "") "NORMAL" else nivel.typeSteps,
-                    player = if(nivel.typePlayer == "") "A" else nivel.typePlayer,
-                    chartName = nivel.chartName,
-                    credit = nivel.stepmaker,
-                    difficulty = nivel.difficulty
+                    cancion = currentSong,
+                    checkedValues = nivel.checkedValues
                 )
             }
             listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
-        }
-
-        val rankingItem = listGlobalRanking.find { it.cancion == item.title }
-        if(rankingItem != null && !isOffline){
-            niveles = rankingItem.niveles
-            isOficialSong = true
-            if(item.isFavorite){
-                imgFavorite.setImageBitmap(bitFavoriteListed)
-            }else{
-                imgFavorite.setImageBitmap(bitFavorite)
-            }
-        }else if (item.isFavorite) {
-            niveles = ArrayList(List(listSongScores.size) { Nivel() })
-            isOficialSong = true
-        }else{
-            niveles = ArrayList(List(listSongScores.size) { Nivel() })
-            isOficialSong = false
         }
 
         if (isFileExists(File(item.rutaPreview))) {

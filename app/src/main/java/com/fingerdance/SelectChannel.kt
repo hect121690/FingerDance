@@ -218,72 +218,26 @@ class SelectChannel : AppCompatActivity() {
 
                 /*
                 val gson = GsonBuilder().setPrettyPrinting().create()
-                //val i = position
-                val listCanales = arrayListOf<Canal>()
-                for(i in 0 until listChannels.size) {
-                    val listCanciones = arrayListOf<Cancion>()
-                    for (a in 0 until listChannels[i].listCanciones.size) {
-                        val listNiveles = arrayListOf<Nivel>()
-                        for (b in 0 until listChannels[i].listCanciones[a].listKsf.size) {
-                            val checkedValues = listChannels[i].listCanciones[a].listKsf[b].checkedValues
-                            val level = listChannels[i].listCanciones[a].listKsf[b].level
-                            val type = listChannels[i].listCanciones[a].listKsf[b].typeSteps
-                            val player = listChannels[i].listCanciones[a].listKsf[b].typePlayer
-                            val chartName = listChannels[i].listCanciones[a].listKsf[b].chartName
-                            val stepmaker = listChannels[i].listCanciones[a].listKsf[b].stepmaker
-                            val difficulty = listChannels[i].listCanciones[a].listKsf[b].difficulty
-                            val n = Nivel(level, checkedValues, type, player, chartName, stepmaker, difficulty, ArrayList(List(3) { FirstRank() }))
-                            listNiveles.add(n)
-                        }
-                        val cancion = Cancion(listChannels[i].listCanciones[a].title, listNiveles)
-                        listCanciones.add(cancion)
-                    }
-                    val canal = Canal(listChannels[i].nombre, listCanciones)
-                    listCanales.add(canal)
-                }
 
-                val json = gson.toJson(listCanales)
+                val rankings = linkedMapOf<String, Any>()
+                for (i in 0 until listChannels.size) {
+                    if (listChannels[i].nombre !in validFolders) {
+                        continue
+                    }
+                    for (a in 0 until listChannels[i].listCanciones.size) {
+
+                        for (b in 0 until listChannels[i].listCanciones[a].listKsf.size) {
+                            val level = listChannels[i].listCanciones[a].listKsf[b]
+                            rankings[level.checkedValues] = mapOf(
+                                "firstRank" to ArrayList(List(3) { FirstRank() })
+                            )
+                        }
+                    }
+                }
+                val json = gson.toJson(rankings.keys.toList())
                 Log.d("JSON", json)
                 */
-                val gson = GsonBuilder().setPrettyPrinting().create()
-                val listCanales = arrayListOf<Canal>()
-                for(i in 0 until listChannels.size) {
-                    val listCanciones = arrayListOf<Cancion>()
-                    for (a in 0 until listChannels[i].listCanciones.size) {
-                        val listNiveles = arrayListOf<Nivel>()
-                        for (b in 0 until listChannels[i].listCanciones[a].listKsf.size) {
-                            val checkedValues = listChannels[i].listCanciones[a].listKsf[b].checkedValues
-                            val level = listChannels[i].listCanciones[a].listKsf[b].level
-                            val type = listChannels[i].listCanciones[a].listKsf[b].typeSteps
-                            val player = listChannels[i].listCanciones[a].listKsf[b].typePlayer
-                            val chartName = listChannels[i].listCanciones[a].listKsf[b].chartName
-                            val stepmaker = listChannels[i].listCanciones[a].listKsf[b].stepmaker
-                            val difficulty = listChannels[i].listCanciones[a].listKsf[b].difficulty
-
-                            val uniqueId = generateId("$level|$type|$player|$chartName|$stepmaker|$difficulty")
-                            val n = Nivel(level, checkedValues, type, player, chartName, stepmaker, difficulty, ArrayList(List(3) { FirstRank() }))
-                            listNiveles.add(n)
-                        }
-                        val cancion = Cancion(listChannels[i].listCanciones[a].title, listNiveles)
-                        listCanciones.add(cancion)
-                    }
-                    val canal = Canal(listChannels[i].nombre, listCanciones)
-                    listCanales.add(canal)
-                }
-
-                val json = gson.toJson(listCanales)
-                Log.d("JSON", json)
-
-
-                if(!isOffline){
-                    listenScoreChannel(channelSelected.nombre) { listSongs ->
-                        listGlobalRanking = listSongs
-                        navigateToSelectSong()
-                    }
-                } else {
-                    navigateToSelectSong()
-                }
-
+                navigateToSelectSong()
             } else {
 
                 AlertDialog.Builder(this)
@@ -297,12 +251,6 @@ class SelectChannel : AppCompatActivity() {
         }
 
         imgFloor.setOnClickListener { imgAceptar.performClick() }
-    }
-
-    private fun generateId(text: String): String {
-        val md = MessageDigest.getInstance("MD5")
-        val digest = md.digest(text.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
     }
 
     private fun animaNavs(bitmap: android.graphics.Bitmap): AnimationDrawable {

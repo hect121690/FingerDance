@@ -159,7 +159,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
         mediaPlayer = MediaPlayer()
 
-        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false, false,"", "", "")
+        playerSong = PlayerSong("","", "",0.0,"", 0.0, "","",false, false,"", "", "")
 
         constraintMain = findViewById(R.id.constraintMain)
         linearBG = findViewById(R.id.linearBG)

@@ -88,6 +88,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.system.exitProcess
 import androidx.core.graphics.drawable.toDrawable
+import com.google.firebase.database.ChildEventListener
 
 private var descargando = true
 var height: Int = 0
@@ -131,7 +132,7 @@ lateinit var arrGradesDesc : ArrayList<Bitmap>
 lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
 lateinit var channelFavorites : Channels
 lateinit var listFavorites : ArrayList<Song>
-lateinit var mockListChannels : ArrayList<Canal>
+lateinit var mockListChannels : ArrayList<Nivel>
 
 private var bmLogo : Bitmap? = null
 
@@ -268,9 +269,9 @@ class MainActivity : AppCompatActivity(), Serializable {
                 val json = assets.open("mockChannels.json")
                     .bufferedReader().use { it.readText() }
 
-                val listChannelsJson: ArrayList<Canal> = Gson().fromJson(
+                val listChannelsJson: ArrayList<Nivel> = Gson().fromJson(
                     json,
-                    object : TypeToken<ArrayList<Canal>>() {}.type
+                    object : TypeToken<ArrayList<Nivel>>() {}.type
                 )
 
                 withContext(Dispatchers.Main) {
@@ -281,7 +282,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 Log.e("MOCK", "Error cargando JSON: ${e.message}")
             }
         }
-        playerSong = PlayerSong("","", "",0.0,0.0, 0.0, "","",false, false,"", "", "")
+        playerSong = PlayerSong("","", "",0.0,"", 0.0, "","",false, false,"", "", "")
         mediPlayer = MediaPlayer()
         medidaFlechas = (width / 7f)
 
@@ -523,6 +524,76 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         } else {
             creaDescarga()
+        }
+        if(!isOnline || !isOffline) {
+            getEventListenerFirebase()
+            firebaseDatabase.getReference("rankings").addChildEventListener(rankingsListener)
+        }
+
+        /*
+        if (!canWritePublicStorage()) {
+            requestManageStoragePermission()
+            val acept = true
+        }
+        */
+
+    }
+
+    private fun canWritePublicStorage(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            true
+        }
+    }
+
+    private fun requestManageStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+            intent.data = "package:$packageName".toUri()
+            startActivity(intent)
+        }
+    }
+
+
+    private fun getEventListenerFirebase() {
+        rankingsListener = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                val rankingId = snapshot.key ?: return
+                val rankings = arrayListOf<FirstRank>()
+                for (rankSnapshot in snapshot.child("firstRank").children) {
+                    val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                    val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                    val grade = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
+                    rankings.add(FirstRank(nombre, puntaje, grade))
+                }
+
+                listGlobalRanking[rankingId] = rankings
+            }
+
+            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+                val rankingId = snapshot.key ?: return
+                val rankings = arrayListOf<FirstRank>()
+                for (rankSnapshot in snapshot.child("firstRank").children) {
+                    val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
+                    val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
+                    val grade = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
+
+                    rankings.add(FirstRank(nombre, puntaje, grade))
+                }
+                listGlobalRanking[rankingId] = rankings
+                Log.d("FirebaseRanking", "Ranking actualizado: $rankingId")
+            }
+
+            override fun onChildRemoved(snapshot: DataSnapshot) {
+                val rankingId = snapshot.key ?: return
+                listGlobalRanking.remove(rankingId)
+            }
+
+            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al obtener datos: ${error.message}")
+            }
         }
     }
 
@@ -2325,6 +2396,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         } catch (e: Exception) {
             Log.e("MainActivity", "Error al limpiar listEfectsDisplay: ${e.message}")
         }
+        firebaseDatabase.getReference("rankings").removeEventListener(rankingsListener)
     }
 
     @Deprecated("Deprecated in Java")
@@ -2357,15 +2429,10 @@ class MainActivity : AppCompatActivity(), Serializable {
 }
 
 class ObjPuntaje(
-    var cancion: String = "",
+    var checkedValues: String,
     var puntaje: String = "",
     var grade: String = "",
-    var type: String,
-    var player: String,
-    var chartName: String,
-    var credit: String,
-    var difficulty: String
-)
+    )
 
 data class Resultado(
     var perfect: String = "0",

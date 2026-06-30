@@ -237,14 +237,7 @@ class SelectChannelHorizontal : AppCompatActivity() {
                 currentChannel = listChannels[currentPosition].nombre
                 Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
 
-                if(!isOffline){
-                    listenScoreChannel(listChannels[currentPosition].nombre) { listSongs ->
-                        listGlobalRanking = listSongs
-                        navigateToSelectSong()
-                    }
-                } else {
-                    navigateToSelectSong()
-                }
+                navigateToSelectSong()
 
             } else {
 

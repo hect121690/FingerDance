@@ -7,6 +7,9 @@ import com.fingerdance.Channels
 import com.fingerdance.Ksf
 import com.fingerdance.Song
 import com.fingerdance.generateCheckedValuesSsc
+import com.fingerdance.generateId
+import com.fingerdance.listGlobalRanking
+import com.fingerdance.playerSong
 import com.fingerdance.readFileSsc
 import com.fingerdance.tema
 import java.io.File
@@ -144,9 +147,9 @@ class LoadingSongs {
                         typePlayer.contains("single", true) ||
                         typePlayer.contains("half", true)
                     ) {
-
                         val player = if (typePlayer.contains("half", true)) "B" else "A"
-                        //checkedValues = generateCheckedValuesSsc(seccions[index]) + "|${File(rutaCancion).length()}"
+                        val uniqueId = generateId("${numberLevel}|${typeSteps}|${player}|${chartName}|${credit}|${difficulty}")
+                        checkedValues = generateCheckedValuesSsc(seccions[index]) + "|${File(rutaCancion).length()}-$uniqueId"
                         val icon = if (player == "B") rutaBitActiveHalfDouble else rutaBitActiveSingle
 
                         listLevels.add(

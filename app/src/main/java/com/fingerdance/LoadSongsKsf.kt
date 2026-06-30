@@ -149,7 +149,7 @@ class LoadSongsKsf {
                             val file = File(it.toString())
 
 
-                            ksf.checkedValues = generateCheckedValuesKsf(file)
+                            //ksf.checkedValues = generateCheckedValuesKsf(file)
 
 
                             file.useLines { lines ->
@@ -218,11 +218,17 @@ class LoadSongsKsf {
                     }
                 }
             }
-            /*
+
             for(i in 0 until songKsf.listKsf.size){
-                songKsf.listKsf[i].checkedValues = "${songKsf.listKsf[i].checkedValues}|${File(songKsf.rutaSong).length()}"
+                val uniqueId = generateId("$${songKsf.listKsf[i].level}|" +
+                        "${songKsf.listKsf[i].typeSteps}|" +
+                        "${songKsf.listKsf[i].typePlayer}|" +
+                        "$${songKsf.listKsf[i].chartName}|" +
+                        "$${songKsf.listKsf[i].stepmaker}|" +
+                        "$${songKsf.listKsf[i].difficulty}")
+                songKsf.listKsf[i].checkedValues = "${songKsf.listKsf[i].checkedValues}|${File(songKsf.rutaSong).length()}-$uniqueId"
             }
-            */
+
             if(songKsf.listKsf.isNotEmpty()) {
                 listSongs.add(songKsf)
             }

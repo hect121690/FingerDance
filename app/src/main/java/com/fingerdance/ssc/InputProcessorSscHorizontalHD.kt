@@ -12,6 +12,8 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
+private val TOUCH_RADIUS = widthBtnsHorizontal * 0.15f
+
 class InputProcessorSscHorizontalHD : InputAdapter() {
 
     private val btnOffPress = Texture(
@@ -26,49 +28,19 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         )
     )
 
-    // ---------------------------------------------------
-    // 10 pads físicos
-    // ---------------------------------------------------
-
-    val getKeyBoard = IntArray(
-        padPositionsHorizontalHD.size
-    ) { KEY_NONE }
-
-    // ---------------------------------------------------
-    // estado lógico SSC
-    // ---------------------------------------------------
-
+    val getKeyBoard = IntArray(padPositionsHorizontalHD.size) { KEY_NONE }
     val logicalState = IntArray(10) { KEY_NONE }
 
-    // ---------------------------------------------------
-    // multitouch real
-    // ---------------------------------------------------
-
-    private val pointerToPadMap =
-        mutableMapOf<Int, Int>()
-
-    private val padPointers =
-        Array(padPositionsHorizontalHD.size) {
-            mutableSetOf<Int>()
-        }
-
-    private val wasPressed =
-        BooleanArray(padPositionsHorizontalHD.size)
-
-    // ---------------------------------------------------
-    // KEYBOARD
-    // ---------------------------------------------------
+    private val pointerToPadsMap = mutableMapOf<Int, Set<Int>>()
+    private val padPointers = Array(padPositionsHorizontalHD.size) { mutableSetOf<Int>() }
+    private val wasPressed = BooleanArray(padPositionsHorizontalHD.size)
 
     private val keyToPadMap = mapOf(
-
-        // izquierda
         Keys.NUMPAD_1 to 0,
         Keys.NUMPAD_7 to 1,
         Keys.NUMPAD_5 to 2,
         Keys.NUMPAD_9 to 3,
         Keys.NUMPAD_3 to 4,
-
-        // derecha
         Keys.Z to 5,
         Keys.Q to 6,
         Keys.S to 7,
@@ -76,37 +48,21 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         Keys.C to 9
     )
 
-    // ---------------------------------------------------
-    // KEY DOWN
-    // ---------------------------------------------------
-
     override fun keyDown(keycode: Int): Boolean {
-
         keyToPadMap[keycode]?.let { pad ->
-
             padPointers[pad].add(-keycode)
         }
 
         return keyToPadMap.containsKey(keycode)
     }
 
-    // ---------------------------------------------------
-    // KEY UP
-    // ---------------------------------------------------
-
     override fun keyUp(keycode: Int): Boolean {
-
         keyToPadMap[keycode]?.let { pad ->
-
             padPointers[pad].remove(-keycode)
         }
 
         return keyToPadMap.containsKey(keycode)
     }
-
-    // ---------------------------------------------------
-    // TOUCH DOWN
-    // ---------------------------------------------------
 
     override fun touchDown(
         screenX: Int,
@@ -114,19 +70,17 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         pointer: Int,
         button: Int
     ): Boolean {
+        val pads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (pads.isEmpty()) return false
 
-        val pad = getPadIndex(screenX.toFloat(), screenY.toFloat()) ?: return false
+        pointerToPadsMap[pointer] = pads
 
-        pointerToPadMap[pointer] = pad
-
-        padPointers[pad].add(pointer)
+        pads.forEach { pad ->
+            padPointers[pad].add(pointer)
+        }
 
         return true
     }
-
-    // ---------------------------------------------------
-    // TOUCH UP
-    // ---------------------------------------------------
 
     override fun touchUp(
         screenX: Int,
@@ -134,62 +88,39 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         pointer: Int,
         button: Int
     ): Boolean {
-
-        pointerToPadMap.remove(pointer)
+        pointerToPadsMap.remove(pointer)
 
         for (i in padPointers.indices) {
-
             padPointers[i].remove(pointer)
         }
 
         return true
     }
 
-    // ---------------------------------------------------
-    // TOUCH DRAGGED
-    // ---------------------------------------------------
-
     override fun touchDragged(
         screenX: Int,
         screenY: Int,
         pointer: Int
     ): Boolean {
+        val newPads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (newPads.isEmpty()) return true
 
-        val newPad =
-            getPadIndex(
-                screenX.toFloat(),
-                screenY.toFloat()
-            )
+        val oldPads = pointerToPadsMap[pointer].orEmpty()
 
-        val oldPad =
-            pointerToPadMap[pointer]
+        if (oldPads == newPads) return true
 
-        if (oldPad == newPad) {
-            return true
+        oldPads.forEach { oldPad ->
+            padPointers[oldPad].remove(pointer)
         }
 
-        oldPad?.let {
-
-            padPointers[it].remove(pointer)
+        newPads.forEach { newPad ->
+            padPointers[newPad].add(pointer)
         }
 
-        newPad?.let {
-
-            pointerToPadMap[pointer] = it
-
-            padPointers[it].add(pointer)
-
-        } ?: run {
-
-            pointerToPadMap.remove(pointer)
-        }
+        pointerToPadsMap[pointer] = newPads
 
         return true
     }
-
-    // ---------------------------------------------------
-    // TOUCH CANCEL
-    // ---------------------------------------------------
 
     override fun touchCancelled(
         screenX: Int,
@@ -197,156 +128,120 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         pointer: Int,
         button: Int
     ): Boolean {
-
-        return touchUp(
-            screenX,
-            screenY,
-            pointer,
-            button
-        )
+        return touchUp(screenX, screenY, pointer, button)
     }
 
-    // ---------------------------------------------------
-    // PAD DETECTION
-    // ---------------------------------------------------
-
-    private fun getPadIndex(x: Float, y: Float): Int? {
-
-        // ---------------------------------------------------
-        // pads visibles reales
-        // ---------------------------------------------------
-
-        val visible = padPositionsHorizontalHD.indexOfFirst { pad ->
-                x in pad[0]..(pad[0] + widthBtnsHorizontal) &&
-                        y in pad[1]..(pad[1] + heightBtnsHorizontal)
-            }
-
-        if (visible >= 0) {
-            return normalizePadIndex(visible)
-        }
-
-        // ---------------------------------------------------
-        // touch areas diagonales HD
-        // ---------------------------------------------------
-
-        val extra = touchAreasHorizontalHD.indexOfFirst { area ->
-
-                x in area[0]..(area[0] + (widthBtnsHorizontal / 2f)) &&
-                        y in area[1]..(area[1] + heightBtnsHorizontal)
-            }
-
-        if (extra >= 0) {
-            return areaToPadMapHD[extra]
-        }
-
-        // ---------------------------------------------------
-        // fallback nearest
-        // ---------------------------------------------------
-
-        var minDist = Float.MAX_VALUE
-        var nearest = -1
+    private fun getPadIndices(x: Float, y: Float): Set<Int> {
+        val result = mutableSetOf<Int>()
+        val radiusSq = TOUCH_RADIUS * TOUCH_RADIUS
 
         for (i in padPositionsHorizontalHD.indices) {
+            val pad = padPositionsHorizontalHD[i]
 
-            val pad =
-                padPositionsHorizontalHD[i]
+            val left = pad[0]
+            val top = pad[1]
+            val right = left + widthBtnsHorizontal
+            val bottom = top + heightBtnsHorizontal
 
-            val cx =
-                pad[0] + widthBtnsHorizontal / 2f
+            val closestX = x.coerceIn(left, right)
+            val closestY = y.coerceIn(top, bottom)
 
-            val cy =
-                pad[1] + heightBtnsHorizontal / 2f
+            val dx = x - closestX
+            val dy = y - closestY
+            val distanceSq = dx * dx + dy * dy
 
-            val dx = x - cx
-            val dy = y - cy
-
-            val dist =
-                dx * dx + dy * dy
-
-            if (dist < minDist) {
-
-                minDist = dist
-                nearest = i
+            if (distanceSq <= radiusSq) {
+                result.add(normalizePadIndex(i))
             }
         }
 
-        return nearest.takeIf { it >= 0 }
+        for (i in touchAreasHorizontalHD.indices) {
+            val area = touchAreasHorizontalHD[i]
+
+            val left = area[0]
+            val top = area[1]
+            val right = left + (widthBtnsHorizontal / 2f)
+            val bottom = top + heightBtnsHorizontal
+
+            val closestX = x.coerceIn(left, right)
+            val closestY = y.coerceIn(top, bottom)
+
+            val dx = x - closestX
+            val dy = y - closestY
+            val distanceSq = dx * dx + dy * dy
+
+            if (distanceSq <= radiusSq) {
+                areaToPadMapHD[i]?.let { mappedPad ->
+                    result.add(mappedPad)
+                }
+            }
+        }
+
+        return result
     }
 
-    // ---------------------------------------------------
-    // UPDATE
-    // ---------------------------------------------------
-
     private fun normalizePadIndex(index: Int): Int {
-
         return when (index) {
-
             0 -> 5
             1 -> 6
-
             8 -> 3
             9 -> 4
-
             else -> index
         }
     }
 
     fun update() {
+        val activePointers = mutableSetOf<Int>()
+
+        for (i in 0 until 20) {
+            if (Gdx.input.isTouched(i)) {
+                activePointers.add(i)
+            }
+        }
+
+        pointerToPadsMap.keys.toList().forEach { pointer ->
+            if (pointer >= 0 && pointer !in activePointers) {
+                pointerToPadsMap.remove(pointer)
+
+                for (i in padPointers.indices) {
+                    padPointers[i].remove(pointer)
+                }
+            }
+        }
 
         for (i in logicalState.indices) {
-
             logicalState[i] = KEY_NONE
         }
 
         for (i in padPositionsHorizontalHD.indices) {
-
-            val pressedNow =
-                padPointers[i].isNotEmpty()
+            val pressedNow = padPointers[i].isNotEmpty()
 
             val state = when {
-
-                pressedNow && !wasPressed[i] ->
-                    KEY_DOWN
-
-                pressedNow && wasPressed[i] ->
-                    KEY_PRESS
-
-                !pressedNow && wasPressed[i] ->
-                    KEY_UP
-
-                else ->
-                    KEY_NONE
+                pressedNow && !wasPressed[i] -> KEY_DOWN
+                pressedNow && wasPressed[i] -> KEY_PRESS
+                !pressedNow && wasPressed[i] -> KEY_UP
+                else -> KEY_NONE
             }
 
             getKeyBoard[i] = state
-
             logicalState[i] = state
-
             wasPressed[i] = pressedNow
         }
     }
 
-    // ---------------------------------------------------
-    // HELPERS
-    // ---------------------------------------------------
-
     fun isPadPressed(index: Int): Boolean {
-
         return getKeyBoard.getOrNull(index) == KEY_DOWN ||
                 getKeyBoard.getOrNull(index) == KEY_PRESS
     }
 
     fun getPressedPads(): List<Int> {
-
         val result = mutableListOf<Int>()
 
         for (i in getKeyBoard.indices) {
-
             if (
                 getKeyBoard[i] == KEY_DOWN ||
                 getKeyBoard[i] == KEY_PRESS
             ) {
-
                 result.add(i)
             }
         }
@@ -354,16 +249,9 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         return result
     }
 
-    // ---------------------------------------------------
-    // RENDER
-    // ---------------------------------------------------
-
     fun render(batch: SpriteBatch) {
-
         for (i in padPositionsHorizontalHD.indices) {
-
-            val (x, y) =
-                padPositionsHorizontalHD[i]
+            val (x, y) = padPositionsHorizontalHD[i]
 
             val texture =
                 if (
@@ -385,35 +273,21 @@ class InputProcessorSscHorizontalHD : InputAdapter() {
         }
     }
 
-    // ---------------------------------------------------
-    // RESET
-    // ---------------------------------------------------
-
     fun resetState() {
-
         for (i in padPointers.indices) {
-
             padPointers[i].clear()
-
             wasPressed[i] = false
-
             getKeyBoard[i] = KEY_NONE
         }
 
         for (i in logicalState.indices) {
-
             logicalState[i] = KEY_NONE
         }
 
-        pointerToPadMap.clear()
+        pointerToPadsMap.clear()
     }
 
-    // ---------------------------------------------------
-    // DISPOSE
-    // ---------------------------------------------------
-
     fun dispose() {
-
         btnOffPress.dispose()
         btnOnPress.dispose()
     }

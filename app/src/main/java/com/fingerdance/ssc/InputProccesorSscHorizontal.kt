@@ -12,25 +12,19 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
+private val TOUCH_RADIUS = widthBtnsHorizontal * 0.15f
+
 class InputProcessorSscHorizontal : InputAdapter() {
 
     private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
     private val btnOnPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_on.png"))
 
-    // 🔹 10 pads físicos
     val getKeyBoard = IntArray(padPositionsHorizontal.size) { KEY_NONE }
-
-    // 🔹 5 pads lógicos
     val logicalState = IntArray(5) { KEY_NONE }
 
-    // 🔥 fuente real de input
-    private val pointerToPadMap = mutableMapOf<Int, Int>()
+    private val pointerToPadsMap = mutableMapOf<Int, Set<Int>>()
     private val padPointers = Array(padPositionsHorizontal.size) { mutableSetOf<Int>() }
-
-    // 🔥 estado anterior
     private val wasPressed = BooleanArray(padPositionsHorizontal.size)
-
-    // ---------------- KEYBOARD ----------------
 
     private val keyToPadMap = mapOf(
         Keys.NUMPAD_1 to 0,
@@ -61,19 +55,20 @@ class InputProcessorSscHorizontal : InputAdapter() {
         return keyToPadMap.containsKey(keycode)
     }
 
-    // ---------------- TOUCH ----------------
-
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        val pad = getPadIndex(screenX.toFloat(), screenY.toFloat()) ?: return false
+        val pads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (pads.isEmpty()) return false
 
-        pointerToPadMap[pointer] = pad
-        padPointers[pad].add(pointer)
+        pointerToPadsMap[pointer] = pads
+        pads.forEach { pad ->
+            padPointers[pad].add(pointer)
+        }
 
         return true
     }
 
     override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        pointerToPadMap.remove(pointer)
+        pointerToPadsMap.remove(pointer)
 
         for (i in padPointers.indices) {
             padPointers[i].remove(pointer)
@@ -83,19 +78,22 @@ class InputProcessorSscHorizontal : InputAdapter() {
     }
 
     override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
-        val newPad = getPadIndex(screenX.toFloat(), screenY.toFloat())
-        val oldPad = pointerToPadMap[pointer]
+        val newPads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (newPads.isEmpty()) return true
 
-        if (oldPad == newPad) return true
+        val oldPads = pointerToPadsMap[pointer].orEmpty()
 
-        oldPad?.let {
-            padPointers[it].remove(pointer)
+        if (oldPads == newPads) return true
+
+        oldPads.forEach { oldPad ->
+            padPointers[oldPad].remove(pointer)
         }
 
-        newPad?.let {
-            pointerToPadMap[pointer] = it
-            padPointers[it].add(pointer)
-        } ?: pointerToPadMap.remove(pointer)
+        newPads.forEach { newPad ->
+            padPointers[newPad].add(pointer)
+        }
+
+        pointerToPadsMap[pointer] = newPads
 
         return true
     }
@@ -104,51 +102,57 @@ class InputProcessorSscHorizontal : InputAdapter() {
         return touchUp(screenX, screenY, pointer, button)
     }
 
-    // ---------------- PAD DETECTION (HORIZONTAL) ----------------
-
-    private fun getPadIndex(x: Float, y: Float): Int? {
-
-        val visible = padPositionsHorizontal.indexOfFirst { pad ->
-            x in pad[0]..(pad[0] + widthBtnsHorizontal) &&
-                    y in pad[1]..(pad[1] + heightBtnsHorizontal)
-        }
-
-        if (visible >= 0) return visible
-
-        // fallback tipo arcade
-        var minDist = Float.MAX_VALUE
-        var nearest = -1
+    private fun getPadIndices(x: Float, y: Float): Set<Int> {
+        val result = mutableSetOf<Int>()
+        val radiusSq = TOUCH_RADIUS * TOUCH_RADIUS
 
         for (i in padPositionsHorizontal.indices) {
             val pad = padPositionsHorizontal[i]
 
-            val cx = pad[0] + widthBtnsHorizontal / 2f
-            val cy = pad[1] + heightBtnsHorizontal / 2f
+            val left = pad[0].toFloat()
+            val top = pad[1].toFloat()
+            val right = left + widthBtnsHorizontal
+            val bottom = top + heightBtnsHorizontal
 
-            val dx = x - cx
-            val dy = y - cy
-            val dist = dx * dx + dy * dy
+            val closestX = x.coerceIn(left, right)
+            val closestY = y.coerceIn(top, bottom)
 
-            if (dist < minDist) {
-                minDist = dist
-                nearest = i
+            val dx = x - closestX
+            val dy = y - closestY
+            val distanceSq = dx * dx + dy * dy
+
+            if (distanceSq <= radiusSq) {
+                result.add(i)
             }
         }
 
-        return nearest.takeIf { it >= 0 }
+        return result
     }
 
-    // ---------------- UPDATE (🔥 CORE) ----------------
-
     fun update() {
+        val activePointers = mutableSetOf<Int>()
 
-        // 🔹 reset lógico antes de recalcular
+        for (i in 0 until 20) {
+            if (Gdx.input.isTouched(i)) {
+                activePointers.add(i)
+            }
+        }
+
+        pointerToPadsMap.keys.toList().forEach { pointer ->
+            if (pointer >= 0 && pointer !in activePointers) {
+                pointerToPadsMap.remove(pointer)
+
+                for (i in padPointers.indices) {
+                    padPointers[i].remove(pointer)
+                }
+            }
+        }
+
         for (i in logicalState.indices) {
             logicalState[i] = KEY_NONE
         }
 
         for (i in padPositionsHorizontal.indices) {
-
             val pressedNow = padPointers[i].isNotEmpty()
 
             val state = when {
@@ -160,21 +164,21 @@ class InputProcessorSscHorizontal : InputAdapter() {
 
             getKeyBoard[i] = state
 
-            // 🔥 aplicar a lógico
             val logical = getLogicalPad(i)
 
             when (state) {
                 KEY_DOWN -> logicalState[logical] = KEY_DOWN
-                KEY_PRESS -> if (logicalState[logical] != KEY_DOWN)
+                KEY_PRESS -> if (logicalState[logical] != KEY_DOWN) {
                     logicalState[logical] = KEY_PRESS
-                KEY_UP -> logicalState[logical] = KEY_UP
+                }
+                KEY_UP -> if (logicalState[logical] == KEY_NONE) {
+                    logicalState[logical] = KEY_UP
+                }
             }
 
             wasPressed[i] = pressedNow
         }
     }
-
-    // ---------------- UTIL ----------------
 
     fun getPhysicalPadsForLogical(logical: Int): List<Int> {
         val result = mutableListOf<Int>()
@@ -190,8 +194,6 @@ class InputProcessorSscHorizontal : InputAdapter() {
         return result
     }
 
-    // ---------------- RENDER ----------------
-
     fun render(batch: SpriteBatch) {
         for (i in padPositionsHorizontal.indices) {
             val (x, y) = padPositionsHorizontal[i]
@@ -206,8 +208,6 @@ class InputProcessorSscHorizontal : InputAdapter() {
         }
     }
 
-    // ---------------- RESET ----------------
-
     fun resetState() {
         for (i in padPointers.indices) {
             padPointers[i].clear()
@@ -219,7 +219,7 @@ class InputProcessorSscHorizontal : InputAdapter() {
             logicalState[i] = KEY_NONE
         }
 
-        pointerToPadMap.clear()
+        pointerToPadsMap.clear()
     }
 
     fun dispose() {

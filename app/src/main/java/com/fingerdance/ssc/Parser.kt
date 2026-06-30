@@ -1,5 +1,6 @@
 package com.fingerdance.ssc
 
+import kotlin.collections.sortedBy
 import kotlin.math.max
 
 class Parser {
@@ -116,8 +117,8 @@ class Parser {
             delays = delays,
             warps = warps,
             fakes = fakes,
-            speeds = speeds,
-            scrolls = scrolls,
+            speeds = speeds, //.sortedBy { it.beat },
+            scrolls = scrolls, //.sortedBy { it.beat },
             combos = combos,
             notes = allNotes,
             fgChanges = fgChanges
@@ -443,6 +444,12 @@ class Parser {
                         val codeChar = parts[0].firstOrNull() ?: ' '
 
                         val modifier = parts.getOrNull(1)
+
+                        if (codeChar == 'h') {
+                            colIndex++
+                            i = end + 1
+                            continue
+                        }
 
                         val isVanish = modifier == "v"
 

@@ -224,7 +224,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             }
 
             player.render(songTimeMs)
-            font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
+            //font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechas, 0f)

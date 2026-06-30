@@ -31,10 +31,6 @@ import com.fingerdance.showPadB
 import com.fingerdance.soundPoolSelectSong
 import com.fingerdance.sound_mine
 import com.fingerdance.spaceInitHorizontal
-import com.fingerdance.ssc.GameScreenSscHorizontal
-import com.fingerdance.ssc.InputProcessorSscHorizontal
-import com.fingerdance.ssc.Parser
-import com.fingerdance.ssc.TimmingData
 import com.fingerdance.valueOffset
 import com.fingerdance.widthBtnsHorizontal
 import com.fingerdance.widthJudges
@@ -57,6 +53,7 @@ class PlayerSscHorizontal(
     private val notes = chart.notes
     private val speeds = chart.speeds
     private val scrolls = chart.scrolls
+    private val combos = chart.combos
 
     private val sizeScale = medidaFlechasHorizontal * 1.2f
     private val topPos = medidaFlechasHorizontal * 0.9f
@@ -69,6 +66,8 @@ class PlayerSscHorizontal(
     private val xFlare4 = (medidaFlechasHorizontal * 2.05f)
     private val xFlare5 = (medidaFlechasHorizontal * 2.05f)
     private val animationDuration: Long = 300L
+    private var multiplierCombo = 1
+    private var comboSegmentIndex = 0
 
     companion object {
         val STEPSIZE = medidaFlechasHorizontal.toInt()
@@ -92,7 +91,7 @@ class PlayerSscHorizontal(
         const val KEY_UP = 3
 
         const val MINE_PENALTY = 0.025f
-        const val WINDOW_BEAT_ALLOW = 24.0
+        const val WINDOW_BEAT_ALLOW = 8.0
 
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
@@ -137,7 +136,6 @@ class PlayerSscHorizontal(
     )
 
     private val baseSpeed = playerSong.speed.replace("X", "").toFloat()
-    private var activeLuaEvents = mutableListOf<LuaVisualEvent>()
 
     private val timingData = TimmingData(
         bpms = bpms,
@@ -279,7 +277,7 @@ class PlayerSscHorizontal(
     private data class LongNotePress(
         var pressed: Boolean = false,
         var lastTickBeat: Double = 0.0,
-        var lastTickIndex: Int = -1,
+        var nextTickBeat: Double = 0.0,
         var note: Parser.Note? = null,
         var timeStarted: Long = 0L,
     )
@@ -309,8 +307,9 @@ class PlayerSscHorizontal(
             inputProcessor.render(batch)
         }
 
-        val currentBpm =
-            bpms.lastOrNull { it.beat <= currentBeat }?.bpm ?: bpms.firstOrNull()?.bpm ?: 120.0
+        updateComboMultiplier(currentBeat)
+
+        val currentBpm = bpms.lastOrNull { it.beat <= currentBeat }?.bpm ?: bpms.firstOrNull()?.bpm ?: 120.0
         m_fCurBPM = currentBpm.toFloat()
         val msPorBeat = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
         val msPorFrame = msPorBeat / 5f
@@ -673,10 +672,22 @@ class PlayerSscHorizontal(
 
     private fun startLongNote(col: Int, note: Parser.Note, timeMs: Long) {
         val ln = LONGNOTE[col]
+        val nowBeat = timeToBeat(timeMs.toDouble())
+
         ln.pressed = true
         ln.note = note
-        ln.lastTickIndex = -1
         ln.timeStarted = timeMs
+
+        val fromBeat = max(note.beat, nowBeat)
+        ln.lastTickBeat = fromBeat
+        ln.nextTickBeat = getNextHoldTickBeat(fromBeat)
+    }
+
+    private fun getNextHoldTickBeat(fromBeat: Double): Double {
+        val ticksPerBeat = findCurrentTick(fromBeat).coerceAtLeast(1.0)
+        val separation = 1.0 / ticksPerBeat
+
+        return kotlin.math.floor(fromBeat / separation) * separation + separation
     }
 
     private fun endLongNote(col: Int, timeMs: Long) {
@@ -734,39 +745,34 @@ class PlayerSscHorizontal(
 
     private fun processLongNoteTick(col: Int, timeMs: Long) {
         if (!LONGNOTE[col].pressed) return
+
         val ln = LONGNOTE[col]
         val note = ln.note ?: return
         val nowBeat = timeToBeat(timeMs.toDouble())
-
-        val startBeat = note.beat
         val endBeat = note.endBeat ?: return
+
         if (nowBeat > endBeat) {
-            // Termina el hold, sumar puntos como corresponda
-            // Marcar como completado
             finishedHolds.add(note)
             ln.pressed = false
             ln.note = null
             return
         }
 
-        // --- Manejo de ticks para sumar puntos extra/combo ---
-        // Ejemplo: cada 1/4 de beat (ajustable con tickcount si quieres)
-        val ticksPerBeat = findCurrentTick(nowBeat) // o usa tickcount
-        val tickSeparation = 1.0 / ticksPerBeat
-        val localBeat = (nowBeat - startBeat).coerceAtLeast(0.0)
-        val currentTickIndex = (localBeat / tickSeparation).toInt()
+        while (nowBeat >= ln.nextTickBeat && ln.nextTickBeat <= endBeat) {
+            applyJudge(
+                col,
+                JUDGE_PERFECT,
+                isBodyLongNote = true,
+                isFromInput = true,
+                note = note
+            )
 
-        if (ln.lastTickIndex < 0) {
-            ln.lastTickIndex = currentTickIndex
-            ln.timeStarted = timeMs
-            return
-        }
-        if (currentTickIndex > ln.lastTickIndex) {
-            // Sumar combo/gauge (tick perfecto)
-            applyJudge(col,
-                JUDGE_PERFECT, isBodyLongNote = true, isFromInput = true, note = note)
-            ln.lastTickIndex = currentTickIndex
-            ln.timeStarted = timeMs
+            ln.lastTickBeat = ln.nextTickBeat
+
+            val ticksPerBeat = findCurrentTick(ln.nextTickBeat).coerceAtLeast(1.0)
+            val separation = 1.0 / ticksPerBeat
+
+            ln.nextTickBeat += separation
         }
     }
 
@@ -775,6 +781,16 @@ class PlayerSscHorizontal(
             4.0 // default a 1/4
         } else {
             tickcounts.lastOrNull { it.beat <= nowBeat }?.tickcount?.toDouble() ?: 4.0
+        }
+    }
+
+    private fun updateComboMultiplier(nowBeat: Double) {
+        while (
+            comboSegmentIndex < combos.size &&
+            nowBeat >= combos[comboSegmentIndex].beat
+        ) {
+            multiplierCombo = combos[comboSegmentIndex].number
+            comboSegmentIndex++
         }
     }
 
@@ -809,12 +825,9 @@ class PlayerSscHorizontal(
                     target
                 }
                 if (luaFile != null && luaFile.exists()) {
-                    Log.d("NOTE_DEBUG", "target: ${target.absolutePath}")
-                    Log.d("NOTE_DEBUG", "isDirectory: ${target.isDirectory}")
-                    Log.d("NOTE_DEBUG", "luaFile: ${luaFile.absolutePath}")
                     luaEngine.executeLua(luaFile.absolutePath)
                 } else {
-                    Log.d("NOTE_DEBUG", "Lua no encontrado: $target")
+                    Log.d("LUA_DEBUG", "Lua no encontrado: $target")
                 }
             }
         }
@@ -825,13 +838,13 @@ class PlayerSscHorizontal(
         when (judge) {
             JUDGE_PERFECT -> {
                 resultSong.perfect++
-                curCombo++
+                curCombo += multiplierCombo
                 curComboMiss = 0
             }
 
             JUDGE_GREAT -> {
                 resultSong.great++
-                curCombo++
+                curCombo += multiplierCombo
                 curComboMiss = 0
             }
 
@@ -849,7 +862,7 @@ class PlayerSscHorizontal(
             JUDGE_MISS -> {
                 resultSong.miss++
                 curCombo = 0
-                curComboMiss++
+                curComboMiss += multiplierCombo
             }
         }
 

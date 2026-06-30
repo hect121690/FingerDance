@@ -41,7 +41,7 @@ class TopRankingView @JvmOverloads constructor(
 
     fun setNiveles(niveles: Nivel) {
         iconText.text = niveles.nivel
-        recyclerView.adapter = RankingAdapter(niveles.fisrtRank)
+        recyclerView.adapter = RankingAdapter(niveles.firstRank)
     }
 
     fun setIconDrawable(drawable: Drawable) {

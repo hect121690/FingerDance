@@ -93,15 +93,11 @@ class DanceGradeHorizontal : AppCompatActivity() {
     private lateinit var imgAceptar: ImageView
     private lateinit var imgFloor: ImageView
 
-    private lateinit var checkedValuesFirebase: Nivel
-    private var enabledSaveScore = false
-    private var rankList = mutableListOf<Map<String, Any>>()
-    private lateinit var rankRef: DatabaseReference
-    //private var firebaseDatabase: FirebaseDatabase? = null
+    private var enabledSaveLocal = true
+    private var enabledSaveFirebase = true
 
     private lateinit var imgGradeDescription: ImageView
     private var resultListener: ValueEventListener? = null
-    private var checkedValuesMock = Nivel()
 
     private lateinit var linearLevel: ConstraintLayout
 
@@ -144,33 +140,6 @@ class DanceGradeHorizontal : AppCompatActivity() {
 
         soundPoolSelectSong.setOnLoadCompleteListener { _, _, _ ->
             isPoolLoaded = true
-        }
-
-        if(currentChannel == "06-FAVORITES"){
-            checkedValuesMock = mockListChannels[channelIndex].canciones[songIndex].niveles
-                .find {
-                    it.nivel == currentLevel &&
-                    it.type == playerSong.type &&
-                    it.player == playerSong.player &&
-                    it.chartName == playerSong.chartName &&
-                    it.stepmaker == playerSong.stepMaker
-                }!!
-
-        }else {
-            val channelMock = mockListChannels.find { it.canal.equals(currentChannel, ignoreCase = true) }
-            if (channelMock != null) {
-                val songChannel = channelMock.canciones.find { it.cancion.equals(currentSong, ignoreCase = true) }
-                if (songChannel != null) {
-                    checkedValuesMock = songChannel.niveles
-                        .find {
-                            it.nivel == currentLevel &&
-                            it.type == playerSong.type &&
-                            it.player == playerSong.player &&
-                            it.chartName == playerSong.chartName &&
-                            it.stepmaker == playerSong.stepMaker
-                        } ?: Nivel()
-                }
-            }
         }
 
         resolveInitialFlow()
@@ -446,139 +415,31 @@ class DanceGradeHorizontal : AppCompatActivity() {
         }
     }
 
+    private var rankList = arrayListOf<FirstRank>()
     private fun resolveInitialFlow() {
-        // Multiplayer u Offline -> nunca guardar
-        if (isOffline || isOnline) {
-            enabledSaveScore = false
-            return
-        }
-
         // Canción no oficial -> solo score local
         if (!isOficialSong) {
-            enabledSaveScore = true
-            return
-        }
-
-        validateOfficialLevel()
-    }
-
-    private fun validateOfficialLevel() {
-        val nivelLocal = findLocalNivel()
-        // No existe el nivel local
-        if (nivelLocal == null) {
-            enabledSaveScore = false
-            return
-        }
-
-        checkedValuesMock = nivelLocal
-        val localChecked = checkedValuesKsfLocal.normalizeChecked()
-        val mockChecked = checkedValuesMock.checkedValues.normalizeChecked()
-
-        if (localChecked != mockChecked) {
-            enabledSaveScore = false
-            return
-        }
-        loadFirebaseRanking()
-    }
-
-    private fun findLocalNivel(): Nivel? {
-        val niveles = if (currentChannel == "06-FAVORITES") {
-            mockListChannels.getOrNull(channelIndex)?.canciones?.getOrNull(songIndex)?.niveles
+            enabledSaveFirebase = false
+            enabledSaveLocal = true
         } else {
-            mockListChannels.find { it.canal.normalizeText() == currentChannel.normalizeText() }
-                ?.canciones?.find { it.cancion.normalizeText() == currentSong.normalizeText() }
-                ?.niveles
-        }
+            val local = checkedValuesLocal.substringBefore("-")
+            val firebase = playerSong.checkedValues.substringBefore("-")
 
-        return niveles?.find { nivel ->
-            nivel.nivel.normalizeText() == currentLevel.normalizeText() &&
-                    nivel.type.normalizeText() == playerSong.type.normalizeText() &&
-                    nivel.player.normalizeText() == playerSong.player.normalizeText() &&
-                    nivel.chartName.normalizeText() == playerSong.chartName.normalizeText() &&
-                    nivel.stepmaker.normalizeText() == playerSong.stepMaker.normalizeText()
-        }
-    }
-
-    private fun loadFirebaseRanking() {
-        val nivelRef = firebaseDatabase
-            .getReference("channels")
-            .child(channelIndex.toString())
-            .child("canciones")
-            .child(songIndex.toString())
-            .child("niveles")
-
-        nivelRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                var nivelEncontrado: DataSnapshot? = null
-                for (nivelSnap in snapshot.children) {
-                    val nivel = nivelSnap.getValue(Nivel::class.java) ?: continue
-                    val sameNivel = nivel.nivel.normalizeText() == currentLevel.normalizeText()
-                    val sameType = nivel.type.normalizeText() == playerSong.type.normalizeText()
-                    val samePlayer = nivel.player.normalizeText() == playerSong.player.normalizeText()
-                    val sameChart = nivel.chartName.normalizeText() == playerSong.chartName.normalizeText()
-                    val sameStep = nivel.stepmaker.normalizeText() == playerSong.stepMaker.normalizeText()
-                    val sameDifficulty = nivel.difficulty.normalizeText() == playerSong.difficulty.normalizeText()
-                    if (
-                        sameNivel &&
-                        sameType &&
-                        samePlayer &&
-                        sameChart &&
-                        sameStep &&
-                        sameDifficulty
-                    ) {
-                        nivelEncontrado = nivelSnap
-                        checkedValuesFirebase = nivel
-                        break
-                    }
-                }
-
-                if (nivelEncontrado == null) {
-                    enabledSaveScore = false
-                    return
-                }
-                rankRef = nivelEncontrado.ref
-                loadRankList()
+            if (local != firebase) {
+                enabledSaveFirebase = false
+                enabledSaveLocal = false
+            }else{
+                enabledSaveFirebase = true
+                enabledSaveLocal = true
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                enabledSaveScore = false
-            }
-        })
-    }
-
-    private fun loadRankList() {
-        enabledSaveScore = true
-        rankList.clear()
-        checkedValuesFirebase.fisrtRank.forEach { rank ->
-            rankList.add(
-                mapOf(
-                    "nombre" to rank.nombre,
-                    "puntaje" to rank.puntaje.toInt(),
-                    "grade" to rank.grade
-                )
-            )
         }
-    }
-
-    private fun String?.normalizeText(): String {
-        return this
-            ?.trim()
-            ?.lowercase()
-            ?: ""
-    }
-
-    private fun String?.normalizeChecked(): String {
-        return this
-            ?.replace(" ", "")
-            ?.trim()
-            ?: ""
     }
 
     private fun handleOfflineResult(
         imgMyBestGrade: ImageView,
         lbBestScoreDG: TextView,
         imgNewRecord: ImageView,
-        dbDG: DataBasePlayer
+        dbDG: DataBasePlayer,
     ) {
         when (resolveSaveScenario()) {
             SaveResult.NONE -> {
@@ -610,28 +471,31 @@ class DanceGradeHorizontal : AppCompatActivity() {
 
     private fun resolveSaveScenario(): SaveResult {
         // Offline u Online → No guardar
-        if (isOffline || isOnline){
+        if (isOffline || isOnline) {
             return SaveResult.NONE
+        }else{
+            rankList = listGlobalRanking[playerSong.checkedValues] ?: arrayListOf()
         }
 
         val superaLocal = totalScore > currentScore.toInt()
 
-        // No oficial → solo local si supera puntaje
+        // No oficial → solo local
         if (!isOficialSong) {
-            return if (superaLocal)
+            return if (superaLocal && enabledSaveLocal) {
                 SaveResult.LOCAL
-            else
+            } else {
                 SaveResult.NONE
+            }
         }
 
         // Oficial pero nivel modificado
-        if (!enabledSaveScore && allowCheckValues) {
+        if (!enabledSaveLocal && !enabledSaveFirebase) {
             return SaveResult.INVALID_LEVEL
         }
 
         // Verificar si entra al ranking global
         val entraRanking = rankList.any {
-            totalScore > (it["puntaje"] as Int)
+            totalScore > (it.puntaje.toInt())
         }
 
         return when {
@@ -641,24 +505,21 @@ class DanceGradeHorizontal : AppCompatActivity() {
         }
     }
 
-    private fun saveLocalScore(dbDG: DataBasePlayer, imgMyBestGrade: ImageView, lbBestScoreDG: TextView) {
-        var nameChannels = if (currentChannel == "06-FAVORITES") {
+    private fun saveLocalScore(
+        dbDG: DataBasePlayer,
+        imgMyBestGrade: ImageView,
+        lbBestScoreDG: TextView
+    ) {
+        val nameChannels = if (currentChannel == "06-FAVORITES") {
             AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel.toString()
         } else {
             currentChannel
         }
 
         dbDG.updatePuntaje(
-            canal = nameChannels,
-            cancion = currentSong,
-            nivel = currentLevel,
-            type = playerSong.type,
-            player = playerSong.player,
+            checkedValues = checkedValuesLocal,
             nuevoPuntaje = totalScore.toString(),
             nuevoGrade = newGrade,
-            chartName = playerSong.chartName,
-            credit = playerSong.stepMaker,
-            difficulty = playerSong.difficulty
         )
 
         imgMyBestGrade.setImageBitmap(bitmapGrade)
@@ -668,23 +529,18 @@ class DanceGradeHorizontal : AppCompatActivity() {
     private fun updateFirebaseRanking(imgNewRecord: ImageView) {
         handlerDG.postDelayed({
             rankList.add(
-                mapOf(
-                    "nombre" to userName,
-                    "puntaje" to totalScore,
-                    "grade" to newGrade
+                FirstRank(
+                    nombre = userName,
+                    puntaje = totalScore.toString(),
+                    grade = newGrade
                 )
             )
 
-            val nuevosTop3 = rankList.sortedByDescending { it["puntaje"] as Int }.take(3)
-            val nuevosTop3Strings = nuevosTop3.map { rank ->
-                mapOf(
-                    "nombre" to rank["nombre"],
-                    "puntaje" to rank["puntaje"].toString(),
-                    "grade" to rank["grade"]
-                )
-            }
-
-            rankRef.child("fisrtRank").setValue(nuevosTop3Strings)
+            val nuevosTop3 = rankList.sortedByDescending { it.puntaje.toInt() }.take(3)
+            firebaseDatabase.getReference("rankings")
+                .child(playerSong.checkedValues)
+                .child("firstRank")
+                .setValue(nuevosTop3)
                 .addOnSuccessListener {
                     showNewRecord(imgNewRecord)
                 }
@@ -722,8 +578,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
                 "canal" to currentChannel,
                 "cancion" to currentSong,
                 "nivel" to currentLevel,
-                "checkedValuesLocal" to checkedValuesKsfLocal,
-                "checkedValuesFirebase" to checkedValuesMock.checkedValues,
+                "checkedValuesLocal" to checkedValuesLocal,
+                "checkedValuesFirebase" to playerSong.checkedValues,
                 "fecha" to fechaHora
             )
 
@@ -872,16 +728,6 @@ class DanceGradeHorizontal : AppCompatActivity() {
     private fun handleAcceptClick(bgWait: ConstraintLayout, imgWait: ImageView) {
         soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
 
-        if (!isOnline && !isOffline) {
-            if (currentChannel != "06-FAVORITES") {
-                listenScoreChannel(currentChannel) { listaCanciones ->
-                    listGlobalRanking = listaCanciones
-                }
-            } else {
-                listGlobalRanking.clear()
-            }
-        }
-
         mediaPlayerEvaluation.stop()
         soundPoolSelectSong.stop(isPlayingRankA)
         soundPoolSelectSong.stop(isPlayingRankB)
@@ -913,49 +759,6 @@ class DanceGradeHorizontal : AppCompatActivity() {
             }, 250)
             soundPoolSelectSong.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
         }, 500L)
-    }
-
-    private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
-        val listResult = arrayListOf<Cancion>()
-        canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (canalSnapshot in snapshot.children) {
-                    val cancionesSnapshot = canalSnapshot.child("canciones")
-                    for (cancionSnapshot in cancionesSnapshot.children) {
-                        val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
-                        val niveles = arrayListOf<Nivel>()
-
-                        for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
-                            val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                            val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
-                            val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
-                            val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
-                            val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
-                            val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
-                            val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
-                            val rankings = arrayListOf<FirstRank>()
-                            for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
-                                val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                                val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                rankings.add(FirstRank(nombre, puntaje, grade))
-                            }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
-                        }
-
-                        listResult.add(Cancion(nombreCancion, niveles))
-                    }
-                }
-
-                callback(listResult)
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
-                callback(listGlobalRanking)
-            }
-        })
     }
 
     private fun getEfects(pathCommandEffect: String) {

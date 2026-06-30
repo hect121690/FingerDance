@@ -131,31 +131,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 mediPlayer.stop()
             }
         }, timeToPlay)
-        if(!isOnline){
-            if(!isOffline){
-                if(playerSong.isSSC) {
-                    val ssc = readFileSsc(listChannels.find { e-> e.nombre == currentChannel }!!.listCanciones[songIndex].rutaSsc)
-                    val charts = ssc.split("#NOTEDATA:;").drop(1).filter {
-                        it.contains("#STEPSTYPE:pump-single", true) ||
-                                it.contains("#STEPSTYPE:pump-halfdouble", true)
-                    }.sortedWith(
-                        compareBy<String> {
-                            when {
-                                it.contains("#STEPSTYPE:pump-single", true) -> 0
-                                it.contains("#STEPSTYPE:pump-halfdouble", true) -> 1
-                                else -> 2
-                            }
-                        }.thenBy {
-                            Regex("#METER:(\\d+);").find(it)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                        }
-                    )
-                    val chartString = charts[positionActualLvs]
-                    checkedValuesKsfLocal = generateCheckedValuesSsc(chartString) + "|" + File(playerSong.rutaCancion!!).length()
-                }else{
-                    checkedValuesKsfLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length()
-                }
-            }
-        }
     }
 
     private fun trimTransparentEdges(source: Bitmap): Bitmap {
@@ -216,11 +191,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
     }
 
     fun getSongTimeMs(): Long {
-        return try {
-            mediaPlayer.currentPosition.toLong()
-        } catch (e: Exception) {
-            0L
-        }
+        return mediaPlayer.currentPosition.toLong()
     }
 
     private fun addVideoBackground() {
@@ -259,13 +230,13 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         val hasCustom = !customVideo.isNullOrEmpty() && isFileExists(File(customVideo))
 
         if (hasCustom && !playerSong.isBGAOff) {
-            // 👉 VIDEO GRANDE
+            // VIDEO GRANDE
             videoBgaOn.isVisible = true
             videoBgaOff.isVisible = false
             prepareVideo(videoBgaOnPLayer, customVideo)
             isVideo = true
         } else {
-            // 👉 VIDEO FULL SCREEN
+            // VIDEO FULL SCREEN
             videoBgaOn.isVisible = false
             videoBgaOff.isVisible = true
             prepareVideo(videoBgaOffPlayer, bgaOff, isBgaOff = true)
@@ -279,27 +250,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
 
         mediaPlayer.setOnCompletionListener {
             resultSong.banner = playerSong.rutaBanner!!
-            if(currentChannel == "06-FAVORITES") {
-                val nameChannels = AppResources.listSongsChannelKsf.find { it.title == currentSong }?.channel
-                listenScoreChannel(nameChannels.toString()) { listaCanciones ->
-                    listGlobalRanking = listaCanciones
-                    val rankingItem = listGlobalRanking.find {
-                        it.cancion == currentSong
-                    }
-                    if(rankingItem != null) {
-                        currentWorldScore =
-                            if(rankingItem.niveles[positionActualLvs].fisrtRank.isNotEmpty()) {
-                                listOf(
-                                    rankingItem.niveles[positionActualLvs].fisrtRank[0].puntaje,
-                                    rankingItem.niveles[positionActualLvs].fisrtRank[1].puntaje,
-                                    rankingItem.niveles[positionActualLvs].fisrtRank[2].puntaje
-                                )
-                            } else {
-                                listOf("1000000", "1000000", "1000000")
-                            }
-                    }
-                }
-            }
             thisHandler.postDelayed({
                 getEndSong()
             }, 500)
@@ -335,49 +285,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 Log.e("VIDEO", "Error al preparar video: ${e.message}")
             }
         }.start()
-    }
-
-    private fun listenScoreChannel(canalNombre: String, callback: (ArrayList<Cancion>) -> Unit) {
-        val canalRef = firebaseDatabase!!.getReference("channels").orderByChild("canal").equalTo(canalNombre)
-        val listResult = arrayListOf<Cancion>()
-        canalRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (canalSnapshot in snapshot.children) {
-                    val cancionesSnapshot = canalSnapshot.child("canciones")
-                    for (cancionSnapshot in cancionesSnapshot.children) {
-                        val nombreCancion = cancionSnapshot.child("cancion").getValue(String::class.java) ?: ""
-                        val niveles = arrayListOf<Nivel>()
-
-                        for (nivelSnapshot in cancionSnapshot.child("niveles").children) {
-                            val numberNivel = nivelSnapshot.child("nivel").getValue(String::class.java) ?: ""
-                            val checkedValues = nivelSnapshot.child("checkedValues").getValue(String::class.java) ?: ""
-                            val type = nivelSnapshot.child("type").getValue(String::class.java) ?: ""
-                            val player = nivelSnapshot.child("player").getValue(String::class.java) ?: ""
-                            val chartName = nivelSnapshot.child("chartName").getValue(String::class.java) ?: ""
-                            val stepmaker = nivelSnapshot.child("stepmaker").getValue(String::class.java) ?: ""
-                            val difficulty = nivelSnapshot.child("difficulty").getValue(String::class.java) ?: ""
-                            val rankings = arrayListOf<FirstRank>()
-                            for (rankingSnapshot in nivelSnapshot.child("fisrtRank").children) {
-                                val nombre = rankingSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                                val puntaje = rankingSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                                val grade = rankingSnapshot.child("grade").getValue(String::class.java) ?: ""
-                                rankings.add(FirstRank(nombre, puntaje, grade))
-                            }
-                            niveles.add(Nivel(numberNivel, checkedValues, type, player, chartName, stepmaker, difficulty, rankings))
-                        }
-
-                        listResult.add(Cancion(nombreCancion, niveles))
-                    }
-                }
-
-                callback(listResult)
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer canciones del canal $canalNombre", error.toException())
-                callback(listGlobalRanking)
-            }
-        })
     }
 
     private fun getEndSong(){

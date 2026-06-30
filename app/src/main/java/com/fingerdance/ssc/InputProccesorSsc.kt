@@ -8,13 +8,14 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.fingerdance.heightBtns
 import com.fingerdance.padPositions
 import com.fingerdance.tema
-import com.fingerdance.touchAreas
 import com.fingerdance.widthBtns
 
 private const val KEY_NONE = 0
 private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
+
+private val TOUCH_RADIUS = widthBtns * 0.15f
 
 class InputProcessorSsc : InputAdapter() {
 
@@ -23,11 +24,11 @@ class InputProcessorSsc : InputAdapter() {
 
     val getKeyBoard = IntArray(padPositions.size) { KEY_NONE }
 
-    // 🔥 fuente de verdad
-    private val pointerToPadMap = mutableMapOf<Int, Int>()
+    // fuente de verdad
+    private val pointerToPadsMap = mutableMapOf<Int, Set<Int>>()
     private val padPointers = Array(padPositions.size) { mutableSetOf<Int>() }
 
-    // 🔥 estado anterior (para transiciones)
+    // estado anterior (para transiciones)
     private val wasPressed = BooleanArray(padPositions.size)
 
     // ---------------- KEYBOARD ----------------
@@ -62,16 +63,20 @@ class InputProcessorSsc : InputAdapter() {
     // ---------------- TOUCH ----------------
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        val pad = getPadIndex(screenX.toFloat(), screenY.toFloat()) ?: return false
+        val pads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (pads.isEmpty()) return false
 
-        pointerToPadMap[pointer] = pad
-        padPointers[pad].add(pointer)
+        pointerToPadsMap[pointer] = pads
+        pads.forEach { pad ->
+            padPointers[pad].add(pointer)
+        }
 
         return true
     }
 
     override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        pointerToPadMap.remove(pointer)
+        pointerToPadsMap.remove(pointer)
+
         for (i in padPointers.indices) {
             padPointers[i].remove(pointer)
         }
@@ -80,24 +85,22 @@ class InputProcessorSsc : InputAdapter() {
     }
 
     override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
+        val newPads = getPadIndices(screenX.toFloat(), screenY.toFloat())
+        if (newPads.isEmpty()) return true
 
-        val newPad = getPadIndex(screenX.toFloat(), screenY.toFloat())
-        val oldPad = pointerToPadMap[pointer]
+        val oldPads = pointerToPadsMap[pointer].orEmpty()
 
-        if (oldPad == newPad) return true
+        if (oldPads == newPads) return true
 
-        // salir del pad anterior
-        if (oldPad != null) {
+        oldPads.forEach { oldPad ->
             padPointers[oldPad].remove(pointer)
         }
 
-        // entrar al nuevo
-        if (newPad != null) {
-            pointerToPadMap[pointer] = newPad
+        newPads.forEach { newPad ->
             padPointers[newPad].add(pointer)
-        } else {
-            pointerToPadMap.remove(pointer)
         }
+
+        pointerToPadsMap[pointer] = newPads
 
         return true
     }
@@ -108,29 +111,34 @@ class InputProcessorSsc : InputAdapter() {
 
     // ---------------- PAD DETECTION ----------------
 
-    private fun getPadIndex(x: Float, y: Float): Int? {
+    private fun getPadIndices(x: Float, y: Float): Set<Int> {
+        val result = mutableSetOf<Int>()
+        val radiusSq = TOUCH_RADIUS * TOUCH_RADIUS
 
-        val main = padPositions.indexOfFirst { pad ->
-            x in pad[0]..(pad[0] + widthBtns) &&
-                    y in pad[1]..(pad[1] + heightBtns)
-        }
-        if (main >= 0) return main
+        for (i in padPositions.indices) {
+            val pad = padPositions[i]
 
-        val extra = touchAreas.indexOfFirst { area ->
-            x in area[0]..(area[0] + (widthBtns / 2)) &&
-                    y in area[1]..(area[1] + heightBtns)
+            val left = pad[0].toFloat()
+            val top = pad[1].toFloat()
+            val right = left + widthBtns
+            val bottom = top + heightBtns
+
+            val closestX = x.coerceIn(left, right)
+            val closestY = y.coerceIn(top, bottom)
+
+            val dx = x - closestX
+            val dy = y - closestY
+            val distanceSq = dx * dx + dy * dy
+
+            if (distanceSq <= radiusSq) {
+                result.add(i)
+            }
         }
 
-        return when (extra) {
-            0 -> 0
-            1 -> 4
-            2 -> 1
-            3 -> 3
-            else -> null
-        }
+        return result
     }
 
-    // ---------------- UPDATE (🔥 CLAVE) ----------------
+    // ---------------- UPDATE (CLAVE) ----------------
 
     fun update() {
         val activePointers = mutableSetOf<Int>()
@@ -141,14 +149,14 @@ class InputProcessorSsc : InputAdapter() {
                 activePointers.add(i)
             }
         }
-        pointerToPadMap.keys.toList().forEach { pointer ->
+        pointerToPadsMap.keys.toList().forEach { pointer ->
 
             if (
                 pointer >= 0 &&
                 pointer !in activePointers
             ) {
 
-                pointerToPadMap.remove(pointer)
+                pointerToPadsMap.remove(pointer)
 
                 for (i in padPointers.indices) {
                     padPointers[i].remove(pointer)
@@ -195,7 +203,7 @@ class InputProcessorSsc : InputAdapter() {
             wasPressed[i] = false
             getKeyBoard[i] = KEY_NONE
         }
-        pointerToPadMap.clear()
+        pointerToPadsMap.clear()
     }
 
     fun dispose() {
