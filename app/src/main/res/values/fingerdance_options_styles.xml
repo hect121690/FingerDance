@@ -1,0 +1,21 @@
+<resources>
+    <style name="FingerDanceOptionRadio">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">10dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:buttonTint">#00E5FF</item>
+    </style>
+
+    <style name="FingerDanceSwitch">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">16dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+</resources>

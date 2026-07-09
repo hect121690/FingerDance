@@ -76,6 +76,11 @@ class SelectChannelHorizontal : AppCompatActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
         setContentView(R.layout.activity_select_channel_horizontal)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                goMain(btnBackRight)
+            }
+        })
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 

@@ -73,6 +73,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.fingerdance.CustomAdapter.ViewHolder.Companion.md5
 import com.fingerdance.MainActivity.VideosDrive
+import com.fingerdance.OptionsActivity
 import com.fingerdance.ssc.ChartOffsetAdapter
 import com.fingerdance.ssc.Parser
 import kotlinx.coroutines.Dispatchers
@@ -258,6 +259,13 @@ class SelectSong : AppCompatActivity() {
         getSupportActionBar()?.hide()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_select_song)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Toast.makeText(this@SelectSong, "Use los botones BACK", Toast.LENGTH_SHORT).show()
+            }
+        })
+
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
 
@@ -930,22 +938,31 @@ class SelectSong : AppCompatActivity() {
         txTip = findViewById<TextView>(R.id.txTip)
 
         imgAceptar.setOnClickListener() {
-
             if (carouselSong.isVisible && !commandWindow.isVisible) {
                 goSelectLevel()
             }
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
-                if(ready == 1 && !modeSelected){
+                if (ready == 1) {
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-                    txNameChannel.visibility = View.INVISIBLE
-                    txPlayerName.visibility = View.INVISIBLE
-                    showSelectMode()
+
+                    if (modeSelected) {
+                        goGameScreenActivity(anim, txPlayerName, txNameChannel)
+                    } else {
+                        val hasSavedOrientation = applySavedOrientationIfExists()
+
+                        if (hasSavedOrientation) {
+                            goGameScreenActivity(anim, txPlayerName, txNameChannel)
+                        } else {
+                            txNameChannel.visibility = View.INVISIBLE
+                            txPlayerName.visibility = View.INVISIBLE
+                            showSelectMode()
+                        }
+                    }
                 }
-                if(ready == 1 && modeSelected){
-                    goGameScreenActivity(anim, txPlayerName, txNameChannel)
-                }
+
                 imgAceptar.isEnabled = true
-                if(ready == 0){
+
+                if (ready == 0) {
                     ready = 1
                     imgFloor.setImageBitmap(AppResources.bmFloor2)
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -1207,7 +1224,7 @@ class SelectSong : AppCompatActivity() {
 
         imgOffset.setOnClickListener {
 
-            //showModifyOffsetDialog()
+            showModifyOffsetDialog()
 
         }
 
@@ -1367,8 +1384,46 @@ class SelectSong : AppCompatActivity() {
         themes.edit().putLong("valueOffset", valueOffset).apply()
     }
 
+    private fun getSelectedLevelIsHalfDouble(): Boolean {
+        val real = getRealIndex(oldValue)
+        val song = AppResources.listSongsChannelKsf[real]
+        val level = song.listKsf[positionActualLvs]
+
+        return level.typePlayer == "B"
+    }
+
+    private fun getSavedPlayModeForCurrentLevel(): Int {
+        return if (getSelectedLevelIsHalfDouble()) {
+            playModeHalf
+        } else {
+            playModeSingle
+        }
+    }
+
+    private fun orientationFromPlayMode(playMode: Int): OrientationMode? {
+        return when (playMode) {
+            1 -> OrientationMode.VERTICAL
+            2 -> OrientationMode.HORIZONTAL
+            else -> null
+        }
+    }
+
+    private fun applySavedOrientationIfExists(): Boolean {
+        val savedPlayMode = getSavedPlayModeForCurrentLevel()
+        val savedOrientation = orientationFromPlayMode(savedPlayMode)
+
+        return if (savedOrientation != null) {
+            modeSelected = true
+            orientationMode = savedOrientation
+            true
+        } else {
+            modeSelected = false
+            false
+        }
+    }
+
     private fun showSelectMode() {
-        // 🔥 sube los controles SOBRE el overlay
+        //sube los controles SOBRE el overlay
         selectModeContainer.visibility = View.VISIBLE
         imgAceptar.bringToFront()
         imgFloor.bringToFront()
@@ -1705,12 +1760,21 @@ class SelectSong : AppCompatActivity() {
         }
 
         handler.postDelayed({
+            val savedPlayMode = if (isHalfDouble) {
+                playModeHalf
+            } else {
+                playModeSingle
+            }
+
+            orientationFromPlayMode(savedPlayMode)?.let {
+                orientationMode = it
+            }
             val intent = Intent(
                 this,
                 if (orientationMode == OrientationMode.VERTICAL)
-                    GameScreenActivity()::class.java
+                    GameScreenActivity::class.java
                 else
-                    GameScreenActivityHorizontal()::class.java
+                    GameScreenActivityHorizontal::class.java
             )
 
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
@@ -2726,7 +2790,6 @@ class SelectSong : AppCompatActivity() {
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
 
         lbLvActive.text = lv.level
-
         currentLevel = lv.level
         lbBestScore.text = listSongScores.find { it.checkedValues == lv.checkedValues }?.puntaje ?: "0"
         currentScore = lbBestScore.text.toString()
@@ -3292,12 +3355,6 @@ class SelectSong : AppCompatActivity() {
 
     private fun isFileExists(file: File): Boolean {
         return file.exists() && !file.isDirectory
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        //super.onBackPressed()
-        Toast.makeText(this, "Use los botones BACK", Toast.LENGTH_SHORT).show()
     }
 
     override fun onPause() {

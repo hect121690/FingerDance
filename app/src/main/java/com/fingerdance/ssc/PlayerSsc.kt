@@ -987,12 +987,11 @@ class PlayerSsc(
                 batch.setColor(1f, 1f, 1f, 1f)
             }
         } else {
-            batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
-
-            val shouldDrawBottom = (y2 - y) > (heightBodyHead)
-            if (shouldDrawBottom) {
+            if(heightBody > middleSizeFlechas - 1){
+                batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechas, heightBody)
                 batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechas, medidaFlechas)
             }
+
             if (y > 0) {
                 batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechas, medidaFlechas)
             }

@@ -912,11 +912,11 @@ class PlayerSscHorizontal(
             noteBeat = beat,
             songVisibleBeat = currentBeat,
             songVisibleTimeMs = songTimeMs,
-            stepSize = medidaFlechas
+            stepSize = medidaFlechasHorizontal
         )
 
         val totalOffset = baseOffset * baseSpeed
-        val y = medidaFlechas + totalOffset
+        val y = medidaFlechasHorizontal + totalOffset
         return y.toInt()
     }
 
@@ -928,7 +928,7 @@ class PlayerSscHorizontal(
     private var rangeAlpha = (screen.gdxHeight * 0.1)
     private val segmentHeight = screen.gdxHeight * 0.001f
     private val heightBodyHead = medidaFlechasHorizontal * 0.3f
-    private var middleSizeFlechas = medidaFlechas * 0.5f
+    private var middleSizeFlechas = medidaFlechasHorizontal * 0.5f
     private val amplitude = medidaFlechasHorizontal / 3f
     private val frequency = 0.01f
     private val fadeDistance = medidaFlechasHorizontal
@@ -964,12 +964,12 @@ class PlayerSscHorizontal(
         val posY = y.toFloat() + middleSizeFlechas
         var heightBody = (y2 - y).toFloat() - middleSizeFlechas
 
-        batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechasHorizontal, heightBody)
-
-        val shouldDrawBottom = (y2 - y) > (heightBodyHead)
-        if (shouldDrawBottom) {
+        if(heightBody > middleSizeFlechas - 1){
+            batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechasHorizontal, heightBody)
             batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
         }
+
+
         if (y > 0) {
             batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
         }
@@ -1122,8 +1122,6 @@ class PlayerSscHorizontal(
     private fun getVanishAlpha(y: Float): Float {
         return ((y - MEASUREVANISH) / rangeAlpha).toFloat().coerceIn(0f, 1f)
     }
-
-
 
     private fun drawFlare(x: Int, frame: Int) {
         var left = 0f

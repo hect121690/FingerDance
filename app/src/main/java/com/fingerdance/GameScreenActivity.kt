@@ -70,6 +70,7 @@ open class GameScreenActivity : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_screen)
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 

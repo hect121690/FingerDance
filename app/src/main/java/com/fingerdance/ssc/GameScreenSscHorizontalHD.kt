@@ -151,8 +151,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
 
         player = PlayerSscHorizontalHD(this, batch, a)
 
-        targetTop =
-            medidaFlechasHorizontal
+        targetTop = medidaFlechasHorizontal
 
         if (showPadB == 0) {
 

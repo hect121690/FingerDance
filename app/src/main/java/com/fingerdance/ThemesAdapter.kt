@@ -1,9 +1,11 @@
 package com.fingerdance
 
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
@@ -11,7 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 private var selectedItem = ThemeItem("","", false)
 
-class ThemesAdapter(private val items: List<ThemeItem>) :
+class ThemesAdapter(private val items: List<ThemeItem>, private val btnGuardar: Button) :
     RecyclerView.Adapter<ThemesAdapter.MyViewHolder>() {
     private var lastCheckedPosition = -1
 
@@ -50,8 +52,12 @@ class ThemesAdapter(private val items: List<ThemeItem>) :
                 }
                 lastCheckedPosition = clickedPosition
                 selectedItem = item
+                btnGuardar.setTextColor(Color.WHITE)
+                btnGuardar.isEnabled = true
             } else {
                 lastCheckedPosition = -1
+                btnGuardar.setTextColor(Color.GRAY)
+                btnGuardar.isEnabled = false
             }
             items[clickedPosition].isChecked = checkBox.isChecked
         }

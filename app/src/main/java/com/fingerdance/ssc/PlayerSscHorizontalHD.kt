@@ -978,11 +978,12 @@ class PlayerSscHorizontalHD (
         val left = computeLeft(x, y)
         val posY = y.toFloat() + middleSizeFlechas
         var heightBody = (y2 - y).toFloat() - middleSizeFlechas
-        batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechasHorizontal, heightBody)
-        val shouldDrawBottom = (y2 - y) > (heightBodyHead)
-        if (shouldDrawBottom) {
+
+        if(heightBody > middleSizeFlechas - 1){
+            batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechasHorizontal, heightBody)
             batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
         }
+
         if (y > 0) {
             batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
         }

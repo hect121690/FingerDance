@@ -83,6 +83,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.toColorInt
+import com.fingerdance.SelectSong
 import com.fingerdance.ssc.Parser
 
 private val handlerSelectSongHorizontal = Handler(Looper.getMainLooper())
@@ -238,6 +239,12 @@ class SelectSongHorizontal : AppCompatActivity() {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_select_song_horizontal)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Toast.makeText(this@SelectSongHorizontal, "Use los botones BACK", Toast.LENGTH_SHORT).show()
+            }
+        })
+
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -1049,11 +1056,21 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         imgPressStart.setOnClickListener {
-            selectModeContainer.visibility = View.VISIBLE
-            btnBackLeft.bringToFront()
-            btnBackRight.bringToFront()
-        }
+            val isHalfDouble = AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
+            val savedPlayMode = getSavedPlayModeForLevel(isHalfDouble)
+            val savedOrientation = orientationFromPlayMode(savedPlayMode)
 
+            if (savedOrientation == null) {
+                modeSelected = false
+                selectModeContainer.visibility = View.VISIBLE
+                btnBackLeft.bringToFront()
+                btnBackRight.bringToFront()
+            } else {
+                modeSelected = true
+                orientationMode = savedOrientation
+                goGameScreenActivity()
+            }
+        }
     }
 
     private fun buildSelectMode(screenWidth: Int) {
@@ -1778,6 +1795,22 @@ class SelectSongHorizontal : AppCompatActivity() {
         return Pair(row, mainButton!!)
     }
 
+    private fun getSavedPlayModeForLevel(isHalfDouble: Boolean): Int {
+        return if (isHalfDouble) {
+            playModeHalf
+        } else {
+            playModeSingle
+        }
+    }
+
+    private fun orientationFromPlayMode(playMode: Int): OrientationMode? {
+        return when (playMode) {
+            1 -> OrientationMode.VERTICAL
+            2 -> OrientationMode.HORIZONTAL
+            else -> null
+        }
+    }
+
     private fun goGameScreenActivity(){
         soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         val song = AppResources.listSongsChannelKsf[oldValue]
@@ -1896,12 +1929,18 @@ class SelectSongHorizontal : AppCompatActivity() {
         }
 
         handlerSelectSongHorizontal.postDelayed({
+            val savedPlayMode = getSavedPlayModeForLevel(isHalfDouble)
+            val savedOrientation = orientationFromPlayMode(savedPlayMode)
+
+            if (savedOrientation != null) {
+                orientationMode = savedOrientation
+            }
             val intent = Intent(
                 this,
                 if (orientationMode == OrientationMode.VERTICAL)
-                    GameScreenActivity()::class.java
+                    GameScreenActivity::class.java
                 else
-                    GameScreenActivityHorizontal()::class.java
+                    GameScreenActivityHorizontal::class.java
             )
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
             intent.putExtra("IS_VERTICAL", false)
@@ -2458,7 +2497,7 @@ class SelectSongHorizontal : AppCompatActivity() {
 
         val gradeFull = nivel.firstRank[0].grade
 
-        // 🔥 Cache global reutilizable
+        // Cache global reutilizable
         if (gradeCombinationCache.containsKey(gradeFull)) {
             return gradeCombinationCache[gradeFull]!!
         }

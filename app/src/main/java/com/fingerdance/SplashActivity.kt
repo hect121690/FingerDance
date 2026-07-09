@@ -73,6 +73,7 @@ class SplashActivity : AppCompatActivity() {
         webView.loadUrl("file:///android_asset/splash.html")
 
         lifecycleScope.launch {
+
             val loadJob = async { loadAllDataForApp() }
             val minTimeJob = async { delay(MINIMUM_DISPLAY_TIME) }
 
@@ -399,7 +400,12 @@ class SplashActivity : AppCompatActivity() {
             typePadD = themes.getInt("typePadD", 0)
             numberUpdateLocal = themes.getString("numberUpdateLocal", "0.0.0").toString()
             isHorizontalMode = themes.getBoolean("isHorizontalMode", false)
-            playMode = themes.getInt("playMode", -1)
+            playModeSingle = themes.getInt("playModeSingle", 0)
+            playModeHalf = themes.getInt("playModeHalf", 0)
+
+            if(tema == ""){
+                tema ="default"
+            }
 
         } catch (e: Exception) {
             Log.e("SplashActivity", "Error: ${e.message}")

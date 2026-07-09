@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.view.Window
 import android.widget.*
-import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 
 class PadEditorActivity : AppCompatActivity() {
@@ -27,7 +26,7 @@ class PadEditorActivity : AppCompatActivity() {
 
         root = findViewById(android.R.id.content)
         bgFrame = findViewById(R.id.bgFrame)
-        bgFrame.setBackgroundResource(R.drawable.background_for_pads)
+        bgFrame.setBackgroundResource(R.drawable.bg_pads_pictures)
 
         rutaBtnOff = "$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"
         padBitmap = BitmapFactory.decodeFile(rutaBtnOff)

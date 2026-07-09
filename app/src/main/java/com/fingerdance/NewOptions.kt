@@ -11,6 +11,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.graphics.drawable.AnimationDrawable
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -23,6 +25,7 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -67,6 +70,7 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -80,6 +84,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 private var fileNameChannel = ""
+
+private fun neonCardDrawable(fillColor: Int, strokeColor: Int, strokeWidth: Int): GradientDrawable {
+    return GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = 22f
+        setColor(fillColor)
+        setStroke(strokeWidth, strokeColor)
+    }
+}
+
 class OptionsActivity : AppCompatActivity(), ItemClickListener {
     private lateinit var titleNewOptions: TextView
     private lateinit var bgNewOptions: LinearLayout
@@ -89,6 +103,18 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_new_options)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val intent = Intent(this@OptionsActivity, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+
+                startActivity(intent)
+                finish()
+            }
+        })
+
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         supportActionBar?.hide()
@@ -102,6 +128,8 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
         bgNewOptions.background = bit.toDrawable(resources)
 
         titleNewOptions.paintFlags = titleNewOptions.paintFlags or Paint.UNDERLINE_TEXT_FLAG
+        titleNewOptions.text = "FINGER DANCE OPTIONS"
+        titleNewOptions.setShadowLayer(12f, 0f, 0f, Color.CYAN)
 
         val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
         val viewPager = findViewById<ViewPager2>(R.id.viewPagerOptions)
@@ -122,18 +150,12 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
                 text = tabTitles[position]
                 setTextColor(Color.WHITE)
                 typeface = Typeface.DEFAULT_BOLD
-                textSize = 14f
+                textSize = 13f
                 gravity = Gravity.CENTER
             }
             tab.customView = tabText
         }.attach()
 
-    }
-
-    override fun onBackPressed() {
-        val intent = Intent(this, MainActivity::class.java)
-        startActivity(intent)
-        super.onBackPressed()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -235,22 +257,26 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         scrollChannels = view.findViewById(R.id.scrollChannels)
         txProgressDownloadChannel = view.findViewById(R.id.textViewDownloadChannel)
         linearTextProgressChannel = view.findViewById(R.id.linearTextProgressChannel)
+        linearTextProgressChannel.visibility = View.INVISIBLE
 
         val arrowIndicator = view.findViewById<ImageView>(R.id.arrowIndicator)
         val txSlide = view.findViewById<TextView>(R.id.txSlide)
 
-        scrollChannels.layoutParams.height = (height * 0.45).toInt()
+        scrollChannels.layoutParams.height = (height * 0.55).toInt()
 
         scrollChannels.setOnScrollChangeListener { v: NestedScrollView, _, scrollY, _, oldScrollY ->
             if (scrollY > oldScrollY) {
-                arrowIndicator.visibility = View.GONE
-                txSlide.visibility = View.GONE
+                arrowIndicator.visibility = View.INVISIBLE
+                txSlide.visibility = View.INVISIBLE
+            }else{
+                arrowIndicator.visibility = View.VISIBLE
+                txSlide.visibility = View.VISIBLE
             }
         }
 
         txProgressDownloadChannel.layoutParams.width = (width / 10) * 9
         txProgressDownloadChannel.isVisible = false
-        downloadButtonChannel.isEnabled = false
+        downloadButtonChannel.setTextColor(Color.GRAY)
 
         setupChannelsList()
         setupDeleteChannel(view)
@@ -269,8 +295,16 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             radioButton.text = channel.first
             radioButton.id = View.generateViewId()
             radioButton.setTextColor(Color.WHITE)
-            radioButton.textSize = pxToSp((height / 50).toFloat(), requireContext())
-            radioButton.setPadding(0, 30, 0, 30)
+            radioButton.textSize = pxToSp((height / 55).toFloat(), requireContext())
+            radioButton.typeface = Typeface.DEFAULT_BOLD
+            radioButton.setShadowLayer(6f, 0f, 0f, Color.rgb(0, 229, 255))
+            radioButton.setPadding(28, 22, 28, 22)
+            radioButton.background = neonCardDrawable(Color.argb(130, 8, 12, 32), Color.rgb(0, 229, 255), 2)
+            radioButton.buttonTintList = ColorStateList.valueOf(Color.rgb(0, 229, 255))
+            radioButton.layoutParams = RadioGroup.LayoutParams(
+                RadioGroup.LayoutParams.MATCH_PARENT,
+                RadioGroup.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 12) }
             radioChannelsDownload.addView(radioButton)
         }
 
@@ -282,6 +316,9 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             selectedValueChannel = itemList!!.second
             fileNameChannel = itemList.first
             downloadButtonChannel.isEnabled = channelSelected.isChecked
+            if(downloadButtonChannel.isEnabled){
+                downloadButtonChannel.setTextColor(Color.WHITE)
+            }
             view?.findViewById<ImageView>(R.id.arrowIndicator)?.visibility = View.GONE
             view?.findViewById<TextView>(R.id.txSlide)?.visibility = View.GONE
         }
@@ -365,13 +402,13 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
                 .setMessage("Seleccione el archivo ZIP del canal que desea instalar.")
                 .setPositiveButton("Continuar") { _, _ ->
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "application/zip"
-                            putExtra(
-                                DocumentsContract.EXTRA_INITIAL_URI,
-                                Uri.fromFile(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS))
-                            )
-                        }
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "application/zip"
+                        putExtra(
+                            DocumentsContract.EXTRA_INITIAL_URI,
+                            Uri.fromFile(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS))
+                        )
+                    }
 
                     startActivityForResult(
                         intent,
@@ -844,6 +881,8 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
         recyclerThemes = view.findViewById(R.id.listThemes)
         btnMoreThemes = view.findViewById(R.id.btnMoreThemes)
         btnGuardar = view.findViewById(R.id.btnGuardar)
+        btnGuardar.setTextColor(Color.GRAY)
+        btnGuardar.isEnabled = false
         btnCargarTema = view.findViewById(R.id.btnCargarTema)
 
         val layoutManager = LinearLayoutManager(requireContext())
@@ -885,21 +924,23 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
             }
         }
 
-        recyclerThemes.adapter = ThemesAdapter(listThemes)
+        recyclerThemes.adapter = ThemesAdapter(listThemes, btnGuardar)
     }
 
     private fun setupButtons() {
         btnGuardar.setOnClickListener {
             val theme = ThemesAdapter.getSelectedItem()
-            themes.edit().putString("theme", theme.text).apply()
-            themes.edit().putString("allTunes", "").apply()
-            themes.edit().putString("efects", "").apply()
-            listChannels.clear()
-            tema = theme.text
-            AppResources.isLoaded = false
-            val intent = Intent(requireContext(), MainActivity::class.java)
-            startActivity(intent)
-            requireActivity().finish()
+            if(theme.text.isNotEmpty()){
+                themes.edit().putString("theme", theme.text).apply()
+                themes.edit().putString("allTunes", "").apply()
+                themes.edit().putString("efects", "").apply()
+                listChannels.clear()
+                tema = theme.text
+                AppResources.isLoaded = false
+                val intent = Intent(requireContext(), MainActivity::class.java)
+                startActivity(intent)
+                requireActivity().finish()
+            }
         }
 
         btnCargarTema.setOnClickListener {
@@ -1123,54 +1164,124 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
 }
 
 class PadsFragment : Fragment(R.layout.options_pads) {
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val btnGuardarPads = view.findViewById<Button>(R.id.btnGuardarPads)
-        btnGuardarPads.setText("Guardar y salir")
+        val originalShowPadB = showPadB
+        val originalHideImagesPadA = hideImagesPadA
+        val originalAlphaPadB = alphaPadB
+        val originalSkinPad = skinPad
+        val originalTypePadD = typePadD
+
+        var tempShowPadB = originalShowPadB
+        var tempHideImagesPadA = originalHideImagesPadA
+        var tempAlphaPadB = originalAlphaPadB
+        var tempSkinPad = originalSkinPad
+        var tempTypePadD = originalTypePadD
+
+        var isInitializing = true
+
+        val btnGuardarPads = view.findViewById<Button>(R.id.btnGuardarPads).apply {
+            text = "Guardar y salir"
+            setTextColor(Color.GRAY)
+            isEnabled = false
+        }
+
+        val imgPadBSelected = view.findViewById<ImageView>(R.id.imgPadBSelected)
+        imgPadBSelected.layoutParams.width = (width * 0.425).toInt()
+        imgPadBSelected.visibility = View.GONE
+
+        val padBPreviewPanel = view.findViewById<ConstraintLayout>(R.id.padBPreviewPanel)
+        padBPreviewPanel.visibility = View.GONE
+
+        fun hasChanges(): Boolean {
+            return tempShowPadB != originalShowPadB ||
+                    tempHideImagesPadA != originalHideImagesPadA ||
+                    tempAlphaPadB != originalAlphaPadB ||
+                    tempSkinPad != originalSkinPad ||
+                    tempTypePadD != originalTypePadD
+        }
+
+        fun updateSaveButton() {
+            if (isInitializing) return
+
+            val changed = hasChanges()
+
+            btnGuardarPads.isEnabled = changed
+            btnGuardarPads.setTextColor(
+                if (changed) Color.WHITE else Color.GRAY
+            )
+        }
 
         val switchImagePadA = view.findViewById<SwitchCompat>(R.id.showImagePadA)
         switchImagePadA.visibility = View.GONE
-        switchImagePadA.layoutParams.width = width / 2
+        switchImagePadA.layoutParams.width = (width * .75).toInt()
+        switchImagePadA.isChecked = tempHideImagesPadA
+
+        val bgPadsPictures = view.findViewById<ImageView>(R.id.bg_pads_pictures)
+        val bgPads = view.findViewById<ImageView>(R.id.bg_pads)
+
+        bgPadsPictures.visibility = View.GONE
+        bgPads.visibility = View.GONE
+
+        fun updatePadAImages() {
+            bgPads.isVisible = tempShowPadB == 0
+            bgPadsPictures.isVisible = tempShowPadB == 0 && !tempHideImagesPadA
+        }
 
         val linearPadsD = view.findViewById<LinearLayout>(R.id.linearPadsD)
-        linearPadsD.layoutParams.width = width / 2
+        linearPadsD.layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
+        linearPadsD.gravity = Gravity.CENTER_HORIZONTAL
+        linearPadsD.setPadding(0, 14, 0, 0)
 
         val thumbColor = ColorStateList(
             arrayOf(
-                intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_checked)
             ),
             intArrayOf(Color.GREEN, Color.RED)
         )
 
         val trackColor = ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_checked)
+            ),
             intArrayOf(R.color.track_color_A, R.color.track_color_B)
         )
 
         switchImagePadA.thumbTintList = thumbColor
         switchImagePadA.trackTintList = trackColor
+        switchImagePadA.setTextColor(
+            if (tempHideImagesPadA) Color.GREEN else Color.RED
+        )
 
         val txPercentAlpha = view.findViewById<TextView>(R.id.txPercentAlpha)
         txPercentAlpha.visibility = View.GONE
-        val initAlpha = alphaPadB * 100
+
+        val initAlpha = tempAlphaPadB * 100
         txPercentAlpha.text = "Opacidad del pad B: ${initAlpha.toInt()}%"
 
         val seekBarAlphaPadB = view.findViewById<SeekBar>(R.id.seekBarAlphaPadB)
         seekBarAlphaPadB.layoutParams.width = width / 2
-        seekBarAlphaPadB.progress = 100
         seekBarAlphaPadB.visibility = View.GONE
         seekBarAlphaPadB.progress = initAlpha.toInt()
 
         seekBarAlphaPadB.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val alpha = progress / 100f
+
                 txPercentAlpha.text = "Opacidad del pad B: $progress%"
-                alphaPadB = String.format("%.2f", alpha).toFloat()
-                themes.edit().putFloat("alphaPadB", alphaPadB).apply()
+                tempAlphaPadB = String.format("%.2f", alpha).toFloat()
+                imgPadBSelected.alpha = alpha
+                if (fromUser) {
+                    updateSaveButton()
+                }
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
@@ -1179,115 +1290,310 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         recyclerPadsB.visibility = View.GONE
         recyclerPadsB.layoutParams.width = width / 2
         recyclerPadsB.layoutParams.height = height / 2
+
         val listPadsB = getlistPadsB()
 
-        recyclerPadsB.adapter = ListPadsAdapter(listPadsB) { selectedItem ->
-            skinPad = selectedItem.text
-            themes.edit().putString("skinPad", skinPad).apply()
+        val selectedPadB = listPadsB.find {
+            it.text.equals(tempSkinPad, ignoreCase = true)
         }
+
+        selectedPadB?.let {
+            imgPadBSelected.setImageBitmap(BitmapFactory.decodeFile(it.imageRuta))
+            imgPadBSelected.alpha = tempAlphaPadB
+        }
+
+        recyclerPadsB.adapter = ListPadsAdapter(listPadsB, tempSkinPad) { selectedItem ->
+            imgPadBSelected.setImageBitmap(BitmapFactory.decodeFile(selectedItem.imageRuta))
+            imgPadBSelected.alpha = tempAlphaPadB
+            tempSkinPad = selectedItem.text
+            updateSaveButton()
+        }
+
+        val padCPanel = view.findViewById<ConstraintLayout>(R.id.padCPanel)
+        padCPanel.visibility = View.GONE
 
         val recyclerPadsC = view.findViewById<RecyclerView>(R.id.recyclerPadsC)
         recyclerPadsC.layoutManager = LinearLayoutManager(requireContext())
         recyclerPadsC.visibility = View.GONE
-        recyclerPadsC.layoutParams.width = width / 2
+        recyclerPadsC.layoutParams.width = (width * 0.35).toInt()
         recyclerPadsC.layoutParams.height = height / 2
+
+        val imgPadCBg = view.findViewById<ImageView>(R.id.imgPadCBg)
+        imgPadCBg.visibility = View.GONE
+        imgPadCBg.layoutParams.width = (width * 0.45).toInt()
+
+        val imgPadC = view.findViewById<ImageView>(R.id.imgPadC)
+        imgPadC.visibility = View.GONE
+        imgPadC.layoutParams.width = ((width * 0.45) / 2).toInt()
+
+        var padCAnimationJob: Job? = null
+        var currentPadCAnimation: AnimationDrawable? = null
+
+        val progressPadC = view.findViewById<ProgressBar>(R.id.progressPadC)
+        progressPadC.visibility = View.GONE
+
+        fun clearPadCAnimation() {
+            currentPadCAnimation?.stop()
+            currentPadCAnimation = null
+
+            imgPadC.setImageDrawable(null)
+        }
+
+        fun animatePadCFromSpriteSheet(path: String) {
+            padCAnimationJob?.cancel()
+
+            padCAnimationJob = viewLifecycleOwner.lifecycleScope.launch {
+                progressPadC.visibility = View.VISIBLE
+                imgPadC.visibility = View.GONE
+
+                clearPadCAnimation()
+
+                val animationDrawable = withContext(Dispatchers.Default) {
+                    val originalBitmap = BitmapFactory.decodeFile(path) ?: return@withContext null
+
+                    val rows = 6
+                    val frameWidth = originalBitmap.width
+                    val frameHeight = originalBitmap.height / rows
+
+                    val bpm = 120
+                    val beatDurationMs = 60000 / bpm
+                    val frameDurationMs = beatDurationMs / rows
+
+                    val anim = AnimationDrawable().apply {
+                        isOneShot = false
+                    }
+
+                    for (i in 0 until rows) {
+                        val frame = Bitmap.createBitmap(
+                            originalBitmap,
+                            0,
+                            i * frameHeight,
+                            frameWidth,
+                            frameHeight
+                        )
+
+                        val drawable = BitmapDrawable(resources, frame)
+                        anim.addFrame(drawable, frameDurationMs)
+                    }
+
+                    anim
+                }
+
+                if (!isAdded) return@launch
+
+                progressPadC.visibility = View.GONE
+
+                if (animationDrawable != null) {
+                    currentPadCAnimation = animationDrawable
+
+                    imgPadC.visibility = View.VISIBLE
+                    imgPadC.setImageDrawable(animationDrawable)
+
+                    imgPadC.post {
+                        animationDrawable.start()
+                    }
+                } else {
+                    imgPadC.visibility = View.GONE
+                    Toast.makeText(
+                        requireContext(),
+                        "No se pudo cargar la animación del Pad C.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
         val listPadsC = getlistPadsC()
 
-        recyclerPadsC.adapter = ListPadsAdapter(listPadsC) { selectedItem ->
-            skinPad = selectedItem.text
-            themes.edit().putString("skinPad", skinPad).apply()
+        val selectedPadC = listPadsC.find {
+            it.text.equals(tempSkinPad, ignoreCase = true)
+        }
+
+        selectedPadC?.let {
+            imgPadCBg.setImageBitmap(BitmapFactory.decodeFile(it.imageRuta))
+            animatePadCFromSpriteSheet(it.imageRuta.replace("BG.png", "Center.png", ignoreCase = true))
+        }
+
+        recyclerPadsC.adapter = ListPadsAdapter(listPadsC, tempSkinPad) { selectedItem ->
+            imgPadCBg.setImageBitmap(BitmapFactory.decodeFile(selectedItem.imageRuta))
+            animatePadCFromSpriteSheet(selectedItem.imageRuta.replace("BG.png", "Center.png", ignoreCase = true))
+            tempSkinPad = selectedItem.text
+            updateSaveButton()
         }
 
         val radioGroupPads = view.findViewById<RadioGroup>(R.id.radioGroupPads)
-        radioGroupPads.setOnCheckedChangeListener { group, checkedId ->
+
+        radioGroupPads.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.rbPadA -> {
                     switchImagePadA.visibility = View.VISIBLE
+
+                    tempShowPadB = 0
+                    updatePadAImages()
+
                     recyclerPadsC.visibility = View.GONE
+                    padCPanel.visibility = View.GONE
+                    imgPadCBg.visibility = View.GONE
+                    imgPadC.visibility = View.GONE
                     txPercentAlpha.visibility = View.GONE
                     seekBarAlphaPadB.visibility = View.GONE
+                    imgPadBSelected.visibility = View.GONE
+                    padBPreviewPanel.visibility = View.GONE
                     recyclerPadsB.visibility = View.GONE
                     linearPadsD.visibility = View.GONE
-                    showPadB = 0
-                    themes.edit().putInt("showPadB", showPadB).apply()
+
+                    updateSaveButton()
                 }
+
                 R.id.rbPadB -> {
                     switchImagePadA.visibility = View.GONE
+                    bgPadsPictures.visibility = View.GONE
+                    bgPads.visibility = View.GONE
+
                     recyclerPadsC.visibility = View.GONE
+                    padCPanel.visibility = View.GONE
+                    imgPadCBg.visibility = View.GONE
+                    imgPadC.visibility = View.GONE
                     txPercentAlpha.visibility = View.VISIBLE
                     seekBarAlphaPadB.visibility = View.VISIBLE
+                    imgPadBSelected.visibility = View.VISIBLE
+                    padBPreviewPanel.visibility = View.VISIBLE
                     recyclerPadsB.visibility = View.VISIBLE
                     linearPadsD.visibility = View.GONE
-                    showPadB = 1
-                    themes.edit().putInt("showPadB", showPadB).apply()
+
+                    tempShowPadB = 1
+
+                    updateSaveButton()
                 }
+
                 R.id.rbPadC -> {
                     switchImagePadA.visibility = View.GONE
+                    bgPadsPictures.visibility = View.GONE
+                    bgPads.visibility = View.GONE
+
                     txPercentAlpha.visibility = View.GONE
                     seekBarAlphaPadB.visibility = View.GONE
+                    imgPadBSelected.visibility = View.GONE
+                    padBPreviewPanel.visibility = View.GONE
                     recyclerPadsB.visibility = View.GONE
                     recyclerPadsC.visibility = View.VISIBLE
+                    padCPanel.visibility = View.VISIBLE
+                    imgPadCBg.visibility = View.VISIBLE
+                    imgPadC.visibility = View.VISIBLE
                     linearPadsD.visibility = View.GONE
-                    showPadB = 2
-                    themes.edit().putInt("showPadB", showPadB).apply()
+
+                    tempShowPadB = 2
+
+                    updateSaveButton()
                 }
+
                 R.id.rbPadD -> {
                     switchImagePadA.visibility = View.GONE
+                    bgPadsPictures.visibility = View.GONE
+                    bgPads.visibility = View.GONE
+
                     txPercentAlpha.visibility = View.GONE
                     seekBarAlphaPadB.visibility = View.GONE
+                    imgPadBSelected.visibility = View.GONE
+                    padBPreviewPanel.visibility = View.GONE
                     recyclerPadsB.visibility = View.GONE
                     recyclerPadsC.visibility = View.GONE
-                    showPadB = 3
+                    padCPanel.visibility = View.GONE
+                    imgPadCBg.visibility = View.GONE
+                    imgPadC.visibility = View.GONE
                     linearPadsD.visibility = View.VISIBLE
-                    showPadsD(linearPadsD)
-                    themes.edit().putInt("showPadB", showPadB).apply()
+
+                    tempShowPadB = 3
+
+                    showPadsD(
+                        linearPadsD = linearPadsD,
+                        selectedTypePadD = tempTypePadD
+                    ) { newTypePadD ->
+                        tempTypePadD = newTypePadD
+                        updateSaveButton()
+                    }
+
+                    updateSaveButton()
                 }
             }
+        }
+
+        when (tempShowPadB) {
+            0 -> radioGroupPads.check(R.id.rbPadA)
+            1 -> radioGroupPads.check(R.id.rbPadB)
+            2 -> radioGroupPads.check(R.id.rbPadC)
+            3 -> radioGroupPads.check(R.id.rbPadD)
+            else -> radioGroupPads.check(R.id.rbPadA)
         }
 
         switchImagePadA.setOnCheckedChangeListener { _, isChecked ->
-            hideImagesPadA = isChecked
-            themes.edit().putBoolean("hideImagesPadA", hideImagesPadA).apply()
-            if (isChecked) {
-                switchImagePadA.setTextColor(Color.GREEN)
-            } else {
-                switchImagePadA.setTextColor(Color.RED)
-            }
+            tempHideImagesPadA = isChecked
+
+            switchImagePadA.setTextColor(
+                if (isChecked) Color.GREEN else Color.RED
+            )
+
+            updatePadAImages()
+            updateSaveButton()
         }
 
-        if (hideImagesPadA) {
-            switchImagePadA.isChecked = hideImagesPadA
-        }
+        isInitializing = false
+        updateSaveButton()
 
-        val btnPad = view.findViewById<Button>(R.id.txPad)
         btnGuardarPads.setOnClickListener {
-            //val intent = Intent(this@PadsFragment.requireContext(), PadEditorActivity::class.java)
-            //startActivity(intent)
+            showPadB = tempShowPadB
+            hideImagesPadA = tempHideImagesPadA
+            alphaPadB = tempAlphaPadB
+            skinPad = tempSkinPad
+            typePadD = tempTypePadD
 
-            //btnPad.performClick()
-            Toast.makeText(requireContext(), "Configuracion guardada.", Toast.LENGTH_SHORT).show()
+            themes.edit()
+                .putInt("showPadB", showPadB)
+                .putBoolean("hideImagesPadA", hideImagesPadA)
+                .putFloat("alphaPadB", alphaPadB)
+                .putString("skinPad", skinPad)
+                .putInt("typePadD", typePadD)
+                .apply()
+
+            Toast.makeText(
+                requireContext(),
+                "Configuración guardada.",
+                Toast.LENGTH_SHORT
+            ).show()
+
             btnGuardarPads.visibility = View.INVISIBLE
-            requireActivity().finish()
-            val intent = Intent(this@PadsFragment.requireContext(), MainActivity::class.java)
+
+            val intent = Intent(requireContext(), MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+
             startActivity(intent)
+            requireActivity().finish()
         }
     }
 
-    private fun createImgPadsD(type: Int) : Bitmap {
-        val pathImg1 = requireContext().getExternalFilesDir("/FingerDance/PadsD/arrows_pad.png")!!.absolutePath
-        val pathImg2 = requireContext().getExternalFilesDir("/FingerDance/PadsD/arrows_pad_m.png")!!.absolutePath
-        val pathImg3 = requireContext().getExternalFilesDir("/FingerDance/PadsD/arrows_pad_bg_n.png")!!.absolutePath
+    private fun createImgPadsD(type: Int): Bitmap {
+        val pathImg1 = requireContext()
+            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad.png")!!
+            .absolutePath
 
-        return when(type) {
-            0 -> {createBitmapPadsD(pathImg1)}
-            1 -> {createBitmapPadsD(pathImg2)}
-            2 -> {createBitmapPadsD(pathImg3)}
-            else -> {createBitmapPadsD(pathImg1)}
+        val pathImg2 = requireContext()
+            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad_m.png")!!
+            .absolutePath
+
+        val pathImg3 = requireContext()
+            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad_bg_n.png")!!
+            .absolutePath
+
+        return when (type) {
+            0 -> createBitmapPadsD(pathImg1)
+            1 -> createBitmapPadsD(pathImg2)
+            2 -> createBitmapPadsD(pathImg3)
+            else -> createBitmapPadsD(pathImg1)
         }
-
     }
 
-    private fun createBitmapPadsD(path: String) : Bitmap {
+    private fun createBitmapPadsD(path: String): Bitmap {
         val original = BitmapFactory.decodeFile(path)
 
         val columns = 5
@@ -1297,6 +1603,7 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         val index = 2
         val x = index * cellWidth
         val y = 0
+
         return Bitmap.createBitmap(
             original,
             x,
@@ -1305,32 +1612,39 @@ class PadsFragment : Fragment(R.layout.options_pads) {
             cellHeight
         )
     }
-
-    private fun showPadsD(linearPadsD: LinearLayout) {
+    private fun showPadsD(
+        linearPadsD: LinearLayout,
+        selectedTypePadD: Int,
+        onChanged: (Int) -> Unit
+    ) {
         linearPadsD.removeAllViews()
+        linearPadsD.gravity = Gravity.CENTER_HORIZONTAL
+        linearPadsD.setPadding(0, 14, 0, 0)
 
-        // Container principal horizontal
         val mainContainer = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(12, 16, 12, 16)
-            }
-            setBackgroundColor(0x1AFFFFFF.toInt())
-            setPadding(12, 12, 12, 12)
-        }
+            gravity = Gravity.CENTER_VERTICAL
 
-        // LinearLayout vertical para RadioButtons (izquierda)
-        val radioGroup = RadioGroup(requireContext()).apply {
-            orientation = RadioGroup.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                weight = 1f
-                marginEnd = 24
+                topMargin = 8
+            }
+
+            setBackgroundColor(0x1AFFFFFF.toInt())
+            setPadding(18, 14, 18, 14)
+        }
+
+        val radioGroup = RadioGroup(requireContext()).apply {
+            orientation = RadioGroup.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = 28
             }
         }
 
@@ -1343,8 +1657,9 @@ class PadsFragment : Fragment(R.layout.options_pads) {
             ).apply {
                 bottomMargin = 12
             }
+            gravity = Gravity.CENTER_VERTICAL
             setTextColor(Color.WHITE)
-            textSize = 14f
+            textSize = 13f
         }
 
         val rbtn2 = RadioButton(requireContext()).apply {
@@ -1353,10 +1668,14 @@ class PadsFragment : Fragment(R.layout.options_pads) {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 medidaFlechas.toInt()
-            )
+            ).apply {
+                bottomMargin = 12
+            }
+            gravity = Gravity.CENTER_VERTICAL
             setTextColor(Color.WHITE)
-            textSize = 14f
+            textSize = 13f
         }
+
         val rbtn3 = RadioButton(requireContext()).apply {
             id = View.generateViewId()
             text = "OmegaUp"
@@ -1364,17 +1683,19 @@ class PadsFragment : Fragment(R.layout.options_pads) {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 medidaFlechas.toInt()
             )
+            gravity = Gravity.CENTER_VERTICAL
             setTextColor(Color.WHITE)
-            textSize = 14f
+            textSize = 13f
         }
 
         radioGroup.addView(rbtn1)
         radioGroup.addView(rbtn2)
         radioGroup.addView(rbtn3)
 
-        // LinearLayout vertical para ImageViews (derecha)
         val imagesContainer = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1397,7 +1718,9 @@ class PadsFragment : Fragment(R.layout.options_pads) {
             layoutParams = LinearLayout.LayoutParams(
                 medidaFlechas.toInt(),
                 medidaFlechas.toInt()
-            )
+            ).apply {
+                bottomMargin = 12
+            }
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
 
@@ -1414,47 +1737,50 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         imagesContainer.addView(imageView2)
         imagesContainer.addView(imageView3)
 
-        // Agregar al contenedor principal
         mainContainer.addView(radioGroup)
         mainContainer.addView(imagesContainer)
 
-        // Inicializar el estado correcto del RadioButton basado en isPiuMPadB
-        when(typePadD){
-            0 -> {
-                rbtn1.isChecked = true
-            }
-            1 -> {
-                rbtn2.isChecked = true
-            }
-            2 -> {
-                rbtn3.isChecked = true
-            }
-        }
+        var isInternalInitializing = true
 
-        // Listener para detectar cambios de selección
         radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            typePadD = when (checkedId) {
+            val newTypePadD = when (checkedId) {
                 rbtn1.id -> 0
                 rbtn2.id -> 1
                 rbtn3.id -> 2
                 else -> 0
             }
-            themes.edit().putInt("typePadD", typePadD).apply()
+
+            if (!isInternalInitializing) {
+                onChanged(newTypePadD)
+            }
         }
+
+        when (selectedTypePadD) {
+            0 -> radioGroup.check(rbtn1.id)
+            1 -> radioGroup.check(rbtn2.id)
+            2 -> radioGroup.check(rbtn3.id)
+            else -> radioGroup.check(rbtn1.id)
+        }
+
+        isInternalInitializing = false
 
         linearPadsD.addView(mainContainer)
     }
 
-
     private fun getlistPadsB(): ArrayList<ThemeItem> {
         val dir = requireContext().getExternalFilesDir("/FingerDance/PadsB/")
         val listThemes = ArrayList<ThemeItem>()
+
         dir?.walkTopDown()?.forEach {
             if (it.toString().endsWith(".png", true)) {
-                when {
-                    it.isFile -> {
-                        listThemes.add(ThemeItem(it.absolutePath, it.name.replace(".png", "", ignoreCase = true), false))
-                    }
+                if (it.isFile) {
+                    listThemes.add(
+                        ThemeItem(
+                            it.absolutePath,
+                            it.name.replace(".png", "", ignoreCase = true),
+                            false
+                        )
+                    )
                 }
             }
         }
@@ -1465,12 +1791,17 @@ class PadsFragment : Fragment(R.layout.options_pads) {
     private fun getlistPadsC(): ArrayList<ThemeItem> {
         val dir = requireContext().getExternalFilesDir("/FingerDance/PadsC/")
         val listThemes = ArrayList<ThemeItem>()
+
         dir?.walkTopDown()?.forEach {
             if (it.toString().endsWith("BG.png", true)) {
-                when {
-                    it.isFile -> {
-                        listThemes.add(ThemeItem(it.absolutePath, it.parentFile.name, false))
-                    }
+                if (it.isFile) {
+                    listThemes.add(
+                        ThemeItem(
+                            it.absolutePath,
+                            it.parentFile.name,
+                            false
+                        )
+                    )
                 }
             }
         }
@@ -1500,12 +1831,78 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
         setupCounterSwitch(view, thumbColor, trackColor)
         setupBreakSongSwitch(view, thumbColor, trackColor)
         setupHorizontalMode(view, thumbColor, trackColor)
+        setupPlayOrientationSingle(view)
+        setupPleyOrientationHalf(view)
         val holdProgress = view.findViewById<HoldProgressView>(R.id.holdProgress)
         holdProgress.layoutParams.width = (width * 0.5).toInt()
         holdProgress.onHoldComplete = {
             themes.edit().putString("allTunes", "").apply()
         }
         setupUpdateNoteSkins(view)
+    }
+
+    private fun setupPleyOrientationHalf(view: View) {
+        val optionOrientationHalf = view.findViewById<OptionStepperView>(R.id.optionOrientationHalf)
+        val listOptions = listOf("PREGUNTAR", "VERTICAL", "HORIZONTAL")
+        optionOrientationHalf.setOptions(
+            newOptions = listOptions,
+            defaultIndex = playModeHalf
+        )
+
+        optionOrientationHalf.setOnOptionChangedListener { index, value ->
+            when (index) {
+                0 -> {
+                    // PREGUNTAR
+                    playModeHalf = index
+                    themes.edit().putInt("playModeHalf", playModeHalf).apply()
+                }
+
+                1 -> {
+                    // VERTICAL
+                    playModeHalf = index
+                    themes.edit().putInt("playModeHalf", playModeHalf).apply()
+                }
+
+                2 -> {
+                    // HORIZONTAL
+                    playModeHalf = index
+                    themes.edit().putInt("playModeHalf", playModeHalf).apply()
+                }
+            }
+            Log.d("AjustesFragment", "playModeHalf: ${themes.getInt("playModeHalf", 0)}")
+        }
+    }
+
+    private fun setupPlayOrientationSingle(view: View) {
+        val optionOrientationSingle = view.findViewById<OptionStepperView>(R.id.optionOrientationSingle)
+        val listOptions = listOf("PREGUNTAR", "VERTICAL", "HORIZONTAL")
+        optionOrientationSingle.setOptions(
+            newOptions = listOptions,
+            defaultIndex = playModeSingle
+        )
+
+        optionOrientationSingle.setOnOptionChangedListener { index, value ->
+            when (index) {
+                0 -> {
+                    // PREGUNTAR
+                    playModeSingle = index
+                    themes.edit().putInt("playModeSingle", playModeSingle).apply()
+                }
+
+                1 -> {
+                    // VERTICAL
+                    playModeSingle = index
+                    themes.edit().putInt("playModeSingle", playModeSingle).apply()
+                }
+
+                2 -> {
+                    // HORIZONTAL
+                    playModeSingle = index
+                    themes.edit().putInt("playModeSingle", playModeSingle).apply()
+                }
+            }
+            Log.d("AjustesFragment", "playModeSingle: ${themes.getInt("playModeSingle", 0)}")
+        }
     }
 
     private fun setupHorizontalMode(view: View, thumbColor: ColorStateList, trackColor: ColorStateList){

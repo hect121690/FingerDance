@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="OptionStepperView">
+        <attr name="optionTitle" format="string" />
+        <attr name="optionDefaultIndex" format="integer" />
+
+        <attr name="optionTitleColor" format="color" />
+        <attr name="optionTitleSize" format="dimension" />
+        <attr name="optionTitleStyle" format="enum">
+            <enum name="normal" value="0" />
+            <enum name="bold" value="1" />
+            <enum name="italic" value="2" />
+            <enum name="bold_italic" value="3" />
+        </attr>
+
+        <attr name="optionTextColor" format="color" />
+        <attr name="optionTextSize" format="dimension" />
+        <attr name="optionTextStyle" format="enum">
+            <enum name="normal" value="0" />
+            <enum name="bold" value="1" />
+            <enum name="italic" value="2" />
+            <enum name="bold_italic" value="3" />
+        </attr>
+    </declare-styleable>
+
+</resources>

@@ -74,6 +74,11 @@ class SelectChannel : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
         setContentView(R.layout.activity_select_channel)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                goMain(nav_back_der)
+            }
+        })
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         animIndicator = AnimationUtils.loadAnimation(this, R.anim.press_nav)
 
@@ -346,10 +351,6 @@ class SelectChannel : AppCompatActivity() {
         super.onDestroy()
 
         handlerSelectChannel.removeCallbacksAndMessages(null)
-    }
-
-    override fun onBackPressed() {
-        goMain(nav_back_Izq)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

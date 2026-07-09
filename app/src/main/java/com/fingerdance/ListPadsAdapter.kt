@@ -10,9 +10,18 @@ import androidx.recyclerview.widget.RecyclerView
 private var selectedItem = ThemeItem("","", false)
 class ListPadsAdapter(
     private val items: List<ThemeItem>,
+    private val selectedText: String = "",
     private val onItemSelected: (ThemeItem) -> Unit // Callback
 ) : RecyclerView.Adapter<ListPadsAdapter.MyViewHolderPads>() {
-    private var lastCheckedPosition = -1
+    private var lastCheckedPosition = items.indexOfFirst {
+        it.text.equals(selectedText, ignoreCase = true)
+    }
+
+    init {
+        items.forEachIndexed { index, item ->
+            item.isChecked = index == lastCheckedPosition
+        }
+    }
 
     class MyViewHolderPads(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val imageView: ImageView = itemView.findViewById(R.id.item_image_pad)
@@ -28,7 +37,7 @@ class ListPadsAdapter(
     override fun onBindViewHolder(holder: MyViewHolderPads, position: Int) {
         val item = items[position]
         holder.imageView.setImageDrawable(Drawable.createFromPath(item.imageRuta))
-        holder.textView.text = item.text
+        holder.textView.text = item.text.replace("pad_", "")
         holder.checkBox.isChecked = item.isChecked
 
         // Cuando se hace clic en el CheckBox
@@ -56,6 +65,14 @@ class ListPadsAdapter(
 
         // También dispara el CheckBox si se hace clic en el texto
         holder.textView.setOnClickListener {
+            holder.checkBox.performClick()
+        }
+
+        holder.imageView.setOnClickListener {
+            holder.checkBox.performClick()
+        }
+
+        holder.itemView.setOnClickListener {
             holder.checkBox.performClick()
         }
     }

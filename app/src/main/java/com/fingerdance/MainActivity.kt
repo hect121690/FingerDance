@@ -1600,92 +1600,194 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun goPlay(goSound: MediaPlayer, animation: Animation){
+    private fun goPlay(goSound: MediaPlayer, animation: Animation) {
         isOnline = false
+
+        btnPlay.isEnabled = false
         goSound.start()
         btnPlay.startAnimation(animation)
-        if(themes.getString("allTunes", "").toString() != ""){
-            val jsonListChannels = themes.getString("allTunes", "")
-            listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
-        }else{
-            showLoadingOverlay("Espere por favor...")
-            listCommands = getFilesCW(this@MainActivity)
-            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-            val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
-            val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
-            listChannels = ArrayList(listSongsKsf + listSongsSsc)
-            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-        }
-        if(themes.getString("efects", "").toString() == ""){
-            showLoadingOverlay("Espere por favor...")
-            listCommands = getFilesCW(this@MainActivity)
-            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-        }else{
-            val jsonListCommands = themes.getString("efects", "")
-            listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-        }
-        loadSounds(this@MainActivity)
-        if(themes.getString("favorites", "").toString() != ""){
-            val jsonListFavoites = themes.getString("favorites", "")
-            listFavorites = gson.fromJson(jsonListFavoites, object : TypeToken<ArrayList<Song>>() {}.type)
-            val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
-            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCanciones = listFavorites)
-            if(listFavorites.isNotEmpty()){
-                listChannels.add(channelFavorites)
-                listChannels.sortBy { it.nombre.substringBefore("-").trim() }
-            }
-        }else{
-            listFavorites = arrayListOf()
-            val pathBannerFavorites = getExternalFilesDir("/FingerDance/Themes/favorites_banner.png")!!.absolutePath
-            channelFavorites = Channels("06-FAVORITES", getString(R.string.favorites_description), pathBannerFavorites, listCanciones = listFavorites)
-            if(listFavorites.isNotEmpty()){
-                listChannels.add(channelFavorites)
-                listChannels.sortBy { it.nombre.substringBefore("-").trim() }
-            }
-        }
 
-        loadingLayout.visibility = View.INVISIBLE
-        mediaPlayerMain.pause()
-        soundPlayer!!.pause()
-        //val intent = Intent(this@MainActivity, if(isHorizontalMode) SelectChannelHorizontal::class.java else SelectChannel::class.java)
-        val intent = Intent(this@MainActivity, LoadResourcesActivity::class.java)
-        startActivity(intent)
+        showLoadingOverlay("Espere por favor...")
 
-        btnPlay.isEnabled = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    if (themes.getString("allTunes", "").orEmpty().isNotEmpty()) {
+                        val jsonListChannels = themes.getString("allTunes", "")
+                        listChannels = gson.fromJson(
+                            jsonListChannels,
+                            object : TypeToken<ArrayList<Channels>>() {}.type
+                        )
+                    } else {
+                        listCommands = loadCommandsForMain()
+
+                        val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
+                        val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
+
+                        listChannels = ArrayList(listSongsKsf + listSongsSsc)
+
+                        themes.edit()
+                            .putString("allTunes", gson.toJson(listChannels))
+                            .putString("efects", gson.toJson(listCommands))
+                            .apply()
+                    }
+
+                    if (themes.getString("efects", "").orEmpty().isEmpty()) {
+                        listCommands = loadCommandsForMain()
+
+                        themes.edit()
+                            .putString("efects", gson.toJson(listCommands))
+                            .apply()
+                    } else {
+                        val jsonListCommands = themes.getString("efects", "")
+                        listCommands = gson.fromJson(
+                            jsonListCommands,
+                            object : TypeToken<ArrayList<Command>>() {}.type
+                        )
+                    }
+
+                    if (themes.getString("favorites", "").orEmpty().isNotEmpty()) {
+                        val jsonListFavorites = themes.getString("favorites", "")
+
+                        listFavorites = gson.fromJson(
+                            jsonListFavorites,
+                            object : TypeToken<ArrayList<Song>>() {}.type
+                        )
+
+                        val pathBannerFavorites = getExternalFilesDir(
+                            "/FingerDance/Themes/favorites_banner.png"
+                        )!!.absolutePath
+
+                        channelFavorites = Channels(
+                            "06-FAVORITES",
+                            getString(R.string.favorites_description),
+                            pathBannerFavorites,
+                            listCanciones = listFavorites
+                        )
+
+                        if (listFavorites.isNotEmpty()) {
+                            val alreadyExists = listChannels.any { it.nombre == "06-FAVORITES" }
+
+                            if (!alreadyExists) {
+                                listChannels.add(channelFavorites)
+                            }
+
+                            listChannels.sortBy {
+                                it.nombre.substringBefore("-").trim()
+                            }
+                        }
+                    } else {
+                        listFavorites = arrayListOf()
+
+                        val pathBannerFavorites = getExternalFilesDir(
+                            "/FingerDance/Themes/favorites_banner.png"
+                        )!!.absolutePath
+
+                        channelFavorites = Channels(
+                            "06-FAVORITES",
+                            getString(R.string.favorites_description),
+                            pathBannerFavorites,
+                            listCanciones = listFavorites
+                        )
+                    }
+
+                    loadSounds(this@MainActivity)
+                }
+
+                mediaPlayerMain.pause()
+                soundPlayer?.pause()
+
+                val intent = Intent(this@MainActivity, LoadResourcesActivity::class.java)
+                startActivity(intent)
+                loadingLayout.visibility = View.INVISIBLE
+                btnPlay.isEnabled = true
+
+            } catch (e: Exception) {
+                loadingLayout.visibility = View.INVISIBLE
+                btnPlay.isEnabled = true
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error al cargar recursos: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
-    private fun goOption(goOption: MediaPlayer, animation: Animation){
-        if(themes.getString("allTunes", "").toString() != ""){
-            val jsonListChannels = themes.getString("allTunes", "")
-            listChannels = gson.fromJson(jsonListChannels, object : TypeToken<ArrayList<Channels>>() {}.type)
-        }else{
-            showLoadingOverlay("Espere por favor...")
-            listCommands = getFilesCW(this@MainActivity)
-            val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-            val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-            listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-            val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
-            val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
-            listChannels = ArrayList(listSongsKsf + listSongsSsc)
-            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-            themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+    private fun goOption(goOption: MediaPlayer, animation: Animation) {
+        btnOptions.isEnabled = false
 
-        }
-        Toast.makeText(this@MainActivity, "Cargando...", Toast.LENGTH_SHORT).show()
         btnOptions.startAnimation(animation)
         goOption.start()
-        soundPlayer!!.pause()
+        soundPlayer?.pause()
 
-        loadingLayout.visibility = View.INVISIBLE
-        val intent = Intent(applicationContext, OptionsActivity()::class.java)
-        startActivity(intent)
-        this@MainActivity.finish()
+        showLoadingOverlay("Espere por favor...")
+
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    if (themes.getString("allTunes", "").orEmpty().isNotEmpty()) {
+                        val jsonListChannels = themes.getString("allTunes", "")
+                        listChannels = gson.fromJson(
+                            jsonListChannels,
+                            object : TypeToken<ArrayList<Channels>>() {}.type
+                        )
+                    } else {
+                        listCommands = loadCommandsForMain()
+
+                        val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
+                        val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
+
+                        listChannels = ArrayList(listSongsKsf + listSongsSsc)
+
+                        themes.edit()
+                            .putString("allTunes", gson.toJson(listChannels))
+                            .putString("efects", gson.toJson(listCommands))
+                            .apply()
+                    }
+
+                    if (themes.getString("efects", "").orEmpty().isEmpty()) {
+                        listCommands = loadCommandsForMain()
+
+                        themes.edit()
+                            .putString("efects", gson.toJson(listCommands))
+                            .apply()
+                    } else {
+                        val jsonListCommands = themes.getString("efects", "")
+                        listCommands = gson.fromJson(
+                            jsonListCommands,
+                            object : TypeToken<ArrayList<Command>>() {}.type
+                        )
+                    }
+                }
+
+                val intent = Intent(this@MainActivity, OptionsActivity::class.java)
+                startActivity(intent)
+                finish()
+
+            } catch (e: Exception) {
+                loadingLayout.visibility = View.INVISIBLE
+                btnOptions.isEnabled = true
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error al cargar opciones: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun loadCommandsForMain(): ArrayList<Command> {
+        val commands = getFilesCW(this@MainActivity)
+        val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
+        val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+        commands
+            .find { it.descripcion == "Cambiar la velocidad de la nota." }
+            ?.listCommandValues
+            ?.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
+        return commands
     }
 
     private fun showLoadingOverlay(message: String) {
