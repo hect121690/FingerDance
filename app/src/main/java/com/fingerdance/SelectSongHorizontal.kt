@@ -1942,8 +1942,9 @@ class SelectSongHorizontal : AppCompatActivity() {
                 else
                     GameScreenActivityHorizontal::class.java
             )
+
+            isVertical = false
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
-            intent.putExtra("IS_VERTICAL", false)
             startActivity(intent)
             handlerSelectSongHorizontal.postDelayed({
                 linearLoading.isVisible = false

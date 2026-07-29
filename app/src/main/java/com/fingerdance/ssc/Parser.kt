@@ -17,6 +17,7 @@ class Parser {
         val endBeat: Double? = null,
         val isFake: Boolean = false,
         val isVanish: Boolean = false,
+        val isHide: Boolean = false,
         val isPhantom: Boolean = false,
         val isMine: Boolean = false,
         val isPressed: Boolean = false,
@@ -32,16 +33,11 @@ class Parser {
 
     data class BpmSegment(val beat: Double, val bpm: Double)
     data class TickCountSegment(val beat: Double, val tickcount: Int)
+
     data class Stop(val beat: Double, val durationMs: Double)
     data class Delay(val beat: Double, val durationMs: Double)
     data class Warp(val beat: Double, val duration: Double)
-
-    data class Fake(
-        val beat: Double,
-        val duration: Double,
-        val isPressed: Boolean = false
-    )
-
+    data class Fake(val beat: Double, val duration: Double, val isPressed: Boolean = false)
     data class Speed(val beat: Double, val ratio: Double, val duration: Double, val mode: Int)
     data class Scroll(val beat: Double, val ratio: Double)
     data class Combo(val beat: Double, val number: Int)
@@ -49,14 +45,16 @@ class Parser {
     data class ExtendedToken(
         val code: Char,
         val isVanish: Boolean,
+        val isHide: Boolean,
         val isFake: Boolean,
         val isPressed: Boolean
     )
 
     data class HoldData(
         val beat: Double,
+        val isHide: Boolean,
         val isFake: Boolean,
-        val isPressed: Boolean
+        val isPressed: Boolean,
     )
 
     data class Chart(
@@ -100,13 +98,9 @@ class Parser {
         val (notes, extendedNotes, tokenFakes) =
             parseNotes(textChart, baseFakes)
 
-        val fakes =
-            (baseFakes + tokenFakes)
-                .sortedBy { it.beat }
+        val fakes = (baseFakes + tokenFakes).sortedBy { it.beat }
 
-        val allNotes =
-            (notes + extendedNotes)
-                .sortedBy { it.beat }
+        val allNotes = (notes + extendedNotes).sortedBy { it.beat }
 
         return Chart(
             chartPath = pathFile,
@@ -177,6 +171,7 @@ class Parser {
                     val isVanish = data.isVanish
                     val isFake = data.isFake
                     val isPressed = data.isPressed
+                    val isHide = data.isHide
 
                     when (code) {
 
@@ -188,6 +183,7 @@ class Parser {
                                     beat = beat,
                                     isFake = isFake,
                                     isVanish = isVanish,
+                                    isHide = isHide,
                                     isPhantom = false,
                                     isPressed = isPressed,
                                     type = NoteType.TAP
@@ -210,6 +206,7 @@ class Parser {
                             extHolds[col] =
                                 HoldData(
                                     beat = beat,
+                                    isHide = isHide,
                                     isFake = isFake,
                                     isPressed = isPressed
                                 )
@@ -220,6 +217,7 @@ class Parser {
                             val holdData = extHolds[col] ?: continue
 
                             val fake = holdData.isFake || isFake
+                            val hide = holdData.isHide || isHide
 
                             extendedNotes.add(
                                 Note(
@@ -228,6 +226,7 @@ class Parser {
                                     endBeat = beat,
                                     isFake = fake,
                                     isVanish = isVanish,
+                                    isHide = hide,
                                     isPhantom = false,
                                     isPressed = holdData.isPressed,
                                     type = NoteType.HOLD
@@ -442,24 +441,18 @@ class Parser {
                     if (parts.size > 1) {
 
                         val codeChar = parts[0].firstOrNull() ?: ' '
-
                         val modifier = parts.getOrNull(1)
 
-                        if (codeChar == 'h') {
-                            colIndex++
-                            i = end + 1
-                            continue
-                        }
-
-                        val isVanish = modifier == "v"
+                        val isVanish = modifier.equals("v", ignoreCase = true)
+                        val isHide = modifier.equals("h", ignoreCase = true)
 
                         val fakeFlag = parts.getOrNull(2) == "1"
 
                         val isFake =
-                            fakeFlag &&
-                                    (codeChar == '1'
-                                            || codeChar == '2'
-                                            || codeChar == '3')
+                            fakeFlag && (
+                                        codeChar == '1'
+                                        || codeChar == '2'
+                                        || codeChar == '3')
 
                         val isPressed =
                             modifier == "n" &&
@@ -469,6 +462,7 @@ class Parser {
                             ExtendedToken(
                                 code = codeChar,
                                 isVanish = isVanish,
+                                isHide = isHide,
                                 isFake = isFake,
                                 isPressed = isPressed
                             )

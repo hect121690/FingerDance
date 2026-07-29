@@ -128,15 +128,22 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
+    private val lifeLightningTexture =
+        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barlife_electric 4x6.png"))
+
+    val lifeLightningFrames: Array<TextureRegion> = getLifeLightningFrames(lifeLightningTexture)
+
     private val fadeTexture = Texture(Gdx.files.internal("black.png"))
 
-    data class PadPositionC(val x: Float, val y: Float, val size: Float)
+    data class PadPositionC(val x: Float, val y: Float, val widthPad: Float, val heightPad: Float)
+    private val widthPad = width * 0.43f
+    private val heightPad = heightBtns * 0.87f
     val padPositionsC = listOf(
-        PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.61f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.015f, width.toFloat() * 1.063f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.283f, width.toFloat() * 1.334f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.063f, medidaFlechas * 3f),
-        PadPositionC(width.toFloat() * 0.558f, width.toFloat() * 1.61f, medidaFlechas * 3f)
+        PadPositionC(width.toFloat() * 0.01f, height.toFloat() * 0.803f, widthPad, heightPad),
+        PadPositionC(width.toFloat() * 0.01f, height.toFloat() * 0.53f, widthPad, heightPad),
+        PadPositionC(width.toFloat() * 0.285f, height.toFloat() * 0.665f, widthPad, heightPad),
+        PadPositionC(width.toFloat() * 0.56f, height.toFloat() * 0.53f, widthPad, heightPad),
+        PadPositionC(width.toFloat() * 0.56f, height.toFloat() * 0.803f, widthPad, heightPad)
     )
 
     private lateinit var font: BitmapFont
@@ -224,7 +231,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             }
 
             player.render(songTimeMs)
-            //font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
+            font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechas, 0f)
@@ -256,6 +263,20 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     fun timeGetTime(): Long{
         return SystemClock.uptimeMillis()
+    }
+
+    private fun getLifeLightningFrames(texture: Texture): Array<TextureRegion> {
+        val tmp = TextureRegion.split(texture, texture.width / 4, texture.height / 6)
+        val frames = arrayOf(
+            tmp[0][0], tmp[0][1], tmp[0][2], tmp[0][3],
+            tmp[1][0], tmp[1][1], tmp[1][2], tmp[1][3],
+            tmp[2][0], tmp[2][1], tmp[2][2], tmp[2][3],
+            tmp[3][0], tmp[3][1], tmp[3][2], tmp[3][3],
+            tmp[4][0], tmp[4][1], tmp[4][2], tmp[4][3],
+            tmp[5][0], tmp[5][1], tmp[5][2], tmp[5][3]
+        )
+        frames.forEach { it.flip(false, true) }
+        return frames
     }
 
     private fun getTexturePad4(texture: Texture): Array<TextureRegion> {
@@ -310,7 +331,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             spritePadB.setBounds(0f, posYpadB, width.toFloat(), width.toFloat() * 1.1f)
             spritePadB.draw(batch)
         }else if (showPadB == 2){
-            batch.draw(padB,width.toFloat() * 0.05f,  width.toFloat() * 1.1f, width.toFloat() * 0.9f, width.toFloat() * 0.9f)
+            batch.draw(padB,width.toFloat() * 0.05f,  height.toFloat() * 0.55f, width.toFloat() * 0.9f, height.toFloat() * 0.45f)
         }else if (showPadB == 3){
             batch.draw(arrayPad4Bg[0], padPositions[0][0], padPositions[0][1], widthBtns, heightBtns)
             batch.draw(arrayPad4Bg[1], padPositions[1][0], padPositions[1][1], widthBtns, heightBtns)
@@ -534,7 +555,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             arrayPad4Bg[0].texture.dispose()
             arrayPad4[0].texture.dispose()
         }
-
+        lifeLightningTexture.dispose()
         player.disposePlayer()
     }
 

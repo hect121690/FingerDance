@@ -1,5 +1,6 @@
 package com.fingerdance.ssc
 
+import com.badlogic.gdx.Gdx
 import com.fingerdance.ssc.Parser.BpmSegment
 import com.fingerdance.ssc.Parser.Delay
 import com.fingerdance.ssc.Parser.Scroll
@@ -366,54 +367,66 @@ class TimmingData(
         return displayed
     }
 
-    fun getDisplayedSpeedPercent(rawBeat: Double, rawTimeMs: Double): Double {
+    fun getDisplayedSpeedPercent(
+        rawBeat: Double,
+        rawTimeMs: Double,
+        isEW: Boolean = false
+    ): Double {
         if (sortedSpeeds.isEmpty()) return 1.0
 
-        val idx = getSpeedIndexAtBeat(rawBeat)
-        if (idx < 0) return 1.0
+        val index = getSpeedIndexAtBeat(rawBeat)
+        if (index < 0) return 1.0
 
-        val seg = sortedSpeeds[idx]
-        val first = sortedSpeeds.first()
-
-        val startBeat = seg.beat
-
-        // StepMania: GetElapsedTimeFromBeat(startBeat) - GetDelayAtBeat(startBeat)
-        val startTime = beatToTime(startBeat) - getDelayAtBeat(startBeat)
-
-        val endTime = if (seg.mode == 1) {
-            // UNIT_SECONDS
-            startTime + seg.duration * 1000.0
-        } else {
-            // UNIT_BEATS
-            val endBeat = startBeat + seg.duration
-            beatToTime(endBeat) - getDelayAtBeat(endBeat)
-        }
-
-        val curTime = rawTimeMs
-
-        if (idx == 0 && first.duration > 0.0 && curTime < startTime) {
-            return 1.0
-        }
-
-        if (endTime >= curTime && (idx > 0 || first.duration > 0.0)) {
-            val priorSpeed = if (idx == 0) 1.0 else sortedSpeeds[idx - 1].ratio
-
-            val duration = endTime - startTime
-            val timeUsed = curTime - startTime
-
-            val ratioUsed = if (kotlin.math.abs(duration) <= EPS) {
+        val segment = sortedSpeeds[index]
+        val previousSpeed =
+            if (index == 0) {
                 1.0
             } else {
-                timeUsed / duration
-            }.coerceIn(0.0, 1.0)
+                sortedSpeeds[index - 1].ratio
+            }
 
-            val distance = priorSpeed - seg.ratio
-            val ratioNeed = ratioUsed * -distance
+        val startBeat = segment.beat
+        val startTimeMs = beatToTime(startBeat) - getDelayAtBeat(startBeat)
 
-            return priorSpeed + ratioNeed
+        val endTimeMs = if (segment.mode == 1) {
+                startTimeMs + segment.duration * 1000.0
+            } else {
+                val endBeat = startBeat + segment.duration
+                beatToTime(endBeat) - getDelayAtBeat(endBeat)
+            }
+
+        var speed = when {
+                segment.duration <= EPS -> {
+                    segment.ratio
+                }
+
+                rawTimeMs <= startTimeMs -> {
+                    previousSpeed
+                }
+
+                rawTimeMs >= endTimeMs -> {
+                    segment.ratio
+                }
+
+                else -> {
+                    val durationMs = endTimeMs - startTimeMs
+                    if (durationMs <= EPS) {
+                        segment.ratio
+                    } else {
+                        val progress = ((rawTimeMs - startTimeMs) / durationMs).coerceIn(0.0, 1.0)
+                        previousSpeed + (segment.ratio - previousSpeed) * progress
+                    }
+                }
+            }
+
+        if (isEW) {
+            val beatPhase = (rawBeat % 2.0) * 4.0 * Math.PI
+            val accordion = kotlin.math.sin(beatPhase)
+            val smoothAccordion = accordion * kotlin.math.abs(accordion)
+            speed *= 1.0 + smoothAccordion * 0.12
         }
 
-        return seg.ratio
+        return speed
     }
 
     private fun getSpeedIndexAtBeat(beat: Double): Int {
@@ -442,13 +455,14 @@ class TimmingData(
         noteBeat: Double,
         songVisibleBeat: Double,
         songVisibleTimeMs: Double,
-        stepSize: Float
+        stepSize: Float,
+        isEW: Boolean
     ): Float {
         val noteDispBeat = getDisplayedBeat(noteBeat)
         val songDispBeat = getDisplayedBeat(songVisibleBeat)
 
         val deltaBeatDisp = noteDispBeat - songDispBeat
-        val speedPercent = getDisplayedSpeedPercent(songVisibleBeat, songVisibleTimeMs)
+        val speedPercent = getDisplayedSpeedPercent(songVisibleBeat, songVisibleTimeMs, isEW)
 
         return (deltaBeatDisp * stepSize * speedPercent).toFloat()
     }

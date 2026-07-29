@@ -304,16 +304,9 @@ class SelectChannel : AppCompatActivity() {
     }
 
     private fun goMain(flecha: ImageView) {
-
-        AppResources.soundPool?.play(
-            AppResources.channelBack,
-            1f,1f,1,0,1f
-        )
-
+        AppResources.soundPool?.play(AppResources.channelBack, 1f,1f,1,0,1f)
         flecha.startAnimation(animIndicator)
-
         AppResources.soundSelectChannel?.pause()
-
         finish()
     }
 

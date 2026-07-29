@@ -95,6 +95,11 @@ class DanceGrade : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
         setContentView(R.layout.activity_dance_grade)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Toast.makeText(this@DanceGrade, "Press Center Step", Toast.LENGTH_SHORT).show()
+            }
+        })
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         onWindowFocusChanged(true)
 
@@ -254,8 +259,9 @@ class DanceGrade : AppCompatActivity() {
             totalScore = 0
         }
 
-        val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
-        imgNewRecord.setImageBitmap(bitNR)
+        //val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
+
+        //imgNewRecord.setImageBitmap(bitNR)
 
         showGrade()
 
@@ -531,12 +537,13 @@ class DanceGrade : AppCompatActivity() {
             )
 
             val nuevosTop3 = rankList.sortedByDescending { it.puntaje.toInt() }.take(3)
+            val index = nuevosTop3.indexOfFirst { it.nombre == userName && it.puntaje == totalScore.toString() && it.grade == newGrade }
             firebaseDatabase.getReference("rankings")
                 .child(playerSong.checkedValues)
                 .child("firstRank")
                 .setValue(nuevosTop3)
                 .addOnSuccessListener {
-                    showNewRecord(imgNewRecord)
+                    showNewRecord(imgNewRecord, index)
                 }
                 .addOnFailureListener { e ->
                     Log.e("FATAL EXCEPTION", "Error al actualizar ranking: ", e)
@@ -1042,13 +1049,18 @@ class DanceGrade : AppCompatActivity() {
         }
     }
 
-    private fun showNewRecord(imgNewRecord: ImageView) {
+    private fun showNewRecord(imgNewRecord: ImageView, index: Int) {
+        when(index){
+            0 -> imgNewRecord.setImageBitmap(bitNR1)
+            1 -> imgNewRecord.setImageBitmap(bitNR2)
+            2 -> imgNewRecord.setImageBitmap(bitNR3)
+        }
         handlerDG.postDelayed({
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
             isPlayingNewRecord = soundPoolSelectSong.play(new_record, 1.0f, 1.0f, 1, 0, 1.0f)
             getBtnAceptar()
-        }, 3500)
+        }, 3000)
     }
 
     private fun animateImageView(view: ImageView) {
@@ -1289,11 +1301,6 @@ class DanceGrade : AppCompatActivity() {
         }
         resultListener?.let { salaRef.removeEventListener(it) }
         handlerDG.removeCallbacksAndMessages(null)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        Toast.makeText(this, "Press Center Step", Toast.LENGTH_SHORT).show()
     }
 
     override fun onPause() {

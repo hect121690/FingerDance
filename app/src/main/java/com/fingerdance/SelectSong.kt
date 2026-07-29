@@ -76,6 +76,7 @@ import com.fingerdance.MainActivity.VideosDrive
 import com.fingerdance.OptionsActivity
 import com.fingerdance.ssc.ChartOffsetAdapter
 import com.fingerdance.ssc.Parser
+import com.fingerdance.ssc.ParserKsf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -216,7 +217,6 @@ class SelectSong : AppCompatActivity() {
     private lateinit var bgaSelectSong: VideoView
     private lateinit var overlayBG: View
     private lateinit var imgContador: ImageView
-    private lateinit var smoothScroller : RecyclerView. SmoothScroller
     private lateinit var imgFavorite : ImageView
     private lateinit var bitFavorite : Bitmap
     private lateinit var bitFavoriteListed: Bitmap
@@ -233,6 +233,7 @@ class SelectSong : AppCompatActivity() {
     private var firstVisible = 0
 
     private var isRunning = false
+
 
     private val carouselRunnable = object : Runnable {
         override fun run() {
@@ -1730,7 +1731,8 @@ class SelectSong : AppCompatActivity() {
         }else{
             playerSong.rutaKsf = level.rutaKsf
             playerSong.isSSC = false
-            load(playerSong.rutaKsf, isHalfDouble)
+            //load(playerSong.rutaKsf, isHalfDouble)
+            chart = ParserKsf().parseKSF(readFileSsc(level.rutaKsf), valueOffset = valueOffset.toDouble())
             val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
             checkedValuesLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
             playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
@@ -1776,9 +1778,9 @@ class SelectSong : AppCompatActivity() {
                 else
                     GameScreenActivityHorizontal::class.java
             )
+            isVertical = true
 
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
-            intent.putExtra("IS_VERTICAL", true)
             startActivity(intent)
 
             handler.postDelayed({

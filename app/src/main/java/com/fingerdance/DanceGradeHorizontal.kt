@@ -55,6 +55,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.drawable.toDrawable
+import com.fingerdance.DanceGrade
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -105,6 +106,11 @@ class DanceGradeHorizontal : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
         setContentView(R.layout.activity_dance_grade_horizontal)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Toast.makeText(this@DanceGradeHorizontal, "Press Center Step", Toast.LENGTH_SHORT).show()
+            }
+        })
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
         onWindowFocusChanged(true)
 
@@ -210,7 +216,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
 
         val imgNewRecord = findViewById<ImageView>(R.id.imgNewRecord)
         imgNewRecord.visibility = View.INVISIBLE
-        imgNewRecord.layoutParams.height = (width * 0.25).toInt()
+        imgNewRecord.layoutParams.height = (heigthGrades).toInt()
+        imgNewRecord.layoutParams.width = (heigthGrades).toInt()
 
         val txNameSong = findViewById<TextView>(R.id.txNameSong)
         val txNameChannel = findViewById<TextView>(R.id.txNameChannel)
@@ -258,8 +265,8 @@ class DanceGradeHorizontal : AppCompatActivity() {
             totalScore = 0
         }
 
-        val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
-        imgNewRecord.setImageBitmap(bitNR)
+        //val bitNR = BitmapFactory.decodeFile("$rutaGrades/new_record.png")
+        //imgNewRecord.setImageBitmap(bitNR)
 
         showGrade()
 
@@ -537,12 +544,13 @@ class DanceGradeHorizontal : AppCompatActivity() {
             )
 
             val nuevosTop3 = rankList.sortedByDescending { it.puntaje.toInt() }.take(3)
+            val index = nuevosTop3.indexOfFirst { it.nombre == userName && it.puntaje == totalScore.toString() && it.grade == newGrade }
             firebaseDatabase.getReference("rankings")
                 .child(playerSong.checkedValues)
                 .child("firstRank")
                 .setValue(nuevosTop3)
                 .addOnSuccessListener {
-                    showNewRecord(imgNewRecord)
+                    showNewRecord(imgNewRecord, index)
                 }
                 .addOnFailureListener { e ->
                     Log.e("Firebase", "Error al actualizar ranking: ", e)
@@ -1043,7 +1051,12 @@ class DanceGradeHorizontal : AppCompatActivity() {
         }
     }
 
-    private fun showNewRecord(imgNewRecord: ImageView) {
+    private fun showNewRecord(imgNewRecord: ImageView, index: Int) {
+        when(index){
+            0 -> imgNewRecord.setImageBitmap(bitNR1)
+            1 -> imgNewRecord.setImageBitmap(bitNR2)
+            2 -> imgNewRecord.setImageBitmap(bitNR3)
+        }
         handlerDG.postDelayed({
             imgNewRecord.visibility = View.VISIBLE
             imgNewRecord.startAnimation(AnimationUtils.loadAnimation(DGContext, R.anim.stamp_effect))
@@ -1290,11 +1303,6 @@ class DanceGradeHorizontal : AppCompatActivity() {
         }
         resultListener?.let { salaRef.removeEventListener(it) }
         handlerDG.removeCallbacksAndMessages(null)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        Toast.makeText(this, "Press Center Step", Toast.LENGTH_SHORT).show()
     }
 
     override fun onPause() {

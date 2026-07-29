@@ -13,15 +13,15 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.fingerdance.databinding.ItemLvsBinding
 
-
+private var purple = 0
+private var yellow = 0
+private var cyan = 0
+private var blue = 0
+private var pink = 0
+private var red = 0
+private var green = 0
+private var orange = 0
 class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), private val widthLevel: Int) : RecyclerView.Adapter<LvsAdapter.ViewHolder>() {
-
-    private var purple = 0
-    private var yellow = 0
-    private var cyan = 0
-    private var blue = 0
-    private var pink = 0
-    private var red = 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemLvsBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -35,13 +35,15 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
             blue = ContextCompat.getColor(parent.context, R.color.borde_textview_elegante)
             pink = ContextCompat.getColor(parent.context, R.color.pink_custom)
             red = ContextCompat.getColor(parent.context, R.color.negative_red)
+            green = ContextCompat.getColor(parent.context, R.color.pressedColor)
+            orange = ContextCompat.getColor(parent.context, com.mercadopago.android.px.R.color.ui_meli_orange)
         }
 
         return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bindItem(lvListKsf[position], purple, yellow, cyan, blue, pink, red)
+        holder.bindItem(lvListKsf[position])
         val imageView = holder.itemView.findViewById<ImageView>(R.id.image_lvl)
         imageView.layoutParams.width = widthLevel
 
@@ -55,7 +57,7 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
 
     class ViewHolder(var itemLvsBinding: ItemLvsBinding) :
         RecyclerView.ViewHolder(itemLvsBinding.root) {
-        fun bindItem(lvKsf: Ksf, purple: Int, yellow: Int, cyan: Int, blue: Int, pink: Int, red: Int) {
+        fun bindItem(lvKsf: Ksf) {
             val bitmap = BitmapCache.getBitmap(lvKsf.rutaBitActive)
             itemLvsBinding.imageLvl.setImageBitmap(bitmap)
             itemLvsBinding.textLv.text = lvKsf.level
@@ -90,6 +92,27 @@ class LvsAdapter(private val lvListKsf: MutableList<Ksf> = mutableListOf(), priv
                     itemLvsBinding.textExtra.visibility = View.VISIBLE
                     itemLvsBinding.textExtra.setTextColor(pink)
                     itemLvsBinding.textExtra.text = "MISSION"
+                }
+                lvKsf.typeSteps.contains("CHALLENGE", ignoreCase = true) -> {
+                    itemLvsBinding.textExtra.visibility = View.VISIBLE
+                    itemLvsBinding.textExtra.setTextColor(orange)
+                    itemLvsBinding.textExtra.text = "CHALLENGE"
+                }
+                lvKsf.typeSteps.contains("SPECIAL", ignoreCase = true) -> {
+                    itemLvsBinding.textExtra.visibility = View.VISIBLE
+                    itemLvsBinding.textExtra.setTextColor(green)
+                    itemLvsBinding.textExtra.text = "SPECIAL"
+                }
+                lvKsf.typeSteps.contains("INFINITY", ignoreCase = true) -> {
+                    itemLvsBinding.textExtra.visibility = View.VISIBLE
+                    itemLvsBinding.textExtra.setTextColor(cyan)
+                    itemLvsBinding.textExtra.text = "INFINITY"
+                }
+                lvKsf.typeSteps.isNotEmpty()
+                        && !lvKsf.stepmaker.equals("andamiro", ignoreCase = true) -> {
+                    itemLvsBinding.textExtra.visibility = View.VISIBLE
+                    itemLvsBinding.textExtra.setTextColor(green)
+                    itemLvsBinding.textExtra.text = lvKsf.typeSteps.uppercase().replace(Regex("S\\d+"), "").take(3)
                 }
                 //else -> itemLvsBinding.textLv.text = lvKsf.level
             }

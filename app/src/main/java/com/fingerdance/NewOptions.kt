@@ -8,6 +8,7 @@ import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -23,6 +24,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
 import android.util.Log
@@ -34,6 +36,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -82,6 +85,8 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
 private var fileNameChannel = ""
 
@@ -183,7 +188,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     private lateinit var downloadButtonChannel: Button
     private lateinit var txProgressDownloadChannel: TextView
     private lateinit var linearTextProgressChannel: LinearLayout
-    private var selectedValueChannel: String? = null
+    private val selectedChannels = linkedMapOf<String, String>()
     private var isChannel = false
     private var nameNewChannel = ""
     private var descriptionNewChannel = ""
@@ -198,54 +203,103 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
 
-        if (requestCode != 1001 || resultCode != AppCompatActivity.RESULT_OK) {
+        if (
+            requestCode != 1001 ||
+            resultCode != AppCompatActivity.RESULT_OK
+        ) {
             return
         }
 
         val uri = data?.data ?: return
 
+        val selectedFileName = getFileNameFromUri(uri)
+
+        val progressBackground =
+            txProgressDownloadChannel.background as? LayerDrawable
+
+        val progressLayer =
+            progressBackground
+                ?.findDrawableByLayerId(R.id.progress) as? ClipDrawable
+
+        linearTextProgressChannel.visibility = View.VISIBLE
         txProgressDownloadChannel.isVisible = true
-        txProgressDownloadChannel.text = "Instalando canal, espere por favor..."
-        lifecycleScope.launch(Dispatchers.IO) {
+        txProgressDownloadChannel.setTextColor(Color.WHITE)
+
+        progressLayer?.level = 0
+
+        lifecycleScope.launch {
+            var tempZip: File? = null
+
             try {
-                val tempZip = File(requireContext().cacheDir, "temp_channel.zip")
-                requireContext().contentResolver.openInputStream(uri)
-                    ?.use { input ->
-                        tempZip.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
+                txProgressDownloadChannel.text =
+                    "Cargando $selectedFileName · 0%"
+
+                tempZip = copyZipToCache(uri) { progress ->
+                    if (progress != null) {
+                        progressLayer?.level = progress * 100
+
+                        txProgressDownloadChannel.text =
+                            "Cargando $selectedFileName · $progress%"
+                    } else {
+                        txProgressDownloadChannel.text =
+                            "Cargando $selectedFileName..."
                     }
+                }
+
+                progressLayer?.level = 10_000
+
+                txProgressDownloadChannel.text =
+                    "Descomprimiendo $selectedFileName..."
 
                 val unzipSongs = UnzipSongs(
-                    requireActivity(),
-                    fileNameChannel,
-                    txProgressDownloadChannel,
-                    "Instalación completada",
-                    false
+                    context = requireActivity(),
+                    textView = txProgressDownloadChannel
                 )
 
-                unzipSongs.performUnzip(tempZip.absolutePath)
-                tempZip.delete()
-                withContext(Dispatchers.Main) {
-                    unzipSongs.finishActivity.observe(requireActivity()) { shouldFinish ->
-                        if (shouldFinish) {
-                            requireActivity().finish()
-                        }
+                unzipSongs.finishActivity.observe(
+                    viewLifecycleOwner
+                ) { shouldFinish ->
+                    if (shouldFinish == true) {
+                        requireActivity().finish()
                     }
                 }
 
+                unzipSongs.performUnzip(
+                    rutaZip = tempZip.absolutePath,
+                    deleteZip = true
+                )
+
+                txProgressDownloadChannel.text =
+                    "Recargando canales. Este proceso puede tomar " +
+                            "varios segundos, no cierre esta pantalla."
+
+                unzipSongs.reloadChannelsAndFinish(
+                    message = "Instalación completada."
+                )
+
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    txProgressDownloadChannel.text = "Error al instalar canal"
-                    val dialog = AlertDialog.Builder(requireContext())
-                        .setTitle("Error")
-                        .setMessage("${e.message}")
-                        .setPositiveButton("Aceptar") { d, _ -> d.dismiss() }
-                        .create()
-                        .show()
-                }
+                e.printStackTrace()
+
+                tempZip?.delete()
+                progressLayer?.level = 0
+
+                txProgressDownloadChannel.text =
+                    "Error al instalar $selectedFileName"
+
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Error")
+                    .setMessage(
+                        e.message
+                            ?: "No se pudo instalar el canal."
+                    )
+                    .setPositiveButton("Aceptar", null)
+                    .show()
             }
         }
     }
@@ -286,42 +340,71 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun setupChannelsList() {
-        val radioChannelsDownload = RadioGroup(requireContext()).apply {
+        val checksContainer = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
             removeAllViews()
         }
 
+        selectedChannels.clear()
+
         listFilesDrive.forEach { channel ->
-            val radioButton = RadioButton(requireContext())
-            radioButton.text = channel.first
-            radioButton.id = View.generateViewId()
-            radioButton.setTextColor(Color.WHITE)
-            radioButton.textSize = pxToSp((height / 55).toFloat(), requireContext())
-            radioButton.typeface = Typeface.DEFAULT_BOLD
-            radioButton.setShadowLayer(6f, 0f, 0f, Color.rgb(0, 229, 255))
-            radioButton.setPadding(28, 22, 28, 22)
-            radioButton.background = neonCardDrawable(Color.argb(130, 8, 12, 32), Color.rgb(0, 229, 255), 2)
-            radioButton.buttonTintList = ColorStateList.valueOf(Color.rgb(0, 229, 255))
-            radioButton.layoutParams = RadioGroup.LayoutParams(
-                RadioGroup.LayoutParams.MATCH_PARENT,
-                RadioGroup.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 12) }
-            radioChannelsDownload.addView(radioButton)
-        }
+            val driveFileId = channel.second
+            val checkBox = CheckBox(requireContext())
+            checkBox.text = channel.first
+            checkBox.id = View.generateViewId()
+            checkBox.setTextColor(Color.WHITE)
+            checkBox.textSize = pxToSp((height / 55).toFloat(), requireContext())
+            checkBox.typeface = Typeface.DEFAULT_BOLD
+            checkBox.setShadowLayer(6f, 0f, 0f, Color.rgb(0, 229, 255))
+            checkBox.setPadding(28, 22, 28, 22)
+            checkBox.background = neonCardDrawable(Color.argb(130, 8, 12, 32), Color.rgb(0, 229, 255), 2)
+            checkBox.buttonTintList = ColorStateList.valueOf(Color.rgb(0, 229, 255))
+            checkBox.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0, 0, 0, 12) }
 
-        scrollChannels.addView(radioChannelsDownload)
+            checkBox.setOnCheckedChangeListener { item, isChecked ->
+                val channelSelected = item.findViewById<CheckBox>(checkBox.id)
+                val itemList = listFilesDrive.find { it.first == channelSelected.text.toString() }
 
-        radioChannelsDownload.setOnCheckedChangeListener { group, checkedId ->
-            val channelSelected = group.findViewById<RadioButton>(checkedId)
-            val itemList = listFilesDrive.find { it.first == channelSelected.text.toString() }
-            selectedValueChannel = itemList!!.second
-            fileNameChannel = itemList.first
-            downloadButtonChannel.isEnabled = channelSelected.isChecked
-            if(downloadButtonChannel.isEnabled){
-                downloadButtonChannel.setTextColor(Color.WHITE)
+                if (isChecked) {
+                    selectedChannels[itemList!!.first] = driveFileId
+                } else {
+                    selectedChannels.remove(itemList!!.first)
+                }
+
+                val hasSelection = selectedChannels.isNotEmpty()
+
+                downloadButtonChannel.isEnabled = hasSelection
+                downloadButtonChannel.setTextColor(
+                    if (hasSelection) {
+                        Color.WHITE
+                    } else {
+                        Color.GRAY
+                    }
+                )
+
+                if (hasSelection) {
+                    view?.findViewById<ImageView>(
+                        R.id.arrowIndicator
+                    )?.visibility = View.GONE
+
+                    view?.findViewById<TextView>(
+                        R.id.txSlide
+                    )?.visibility = View.GONE
+                }
             }
-            view?.findViewById<ImageView>(R.id.arrowIndicator)?.visibility = View.GONE
-            view?.findViewById<TextView>(R.id.txSlide)?.visibility = View.GONE
+
+            checksContainer.addView(checkBox)
         }
+
+        scrollChannels.removeAllViews()
+        scrollChannels.addView(checksContainer)
+
+        downloadButtonChannel.text = "DESCARGAR SELECCIONADOS"
+        downloadButtonChannel.isEnabled = false
+        downloadButtonChannel.setTextColor(Color.GRAY)
     }
 
     private fun setupDeleteChannel(view: View) {
@@ -441,150 +524,374 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
 
     private fun setupDownloadChannel() {
         downloadButtonChannel.setOnClickListener {
+            if (selectedChannels.isEmpty()) {
+                Toast.makeText(requireContext(), "Selecciona al menos un canal", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val totalSelected = selectedChannels.size
             val builder = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
             builder.setTitle("Aviso")
-            builder.setMessage("Se descargara el canal seleccionado. Se recomienda usar una conexión Wi-Fi \n")
+            builder.setMessage(
+                if (totalSelected == 1) {
+                    "Se descargará el canal seleccionado. " +
+                            "Se recomienda usar una conexión Wi-Fi."
+                } else {
+                    "Se descargarán $totalSelected canales. " +
+                            "Se recomienda usar una conexión Wi-Fi."
+                }
+            )
+
             builder.setCancelable(false)
-            builder.setPositiveButton("Aceptar") { dialog, which ->
+
+            builder.setPositiveButton("Aceptar") { _, _ ->
                 when {
-                    isUsingWifi(requireContext()) -> {
-                        downloadChannel()
-                    }
-                    isUsingMobileData(requireContext()) -> {
-                        mostrarDialogoDatosMoviles()
+                    isUsingWifi(requireContext()) -> { downloadSelectedChannels() }
+                    isUsingMobileData(requireContext()) -> { mostrarDialogoDatosMoviles() }
+                    else -> {
+                        Toast.makeText(requireContext(), "No se detectó una conexión a Internet", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
+
             builder.setNegativeButton("Cerrar") { dialog, _ ->
                 dialog.dismiss()
             }
+
             builder.show()
         }
     }
 
-    private fun downloadChannel() {
+    private fun downloadSelectedChannels() {
+        if (selectedChannels.isEmpty()) {
+            return
+        }
+
+        val channelsToDownload = selectedChannels.toList()
+
         downloadButtonChannel.isEnabled = false
-        txProgressDownloadChannel.text = "Conectando..."
-        getDownloadChannelDrive()
-    }
+        scrollChannels.isEnabled = false
 
-    private fun getDownloadChannelDrive() {
-        val localDirectory = File(requireContext().getExternalFilesDir(null), "FingerDance/Songs/Channels/")
-        localDirectory.mkdirs()
-        val localFile = File(localDirectory, fileNameChannel)
+        linearTextProgressChannel.visibility = View.VISIBLE
+        txProgressDownloadChannel.isVisible = true
+        txProgressDownloadChannel.setTextColor(Color.WHITE)
 
-        val progressBackground = txProgressDownloadChannel.background as LayerDrawable
-        val progressLayer = progressBackground.findDrawableByLayerId(R.id.progress) as ClipDrawable
+        val progressBackground = txProgressDownloadChannel.background as? LayerDrawable
 
-        linearTextProgressChannel.setOnClickListener(object : View.OnClickListener {
-            override fun onClick(v: View?) {
-                // No hace nada
-            }
-        })
+        val progressLayer = progressBackground?.findDrawableByLayerId(R.id.progress) as? ClipDrawable
 
-        CoroutineScope(Dispatchers.Main).launch {
-            linearTextProgressChannel.visibility = View.VISIBLE
-            txProgressDownloadChannel.isVisible = true
-            val downloadedFile = downloadChannelFromDrive(selectedValueChannel!!, requireContext()) { progress ->
-                txProgressDownloadChannel.text = "Descargando $progress%"
-                progressLayer.level = progress * 100
-                if (progress > 98) {
-                    txProgressDownloadChannel.text = "Iniciando descompresión..."
-                    txProgressDownloadChannel.setTextColor(
-                        ContextCompat.getColor(requireContext(), R.color.fondo_textview_vibrante)
-                    )
-                }
-                if (progress == 100) {
+        lifecycleScope.launch {
+            val unzipSongs = UnzipSongs(
+                context = requireActivity(),
+                textView = txProgressDownloadChannel
+            )
+
+            var completedChannels = 0
+
+            try {
+                channelsToDownload.forEachIndexed { index, channel ->
+                    val fileName = channel.first
+                    val driveFileId = channel.second
+
+                    val currentNumber = index + 1
+                    val totalChannels = channelsToDownload.size
+
+                    progressLayer?.level = 0
+
+                    txProgressDownloadChannel.text = "Descargando $fileName \nCanal $currentNumber de $totalChannels · 0%"
+
+                    val downloadedFile = downloadChannelFromDrive(
+                        fileId = driveFileId,
+                        fileName = fileName,
+                        context = requireContext()
+                    ) { progress ->
+
+                        progressLayer?.level = progress * 100
+
+                        txProgressDownloadChannel.text =
+                            "Descargando $fileName \nCanal $currentNumber de $totalChannels · $progress%"
+                    }
+
+                    if (downloadedFile == null) {
+                        throw IllegalStateException(
+                            "No se pudo descargar $fileName"
+                        )
+                    }
+
+                    progressLayer?.level = 10_000
+
                     txProgressDownloadChannel.text =
-                        "Recargando canales. Este proceso puede tomar varios segundos, no cierre esta pantalla."
-                }
-            }
+                        "Descomprimiendo $fileName\n Canal $currentNumber de $totalChannels"
 
-            if (downloadedFile != null) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val unzipSongs = UnzipSongs(
-                        requireActivity(),
-                        fileNameChannel,
-                        txProgressDownloadChannel,
-                        "Recarga de canales completada.",
-                        true
+                    unzipSongs.performUnzip(
+                        rutaZip = downloadedFile.absolutePath,
+                        deleteZip = true
                     )
-                    unzipSongs.performUnzip(downloadedFile.absolutePath)
-                    withContext(Dispatchers.Main) {
-                        unzipSongs.finishActivity.observe(requireActivity()) { shouldFinish ->
-                            if (shouldFinish) requireActivity().finish()
-                        }
+
+                    completedChannels++
+                }
+                progressLayer?.level = 10_000
+                txProgressDownloadChannel.text = "Recargando canales. Este proceso puede tomar varios segundos, no cierre esta pantalla."
+
+                unzipSongs.finishActivity.observe(
+                    viewLifecycleOwner
+                ) { shouldFinish ->
+                    if (shouldFinish == true) {
+                        requireActivity().finish()
                     }
                 }
+
+                unzipSongs.reloadChannelsAndFinish(
+                    message = if (completedChannels == 1) {
+                        "Canal instalado correctamente."
+                    } else {
+                        "$completedChannels canales instalados correctamente."
+                    }
+                )
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+
+                progressLayer?.level = 0
+
+                txProgressDownloadChannel.text =
+                    "Ocurrió un error después de instalar $completedChannels de ${channelsToDownload.size} canales."
+
+                downloadButtonChannel.isEnabled = true
+                scrollChannels.isEnabled = true
+
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Error de descarga")
+                    .setMessage(e.message ?: "No fue posible completar la descarga.")
+                    .setPositiveButton("Aceptar", null)
+                    .show()
             }
         }
     }
 
-    private suspend fun downloadChannelFromDrive(fileId: String, context: Context, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {
+    private suspend fun downloadChannelFromDrive(fileId: String, fileName: String, context: Context, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {
         try {
             val client = OkHttpClient()
             val url = "https://www.googleapis.com/drive/v3/files/$fileId?alt=media&key=$API_KEY"
-            val request = Request.Builder()
-                .url(url)
-                .build()
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                withContext(Dispatchers.Main) {
-                    isChannel = true
-                    showAlertFail(fileId)
+            val request = Request.Builder().url(url).build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    withContext(Dispatchers.Main) {
+                        isChannel = true
+                        showAlertFail(fileId)
+                    }
+
+                    return@withContext null
                 }
-                return@withContext null
-            }
 
-            val body = response.body ?: return@withContext null
-            val totalSize = body.contentLength()
-            val localDirectory = File(context.getExternalFilesDir(null), "FingerDance/Songs/Channels/")
-            localDirectory.mkdirs()
-            val localFile = File(localDirectory, fileNameChannel)
-            val input = BufferedInputStream(body.byteStream())
-            val output = BufferedOutputStream(FileOutputStream(localFile))
+                val body = response.body
+                    ?: return@withContext null
 
-            val buffer = ByteArray(65536)
+                val totalSize = body.contentLength()
 
-            var bytesRead: Int
-            var totalBytes = 0L
-            var lastProgress = -1
+                val localDirectory = File(
+                    context.getExternalFilesDir(null),
+                    "FingerDance/Songs/Channels/"
+                )
 
-            while (input.read(buffer).also { bytesRead = it } != -1) {
+                if (!localDirectory.exists()) {
+                    localDirectory.mkdirs()
+                }
 
-                output.write(buffer, 0, bytesRead)
+                val safeFileName = if (
+                    fileName.endsWith(".zip", ignoreCase = true)
+                ) {
+                    fileName
+                } else {
+                    "$fileName.zip"
+                }
 
-                totalBytes += bytesRead
+                val localFile = File(
+                    localDirectory,
+                    safeFileName
+                )
 
-                if (totalSize > 0) {
+                BufferedInputStream(
+                    body.byteStream()
+                ).use { input ->
 
-                    val progress = ((100 * totalBytes) / totalSize).toInt()
+                    BufferedOutputStream(
+                        FileOutputStream(localFile)
+                    ).use { output ->
 
-                    if (progress != lastProgress) {
-                        lastProgress = progress
+                        val buffer = ByteArray(65_536)
 
-                        withContext(Dispatchers.Main) {
-                            progressCallback(progress)
+                        var bytesRead: Int
+                        var totalBytes = 0L
+                        var lastProgress = -1
+
+                        while (
+                            input.read(buffer)
+                                .also { bytesRead = it } != -1
+                        ) {
+                            output.write(buffer, 0, bytesRead)
+                            totalBytes += bytesRead
+
+                            if (totalSize > 0L) {
+                                val progress =
+                                    ((100L * totalBytes) / totalSize)
+                                        .toInt()
+                                        .coerceIn(0, 100)
+
+                                if (progress != lastProgress) {
+                                    lastProgress = progress
+
+                                    withContext(Dispatchers.Main) {
+                                        progressCallback(progress)
+                                    }
+                                }
+                            }
                         }
+
+                        output.flush()
                     }
                 }
+
+                withContext(Dispatchers.Main) {
+                    progressCallback(100)
+                }
+
+                localFile
             }
 
-            output.flush()
-            output.close()
-            input.close()
-
-            return@withContext localFile
-
         } catch (e: Exception) {
+            e.printStackTrace()
 
             withContext(Dispatchers.Main) {
                 isChannel = true
                 showAlertFail(fileId)
             }
 
-            return@withContext null
+            null
         }
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String {
+        var fileName = "canal.zip"
+
+        requireContext().contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(
+                OpenableColumns.DISPLAY_NAME
+            )
+
+            if (
+                nameIndex >= 0 &&
+                cursor.moveToFirst()
+            ) {
+                fileName = cursor.getString(nameIndex)
+            }
+        }
+
+        return fileName
+    }
+
+    private fun getFileSizeFromUri(uri: Uri): Long {
+        var size = -1L
+
+        requireContext().contentResolver.query(
+            uri, arrayOf(OpenableColumns.SIZE), null, null, null
+        )?.use { cursor ->
+            val sizeIndex = cursor.getColumnIndex(
+                OpenableColumns.SIZE
+            )
+
+            if (
+                sizeIndex >= 0 &&
+                cursor.moveToFirst() &&
+                !cursor.isNull(sizeIndex)
+            ) {
+                size = cursor.getLong(sizeIndex)
+            }
+        }
+
+        return size
+    }
+
+    private suspend fun copyZipToCache(
+        uri: Uri,
+        progressCallback: (Int?) -> Unit
+    ): File = withContext(Dispatchers.IO) {
+
+        val fileName = getFileNameFromUri(uri)
+
+        val safeFileName = if (
+            fileName.endsWith(".zip", ignoreCase = true)
+        ) {
+            fileName
+        } else {
+            "$fileName.zip"
+        }
+
+        val tempZip = File(
+            requireContext().cacheDir,
+            safeFileName
+        )
+
+        val totalSize = getFileSizeFromUri(uri)
+
+        val inputStream =
+            requireContext()
+                .contentResolver
+                .openInputStream(uri)
+                ?: throw IllegalStateException(
+                    "No se pudo abrir el archivo seleccionado"
+                )
+
+        BufferedInputStream(inputStream).use { input ->
+            BufferedOutputStream(
+                tempZip.outputStream()
+            ).use { output ->
+
+                val buffer = ByteArray(65_536)
+
+                var bytesRead: Int
+                var copiedBytes = 0L
+                var lastProgress = -1
+
+                while (
+                    input.read(buffer)
+                        .also { bytesRead = it } != -1
+                ) {
+                    output.write(buffer, 0, bytesRead)
+                    copiedBytes += bytesRead
+
+                    if (totalSize > 0L) {
+                        val progress =
+                            ((copiedBytes * 100L) / totalSize)
+                                .toInt()
+                                .coerceIn(0, 100)
+
+                        if (progress != lastProgress) {
+                            lastProgress = progress
+
+                            withContext(Dispatchers.Main) {
+                                progressCallback(progress)
+                            }
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            progressCallback(null)
+                        }
+                    }
+                }
+
+                output.flush()
+            }
+        }
+
+        tempZip
     }
 
     private fun createChannelKSF() {
@@ -789,13 +1096,13 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun mostrarDialogoDatosMoviles() {
-        val datosMoviles = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
-        datosMoviles.setMessage("Está utilizando datos móviles. ¿Desea continuar?")
-        datosMoviles.setPositiveButton("Aceptar") { dialog, which ->
-            downloadChannel()
-        }
-        datosMoviles.setNegativeButton("Cancelar", null)
-        datosMoviles.show()
+        AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
+            .setMessage("Está utilizando datos móviles. ¿Desea descargar los canales seleccionados?")
+            .setPositiveButton("Aceptar") { _, _ ->
+                downloadSelectedChannels()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun showAlertFail(idDownload: String) {
@@ -1231,7 +1538,7 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         }
 
         val linearPadsD = view.findViewById<LinearLayout>(R.id.linearPadsD)
-        linearPadsD.layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
+        linearPadsD.layoutParams.width = (width * 0.8).toInt()
         linearPadsD.gravity = Gravity.CENTER_HORIZONTAL
         linearPadsD.setPadding(0, 14, 0, 0)
 
@@ -1421,6 +1728,20 @@ class PadsFragment : Fragment(R.layout.options_pads) {
             updateSaveButton()
         }
 
+        val pathImg1 = requireContext()
+            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad.png")!!
+            .absolutePath
+
+        val pathImg2 = requireContext()
+            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad_m.png")!!
+            .absolutePath
+
+        val pathImg3 = requireContext()
+            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad_bg_n.png")!!
+            .absolutePath
+
+        val listPadsD = arrayListOf<String>(pathImg1, pathImg2, pathImg3)
+
         val radioGroupPads = view.findViewById<RadioGroup>(R.id.radioGroupPads)
 
         radioGroupPads.setOnCheckedChangeListener { _, checkedId ->
@@ -1507,7 +1828,8 @@ class PadsFragment : Fragment(R.layout.options_pads) {
 
                     showPadsD(
                         linearPadsD = linearPadsD,
-                        selectedTypePadD = tempTypePadD
+                        selectedTypePadD = tempTypePadD,
+                        listPathsImagesD = listPadsD
                     ) { newTypePadD ->
                         tempTypePadD = newTypePadD
                         updateSaveButton()
@@ -1572,24 +1894,12 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         }
     }
 
-    private fun createImgPadsD(type: Int): Bitmap {
-        val pathImg1 = requireContext()
-            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad.png")!!
-            .absolutePath
-
-        val pathImg2 = requireContext()
-            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad_m.png")!!
-            .absolutePath
-
-        val pathImg3 = requireContext()
-            .getExternalFilesDir("/FingerDance/PadsD/arrows_pad_bg_n.png")!!
-            .absolutePath
-
+    private fun createImgPadsD(type: Int, listPathsImagesD: ArrayList<String>): Bitmap {
         return when (type) {
-            0 -> createBitmapPadsD(pathImg1)
-            1 -> createBitmapPadsD(pathImg2)
-            2 -> createBitmapPadsD(pathImg3)
-            else -> createBitmapPadsD(pathImg1)
+            0 -> createBitmapPadsD(listPathsImagesD[0])
+            1 -> createBitmapPadsD(listPathsImagesD[1])
+            2 -> createBitmapPadsD(listPathsImagesD[2])
+            else -> createBitmapPadsD(listPathsImagesD[0])
         }
     }
 
@@ -1615,7 +1925,8 @@ class PadsFragment : Fragment(R.layout.options_pads) {
     private fun showPadsD(
         linearPadsD: LinearLayout,
         selectedTypePadD: Int,
-        onChanged: (Int) -> Unit
+        listPathsImagesD: ArrayList<String>,
+        onChanged: (Int) -> Unit,
     ) {
         linearPadsD.removeAllViews()
         linearPadsD.gravity = Gravity.CENTER_HORIZONTAL
@@ -1703,7 +2014,7 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         }
 
         val imageView1 = ImageView(requireContext()).apply {
-            setImageBitmap(createImgPadsD(0))
+            setImageBitmap(createImgPadsD(0, listPathsImagesD))
             layoutParams = LinearLayout.LayoutParams(
                 medidaFlechas.toInt(),
                 medidaFlechas.toInt()
@@ -1714,7 +2025,7 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         }
 
         val imageView2 = ImageView(requireContext()).apply {
-            setImageBitmap(createImgPadsD(1))
+            setImageBitmap(createImgPadsD(1, listPathsImagesD))
             layoutParams = LinearLayout.LayoutParams(
                 medidaFlechas.toInt(),
                 medidaFlechas.toInt()
@@ -1725,12 +2036,24 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         }
 
         val imageView3 = ImageView(requireContext()).apply {
-            setImageBitmap(createImgPadsD(2))
+            setImageBitmap(createImgPadsD(2, listPathsImagesD))
             layoutParams = LinearLayout.LayoutParams(
                 medidaFlechas.toInt(),
                 medidaFlechas.toInt()
             )
             scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }
+
+        val imageView = ImageView(requireContext()).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 18
+            }
+
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
         }
 
         imagesContainer.addView(imageView1)
@@ -1743,11 +2066,24 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         var isInternalInitializing = true
 
         radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val newTypePadD = when (checkedId) {
-                rbtn1.id -> 0
-                rbtn2.id -> 1
-                rbtn3.id -> 2
-                else -> 0
+            var newTypePadD = 0
+            when (checkedId) {
+                rbtn1.id -> {
+                    newTypePadD = 0
+                    setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[0]))
+                }
+                rbtn2.id -> {
+                    newTypePadD = 1
+                    setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[1]))
+                }
+                rbtn3.id -> {
+                    newTypePadD = 2
+                    setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[2]))
+                }
+                else -> {
+                    newTypePadD = 0
+                    setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[0]))
+                }
             }
 
             if (!isInternalInitializing) {
@@ -1756,15 +2092,95 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         }
 
         when (selectedTypePadD) {
-            0 -> radioGroup.check(rbtn1.id)
-            1 -> radioGroup.check(rbtn2.id)
-            2 -> radioGroup.check(rbtn3.id)
-            else -> radioGroup.check(rbtn1.id)
+            0 -> {
+                radioGroup.check(rbtn1.id)
+                setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[0]))
+            }
+            1 -> {
+                radioGroup.check(rbtn2.id)
+                setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[1]))
+            }
+            2 -> {
+                radioGroup.check(rbtn3.id)
+                setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[2]))
+            }
+            else -> {
+                radioGroup.check(rbtn1.id)
+                setImageToPadD(imageView, createPadCrossBitmap(listPathsImagesD[0]))
+            }
         }
 
         isInternalInitializing = false
 
         linearPadsD.addView(mainContainer)
+        linearPadsD.addView(imageView)
+    }
+
+    private fun setImageToPadD(image: ImageView, bitmap: Bitmap){
+        image.setImageBitmap(bitmap)
+    }
+
+    private fun createPadCrossBitmap(path: String): Bitmap {
+        val original = BitmapFactory.decodeFile(path)
+
+        val columns = 5
+        val frameWidth = original.width / columns
+        val frameHeight = original.height
+
+        val frames = ArrayList<Bitmap>()
+
+        for (i in 0 until columns) {
+            frames.add(
+                Bitmap.createBitmap(
+                    original,
+                    i * frameWidth,
+                    0,
+                    frameWidth,
+                    frameHeight
+                )
+            )
+        }
+
+        val finalWidth = (width * 0.72f).toInt()
+        val finalHeight = (height * 0.36f).toInt()
+
+        val result = createBitmap(finalWidth, finalHeight)
+
+        val canvas = Canvas(result)
+
+        val sidePadWidth = (finalWidth * 0.34f).toInt()
+        val sidePadHeight = (finalHeight * 0.50f).toInt()
+
+        val centerPadWidth = (finalWidth * 0.34f).toInt()
+        val centerPadHeight = (finalHeight * 0.45f).toInt()
+
+        val topY = 0
+        val bottomY = (finalHeight * 0.50f).toInt()
+        val centerY = (finalHeight * 0.25f).toInt()
+
+        val leftX = 0
+        val rightX = finalWidth - sidePadWidth
+        val centerX = (finalWidth - centerPadWidth) / 2
+
+        val topLeft = frames[1].scale(sidePadWidth, sidePadHeight)
+
+        val topRight = frames[3].scale(sidePadWidth, sidePadHeight)
+
+        val bottomLeft = frames[0].scale(sidePadWidth, sidePadHeight)
+
+        val bottomRight = frames[4].scale(sidePadWidth, sidePadHeight)
+
+        val center = frames[2].scale(centerPadWidth, centerPadHeight)
+
+        canvas.drawBitmap(topLeft, leftX.toFloat(), topY.toFloat(), null)
+        canvas.drawBitmap(topRight, rightX.toFloat(), topY.toFloat(), null)
+
+        canvas.drawBitmap(bottomLeft, leftX.toFloat(), bottomY.toFloat(), null)
+        canvas.drawBitmap(bottomRight, rightX.toFloat(), bottomY.toFloat(), null)
+
+        canvas.drawBitmap(center, centerX.toFloat(), centerY.toFloat(), null)
+
+        return result
     }
 
     private fun getlistPadsB(): ArrayList<ThemeItem> {
@@ -1869,7 +2285,6 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
                     themes.edit().putInt("playModeHalf", playModeHalf).apply()
                 }
             }
-            Log.d("AjustesFragment", "playModeHalf: ${themes.getInt("playModeHalf", 0)}")
         }
     }
 
@@ -1901,7 +2316,6 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
                     themes.edit().putInt("playModeSingle", playModeSingle).apply()
                 }
             }
-            Log.d("AjustesFragment", "playModeSingle: ${themes.getInt("playModeSingle", 0)}")
         }
     }
 
@@ -1959,7 +2373,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
 
         btnBreakSong.setOnClickListener {
             val dialog = AlertDialog.Builder(requireContext(), R.style.TransparentDialog).apply {
-                setTitle("Contador Select Song")
+                setTitle("Cortar Canción")
                 setCancelable(false)
             }
             if (!breakSong) {
@@ -2130,7 +2544,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
     private fun setupUpdateNoteSkins(view: View) {
         val txVersionNoteSkins = view.findViewById<TextView>(R.id.txVersionNoteSkin).apply {
             id = View.generateViewId()
-            text = "Ultima versión de NoteSkins: $numberUpdateLocal"
+            text = "Aplicacion creada por y para fans"
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
             setTypeface(typeface, Typeface.BOLD)
@@ -2139,7 +2553,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
 
         val txMyVersionNoteSkins = view.findViewById<TextView>(R.id.txMyVersionNoteSkin).apply {
             id = View.generateViewId()
-            text = "Tu versión de NoteSkins: $versionUpdate"
+            text = "Versión: $versionUpdate"
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             setTextColor(ContextCompat.getColor(context, R.color.white))
             setTypeface(typeface, Typeface.BOLD)
@@ -2244,10 +2658,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 }
 
-class OptionsPagerAdapter(
-    activity: FragmentActivity,
-    private val fragments: List<Fragment>,
-) : FragmentStateAdapter(activity) {
+class OptionsPagerAdapter(activity: FragmentActivity, private val fragments: List<Fragment>, ) : FragmentStateAdapter(activity) {
 
     override fun getItemCount() = fragments.size
 

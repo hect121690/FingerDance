@@ -10,7 +10,7 @@ class PlayerSong(
     var bpm: Double?,
     var checkedValues: String = "",
     var scroll: Double?,
-    var level: String?,
+    var level: String,
     var rutaNoteSkin: String?,
     var hj: Boolean = false,
     var isBGAOff: Boolean,
@@ -30,5 +30,6 @@ class PlayerSong(
     var chartName: String = "",
     var difficulty: String = "",
     var snake: Boolean = false,
-    var isSSC: Boolean = false
+    var isSSC: Boolean = false,
+    var isEw: Boolean = false
 ) : Serializable

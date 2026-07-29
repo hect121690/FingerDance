@@ -94,6 +94,15 @@ var currentLevel = ""
 var positionCurrentChannel = 0
 var isVideo = false
 
+var hjPerfect = 25L
+var hjGreat = 41L
+var hjGood = 115L
+var hjBad = 140L
+
+var nPerfect = 55L
+var nGreat = 90L
+var nGood = 135L
+var nBad = 180L
 
 lateinit var soundPoolSelectSong: SoundPool
 var selectSong_movKsf : Int = 0
@@ -479,7 +488,16 @@ fun getFilesCW(c: Context) : ArrayList<Command>{
         }
     }
     //themes.edit().putString("listNoteSkinAdditionals", gson.toJson(listNoteSkinAdditionals)).apply()
-    return listCommands
+    val listOrderEffects = listOf<String>(
+        "ds/01_speed",
+        "ds/02_offset",
+        "/storage/emulated/0/Android/data/com.fingerdance/files/FingerDance/NoteSkins",
+        "ds/03_display",
+        "ds/05_judge",
+        "ds/06_alternate",
+        "ds/07_path"
+    )
+    return listCommands.sortedWith(compareBy({ listOrderEffects.indexOf(it.value) }, { it.value })).toCollection(ArrayList())
 }
 
 fun loadSounds(c: Context) {

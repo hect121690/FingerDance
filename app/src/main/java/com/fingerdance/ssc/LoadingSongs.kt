@@ -2,19 +2,14 @@ package com.fingerdance.ssc
 
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.util.Log
 import com.fingerdance.Channels
 import com.fingerdance.Ksf
 import com.fingerdance.Song
 import com.fingerdance.generateCheckedValuesSsc
 import com.fingerdance.generateId
-import com.fingerdance.listGlobalRanking
-import com.fingerdance.playerSong
 import com.fingerdance.readFileSsc
 import com.fingerdance.tema
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.text.Normalizer
 
 class LoadingSongs {

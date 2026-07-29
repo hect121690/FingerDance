@@ -40,9 +40,13 @@ import android.os.Build
 import android.view.Gravity.isVertical
 import android.view.ViewPropertyAnimator
 import android.widget.FrameLayout
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.drawable.toDrawable
 import com.fingerdance.ssc.GameScreenSscHD
 import com.fingerdance.ssc.Parser
+import com.fingerdance.ssc.SongClock
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -67,9 +71,37 @@ open class GameScreenActivity : AndroidApplication() {
     private var isPlayingEndSong = 0
     private var isFirstPlay = true  // Bandera para la primera reproducción
 
+    private var backPressedTime: Long = 0
+    private lateinit var backToast: Toast
+    private var canGoBack = false
+    private lateinit var songClock: SongClock
+
+    private val backInvokedCallback =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            OnBackInvokedCallback {
+                handleBackPressed()
+            }
+        } else {
+            null
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_screen)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            backInvokedCallback?.let { callback ->
+                onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                    callback
+                )
+            }
+        }
+        canGoBack = false
+        songClock = SongClock(mediaPlayer)
+        backToast = Toast.makeText(this,"Presiona nuevamente para salir", Toast.LENGTH_SHORT)
+        thisHandler.postDelayed({
+            canGoBack = true
+        }, 3000)
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -80,7 +112,7 @@ open class GameScreenActivity : AndroidApplication() {
             RelativeLayout.LayoutParams.MATCH_PARENT
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
-        isVertical = intent.getBooleanExtra("IS_VERTICAL", true)
+        //isVertical = true //intent.getBooleanExtra("IS_VERTICAL", true)
         readyPlay = false
 
         canGoBack = false
@@ -197,40 +229,36 @@ open class GameScreenActivity : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
-    fun getSongTimeMs(): Long {
-        return mediaPlayer.currentPosition.toLong()
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun getSongTimeMs(): Double {
+        return songClock.getPositionMs()
     }
 
-    /*
-    fun getSongTimeMs(): Long {
-        val nowNs = System.nanoTime()
-        val deltaMs = (nowNs - lastUpdateNs) / 1_000_000.0
-        lastUpdateNs = nowNs
-
-        // avanzar tiempo suavemente
-        baseTimeMs += deltaMs
-
-        // obtener tiempo real del audio
-        val real = try {
-            mediaPlayer.currentPosition.toDouble()
-        } catch (e: Exception) {
-            baseTimeMs
+    private fun handleBackPressed() {
+        if (!canGoBack) {
+            Toast.makeText(this, "Espera 3 segundos para regresar al Select Song", Toast.LENGTH_SHORT).show()
+            return
         }
 
-        // 🔥 corrección de drift (muy importante)
-        val diff = real - baseTimeMs
-
-        if (kotlin.math.abs(diff) > 50) {
-            // salto grande → resync duro
-            baseTimeMs = real
-        } else {
-            // ajuste suave
-            baseTimeMs += diff * 0.1
+        if (isOnline) {
+            Toast.makeText(this, "No puedes salir durante una partida en línea", Toast.LENGTH_SHORT).show()
+            return
         }
 
-        return baseTimeMs.toLong()
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - backPressedTime <= 2000L) {
+            backToast.cancel()
+            isVideo = false
+            finish()
+            return
+        }
+
+        backPressedTime = currentTime
+
+        backToast.cancel()
+        backToast.show()
     }
-    */
+
     private fun addVideoBackground() {
         videoBgaOn = findViewById(R.id.videoViewBgaOn)
         videoBgaOff = findViewById(R.id.videoViewBgaOff)
@@ -454,7 +482,18 @@ open class GameScreenActivity : AndroidApplication() {
         imgEndSong.bringToFront()
     }
 
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        handleBackPressed()
+    }
+
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            backInvokedCallback?.let { callback ->
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(callback)
+            }
+        }
+        backToast.cancel()
         super.onDestroy()
         try {
             gdxContainer.removeAllViews()
@@ -549,30 +588,6 @@ open class GameScreenActivity : AndroidApplication() {
         startActivity(intent)
     }
 
-    private var backPressedTime: Long = 0
-    private lateinit var backToast: Toast
-    private var canGoBack = false
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (!canGoBack) {
-            Toast.makeText(this, "Espera 3 segundos para regresar al Select Song", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (!isOnline) {
-            if (backPressedTime + 2000 > System.currentTimeMillis()) {
-                backToast.cancel()
-                isVideo = false
-                this.finish()
-                return
-            } else {
-                backToast = Toast.makeText(this, "Presiona nuevamente para salir", Toast.LENGTH_SHORT)
-                backToast.show()
-            }
-            backPressedTime = System.currentTimeMillis()
-        }
-    }
-
     override fun onPause() {
         super.onPause()
         currentVideoPositionScreen = mediaPlayer.currentPosition
@@ -631,8 +646,8 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity, playerSong: PlayerSon
     val gsa = gameScreenActivity
     val ps = playerSong
     //VERTICAL KSF's
-    private var gameScreen: GameScreenKsf? = null
-    private var gameScreenHD: GameScreenKsfHD? = null
+    //private var gameScreen: GameScreenKsf? = null
+    //private var gameScreenHD: GameScreenKsfHD? = null
 
     //VERTICAL SSC's
     private var gameScreenSsc: GameScreenSsc? = null
@@ -640,40 +655,41 @@ class MyGameScreen(gameScreenActivity: GameScreenActivity, playerSong: PlayerSon
     override fun create() {
         playerSong = ps
         if(halfDouble){
-            if(playerSong.isSSC){
+            //if(playerSong.isSSC){
                 gameScreenSscHD = GameScreenSscHD(gsa)
                 setScreen(gameScreenSscHD)
-            }else {
-                gameScreenHD = GameScreenKsfHD(gsa)
-                setScreen(gameScreenHD)
-            }
+            //}else {
+            //    gameScreenHD = GameScreenKsfHD(gsa)
+            //    setScreen(gameScreenHD)
+            //}
         }else {
-            if(playerSong.isSSC){
+            //if(playerSong.isSSC){
                 gameScreenSsc = GameScreenSsc(gsa)
                 setScreen(gameScreenSsc)
-            }else{
-                gameScreen = GameScreenKsf(gsa)
-                setScreen(gameScreen)
-            }
+            //}else{
+            //    gameScreen = GameScreenKsf(gsa)
+            //    setScreen(gameScreen)
+            //}
         }
     }
 
     override fun dispose() {
         super.dispose()
         if(halfDouble){
-            if (playerSong.isSSC) {
+            //if (playerSong.isSSC) {
                 gameScreenSscHD?.dispose()
-            } else {
-                gameScreenHD?.dispose()
-            }
+            //} else {
+            //    gameScreenHD?.dispose()
+            //}
         }else {
-            if(playerSong.isSSC){
+            //if(playerSong.isSSC){
                 gameScreenSsc?.dispose()
-            }else{
-                gameScreen?.dispose()
-            }
+            //}else{
+            //    gameScreen?.dispose()
+            //}
         }
     }
 }
+
 
 

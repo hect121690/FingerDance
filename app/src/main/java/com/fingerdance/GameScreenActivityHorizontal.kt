@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -23,12 +24,16 @@ import android.widget.RelativeLayout
 import android.widget.RelativeLayout.LayoutParams
 import android.widget.Toast
 import android.widget.VideoView
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.annotation.RequiresApi
 import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.fingerdance.ssc.GameScreenSscHorizontal
 import com.fingerdance.ssc.GameScreenSscHorizontalHD
+import com.fingerdance.ssc.SongClock
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -57,9 +62,32 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
     private var isPlayingEndSong = 0
     private var isFirstPlay = true
 
+    private var backPressedTime: Long = 0
+    private lateinit var backToast: Toast
+    private var canGoBack = false
+    private lateinit var songClock: SongClock
+
+    private val backInvokedCallback =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            OnBackInvokedCallback {
+                handleBackPressed()
+            }
+        } else {
+            null
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_screen)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            backInvokedCallback?.let { callback ->
+                onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                    callback
+                )
+            }
+        }
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
@@ -69,7 +97,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             RelativeLayout.LayoutParams.MATCH_PARENT
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
-        isVertical = intent.getBooleanExtra("IS_VERTICAL", false)
+        //isVertical = false //intent.getBooleanExtra("IS_VERTICAL", false)
         readyPlay = false
 
         val screenWidth = resources.displayMetrics.widthPixels
@@ -77,6 +105,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         spaceInitHorizontal = (screenWidth / 2f) - (medidaFlechasHorizontal * 3.5f)
 
         canGoBack = false
+        backToast = Toast.makeText(this,"Presiona nuevamente para salir", Toast.LENGTH_SHORT)
         thisHandler.postDelayed({
             canGoBack = true
         }, 3000)
@@ -190,8 +219,9 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         return file.exists() && !file.isDirectory
     }
 
-    fun getSongTimeMs(): Long {
-        return mediaPlayer.currentPosition.toLong()
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun getSongTimeMs(): Double {
+        return songClock.getPositionMs()
     }
 
     private fun addVideoBackground() {
@@ -291,7 +321,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         if(resultSong.miss == 0 && resultSong.bad == 0 && resultSong.good == 0
             && resultSong.great == 0 && resultSong.perfect == 0) {
             return
-
         }
         if(resultSong.miss == 0 && resultSong.bad == 0 && resultSong.good == 0) {
             if (resultSong.great == 0) {
@@ -314,7 +343,42 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         imgEndSong.bringToFront()
     }
 
+    private fun handleBackPressed() {
+        if (!canGoBack) {
+            Toast.makeText(this, "Espera 3 segundos para regresar al Select Song", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (isOnline) {
+            Toast.makeText(this, "No puedes salir durante una partida en línea", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - backPressedTime <= 2000L) {
+            backToast.cancel()
+            isVideo = false
+            finish()
+            return
+        }
+
+        backPressedTime = currentTime
+
+        backToast.cancel()
+        backToast.show()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        handleBackPressed()
+    }
+
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            backInvokedCallback?.let { callback ->
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(callback)
+            }
+        }
+        backToast.cancel()
         super.onDestroy()
         try {
             gdxContainer.removeAllViews()
@@ -408,30 +472,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         countMiss = 0
         val intent = Intent(this, BreakDance::class.java)
         startActivity(intent)
-    }
-
-    private var backPressedTime: Long = 0
-    private lateinit var backToast: Toast
-    private var canGoBack = false
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (!canGoBack) {
-            Toast.makeText(this, "Espera 3 segundos para regresar al Select Song", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (!isOnline) {
-            if (backPressedTime + 2000 > System.currentTimeMillis()) {
-                backToast.cancel()
-                isVideo = false
-                this.finish()
-                return
-            } else {
-                backToast = Toast.makeText(this, "Presiona nuevamente para salir", Toast.LENGTH_SHORT)
-                backToast.show()
-            }
-            backPressedTime = System.currentTimeMillis()
-        }
     }
 
     override fun onPause() {

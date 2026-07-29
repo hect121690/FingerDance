@@ -134,6 +134,10 @@ lateinit var channelFavorites : Channels
 lateinit var listFavorites : ArrayList<Song>
 lateinit var mockListChannels : ArrayList<Nivel>
 
+lateinit var bitNR1 : Bitmap
+lateinit var bitNR2 : Bitmap
+lateinit var bitNR3 : Bitmap
+
 private var bmLogo : Bitmap? = null
 
 lateinit var channel : String
@@ -1125,17 +1129,17 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val pathChannels = "FingerDance/Songs/Channels"
         val channels = listOf(
-            "$pathChannels/18A40 - Hymn of Golden Glory/CF_COOP_FLASH.lua",
-            "$pathChannels/18A40 - Hymn of Golden Glory/CF_D28_FLASH.lua",
-            "$pathChannels/18A80 - Imaginarized City/Thumbs.db",
-            "$pathChannels/18238.7.1 - this game does not exist/Flashdoubles/default.lua",
-            "$pathChannels/18015 - BOOM!!/FlashCOOPUCS/default.lua",
+            "$pathChannels/Dj Sharpnel-Tariji D Aizen",
         )
 
         channels.forEach { path ->
             val dir = File(baseDir, path)
-            if (dir.exists() && dir.isFile) {
-                dir.delete()
+            if (dir.exists() && dir.isDirectory) {
+                val deleted = dir.deleteRecursively()
+
+                if (!deleted) {
+                    Log.e("DELETE_DIR", "No se pudo borrar: ${dir.absolutePath}")
+                }
             }
         }
         ksfsEliminados = true
@@ -1326,6 +1330,10 @@ class MainActivity : AppCompatActivity(), Serializable {
             AppResources.arrGradesDesc = getGradesDescription(gradeDescription)
             AppResources.arrGradesDescAbrev = getGradesDescription(gradeDescriptionAbrev)
         }
+
+        bitNR1 = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/new_record_1.png")
+        bitNR2 = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/new_record_2.png")
+        bitNR3 = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/new_record_3.png")
 
         bgaPathSelectChannel = "$rutaBase/FingerDance/Themes/$tema/BGAs/BgaSelectChannel.mp4"
         bgaPathSelectSong = "$rutaBase/FingerDance/Themes/$tema/BGAs/BgaSelectSong.mp4"
