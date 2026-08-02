@@ -118,6 +118,13 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
 
     val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
+
+    private val lifeLightningTexture =
+        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barlife_electric 4x6.png"))
+
+    val lifeLightningFrames: Array<TextureRegion> = getLifeLightningFrames(lifeLightningTexture)
+
+
     val posYGauje = medidaFlechasHorizontal / 4f
 
     private val fadeTexture = Texture(Gdx.files.internal("black.png"))
@@ -224,6 +231,20 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
 
     fun timeGetTime(): Long{
         return SystemClock.uptimeMillis()
+    }
+
+    private fun getLifeLightningFrames(texture: Texture): Array<TextureRegion> {
+        val tmp = TextureRegion.split(texture, texture.width / 4, texture.height / 6)
+        val frames = arrayOf(
+            tmp[0][0], tmp[0][1], tmp[0][2], tmp[0][3],
+            tmp[1][0], tmp[1][1], tmp[1][2], tmp[1][3],
+            tmp[2][0], tmp[2][1], tmp[2][2], tmp[2][3],
+            tmp[3][0], tmp[3][1], tmp[3][2], tmp[3][3],
+            tmp[4][0], tmp[4][1], tmp[4][2], tmp[4][3],
+            tmp[5][0], tmp[5][1], tmp[5][2], tmp[5][3]
+        )
+        frames.forEach { it.flip(false, true) }
+        return frames
     }
 
     private fun getTexturePad4(texture: Texture): Array<TextureRegion> {

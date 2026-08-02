@@ -31,7 +31,6 @@ import com.fingerdance.luaFlare
 import com.fingerdance.luaNotes
 import com.fingerdance.luaRecepts
 import com.fingerdance.medidaFlechas
-import com.fingerdance.medidaFlechasHorizontal
 import com.fingerdance.nBad
 import com.fingerdance.nGood
 import com.fingerdance.nGreat
@@ -75,6 +74,8 @@ class PlayerSsc(
     private val xFlare5 = medidaFlechas * 2.05f
     private val animationDuration: Long = 300L
     private var multiplierCombo = 1
+
+    private var breakDanceTriggered = false
 
     companion object {
         val STEPSIZE = medidaFlechas.toInt()
@@ -129,7 +130,6 @@ class PlayerSsc(
 
         const val LIFE_LIGHTNING_FPS = 16f
         const val LIFE_LIGHTNING_FRAME_DURATION = 1f / LIFE_LIGHTNING_FPS
-        const val LIFE_LIGHTNING_ALPHA = 0.75f
     }
 
     data class PlayerFlare(var startTime: Long = 0)
@@ -156,6 +156,7 @@ class PlayerSsc(
             columnCount = 5,
             activeColumns = 0..4,
             stepSize = medidaFlechas,
+            targetY = medidaFlechas,
             screenHeight = screen.gdxHeight.toFloat(),
             baseSpeed = baseSpeed,
             isEW = playerSong.isEw,
@@ -177,7 +178,7 @@ class PlayerSsc(
             comboSegments = combos.map {
                 SscGameplayEngine.ComboSegment(
                     beat = it.beat,
-                    multiplier = it.number
+                    multiplier = it.comboMultiplier
                 )
             },
             config = gameplayEngineConfig,
@@ -340,12 +341,11 @@ class PlayerSsc(
 
         gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
 
-        val beatDurationMs = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
-        val beatPhase = (nowMs % beatDurationMs) / beatDurationMs
-        val rhythmOffset = beatPhase.toFloat() * 0.10f
-        val gaugeVisual = (barLifeCalculator.visibleProgress + rhythmOffset).coerceIn(0f, 1f)
+        val beatPhase = (currentBeat - kotlin.math.floor(currentBeat)).toFloat()
+        val stretchProgress = beatPhase.coerceIn(0f, 1f)
 
-        drawGauge(gaugeVisual)
+
+        drawGauge(gauge = barLifeCalculator.visibleProgress, stretchProgress = stretchProgress)
 
         drawOverflowLightning(delta = Gdx.graphics.deltaTime)
 
@@ -386,7 +386,13 @@ class PlayerSsc(
 
         inputProcessor.update()
 
-        if (barLifeCalculator.state.failed && !isOnline && breakSong) {
+        if (
+            barLifeCalculator.state.failed &&
+            !breakDanceTriggered &&
+            !isOnline &&
+            breakSong
+        ) {
+            breakDanceTriggered = true
             activity.breakDance()
         }
     }
@@ -412,7 +418,14 @@ class PlayerSsc(
         }
     }
 
-    private fun applyJudge(col: Int, judge: Int, isBodyLongNote: Boolean = false, isFromInput: Boolean, isMine: Boolean = false, note: Parser.Note? = null) {
+    private fun applyJudge(
+        col: Int,
+        judge: Int,
+        isBodyLongNote: Boolean = false,
+        isFromInput: Boolean,
+        isMine: Boolean = false,
+        note: Parser.Note? = null
+    ) {
         if (note != null && note.isFake) return
 
         when (judge) {
@@ -442,7 +455,7 @@ class PlayerSsc(
             JUDGE_MISS -> {
                 resultSong.miss++
                 curCombo = 0
-                curComboMiss += multiplierCombo
+                curComboMiss += 1
             }
         }
 
@@ -471,12 +484,11 @@ class PlayerSsc(
         val now = timeGetTime()
         m_judge.judge = judge
         m_judge.startTime = now
+    }
 
-        // Flare: siempre que no sea MISS. (incluye ticks)
-        if (isFromInput && judge != JUDGE_MISS) {
-            flare[col].startTime = now
-            //showExpand(col)
-        }
+    override fun onNoteFlare(column: Int) {
+        if (column !in flare.indices) return
+        flare[column].startTime = timeGetTime()
     }
 
     private fun timeToBeat(timeMs: Double): Double = timingData.timeToBeat(timeMs)
@@ -1044,55 +1056,77 @@ class PlayerSsc(
         }
     }
 
-    private fun drawGauge(gauge: Float) {
+    private val initialTipX = medidaFlechas //+ (tipWidth)
+    private val endTipX = medidaFlechas + screen.maxWidth - tipWidth
+    private fun drawGauge(gauge: Float, stretchProgress: Float) {
         val previousSrcFunc = batch.blendSrcFunc
         val previousDstFunc = batch.blendDstFunc
         val safeGauge = gauge.coerceIn(0f, 1f)
+        val safeStretch = stretchProgress.coerceIn(0f, 1f)
 
         val barToDraw = if (safeGauge <= 0.2f) screen.barRed else screen.barBlack
         barToDraw.setSize(screen.maxWidth, screen.maxlHeight)
         barToDraw.setPosition(medidaFlechas, 0f)
+        barToDraw.setColor(1f, 1f, 1f, 1f)
         barToDraw.draw(batch)
 
-        val visibleWidth = screen.maxWidth * safeGauge
-        val regionWidth = (screen.barColors.texture.width * safeGauge).toInt()
+        val baseVisibleWidth = screen.maxWidth * safeGauge
+        val maximumStretch = screen.maxWidth * 0.075f
+        val stretchWidth = maximumStretch * safeStretch
 
-        if (regionWidth > 0.1 && visibleWidth > 0.1f) {
-            screen.barColors.setRegion(0, 0, regionWidth, screen.barColors.texture.height)
+        val visibleWidth = if (safeGauge >= 1f) {
+            screen.maxWidth
+        } else {
+            (baseVisibleWidth + stretchWidth).coerceAtMost(screen.maxWidth)
+        }
+
+        val textureWidth = screen.barColors.texture.width
+        val textureHeight = screen.barColors.texture.height
+        val regionWidth = (textureWidth.toFloat() * safeGauge).toInt().coerceIn(0, textureWidth)
+
+        if (regionWidth > 0 && visibleWidth > 0.1f) {
+            screen.barColors.setRegion(0, 0, regionWidth, textureHeight)
             screen.barColors.setSize(visibleWidth, screen.maxlHeight)
             screen.barColors.setPosition(medidaFlechas, 0f)
+            screen.barColors.setColor(1f, 1f, 1f, 1f)
             screen.barColors.draw(batch)
-        }
 
-        if (barLifeCalculator.isVisibleBarFull) {
-            val currentTime = (timeGetTime() / 100L) % 2 == 0L
+            if (barLifeCalculator.isVisibleBarFull) {
+                val glowPulse = safeStretch * safeStretch
+                val glowAlpha = 0.18f + 0.40f * glowPulse
 
-            if (currentTime) {
-                val time = (timeGetTime() % 200L) / 200f
-                val shine = 1f + 0.5f * Math.sin(time * Math.PI).toFloat()
                 batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-
-                screen.barColors.setColor(shine, shine, shine, 1f)
+                screen.barColors.setColor(1f, 1f, 1f, glowAlpha)
                 screen.barColors.draw(batch)
                 batch.setBlendFunction(previousSrcFunc, previousDstFunc)
-            } else {
+
                 screen.barColors.setColor(1f, 1f, 1f, 1f)
-                screen.barColors.draw(batch)
             }
-        } else {
-            screen.barColors.setColor(1f, 1f, 1f, 1f)
         }
+
         screen.barFrame.setSize(screen.maxWidth, screen.maxlHeight)
         screen.barFrame.setPosition(medidaFlechas, 0f)
+        screen.barFrame.setColor(1f, 1f, 1f, 1f)
         screen.barFrame.draw(batch)
 
-        if (gauge <= 0.99f && gauge > 0f) {
-            val tipX = visibleWidth + medidaFlechas
+        val tipX = medidaFlechas + visibleWidth
+        if (tipX > initialTipX) {
+            if(tipX < endTipX){
+                screen.barTip.setSize(tipWidth, tipHeight)
+                screen.barTip.setPosition(tipX, tipY)
+                screen.barTip.setColor(1f, 1f, 1f, 1f)
+                screen.barTip.draw(batch)
+            }
+        }else if(safeGauge <= 0f){
             screen.barTip.setSize(tipWidth, tipHeight)
-            screen.barTip.setPosition(tipX, tipY)
+            screen.barTip.setPosition(initialTipX, tipY)
+            screen.barTip.setColor(1f, 1f, 1f, 1f)
             screen.barTip.draw(batch)
         }
+
+        batch.setBlendFunction(previousSrcFunc, previousDstFunc)
     }
+
     val lightningExtraHeight = screen.maxlHeight * 1.5f
     val lightningExtraWidth = screen.maxWidth * 1.2f
     val lightningX = medidaFlechas * 0.5f

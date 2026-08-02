@@ -105,6 +105,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
         spaceInitHorizontal = (screenWidth / 2f) - (medidaFlechasHorizontal * 3.5f)
 
         canGoBack = false
+        songClock = SongClock(mediaPlayer)
         backToast = Toast.makeText(this,"Presiona nuevamente para salir", Toast.LENGTH_SHORT)
         thisHandler.postDelayed({
             canGoBack = true

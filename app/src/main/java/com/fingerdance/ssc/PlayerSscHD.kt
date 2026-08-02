@@ -67,11 +67,9 @@ class PlayerSscHD (
     private val posX = screen.arrowsSize * 0.1f
     private val xFlare1 = screen.arrowsSize * 2.1f
     private val animationDuration: Long = 300L
-
     private var multiplierCombo = 1
-    private var comboSegmentIndex = 0
 
-    val STEPSIZE = screen.arrowsSize.toInt()
+    private var breakDanceTriggered = false
 
     companion object {
         const val MINUTE = 60000f
@@ -91,9 +89,6 @@ class PlayerSscHD (
         const val KEY_DOWN = 1
         const val KEY_PRESS = 2
         const val KEY_UP = 3
-
-        const val MINE_PENALTY = 0.025f
-        const val WINDOW_BEAT_ALLOW = 8.0
 
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
@@ -127,6 +122,9 @@ class PlayerSscHD (
         private val LONGNOTE = Array(10) { LongNotePress() }
 
         private lateinit var whiteTex: Texture
+
+        const val LIFE_LIGHTNING_FPS = 16f
+        const val LIFE_LIGHTNING_FRAME_DURATION = 1f / LIFE_LIGHTNING_FPS
     }
 
     data class PlayerFlare(var startTime: Long = 0)
@@ -154,6 +152,7 @@ class PlayerSscHD (
             columnCount = 10,
             activeColumns = 2..7,
             stepSize = screen.arrowsSize,
+            targetY = medidaFlechas,
             screenHeight = screen.gdxHeight.toFloat(),
             baseSpeed = baseSpeed,
             isEW = playerSong.isEw,
@@ -176,14 +175,17 @@ class PlayerSscHD (
             comboSegments = combos.map {
                 SscGameplayEngine.ComboSegment(
                     beat = it.beat,
-                    multiplier = it.number
+                    multiplier = it.comboMultiplier
                 )
             },
             config = gameplayEngineConfig,
             listener = this
         )
 
-    private var m_fGauge = 0.35f
+    private val currentChartLevel = playerSong.level.toInt()
+    val barLifeCalculator = BarLifeCalculator(level = currentChartLevel)
+    private var lifeLightningTime = 0f
+
     var m_fCurBPM = displayBPM
     private var arrowFrame = 0
     private var m_iStepWidth = 10
@@ -209,14 +211,12 @@ class PlayerSscHD (
     private var digitWidth = medidaFlechas * 0.7f
     private var digitHeight = heightJudges * 1.3f
 
-    private val gaugeInc = if (playerSong.hj) screen.gaugeIncHJ else screen.gaugeIncNormal
     val tipWidth = (medidaFlechas / 4f)
     val tipHeight = medidaFlechas / 1.5f
     val tipY = 0f - (medidaFlechas * 0.05f)
 
     private val columnNotes = Array(10) { mutableListOf<Parser.Note>() }
     private val columnIndex = IntArray(10) { 0 }
-    private var lastStepSongTimeMs: Long = 0L
 
     private var isVanish = playerSong.vanish
     private var isAp = playerSong.ap
@@ -230,7 +230,7 @@ class PlayerSscHD (
 
         Gdx.input.inputProcessor = inputProcessor
 
-        for (x in 0 until 5) {
+        for (x in LONGNOTE.indices) {
             LONGNOTE[x].pressed = false
         }
         if (isAp || isVanish) {
@@ -320,6 +320,7 @@ class PlayerSscHD (
         initColumnNotes()
         inputProcessor.resetState()
         luaEngine = LuaEngine(playerSscHD = this, widthNotes = screen.arrowsSize * 6f)
+        barLifeCalculator.reset()
     }
 
     private data class LongNotePress(
@@ -342,7 +343,7 @@ class PlayerSscHD (
             columnIndex[c] = 0
         }
     }
-
+    var beatToShow = 0.0
     private val iLongTop = LongArray(10)
 
     private val noteX = floatArrayOf(
@@ -364,6 +365,7 @@ class PlayerSscHD (
         val timeCom = screen.timeGetTime()
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
+        beatToShow = currentBeat
 
         if (showPadB == 0) {
             inputProcessor.render(batch)
@@ -382,31 +384,14 @@ class PlayerSscHD (
 
         updateFGChanges(currentBeat)
 
-        gameplayEngine.render(
-            songTimeMs = songTimeMs,
-            renderer = this
-        )
+        gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
 
-        if (m_fGauge > 1.0f) m_fGauge = 1.0f
-        if (m_fGauge < -0.5f) m_fGauge = 0.0f
+        val beatPhase = (currentBeat - kotlin.math.floor(currentBeat)).toFloat()
+        val stretchProgress = beatPhase.coerceIn(0f, 1f)
 
-        var gaugeFind = (MINUTE / m_fCurBPM.coerceIn(1f, 999f))
-        val phase = (nowMs % gaugeFind).toFloat()
-        gaugeFind = (phase / gaugeFind) * 0.1f
+        drawGauge(gauge = barLifeCalculator.visibleProgress, stretchProgress = stretchProgress)
 
-        if (m_fGauge >= 1.0f) m_fGauge = 1.0f
-        if (m_fGauge < -0.5f) m_fGauge = 0.0f
-
-        val gaugeVisual = if (m_fGauge == 1.0f) {
-            var v = gaugeFind * 3.0f + 0.7f
-            2.0f + v
-        } else {
-            var v = gaugeFind + m_fGauge
-            if (v > 1.0f) v = 1.0f
-            v
-        }
-
-        drawGauge(gaugeVisual)
+        drawOverflowLightning(delta = Gdx.graphics.deltaTime)
 
         for (iStepNo in 0 until m_iStepWidth) {
             if (flare[iStepNo].startTime == 0L) continue
@@ -423,11 +408,15 @@ class PlayerSscHD (
         drawMineFlash(timeCom)
         drawLuaFlash(timeCom)
 
-        if (m_judge.startTime == 0L) return
+        if (m_judge.startTime == 0L){
+            return
+        }
+
         if (m_judge.startTime + 2500 < timeCom) {
             m_judge.startTime = 0
             return
         }
+
         drawJudge(timeCom - m_judge.startTime)
     }
 
@@ -438,13 +427,14 @@ class PlayerSscHD (
         )
 
         inputProcessor.update()
-
-        if (m_fGauge > 1.0f) {
-            m_fGauge = 1.0f
-        } else if (m_fGauge < -0.5f) {
-            if (!isOnline && breakSong) {
-                activity.breakDance()
-            }
+        if (
+            barLifeCalculator.state.failed &&
+            !breakDanceTriggered &&
+            !isOnline &&
+            breakSong
+        ) {
+            breakDanceTriggered = true
+            activity.breakDance()
         }
     }
 
@@ -469,8 +459,17 @@ class PlayerSscHD (
         }
     }
 
-    private fun applyJudge(col: Int, judge: Int, isBodyLongNote: Boolean = false, isFromInput: Boolean, isMine: Boolean = false, note: Parser.Note? = null) {
+    private fun applyJudge(
+        col: Int,
+        judge: Int,
+        isBodyLongNote:
+        Boolean = false,
+        isFromInput: Boolean,
+        isMine: Boolean = false,
+        note: Parser.Note? = null
+    ) {
         if (note != null && note.isFake) return
+
         when (judge) {
             JUDGE_PERFECT -> {
                 resultSong.perfect++
@@ -498,49 +497,40 @@ class PlayerSscHD (
             JUDGE_MISS -> {
                 resultSong.miss++
                 curCombo = 0
-                curComboMiss += multiplierCombo
+                curComboMiss += 1
             }
+        }
+
+        val lifeJudgment = when (judge) {
+            JUDGE_PERFECT -> LifeJudgment.PERFECT
+            JUDGE_GREAT -> LifeJudgment.GREAT
+            JUDGE_GOOD -> LifeJudgment.GOOD
+            JUDGE_BAD -> LifeJudgment.BAD
+            JUDGE_MISS -> LifeJudgment.MISS
+
+            else -> null
         }
 
         if (resultSong.maxCombo < curCombo) {
             resultSong.maxCombo = curCombo
         }
 
-        when (judge) {
-            JUDGE_PERFECT -> {
-                m_fGauge += if(isBodyLongNote){
-                    (gaugeInc[judge] * 0.002f) // los ticks de hold dan muy poco
-                }else {
-                    gaugeInc[judge]
-                }
-            }
-
-            JUDGE_GREAT, JUDGE_GOOD -> {
-                m_fGauge += gaugeInc[judge]
-            }
-            JUDGE_BAD -> {
-                m_fGauge += gaugeInc[judge]
-                if (m_fGauge < 0f) m_fGauge = 0f
-            }
-            JUDGE_MISS -> {
-                m_fGauge += if(isMine){
-                    (gaugeInc[judge] + MINE_PENALTY)
-                }else{
-                    gaugeInc[judge]
-                }
-                if (m_fGauge < 0f) m_fGauge = 0f
-            }
+        if (lifeJudgment != null) {
+            barLifeCalculator.applyJudgment(
+                judgment = lifeJudgment,
+                isBodyLongNote = isBodyLongNote,
+                isMine = isMine
+            )
         }
 
         val now = screen.timeGetTime()
         m_judge.judge = judge
         m_judge.startTime = now
+    }
 
-        // Flare: siempre que no sea MISS. (incluye ticks)
-        if (isFromInput && judge != JUDGE_MISS) {
-            flare[col].startTime = now
-            //showExpand(col)
-        }
+    override fun onNoteFlare(column: Int) {
+        if (column !in flare.indices) return
+        flare[column].startTime = screen.timeGetTime()
     }
 
     private fun timeToBeat(timeMs: Double): Double = timingData.timeToBeat(timeMs)
@@ -1021,53 +1011,94 @@ class PlayerSscHD (
         }
     }
 
-    private fun drawGauge(gauge: Float) {
+    private fun drawGauge(gauge: Float, stretchProgress: Float) {
         val previousSrcFunc = batch.blendSrcFunc
         val previousDstFunc = batch.blendDstFunc
+        val safeGauge = gauge.coerceIn(0f, 1f)
+        val safeStretch = stretchProgress.coerceIn(0f, 1f)
 
-        val barToDraw = if (gauge <= 0.2f) screen.barRed else screen.barBlack
+        val barToDraw = if (safeGauge <= 0.2f) screen.barRed else screen.barBlack
         barToDraw.setSize(screen.maxWidth, screen.maxlHeight)
         barToDraw.setPosition(medidaFlechas, 0f)
+        barToDraw.setColor(1f, 1f, 1f, 1f)
         barToDraw.draw(batch)
 
-        val visibleWidth = screen.maxWidth * gauge
-        val regionWidth = (screen.barColors.texture.width * gauge).toInt()
+        val baseVisibleWidth = screen.maxWidth * safeGauge
+        val maximumStretch = screen.maxWidth * 0.075f
+        val stretchWidth = maximumStretch * safeStretch
 
-        if (regionWidth > 0.1 && visibleWidth > 0.1f) {
-            screen.barColors.setRegion(0, 0, regionWidth, screen.barColors.texture.height)
+        val visibleWidth = if (safeGauge >= 1f) {
+            screen.maxWidth
+        } else {
+            (baseVisibleWidth + stretchWidth).coerceAtMost(screen.maxWidth)
+        }
+
+        val textureWidth = screen.barColors.texture.width
+        val textureHeight = screen.barColors.texture.height
+        val regionWidth = (textureWidth.toFloat() * safeGauge).toInt().coerceIn(0, textureWidth)
+
+
+        if (regionWidth > 0 && visibleWidth > 0.1f) {
+            screen.barColors.setRegion(0, 0, regionWidth, textureHeight)
             screen.barColors.setSize(visibleWidth, screen.maxlHeight)
             screen.barColors.setPosition(medidaFlechas, 0f)
+            screen.barColors.setColor(1f, 1f, 1f, 1f)
             screen.barColors.draw(batch)
-        }
 
-        if (gauge >= 1.0f) {
-            val currentTime = (screen.timeGetTime() / 100L) % 2 == 0L
+            if (barLifeCalculator.isVisibleBarFull) {
+                val glowPulse = safeStretch * safeStretch
+                val glowAlpha = 0.18f + 0.40f * glowPulse
 
-            if (currentTime) {
-                val time = (screen.timeGetTime() % 200L) / 200f
-                val shine = 1f + 0.5f * Math.sin(time * Math.PI).toFloat()
                 batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-
-                screen.barColors.setColor(shine, shine, shine, 1f)
+                screen.barColors.setColor(1f, 1f, 1f, glowAlpha)
                 screen.barColors.draw(batch)
                 batch.setBlendFunction(previousSrcFunc, previousDstFunc)
-            } else {
+
                 screen.barColors.setColor(1f, 1f, 1f, 1f)
-                screen.barColors.draw(batch)
             }
-        } else {
-            screen.barColors.setColor(1f, 1f, 1f, 1f)
         }
+
         screen.barFrame.setSize(screen.maxWidth, screen.maxlHeight)
         screen.barFrame.setPosition(medidaFlechas, 0f)
+        screen.barFrame.setColor(1f, 1f, 1f, 1f)
         screen.barFrame.draw(batch)
 
-        if (gauge <= 0.99f && gauge > 0f) {
+        if (safeGauge <= 0.98f && safeGauge > 0f) {
             val tipX = visibleWidth + medidaFlechas
             screen.barTip.setSize(tipWidth, tipHeight)
             screen.barTip.setPosition(tipX, tipY)
+            screen.barFrame.setColor(1f, 1f, 1f, 1f)
             screen.barTip.draw(batch)
         }
+
+        batch.setBlendFunction(previousSrcFunc, previousDstFunc)
+    }
+
+    val lightningExtraHeight = screen.maxlHeight * 1.5f
+    val lightningExtraWidth = screen.maxWidth * 1.2f
+    val lightningX = medidaFlechas * 0.5f
+    val lightningY = -(lightningExtraHeight - screen.maxlHeight) / 2f
+    private fun drawOverflowLightning(delta: Float) {
+        if (!barLifeCalculator.isOverflowFull) {
+            lifeLightningTime = 0f
+            return
+        }
+
+        val frames = screen.lifeLightningFrames
+        if (frames.isEmpty()) {
+            return
+        }
+
+        lifeLightningTime += delta
+        val frameIndex = (lifeLightningTime / LIFE_LIGHTNING_FRAME_DURATION).toInt() % frames.size
+
+        val frame = frames[frameIndex]
+        val oldColor = Color(batch.color)
+        batch.setColor(1f, 1f, 1f, 1f)
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+        batch.draw(frame, lightningX, lightningY, lightningExtraWidth, lightningExtraHeight)
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
+        batch.color = oldColor
     }
 
     private fun onMineHit(timeCom: Long) {
@@ -1142,6 +1173,7 @@ class PlayerSscHD (
             frameArray.forEach { it.texture.dispose() }
         }
         sprFlare.dispose()
+        whiteTex.dispose()
         curCombo = 0
         inputProcessor.dispose()
     }

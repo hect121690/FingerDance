@@ -40,7 +40,7 @@ class Parser {
     data class Fake(val beat: Double, val duration: Double, val isPressed: Boolean = false)
     data class Speed(val beat: Double, val ratio: Double, val duration: Double, val mode: Int)
     data class Scroll(val beat: Double, val ratio: Double)
-    data class Combo(val beat: Double, val number: Int)
+    data class Combo(val beat: Double, val comboMultiplier: Int, val comboMultiplierMiss: Int = 1)
 
     data class ExtendedToken(
         val code: Char,
@@ -87,7 +87,7 @@ class Parser {
         val stops = parsePairs(textChart, "STOPS").map { Stop(it.first, it.second * 1000) }
         val delays = parsePairs(textChart, "DELAYS").map { Delay(it.first, it.second * 1000) }
         val warps = parsePairs(textChart, "WARPS").map { Warp(it.first, it.second) }
-        val combos = parsePairs(textChart, "COMBOS").map { Combo(it.first, it.second.toInt()) }
+        val combos = parseCombos(textChart)
         val baseFakes = parsePairs(textChart, "FAKES").map {
             Fake(it.first, it.second)
         }
@@ -575,6 +575,54 @@ class Parser {
                 Scroll(p[0].toDouble(), p[1].toDouble())
             else
                 null
+        }
+    }
+
+    private fun parseCombos(text: String): List<Combo> {
+        val raw = extractTag(text, "COMBOS")
+            ?: return listOf(
+                Combo(
+                    beat = 0.0,
+                    comboMultiplier = 1,
+                    comboMultiplierMiss = 1
+                )
+            )
+
+        val result = raw.replace(";", "").split(",").mapNotNull { entry ->
+                val clean = entry.trim()
+
+                if (clean.isEmpty()) {
+                    return@mapNotNull null
+                }
+
+                val parts = clean.split("=")
+
+                if (parts.size < 2) {
+                    return@mapNotNull null
+                }
+
+                val beat = parts[0].trim().toDoubleOrNull() ?: return@mapNotNull null
+
+                val comboMultiplier = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
+                val comboMultiplierMiss = parts.getOrNull(2)?.trim()?.toIntOrNull() ?: 1
+                Combo(
+                    beat = beat,
+                    comboMultiplier = comboMultiplier.coerceAtLeast(1),
+                    comboMultiplierMiss = comboMultiplierMiss
+                )
+            }
+            .sortedBy { it.beat }
+
+        return if (result.isEmpty()) {
+            listOf(
+                Combo(
+                    beat = 0.0,
+                    comboMultiplier = 1,
+                    comboMultiplierMiss = 1
+                )
+            )
+        } else {
+            result
         }
     }
 

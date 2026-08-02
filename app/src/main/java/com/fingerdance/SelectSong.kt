@@ -1704,10 +1704,10 @@ class SelectSong : AppCompatActivity() {
             val ssc = readFileSsc(song.rutaSsc)
             val seccions = ssc.split("#NOTEDATA:;")
             chart = Parser().parseSSC(
-                    "${seccions[0]}\n",
-                    seccions[level.steps],
-                    song.rutaSong
-                )
+                "${seccions[0]}\n",
+                seccions[level.steps],
+                song.rutaSong
+            )
             playerSong.isSSC = true
             val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
             checkedValuesLocal = generateCheckedValuesSsc(seccions[level.steps]) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
@@ -2417,14 +2417,14 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun actualizarImagenNumero(numero: Int) {
-            val unidad = numero % 10
-            val decena = numero / 10
-            val bitmapUnidad = dividirPNG(unidad)
-            val bitmapDecena = dividirPNG(decena)
-            val bitmapNumeroCompleto = combinarBitmaps(bitmapDecena, bitmapUnidad)
+        val unidad = numero % 10
+        val decena = numero / 10
+        val bitmapUnidad = dividirPNG(unidad)
+        val bitmapDecena = dividirPNG(decena)
+        val bitmapNumeroCompleto = combinarBitmaps(bitmapDecena, bitmapUnidad)
 
-            imgContador.setImageBitmap(bitmapNumeroCompleto)
-        }
+        imgContador.setImageBitmap(bitmapNumeroCompleto)
+    }
 
     private fun dividirPNG(digito: Int): Bitmap {
         val anchoTotal = AppResources.bitmapNumber.width

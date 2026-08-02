@@ -5,6 +5,7 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.round
 
 private const val holdReleaseTolerance: Double = 0.15
 class SscGameplayEngine(
@@ -19,6 +20,7 @@ class SscGameplayEngine(
         val columnCount: Int,
         val activeColumns: IntRange,
         val stepSize: Float,
+        val targetY: Float = stepSize,
         val screenHeight: Float,
         val baseSpeed: Float,
         val isEW: Boolean,
@@ -49,7 +51,7 @@ class SscGameplayEngine(
     }
 
     data class TickSegment(val beat: Double, val tickCount: Double)
-    data class ComboSegment(val beat: Double, val multiplier: Int)
+    data class ComboSegment(val beat: Double, val multiplier: Int, val multiplierMiss: Int = 1)
 
     interface Renderer {
         fun drawTap(note: Parser.Note, column: Int, y: Int)
@@ -77,6 +79,7 @@ class SscGameplayEngine(
             acceptedAsComplete: Boolean
         ) = Unit
         fun onHoldFinished(column: Int, note: Parser.Note) = Unit
+        fun onNoteFlare(column: Int) = Unit
     }
 
     companion object {
@@ -89,6 +92,7 @@ class SscGameplayEngine(
         const val KEY_DOWN = 1
         const val KEY_PRESS = 2
         const val KEY_UP = 3
+        private const val ROW_KEY_SCALE = 1_000_000.0
     }
 
     private data class LongNoteState(
@@ -97,6 +101,18 @@ class SscGameplayEngine(
         var nextTickBeat: Double = 0.0,
         var note: Parser.Note? = null,
         var timeStartedMs: Double = 0.0
+    )
+
+    private data class RowState(
+        val beat: Double,
+        val notes: List<Parser.Note>,
+        val hitJudgments: MutableMap<Parser.Note, Int> = mutableMapOf(),
+        var resolved: Boolean = false
+    )
+
+    private data class HoldRowEntry(
+        val column: Int,
+        val note: Parser.Note
     )
 
     private val allNotes = notes.sortedBy { it.beat }
@@ -111,6 +127,9 @@ class SscGameplayEngine(
     private val columnIndex = IntArray(config.columnCount)
     private val keyState = IntArray(config.columnCount)
     private val holdCompletedThisFrame = mutableSetOf<Parser.Note>()
+
+    private val noteRowKey = mutableMapOf<Parser.Note, Long>()
+    private val rowStates = mutableMapOf<Long, RowState>()
 
     private val renderNotes = allNotes.filter { it.column in config.activeColumns }
 
@@ -155,6 +174,19 @@ class SscGameplayEngine(
         }
         for (column in 0 until config.columnCount) {
             columnNotes[column].sortBy { it.beat }
+        }
+
+        val rowCandidates = allNotes.filter { note ->
+            note.column in config.activeColumns &&
+                    !note.isFake &&
+                    !note.isMine &&
+                    (note.type == Parser.NoteType.TAP || note.type == Parser.NoteType.HOLD)
+        }
+
+        for ((key, rowNotes) in rowCandidates.groupBy { rowKeyForBeat(it.beat) }) {
+            val sortedRowNotes = rowNotes.sortedBy { it.column }
+            rowStates[key] = RowState(beat = sortedRowNotes.first().beat, notes = sortedRowNotes)
+            for (note in sortedRowNotes) noteRowKey[note] = key
         }
     }
 
@@ -215,13 +247,14 @@ class SscGameplayEngine(
                 KEY_PRESS -> {
                     listener.onColumnActive(column)
                     tryAutoStartHoldOnPress(column, songTimeMs)
-                    processLongNoteTick(column, songTimeMs)
+                    //processLongNoteTick(column, songTimeMs)
                 }
                 KEY_UP -> if (longNotes[column].pressed) {
                     endLongNote(column, songTimeMs)
                 }
             }
         }
+        processLongNoteTicksByRow(songTimeMs)
 
         for (column in config.activeColumns) {
             val notesInColumn = columnNotes[column]
@@ -246,7 +279,8 @@ class SscGameplayEngine(
                                 lateCatch
 
                     if (crossedHead) {
-                        emitJudge(column, JUDGE_PERFECT, isFromInput = true, note = note)
+                        listener.onNoteFlare(column)
+                        registerRowHit(column, note, JUDGE_PERFECT, isFromInput = true)
                         startLongNote(column, note, songTimeMs)
                         longNotes[column].lastTickBeat = nowBeat
                         columnIndex[column] = index + 1
@@ -262,10 +296,132 @@ class SscGameplayEngine(
         updateAutoMisses(songTimeMs)
     }
 
+    private fun processLongNoteTicksByRow(timeMs: Double) {
+        val nowBeat = timingData.timeToBeat(timeMs)
+
+        val tickRows = sortedMapOf<Long, MutableList<HoldRowEntry>>()
+        val bottomRows = sortedMapOf<Long, MutableList<HoldRowEntry>>()
+
+        for (column in config.activeColumns) {
+            val longNote = longNotes[column]
+            if (!longNote.pressed) continue
+
+            val note = longNote.note ?: continue
+            val endBeat = note.endBeat ?: continue
+
+            if (nowBeat >= endBeat) {
+                val rowKey = rowKeyForBeat(endBeat)
+
+                bottomRows.getOrPut(rowKey) {
+                    mutableListOf()
+                }.add(
+                    HoldRowEntry(
+                        column = column,
+                        note = note
+                    )
+                )
+
+                continue
+            }
+
+            while (nowBeat >= longNote.nextTickBeat &&
+                longNote.nextTickBeat <= endBeat
+            ) {
+                val tickBeat = longNote.nextTickBeat
+
+                if (!timingData.isBeatInWarp(tickBeat)) {
+                    val rowKey = rowKeyForBeat(tickBeat)
+
+                    tickRows.getOrPut(rowKey) {
+                        mutableListOf()
+                    }.add(
+                        HoldRowEntry(
+                            column = column,
+                            note = note
+                        )
+                    )
+                }
+
+                longNote.lastTickBeat = tickBeat
+
+                val ticksPerBeat =
+                    findCurrentTick(tickBeat).coerceAtLeast(1.0)
+
+                longNote.nextTickBeat +=
+                    1.0 / ticksPerBeat
+            }
+        }
+
+        for (entries in tickRows.values) {
+            val representative = entries.firstOrNull() ?: continue
+            for (entry in entries) {
+                listener.onNoteFlare(entry.column)
+            }
+            emitJudge(
+                column = representative.column,
+                judge = JUDGE_PERFECT,
+                isBodyLongNote = true,
+                isFromInput = true,
+                note = representative.note
+            )
+        }
+
+        for (entries in bottomRows.values) {
+            val representative = entries.firstOrNull() ?: continue
+            for (entry in entries) {
+                listener.onNoteFlare(entry.column)
+            }
+            emitJudge(
+                column = representative.column,
+                judge = JUDGE_PERFECT,
+                isBodyLongNote = true,
+                isFromInput = true,
+                note = representative.note
+            )
+
+            for (entry in entries) {
+                finishLongNoteWithoutJudge(
+                    column = entry.column,
+                    note = entry.note
+                )
+            }
+        }
+    }
+
+    private fun finishLongNoteWithoutJudge(
+        column: Int,
+        note: Parser.Note
+    ) {
+        if (finishedHolds.contains(note)) return
+
+        finishedHolds.add(note)
+        releasedHoldBeat.remove(note)
+        holdCompletedThisFrame.add(note)
+
+        val longNote = longNotes[column]
+
+        if (longNote.note === note) {
+            longNote.pressed = false
+            longNote.note = null
+
+            val endBeat =
+                note.endBeat ?: longNote.lastTickBeat
+
+            longNote.lastTickBeat = endBeat
+            longNote.nextTickBeat = endBeat
+        }
+
+        listener.onHoldFinished(column, note)
+    }
+
     fun reset() {
         hitNotes.clear()
         finishedHolds.clear()
         releasedHoldBeat.clear()
+        for (rowState in rowStates.values) {
+            rowState.hitJudgments.clear()
+            rowState.resolved = false
+        }
         for (column in 0 until config.columnCount) {
             columnIndex[column] = 0
             keyState[column] = KEY_NONE
@@ -387,7 +543,7 @@ class SscGameplayEngine(
         if (hitNotes.contains(note)) return
         val offset = offsetForBeat(note.beat, currentBeat, songTimeMs)
         if (!isOffsetVisible(offset)) return
-        val y = config.stepSize.toInt() + offset.toInt()
+        val y = config.targetY.toInt() + offset.toInt()
         if (note.isMine) renderer.drawMine(note, note.column, y)
         else renderer.drawTap(note, note.column, y)
     }
@@ -406,8 +562,7 @@ class SscGameplayEngine(
 
         var headBeat = note.beat
         val releaseBeat = releasedHoldBeat[note]
-        val isPressedHold =
-            longNotes[column].pressed && longNotes[column].note === note
+        val isPressedHold = longNotes[column].pressed && longNotes[column].note === note
 
         val hasReleasedVisual = releaseBeat != null
 
@@ -426,8 +581,8 @@ class SscGameplayEngine(
         }
 
         val shouldAnchor = isPressedHold ||
-                    completedThisFrame ||
-                    (note.isFake && note.isPressed)
+                completedThisFrame ||
+                (note.isFake && note.isPressed)
 
         if (shouldAnchor) {
             headOffset = 0f
@@ -437,7 +592,7 @@ class SscGameplayEngine(
         if (!isHoldOffsetVisible(headOffset, tailOffset)) {
             return
         }
-        renderer.drawHold(note, column, config.stepSize.toInt() + headOffset.toInt(), config.stepSize.toInt() + tailOffset.toInt())
+        renderer.drawHold(note, column, config.targetY.toInt() + headOffset.toInt(), config.targetY.toInt() + tailOffset.toInt())
     }
 
     private fun isOffsetVisible(offset: Float) =
@@ -479,9 +634,8 @@ class SscGameplayEngine(
                         columnIndex[column] = index
                         continue
                     }
-                    emitJudge(column, JUDGE_MISS, isFromInput = false, note = note)
-                    columnIndex[column] = index + 1
-                    index++
+                    resolveRowAsMiss(note)
+                    index = columnIndex[column]
                     continue
                 }
                 break
@@ -545,15 +699,101 @@ class SscGameplayEngine(
         val note = notesInColumn[bestIndex]
 
         if (note.type == Parser.NoteType.HOLD) {
-            emitJudge(column, JUDGE_PERFECT, isFromInput = true, note = note)
+            listener.onNoteFlare(column)
+            registerRowHit(column, note, JUDGE_PERFECT, isFromInput = true)
             startLongNote(column, note, timeMs)
             longNotes[column].lastTickBeat = nowBeat
             columnIndex[column] = bestIndex + 1
         } else {
-            emitJudge(column, bestJudge, isFromInput = true, note = note)
+            listener.onNoteFlare(column)
+            registerRowHit(column, note, bestJudge, isFromInput = true)
             hitNotes.add(note)
             columnIndex[column] = bestIndex + 1
         }
+    }
+
+    private fun registerRowHit(
+        column: Int,
+        note: Parser.Note,
+        judge: Int,
+        isFromInput: Boolean
+    ) {
+        val key = noteRowKey[note]
+        val rowState = key?.let(rowStates::get)
+
+        if (rowState == null) {
+            emitJudge(column, judge, isFromInput = isFromInput, note = note)
+            return
+        }
+        if (rowState.resolved || rowState.hitJudgments.containsKey(note)) return
+
+        rowState.hitJudgments[note] = judge
+        if (rowState.hitJudgments.size == rowState.notes.size) {
+            val rowJudge = rowState.hitJudgments.values.maxOrNull() ?: JUDGE_MISS
+            resolveRow(rowState, rowJudge, column, isFromInput, note)
+        }
+    }
+
+    private fun resolveRowAsMiss(note: Parser.Note) {
+        val key = noteRowKey[note]
+        val rowState = key?.let(rowStates::get)
+
+        if (rowState == null) {
+            emitJudge(note.column, JUDGE_MISS, isFromInput = false, note = note)
+            consumeNote(note)
+            return
+        }
+        if (rowState.resolved) {
+            consumeRowNotes(rowState)
+            return
+        }
+
+        resolveRow(
+            rowState = rowState,
+            judge = JUDGE_MISS,
+            column = note.column,
+            isFromInput = rowState.hitJudgments.isNotEmpty(),
+            representativeNote = note
+        )
+    }
+
+    private fun resolveRow(
+        rowState: RowState,
+        judge: Int,
+        column: Int,
+        isFromInput: Boolean,
+        representativeNote: Parser.Note
+    ) {
+        if (rowState.resolved) return
+        rowState.resolved = true
+
+        emitJudge(
+            column = column,
+            judge = judge,
+            isFromInput = isFromInput,
+            note = representativeNote
+        )
+
+        if (judge == JUDGE_MISS) consumeRowNotes(rowState)
+    }
+
+    private fun consumeRowNotes(rowState: RowState) {
+        for (note in rowState.notes) consumeNote(note)
+    }
+
+    private fun consumeNote(note: Parser.Note) {
+        hitNotes.add(note)
+        val column = note.column
+        if (column !in 0 until config.columnCount) return
+
+        val index = columnNotes[column].indexOf(note)
+        if (index >= 0 && columnIndex[column] <= index) {
+            columnIndex[column] = index + 1
+        }
+    }
+
+    private fun rowKeyForBeat(beat: Double): Long {
+        return round(beat * ROW_KEY_SCALE).toLong()
     }
 
     private fun startLongNote(column: Int, note: Parser.Note, timeMs: Double) {
@@ -621,6 +861,7 @@ class SscGameplayEngine(
             val endBeat = note.endBeat ?: continue
 
             if (nowBeat in note.beat..endBeat) {
+                listener.onNoteFlare(column)
                 emitJudge(
                     column, JUDGE_PERFECT,
                     isBodyLongNote = true,
@@ -655,6 +896,7 @@ class SscGameplayEngine(
         }
     }
 
+    /*
     private fun processLongNoteTick(column: Int, timeMs: Double) {
         val longNote = longNotes[column]
         if (!longNote.pressed) return
@@ -709,6 +951,7 @@ class SscGameplayEngine(
         }
         listener.onHoldFinished(column, note)
     }
+    */
 
     private fun findCurrentTick(nowBeat: Double) =
         ticks.lastOrNull { it.beat <= nowBeat }?.tickCount ?: 4.0

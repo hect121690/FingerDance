@@ -23,19 +23,30 @@ class BarLifeCalculator(
         const val VISIBLE_LIFE_MAX = 1000
         const val INITIAL_LIFE = 300
 
+        const val MINIMUM_LIFE = -200
+
         const val INITIAL_MULTIPLIER = 0.10
         const val MIN_MULTIPLIER = 0.00
         const val MAX_MULTIPLIER = 0.80
     }
 
     private val safeLevel = level.coerceAtLeast(1)
+    private var recoveryComboRemainder = 0.0
     private var holdLifeRemainder = 0.0
-    val maximumOverflow: Int = 3 * safeLevel * safeLevel
-    val maximumLife: Int = VISIBLE_LIFE_MAX + maximumOverflow
+
+    val maximumOverflow: Int =
+        3 * safeLevel * safeLevel
+
+    val maximumLife: Int =
+        VISIBLE_LIFE_MAX + maximumOverflow
+
     val state = BarLifeState()
 
     val visibleLife: Int
-        get() = state.life.coerceAtMost(VISIBLE_LIFE_MAX)
+        get() = state.life.coerceIn(
+            minimumValue = 0,
+            maximumValue = VISIBLE_LIFE_MAX
+        )
 
     val overflowLife: Int
         get() = (
@@ -50,8 +61,14 @@ class BarLifeCalculator(
 
     val overflowProgress: Float
         get() {
-            if (maximumOverflow <= 0) return 0f
-            return (overflowLife.toFloat() / maximumOverflow.toFloat()).coerceIn(0f, 1f)
+            if (maximumOverflow <= 0) {
+                return 0f
+            }
+
+            return (
+                    overflowLife.toFloat() /
+                            maximumOverflow.toFloat()
+                    ).coerceIn(0f, 1f)
         }
 
     val isVisibleBarFull: Boolean
@@ -60,16 +77,32 @@ class BarLifeCalculator(
     val isOverflowFull: Boolean
         get() = state.life >= maximumLife
 
+    /**
+     * Indica que el jugador está en la zona negativa,
+     * aunque todavía tenga tolerancia disponible.
+     */
+    val isInDangerTolerance: Boolean
+        get() = state.life < 0 && !state.failed
+
     fun applyJudgment(
         judgment: LifeJudgment,
         isBodyLongNote: Boolean = false,
         isMine: Boolean = false
     ): Int {
 
-        if (state.failed) return 0
-
         val currentLife = state.life
         val currentMultiplier = state.gainMultiplier
+
+        val isRecoveryJudgment = judgment == LifeJudgment.PERFECT || judgment == LifeJudgment.GREAT
+
+        val baseLife = if (
+            currentLife < 0 &&
+            isRecoveryJudgment
+        ) {
+            0
+        } else {
+            currentLife
+        }
 
         val lifeChange = when (judgment) {
             LifeJudgment.PERFECT -> {
@@ -110,12 +143,15 @@ class BarLifeCalculator(
             }
         }
 
-        state.life = (
-                state.life + lifeChange
-                ).coerceIn(
-                minimumValue = 0,
-                maximumValue = maximumLife
-            )
+        val rawNextLife = baseLife + lifeChange
+
+        val crossedFailureLimit =
+            rawNextLife < MINIMUM_LIFE
+
+        state.life = rawNextLife.coerceIn(
+            minimumValue = MINIMUM_LIFE,
+            maximumValue = maximumLife
+        )
 
         updateGainMultiplier(
             judgment = judgment,
@@ -128,10 +164,9 @@ class BarLifeCalculator(
             isBodyLongNote = isBodyLongNote,
             isMine = isMine
         )
+        state.failed = crossedFailureLimit
 
-        state.failed = state.life <= 0
-
-        return lifeChange
+        return state.life - currentLife
     }
 
     private fun calculatePositiveGain(
@@ -141,19 +176,31 @@ class BarLifeCalculator(
         return (weight * multiplier).toInt()
     }
 
-    private fun calculateMissLoss(currentLife: Int): Int {
-        val lifeForCalculation = minOf(currentLife, VISIBLE_LIFE_MAX)
-        return (lifeForCalculation / 4.0 + 20.0).toInt()
+    private fun calculateMissLoss(
+        currentLife: Int
+    ): Int {
+        val lifeForCalculation = currentLife.coerceIn(
+            minimumValue = 0,
+            maximumValue = VISIBLE_LIFE_MAX
+        )
+
+        return (
+                lifeForCalculation / 4.0 + 20.0
+                ).toInt()
     }
 
-    private fun updateGainMultiplier(judgment: LifeJudgment, isBodyLongNote: Boolean, isMine: Boolean) {
+    private fun updateGainMultiplier(
+        judgment: LifeJudgment,
+        isBodyLongNote: Boolean,
+        isMine: Boolean
+    ) {
         val change = when {
             isMine -> {
                 -0.10
             }
 
             isBodyLongNote && judgment == LifeJudgment.PERFECT -> {
-                0.0
+                0.4
             }
 
             else -> {
@@ -175,11 +222,11 @@ class BarLifeCalculator(
             )
     }
 
-    private fun calculateHoldTickGain(
-        multiplier: Double
-    ): Int {
+    private fun calculateHoldTickGain(multiplier: Double): Int {
         holdLifeRemainder += multiplier
+
         val wholeLife = holdLifeRemainder.toInt()
+
         if (wholeLife > 0) {
             holdLifeRemainder -= wholeLife
         }
@@ -198,14 +245,10 @@ class BarLifeCalculator(
             }
 
             isBodyLongNote && judgment == LifeJudgment.PERFECT -> {
-                /*
-                 * Los ticks siguen contando en resultSong,
-                 * pero no construyen el combo interno de recuperación.
-                 */
+                addRecoveryCombo(0.25)
             }
 
-            judgment == LifeJudgment.PERFECT ||
-                    judgment == LifeJudgment.GREAT -> {
+            judgment == LifeJudgment.PERFECT || judgment == LifeJudgment.GREAT -> {
                 state.comboSinceBreak++
             }
 
@@ -215,8 +258,21 @@ class BarLifeCalculator(
             }
 
             judgment == LifeJudgment.GOOD -> {
-                // No construye ni destruye recuperación.
+                /*
+                 * GOOD no construye ni destruye recuperación.
+                 */
             }
+        }
+    }
+
+    private fun addRecoveryCombo(amount: Double) {
+        recoveryComboRemainder += amount
+
+        val wholeCombo = recoveryComboRemainder.toInt()
+
+        if (wholeCombo > 0) {
+            state.comboSinceBreak += wholeCombo
+            recoveryComboRemainder -= wholeCombo
         }
     }
 
@@ -226,5 +282,6 @@ class BarLifeCalculator(
         state.comboSinceBreak = 0
         state.failed = false
         holdLifeRemainder = 0.0
+        recoveryComboRemainder = 0.0
     }
 }
