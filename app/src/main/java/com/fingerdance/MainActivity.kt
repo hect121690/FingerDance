@@ -264,6 +264,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             tema ="default"
         }
 
+        themes.edit().putString("efects", "").apply()
+
         rutaBase = getExternalFilesDir(null)!!.absolutePath
 
         deviceIdFind = getDeviceId(this@MainActivity)
@@ -1117,6 +1119,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionApp = packageInfo.versionName ?: ""
         ksfsEliminados = themes.getBoolean("ksfsEliminados", false)
+
         if(versionApp == "3.0.5" && !ksfsEliminados){
             deleteLuasRIP()
             showUpdateDialog(this)
@@ -1129,7 +1132,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val pathChannels = "FingerDance/Songs/Channels"
         val channels = listOf(
-            "$pathChannels/Dj Sharpnel-Tariji D Aizen",
+            "$pathChannels/SYNKRONIZED-S1-GOODASSJOB",
         )
 
         channels.forEach { path ->

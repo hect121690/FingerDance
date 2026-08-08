@@ -6,6 +6,7 @@ import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.Sprite
@@ -36,6 +37,7 @@ import com.fingerdance.tema
 import com.fingerdance.typePadD
 import com.fingerdance.width
 import com.fingerdance.widthBtns
+import java.io.File
 import kotlin.math.abs
 
 open class GameScreenSsc(activity: GameScreenActivity) : Screen {
@@ -94,9 +96,9 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     lateinit var arrPadsC : Array<Array<TextureRegion>>
 
-    private val textureLD = Texture(Gdx.files.absolute("$ruta/DownLeft Ready Receptor 1x3.png"))
-    private val textureLU = Texture(Gdx.files.absolute("$ruta/UpLeft Ready Receptor 1x3.png"))
-    private val textureCE = Texture(Gdx.files.absolute("$ruta/Center Ready Receptor 1x3.png"))
+    private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor 1x3")
+    private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor 1x3")
+    private val textureCE = loadTexture(ruta, "Center Ready Receptor 1x3")
 
     lateinit var arrayPad4Bg : Array<TextureRegion>
     lateinit var arrayPad4 : Array<TextureRegion>
@@ -226,7 +228,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                     timer -= intervalOverlay
                     showOverlay = !showOverlay
                 }
-                //ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
                 drawRecepts()
             }
 
@@ -458,17 +459,84 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
     */
 
+    fun loadTexture(ruta: String, fileName: String): Texture {
+        val search = normalizeName(fileName)
+
+        val file = File(ruta).listFiles()?.firstOrNull {
+            it.isFile && normalizeName(it.name) == search
+        } ?: error("No se encontró '$fileName' en $ruta")
+
+        return Texture(Gdx.files.absolute(file.absolutePath))
+    }
+
+    private fun normalizeName(name: String): String {
+        return File(name).nameWithoutExtension
+            .replace(Regex("\\([^)]*\\)"), "")   // (...)
+            .replace(Regex("\\[[^]]*]"), "")     // [...]
+            .replace("_", "")                    // _
+            .replace("-", " ")                   // -
+            .replace(Regex("\\s+"), " ")         // espacios dobles
+            .trim()
+            .lowercase()
+    }
+
     private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false) : Array<TextureRegion> {
         val tmp = TextureRegion.split(arrow, arrow.width, arrow.height / 3)
-        val frames = arrayOf(
-            tmp[0][0],
-            tmp[1][0],
-            tmp[2][0]
-        )
-        frames[0].flip(isMirror, true)
-        frames[1].flip(isMirror, true)
-        frames[2].flip(isMirror, true)
-        return frames
+        val textureData = arrow.textureData
+
+        if (!textureData.isPrepared) {
+            textureData.prepare()
+        }
+        val pixmap = textureData.consumePixmap()
+        try {
+            val frames = arrayOf(
+                trimFrame(tmp[0][0], pixmap),
+                trimFrame(tmp[1][0], pixmap),
+                trimFrame(tmp[2][0], pixmap)
+            )
+
+            frames.forEach { frame ->
+                frame.flip(isMirror, true)
+            }
+
+            return frames
+        } finally {
+            if (textureData.disposePixmap()) {
+                pixmap.dispose()
+            }
+        }
+    }
+
+    private fun trimFrame(sourceRegion: TextureRegion, pixmap: Pixmap, alphaThreshold: Int = 1): TextureRegion {
+        val sourceX = sourceRegion.regionX
+        val sourceY = sourceRegion.regionY
+        val sourceWidth = sourceRegion.regionWidth
+        val sourceHeight = sourceRegion.regionHeight
+
+        var minX = sourceWidth
+        var minY = sourceHeight
+        var maxX = -1
+        var maxY = -1
+
+        for (y in 0 until sourceHeight) {
+            for (x in 0 until sourceWidth) {
+                val pixel = pixmap.getPixel(sourceX + x, sourceY + y)
+                val alpha = pixel and 0xFF
+                if (alpha >= alphaThreshold) {
+                    if (x < minX) minX = x
+                    if (y < minY) minY = y
+                    if (x > maxX) maxX = x
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+        if (maxX < minX || maxY < minY) {
+            return TextureRegion(sourceRegion, 0, 0, 1, 1)
+        }
+
+        val trimmedWidth = maxX - minX + 1
+        val trimmedHeight = maxY - minY + 1
+        return TextureRegion(sourceRegion, minX, minY, trimmedWidth, trimmedHeight)
     }
 
     private fun getListNumbers(arrow: Texture) : Array<TextureRegion> {

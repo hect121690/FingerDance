@@ -533,48 +533,25 @@ class MyGameScreenHorizontal(gameScreenActivity: GameScreenActivityHorizontal, p
     val gsa = gameScreenActivity
     val ps = playerSong
 
-    //HORIZONTAL KSF's
-    private var gameScreenKsfHorizontal: GameScreenKsfHorizontal? = null
-    private var gameScreenKsfHorizontalHD: GameScreenKsfHDHorizontal? = null
-
-    //HORIZONTAL SSC's
     private var gameScreenSscHorizontal: GameScreenSscHorizontal? = null
     private var gameScreenSscHorizontalHD: GameScreenSscHorizontalHD? = null
     override fun create() {
         playerSong = ps
-        if(playerSong.isSSC) {
-            if (halfDouble) {
-                gameScreenSscHorizontalHD = GameScreenSscHorizontalHD(gsa)
-                setScreen(gameScreenSscHorizontalHD)
-            } else {
-                gameScreenSscHorizontal = GameScreenSscHorizontal(gsa)
-                setScreen(gameScreenSscHorizontal)
-            }
-        }else{
-            if (halfDouble) {
-                gameScreenKsfHorizontalHD = GameScreenKsfHDHorizontal(gsa)
-                setScreen(gameScreenKsfHorizontalHD)
-            } else {
-                gameScreenKsfHorizontal = GameScreenKsfHorizontal(gsa)
-                setScreen(gameScreenKsfHorizontal)
-            }
+        if (halfDouble) {
+            gameScreenSscHorizontalHD = GameScreenSscHorizontalHD(gsa)
+            setScreen(gameScreenSscHorizontalHD)
+        } else {
+            gameScreenSscHorizontal = GameScreenSscHorizontal(gsa)
+            setScreen(gameScreenSscHorizontal)
         }
     }
 
     override fun dispose() {
         super.dispose()
         if(halfDouble){
-            if(playerSong.isSSC){
-                gameScreenSscHorizontalHD?.dispose()
-            }else{
-                gameScreenKsfHorizontalHD?.dispose()
-            }
+            gameScreenSscHorizontalHD?.dispose()
         }else {
-            if (playerSong.isSSC) {
-                gameScreenSscHorizontal?.dispose()
-            } else {
-                gameScreenKsfHorizontal?.dispose()
-            }
+            gameScreenSscHorizontal?.dispose()
         }
     }
 }

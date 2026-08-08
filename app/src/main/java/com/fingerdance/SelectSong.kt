@@ -86,6 +86,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileWriter
 import java.io.InputStream
 import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
@@ -100,7 +101,7 @@ private lateinit var commandWindow: ConstraintLayout
 private lateinit var linearLvs: ConstraintLayout
 
 //private lateinit var recyclerView: RecyclerView
-private lateinit var carouselSong: SongCarouselViewVertical
+private lateinit var carouselSong: RecyclerView
 private lateinit var recyclerLvs: RecyclerView
 private lateinit var recyclerLvsVacios: RecyclerView
 private lateinit var recyclerCommands: ViewPager2
@@ -202,14 +203,11 @@ class SelectSong : AppCompatActivity() {
     private lateinit var imgWorldGrade: ImageView
 
     private lateinit var video_fondo : TextureView
-    private lateinit var video_preview: MediaPlayer
     private lateinit var imgPrev: ImageView
 
     private lateinit var prev: TextureView
     private lateinit var next: TextureView
 
-    private lateinit var prevPlayer: MediaPlayer
-    private lateinit var nextPlayer: MediaPlayer
 
     private lateinit var indicatorLayout: ImageView
     private lateinit var imageCircle : ImageView
@@ -218,8 +216,8 @@ class SelectSong : AppCompatActivity() {
     private lateinit var overlayBG: View
     private lateinit var imgContador: ImageView
     private lateinit var imgFavorite : ImageView
-    private lateinit var bitFavorite : Bitmap
-    private lateinit var bitFavoriteListed: Bitmap
+    private lateinit var bitIsFavorite : Bitmap
+    private lateinit var bitNotFavorite: Bitmap
     private var saveFavorites = false
 
     private lateinit var tipsArray : Array<String>
@@ -231,16 +229,15 @@ class SelectSong : AppCompatActivity() {
     private var selectedIndex = 0
     private val visibleItems = 9
     private var firstVisible = 0
-
     private var isRunning = false
-
-
-    private val carouselRunnable = object : Runnable {
-        override fun run() {
-            carouselSong.update()
-            handler.postDelayed(this, 16)
-        }
-    }
+    private lateinit var artworkRepository: SongArtworkRepository
+    private lateinit var carouselController: SongCarouselController
+    private lateinit var previewController: SongPreviewController
+    private lateinit var transitionController: SongTransitionController
+    private lateinit var audioController: SongAudioController
+    private var songSelectionJob: Job? = null
+    private var songSelectionGeneration = 0L
+    private var activityResumed = false
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -285,7 +282,9 @@ class SelectSong : AppCompatActivity() {
         carouselSong = findViewById(R.id.recyclerView)
 
         recyclerLvs = findViewById(R.id.recyclerLvs)
+        recyclerLvs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
+        recyclerLvsVacios.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         linearListSongs = findViewById(R.id.linearListSongs)
 
         recyclerCommands = findViewById(R.id.recyclerCommands)
@@ -412,8 +411,8 @@ class SelectSong : AppCompatActivity() {
         indicatorLayout.setImageBitmap(AppResources.bmIndicator)
         indicatorLayout.layoutParams.width = sizeLvs
 
-        bitFavorite = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")
-        bitFavoriteListed = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")
+        bitIsFavorite = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/favorite_listed.png")
+        bitNotFavorite = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/favorite.png")
         imgFavorite = findViewById(R.id.imgFavorite)
         imgFavorite.layoutParams.width = (medidaFlechas).toInt()
 
@@ -503,8 +502,8 @@ class SelectSong : AppCompatActivity() {
         val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
         imageCircle.startAnimation(animatorSetRotation)
 
-        imgSelected.layoutParams.height = (decimoHeigtn * 1.3).toInt()
-        imgSelected.layoutParams.width = (width * 0.6).toInt()
+        imgSelected.layoutParams.height = (decimoHeigtn * 1.4).toInt()
+        imgSelected.layoutParams.width = (width * 0.45).toInt()
         val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select)
         imgSelected.startAnimation(anim)
 
@@ -532,56 +531,12 @@ class SelectSong : AppCompatActivity() {
 
         video_fondo = findViewById(R.id.videoPreview)
         video_fondo.layoutParams.height = (height * 0.3).toInt()
-        video_preview = MediaPlayer()
-        video_fondo.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                video_preview.setSurface(Surface(surface))
-            }
-            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-        }
-
         next = findViewById(R.id.next)
         prev = findViewById(R.id.preview)
-
         next.layoutParams.height = (height * 0.3).toInt()
         prev.layoutParams.height = (height * 0.3).toInt()
-
         next.visibility = View.GONE
         prev.visibility = View.GONE
-
-        nextPlayer = MediaPlayer().apply {
-            setDataSource("$rutaBase/FingerDance/Themes/$tema/BGAs/next.mp4")
-            isLooping = false
-            setVolume(0f, 0f)
-            prepare()
-        }
-
-        next.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                nextPlayer.setSurface(Surface(surface))
-            }
-            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-        }
-        prevPlayer = MediaPlayer().apply {
-            setDataSource("$rutaBase/FingerDance/Themes/$tema/BGAs/prev.mp4")
-            isLooping = false
-            setVolume(0f, 0f)
-            prepare()
-        }
-        prev.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
-                prevPlayer.setSurface(Surface(surface))
-            }
-            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) {}
-            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-
-        }
-
         val spriteWidth = AppResources.arrowNavIzq.width / 2
         val spriteHeight = AppResources.arrowNavIzq.height / 2
 
@@ -614,9 +569,7 @@ class SelectSong : AppCompatActivity() {
 
         //setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
 
-        carouselSong.setSongs(AppResources.listSongsChannelKsf)
-        oldValue = carouselSong.getSelectedIndex()
-        isFocus(oldValue)
+        setupSongCarousel()
 
 
         //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
@@ -683,30 +636,18 @@ class SelectSong : AppCompatActivity() {
         }
 
         imgFavorite.setOnClickListener {
+            val songs = AppResources.listSongsChannelKsf
+            if (songs.isEmpty()) {
+                return@setOnClickListener
+            }
+            val realIndex = getRealIndex(oldValue)
+            val selectedSong = songs.getOrNull(realIndex) ?: return@setOnClickListener
+            currentSong = selectedSong.title
             saveFavorites = true
-            val song = AppResources.listSongsChannelKsf[oldValue]
-            val favChannel = listChannels.find { it.nombre == "06-FAVORITES" }
-
-            if (song.isFavorite) {
-                // Quitar de favoritos
-                song.isFavorite = false
-                imgFavorite.setImageBitmap(bitFavorite)
-
-                val fav = listFavorites.find { it.title == song.title }
-                if (fav != null) listFavorites.remove(fav)
-
-                favChannel?.listCanciones = listFavorites
-
+            if (selectedSong.isFavorite) {
+                removeCurrentSongFromFavorites(selectedSong)
             } else {
-                // Agregar a favoritos
-                song.isFavorite = true
-                imgFavorite.setImageBitmap(bitFavoriteListed)
-                imgFavorite.startAnimation(AnimationUtils.loadAnimation(this, R.anim.stamp_effect))
-
-                listFavorites.add(song)  // se agrega la MISMA referencia del objeto
-                listFavorites.sortBy { it.channel }
-
-                favChannel?.listCanciones = listFavorites
+                addCurrentSongToFavorites(selectedSong)
             }
         }
 
@@ -856,9 +797,7 @@ class SelectSong : AppCompatActivity() {
             imgFloor.setImageBitmap(AppResources.bmFloor)
             if (carouselSong.isVisible && !commandWindow.isVisible) {
 
-                carouselSong.moveLeft()
-                oldValue = carouselSong.getSelectedIndex()
-                moverCanciones(nav_izq, false)
+                carouselController.moveLeft()
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(false)) return@setOnClickListener
@@ -896,9 +835,7 @@ class SelectSong : AppCompatActivity() {
             imgFloor.setImageBitmap(AppResources.bmFloor)
             if (carouselSong.isVisible && !commandWindow.isVisible) {
 
-                carouselSong.moveRight()
-                oldValue = carouselSong.getSelectedIndex()
-                moverCanciones(nav_der, true)
+                carouselController.moveRight()
             }
             if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 if (handleButtonPress(true)) return@setOnClickListener
@@ -1225,15 +1162,15 @@ class SelectSong : AppCompatActivity() {
 
         imgOffset.setOnClickListener {
 
-            showModifyOffsetDialog()
+            //showModifyOffsetDialog()
 
         }
 
-        if(isVideo){
-            video_preview.start()
-        }
-        mediPlayer.start()
+        previewController.onResume()
+        audioController.onResume()
     }
+
+
 
     private fun showModifyOffsetDialog() {
         val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
@@ -1649,7 +1586,7 @@ class SelectSong : AppCompatActivity() {
         })
         imgLoading.isVisible = true
         showProgressBar(3000L)
-        mediPlayer.pause()
+        audioController.pause()
         playerSong.rutaBanner = song.rutaTitle
 
         txTip.text = tipsArray[Random.nextInt(tipsArray.size)]
@@ -1733,34 +1670,35 @@ class SelectSong : AppCompatActivity() {
             playerSong.isSSC = false
             //load(playerSong.rutaKsf, isHalfDouble)
             chart = ParserKsf().parseKSF(readFileSsc(level.rutaKsf), valueOffset = valueOffset.toDouble())
-            val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
-            checkedValuesLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
+            val uniqueId = generateId(
+                        "$${playerSong.level}|" +
+                        "${playerSong.type}|" +
+                        "${playerSong.player}|" +
+                        "$${playerSong.chartName}|" +
+                        "$${playerSong.stepMaker}|" +
+                        "$${playerSong.difficulty}")
+            checkedValuesLocal = "${generateCheckedValuesKsf(File(playerSong.rutaKsf))}|${File(playerSong.rutaCancion!!).length()}-$uniqueId"
             playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
             isOficialSong = playerSong.checkedValues != ""
 
             if(playerSong.mirror){
                 if(!isHalfDouble){
-                    ksf.makeMirror()
+                    chart.notes = Parser().makeMirror(chart.notes)
                 }else{
-                    ksfHD.makeMirror()
+                    chart.notes = Parser().makeMirrorHD(chart.notes)
                 }
-
             }
             if(playerSong.rs){
                 if(!isHalfDouble){
-                    ksf.makeRandom()
+                    chart.notes = Parser().makeRandom(chart.notes)
                 }else{
-                    ksfHD.makeRandom()
+                    chart.notes = Parser().makeRandomHD(chart.notes)
                 }
             }
         }
 
-        if(!isOnline){
-            if(!isOffline){
-                levelIndex = positionActualLvs
-            }
-        }
-
+        currentSong = song.title
+        currentLevel = level.level
         handler.postDelayed({
             val savedPlayMode = if (isHalfDouble) {
                 playModeHalf
@@ -1799,12 +1737,12 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun updateRecycler() {
-        val lm = recyclerLvs.layoutManager as LinearLayoutManager
+        val lm = recyclerLvs.layoutManager as? LinearLayoutManager ?: return
+        val safeFirst = firstVisible.coerceAtLeast(0)
         recyclerLvs.post {
-            lm.scrollToPositionWithOffset(firstVisible, 0)
+            if (!isFinishing && !isDestroyed && recyclerLvs.layoutManager === lm) lm.scrollToPositionWithOffset(safeFirst, 0)
         }
-        val indicatorPosition = selectedIndex - firstVisible
-        indicatorLayout.x = (indicatorPosition * sizeLvs).toFloat()
+        indicatorLayout.x = ((selectedIndex - safeFirst) * sizeLvs).toFloat()
     }
 
     private fun getRealIndex(pos: Int): Int {
@@ -1816,8 +1754,7 @@ class SelectSong : AppCompatActivity() {
         selectedIndex = 0
         firstVisible = 0
         positionActualLvs = 0
-        val lm = recyclerLvs.layoutManager as LinearLayoutManager
-        lm.scrollToPositionWithOffset(0, 0)
+        (recyclerLvs.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(0, 0)
         indicatorLayout.x = 0f
     }
 
@@ -1992,7 +1929,7 @@ class SelectSong : AppCompatActivity() {
                     File(AppResources.listSongsChannelKsf[oldValue].rutaPreview).delete()
                     isFocus(oldValue )
                     btnCancel.performClick()
-                    mediPlayer.start()
+                    audioController.onResume()
                     Toast.makeText(this, "Preview eliminado", Toast.LENGTH_SHORT).show()
                 }
             }else{
@@ -2014,8 +1951,8 @@ class SelectSong : AppCompatActivity() {
                             delay(600)
                             isFocus(oldValue)
                             btnCancel.performClick()
-                            video_preview.start()
-                            mediPlayer.start()
+                            previewController.onResume()
+                            audioController.onResume()
                         } else {
                             setOverlayEnabled(true, cardLayout)
                             progressText.text = "Error al descargar"
@@ -2038,7 +1975,7 @@ class SelectSong : AppCompatActivity() {
                     File(AppResources.listSongsChannelKsf[oldValue].rutaBGA).delete()
                     isFocus(oldValue)
                     btnCancel.performClick()
-                    mediPlayer.start()
+                    audioController.onResume()
                     Toast.makeText(this, "BGA eliminado", Toast.LENGTH_SHORT).show()
                 }
             }else{
@@ -2515,6 +2452,7 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun goSelectLevel() {
+        carouselController.stop()
         soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         carouselSong.startAnimation(animOff)
         txInfoCurrentSong.startAnimation(animOff)
@@ -2715,41 +2653,133 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
+    private fun getOriginalChannelName(song: Song): String {
+        return if (currentChannel == "06-FAVORITES") {
+            song.channel.toString()
+        } else {
+            currentChannel
+        }
+    }
+
+    private fun updateFavoriteStateInChannels(
+        selectedSong: Song,
+        isFavorite: Boolean
+    ): Boolean {
+        val originalChannelName = getOriginalChannelName(selectedSong)
+
+        val originalChannel = listChannels.find { channel ->
+            channel.nombre == originalChannelName
+        } ?: return false
+
+        val originalSong = originalChannel.listCanciones.find { song ->
+            song.rutaSong == selectedSong.rutaSong
+        } ?: originalChannel.listCanciones.find { song ->
+            song.title == currentSong
+        } ?: return false
+
+        originalSong.isFavorite = isFavorite
+
+        return true
+    }
+
+    private fun updateFavoritesChannel() {
+        channelFavorites.listCanciones = listFavorites
+
+        listChannels.find { channel ->
+            channel.nombre == "06-FAVORITES"
+        }?.listCanciones = listFavorites
+    }
+
+    private fun addCurrentSongToFavorites(selectedSong: Song) {
+        selectedSong.isFavorite = true
+
+        updateFavoriteStateInChannels(
+            selectedSong = selectedSong,
+            isFavorite = true
+        )
+
+        val alreadyExists = listFavorites.any { favorite ->
+            favorite.rutaSong == selectedSong.rutaSong
+        }
+
+        if (!alreadyExists) {
+            listFavorites.add(selectedSong)
+        }
+
+        listFavorites.sortWith(
+            compareBy<Song>(
+                { it.channel },
+                { it.title }
+            )
+        )
+
+        updateFavoritesChannel()
+
+        imgFavorite.setImageBitmap(bitIsFavorite)
+
+        imgFavorite.startAnimation(
+            AnimationUtils.loadAnimation(
+                this,
+                R.anim.stamp_effect
+            )
+        )
+    }
+
+    private fun removeCurrentSongFromFavorites(selectedSong: Song) {
+        selectedSong.isFavorite = false
+
+        updateFavoriteStateInChannels(
+            selectedSong = selectedSong,
+            isFavorite = false
+        )
+
+        listFavorites.removeAll { favorite ->
+            favorite.rutaSong == selectedSong.rutaSong
+        }
+
+        updateFavoritesChannel()
+
+        imgFavorite.setImageBitmap(bitNotFavorite)
+    }
+
     private fun goSelectChannel(){
         soundPoolSelectSong.play(selectSong_backKsf, 1.0f, 1.0f, 1, 0, 1.0f)
         if(saveFavorites){
-            listChannels.remove(channelFavorites)
-            themes.edit().putString("allTunes", gson.toJson(listChannels)).apply()
-            themes.edit().putString("favorites", gson.toJson(listFavorites)).apply()
-            listChannels.add(channelFavorites)
-            listChannels.sortBy { it.nombre.substringBefore("-").trim() }
-        }
-
-        nav_back_der.startAnimation(animOn)
-        if (mediPlayer.isPlaying){
-            mediPlayer.pause()
-            mediPlayer.stop()
-            mediPlayer.release()
-            if(mediaPlayerVideo.isPlaying){
-                mediaPlayerVideo.pause()
-                mediaPlayerVideo.stop()
-                mediaPlayerVideo.release()
+            updateFavoritesChannel()
+            val channelsWithoutFavorites = listChannels.filterNot {
+                it.nombre == "06-FAVORITES"
             }
-        }
+            themes.edit().putString("allTunes", gson.toJson(channelsWithoutFavorites))
+                .putString("favorites", gson.toJson(listFavorites)).apply()
 
-        if (::prevPlayer.isInitialized) prevPlayer.release()
-        if (::nextPlayer.isInitialized) nextPlayer.release()
-        if (::video_preview.isInitialized) video_preview.release()
+            listChannels.removeAll {
+                it.nombre == "06-FAVORITES"
+            }
+
+            channelFavorites.listCanciones = listFavorites
+            listChannels.add(channelFavorites)
+
+            listChannels.sortBy {
+                it.nombre.substringBefore("-").trim()
+            }
+
+            saveFavorites = false
+
+        }
+        nav_back_der.startAnimation(animOn)
+        if(::audioController.isInitialized) audioController.stop()
+        if(::previewController.isInitialized) previewController.onPause()
+        if(::transitionController.isInitialized) transitionController.stop()
+        runCatching {
+            if(mediaPlayerVideo.isPlaying) mediaPlayerVideo.stop()
+            mediaPlayerVideo.release()
+        }
         handlerContador.removeCallbacksAndMessages(null)
         handler.removeCallbacksAndMessages(null)
-
-        if(isTimerRunning()){
-            timer?.cancel()
-        }
-
+        timer?.cancel()
         resetRunnable()
         detenerContador()
-        this.finish()
+        finish()
         overridePendingTransition(0,R.anim.anim_command_window_off)
     }
 
@@ -2821,26 +2851,81 @@ class SelectSong : AppCompatActivity() {
         }
     }
 
-    private fun moverCanciones(flecha: ImageView, isNext: Boolean = false) {
-        val real = getRealIndex(oldValue) // 🔥 CLAVE
-        resetIndicatorPosition()
+    private fun setupSongCarousel() {
+        val itemWidth = width / 4.2f
+        artworkRepository = SongArtworkRepository(applicationContext)
+        val adapter = SongCarouselAdapter(this, artworkRepository, itemWidth.toInt(), (itemWidth * 0.75f).toInt())
+        val layoutManager = SongCarouselLayoutManager(this, itemWidth)
+        val snapHelper = SongCenterSnapHelper()
+        carouselController = SongCarouselController(carouselSong, adapter, layoutManager, snapHelper)
+        audioController = SongAudioController(startTimeMs)
+        previewController = SongPreviewController(this, imgPrev, video_fondo, artworkRepository, width, (height * 0.3f).toInt())
+        transitionController = SongTransitionController(prev, next, "$rutaBase/FingerDance/Themes/$tema/BGAs/prev.mp4", "$rutaBase/FingerDance/Themes/$tema/BGAs/next.mp4") { playing ->
+            audioController.setTransitionPlaying(playing)
+            previewController.setTransitionPlaying(playing)
+        }
+        carouselSong.addOnItemTouchListener(
+            object : RecyclerView.SimpleOnItemTouchListener() {
+                override fun onInterceptTouchEvent(
+                    recyclerView: RecyclerView,
+                    event: android.view.MotionEvent
+                ): Boolean {
+                    return true
+                }
+            }
+        )
+        carouselController.listener = object : SongCarouselController.Listener {
+            override fun onTargetChanged(
+                realIndex: Int,
+                direction: SongCarouselController.Direction,
+                newSequence: Boolean
+            ) {
+                oldValue = realIndex
+
+                moverCanciones(
+                    flecha = if (direction == SongCarouselController.Direction.NEXT) {
+                        nav_der
+                    } else {
+                        nav_izq
+                    },
+                    isNext = direction == SongCarouselController.Direction.NEXT,
+                    playTransition = newSequence
+                )
+            }
+
+            override fun onSettled(
+                realIndex: Int,
+                direction: SongCarouselController.Direction
+            ) {
+                oldValue = realIndex
+                isFocus(
+                    position = realIndex,
+                    resetLevelPosition = true
+                )
+            }
+        }
+        carouselController.setSongs(AppResources.listSongsChannelKsf, 0)
+    }
+
+    private fun moverCanciones(flecha: ImageView, isNext: Boolean = false, playTransition: Boolean = true) {
+        val real = getRealIndex(oldValue)
         soundPoolSelectSong.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
         flecha.startAnimation(AppResources.animPressNav)
+        if (playTransition) {
+            showTransitionVideo(isNext)
+        }
 
-        isFocus(oldValue)
-        showTransitionVideo(isNext)
-
+        val item = AppResources.listSongsChannelKsf[real]
+        lbNameSong.text = item.title.ifBlank { "NO TITLE" }
+        lbArtist.text = item.artist.ifBlank { "NO ARTIST" }
+        lbBpm.text = "BPM ${item.displayBpm}"
+        txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, AppResources.listSongsChannelKsf.size)
         lbArtist.isSelected = true
         lbNameSong.isSelected = true
-
-        if (currentChannel == "03-SHORT CUT - V2" ||
-            currentChannel == "04-REMIX - V2" ||
-            currentChannel == "05-FULLSONGS - V2") {
-
-            val currentNumberChannel = File(AppResources.listSongsChannelKsf[real].rutaSong).parentFile?.name!!.substringBefore("-").trim()
-            if (currentNumberChannel != numberChannel) {
+        if (currentChannel == "03-SHORT CUT - V2" || currentChannel == "04-REMIX - V2" || currentChannel == "05-FULLSONGS - V2") {
+            val currentNumberChannel = File(item.rutaSong).parentFile?.name?.substringBefore("-")?.trim().orEmpty()
+            if (currentNumberChannel.isNotEmpty() && currentNumberChannel != numberChannel) {
                 numberChannel = currentNumberChannel
-
                 when (currentNumberChannel) {
                     "12" -> soundPoolSelectSong.play(st_zero, 1.0f, 1.0f, 1, 0, 1.0f)
                     "13" -> soundPoolSelectSong.play(nx_nxAbs, 1.0f, 1.0f, 1, 0, 1.0f)
@@ -2855,388 +2940,88 @@ class SelectSong : AppCompatActivity() {
     }
 
     private var isVideo: Boolean = false
-    private fun isFocus (position: Int){
-        ImageScheduler.newGeneration()
-
-        val size = AppResources.listSongsChannelKsf.size
-
-        fun get(i: Int) = AppResources.listSongsChannelKsf[((i % size) + size) % size]
-
-        // 🔥 PRIORIDAD 3 → visible
-        val center = get(position)
-        preload(center.rutaDisc, priority = 3)
-
-        // 🔥 PRIORIDAD 2 → cercanos
-        for (i in 1..3) {
-            preload(get(position + i).rutaDisc, 2)
-            preload(get(position - i).rutaDisc, 2)
-        }
-
-        // 🔥 PRIORIDAD 1 → un poco más lejos
-        for (i in 4..6) {
-            preload(get(position + i).rutaDisc, 1)
-            preload(get(position - i).rutaDisc, 1)
-        }
-
+    private fun isFocus(position: Int, resetLevelPosition: Boolean = true) {
         val real = getRealIndex(position)
         val item = AppResources.listSongsChannelKsf[real]
+        val generation = ++songSelectionGeneration
+        songSelectionJob?.cancel()
         currentPathSong = item.rutaSong
+        currentSong = item.title
         timer?.cancel()
         timer = object : CountDownTimer(10000, 1000) {
             override fun onTick(millisUntilFinished: Long) {}
             override fun onFinish() {
-                mediPlayer.stop()
-                isTimerRunning = false
-            }
-        }
-
-        currentSong = item.title
-        if(currentChannel == "06-FAVORITES") {
-            val nameChannels = item.channel
-            listSongScores = db.getSongScores(db.readableDatabase, nameChannels.toString(), currentSong)
-        }else{
-            listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
-        }
-        if(item.listKsf.size != listSongScores.size){
-            db.deleteCancion(item.title)
-            listSongScores = arrayOf()
-        }
-
-        if(listSongScores.isEmpty()){
-            for (nivel in item.listKsf) {
-                db.insertNivel(
-                    canal = currentChannel,
-                    cancion = currentSong,
-                    checkedValues = nivel.checkedValues
-                )
-            }
-            listSongScores = db.getSongScores(db.readableDatabase, currentChannel, currentSong)
-        }
-
-        if (isFileExists(File(item.rutaPreview))) {
-            isVideo = !(item.rutaPreview.endsWith(".png", true)
-                    || item.rutaPreview.endsWith(".jpg", true)
-                    || item.rutaPreview.endsWith(".bpm", true)
-                    || item.rutaPreview.endsWith(".mpg", true)
-                    || item.rutaPreview.endsWith(".avi", true)
-                    || item.rutaPreview.isEmpty())
-
-            if (isVideo) {
-                video_fondo.visibility = View.INVISIBLE
-
-                video_preview.stopSafely()
-                video_preview.reset()
-
-                video_preview.apply {
-                    setDataSource(item.rutaPreview)
-                    isLooping = true
-                    setVolume(0f, 0f)
-
-                    setOnPreparedListener {
-                        video_fondo.visibility = View.VISIBLE
-                        start()
-                    }
-                    prepareAsync()
+                if (generation == songSelectionGeneration) {
+                    audioController.stop()
+                    isTimerRunning = false
                 }
-
-                imgPrev.visibility = View.INVISIBLE
-
-                playMedia(item.rutaSong)
+            }
+        }
+        songSelectionJob = lifecycleScope.launch {
+            val scores = withContext(Dispatchers.IO) {
+                val channelName = if (currentChannel == "06-FAVORITES") item.channel.toString() else currentChannel
+                var loaded = db.getSongScores(db.readableDatabase, channelName, item.title)
+                if (item.listKsf.size != loaded.size) {
+                    db.deleteCancion(item.title)
+                    loaded = arrayOf()
+                }
+                if (loaded.isEmpty()) {
+                    item.listKsf.forEach { level -> db.insertNivel(canal = channelName, cancion = item.title, checkedValues = level.checkedValues) }
+                    loaded = db.getSongScores(db.readableDatabase, channelName, item.title)
+                }
+                loaded
+            }
+            if (generation != songSelectionGeneration || isFinishing || isDestroyed) return@launch
+            listSongScores = scores
+            previewController.show(item, generation)
+            audioController.prepare(item.rutaSong, generation)
+            audioController.onResume()
+            previewController.onResume()
+            isVideo = File(item.rutaPreview).extension.lowercase() in setOf("mp4", "m4v", "3gp", "webm", "mkv", "mpg", "mpeg", "avi")
+            imgFavorite.setImageBitmap(if (item.isFavorite) bitIsFavorite else bitNotFavorite)
+            lbNameSong.text = item.title.ifBlank { "NO TITLE" }
+            lbNameSong.startAnimation(AppResources.animNameSong)
+            lbArtist.text = item.artist.ifBlank { "NO ARTIST" }
+            lbBpm.text = "BPM ${item.displayBpm}"
+            txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, AppResources.listSongsChannelKsf.size)
+            displayBPM = item.displayBpm.replace("BPM ", "").substringBefore("-").toFloatOrNull() ?: 0f
+            //recyclerLvs.adapter?.notifyDataSetChanged()
+            llenaLvsKsf(item.listKsf)
+            if (resetLevelPosition) {
+                resetIndicatorPosition()
             } else {
-                setDiscImage(item.rutaDisc)
-
-                video_fondo.visibility = View.GONE
-                imgPrev.visibility = View.VISIBLE
-
-                playMedia(item.rutaSong)
+                restoreLevelPosition(item.listKsf.size)
             }
-        } else {
-            setDiscImage(item.rutaDisc)
-
-            video_fondo.visibility = View.GONE
-            imgPrev.visibility = View.VISIBLE
-
-            playMedia(item.rutaSong)
-        }
-        if(item.title == ""){
-            lbNameSong.text = "NO TITLE"
-        }else{
-            lbNameSong.text = item.title
-        }
-        lbNameSong.startAnimation(AppResources.animNameSong)
-        txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, AppResources.listSongsChannelKsf.size)
-
-        if(item.artist == ""){
-            lbArtist.text = "NO ARTIST"
-        }else{
-            lbArtist.text = item.artist
-        }
-
-        val lbDbpm = "BPM ${item.displayBpm}"
-        lbBpm.text = lbDbpm
-        displayBPM = item.displayBpm.replace("BPM ", "").substringBefore("-").toFloat()
-        recyclerLvs.adapter?.notifyDataSetChanged()
-        llenaLvsKsf(item.listKsf)
-    }
-
-    private fun MediaPlayer.stopSafely() {
-        try {
-            if (isPlaying) stop()
-        } catch (_: Exception) {
+            timer?.start()
+            isTimerRunning = true
         }
     }
 
-    fun preload(path: String, priority: Int) {
-        val context = applicationContext
-
-        val key = md5("$path-$640-$480")
-
-        ImageScheduler.submit(key, priority) {
-
-            val file = ImagePipeline.getOrCreateTrimmed(
-                path,
-                context,
-                640,
-                480
-            )
-
-            SongImageCache.memoryCache[key] = file
-        }
-    }
-
-    object SongImageCache {
-
-        val memoryCache = HashMap<String, File>()
-
-    }
-
-    object ImagePipeline {
-
-        fun getTrimmedFile(originalPath: String, context: Context): File {
-            val cacheDir = File(context.cacheDir, "trimmed")
-            if (!cacheDir.exists()) cacheDir.mkdirs()
-
-            val name = originalPath.hashCode().toString() + "_trim.png"
-            return File(cacheDir, name)
-        }
-        @Synchronized
-        fun getOrCreateTrimmed(
-            originalPath: String,
-            context: Context,
-            reqWidth: Int,
-            reqHeight: Int
-        ): File {
-
-            val trimmedFile = getTrimmedFile(originalPath, context)
-
-            // 🔥 si ya existe → listo
-            if (trimmedFile.exists()) return trimmedFile
-
-            // 🔥 si no existe → generar
-            val bitmap = decodeSampledBitmap(originalPath, reqWidth, reqHeight) ?: return trimmedFile
-            val trimmed = trimTransparent(bitmap)
-
-            trimmedFile.outputStream().use {
-                trimmed.compress(Bitmap.CompressFormat.PNG, 100, it)
-            }
-
-            return trimmedFile
-        }
-
-        private fun decodeSampledBitmap(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
-            val options = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-
-            BitmapFactory.decodeFile(path, options)
-
-            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
-            options.inJustDecodeBounds = false
-            options.inPreferredConfig = Bitmap.Config.RGB_565
-
-            return BitmapFactory.decodeFile(path, options)
-        }
-
-        private fun calculateInSampleSize(
-            options: BitmapFactory.Options,
-            reqWidth: Int,
-            reqHeight: Int
-        ): Int {
-            val (height, width) = options.outHeight to options.outWidth
-            var inSampleSize = 1
-
-            if (height > reqHeight || width > reqWidth) {
-                val halfHeight = height / 2
-                val halfWidth = width / 2
-
-                while ((halfHeight / inSampleSize) >= reqHeight &&
-                    (halfWidth / inSampleSize) >= reqWidth
-                ) {
-                    inSampleSize *= 2
-                }
-            }
-
-            return inSampleSize
-        }
-
-        private fun trimTransparent(src: Bitmap): Bitmap {
-            val width = src.width
-            val height = src.height
-
-            var minX = width
-            var minY = height
-            var maxX = -1
-            var maxY = -1
-
-            val pixels = IntArray(width * height)
-            src.getPixels(pixels, 0, width, 0, 0, width, height)
-
-            var index = 0
-            for (y in 0 until height) {
-                for (x in 0 until width) {
-                    val alpha = pixels[index] ushr 24
-                    if (alpha != 0) {
-                        if (x < minX) minX = x
-                        if (x > maxX) maxX = x
-                        if (y < minY) minY = y
-                        if (y > maxY) maxY = y
-                    }
-                    index++
-                }
-            }
-
-            if (maxX < minX || maxY < minY) return src
-
-            return Bitmap.createBitmap(
-                src,
-                minX,
-                minY,
-                maxX - minX + 1,
-                maxY - minY + 1
-            )
-        }
-    }
-
-    private fun setDiscImage(path: String) {
-
-        val key = md5("$path-$640-$480")
-
-        val cached = SongImageCache.memoryCache[key]
-
-        if (cached != null && cached.exists()) {
-            Glide.with(imgPrev)
-                .load(cached)
-                .fitCenter()
-                .into(imgPrev)
+    private fun restoreLevelPosition(levelCount: Int) {
+        if (levelCount <= 0) {
+            resetIndicatorPosition()
             return
         }
-
-        imgPrev.setImageResource(R.drawable.placeholder)
-
-        preload(path, priority = 100)
-    }
-
-    object ImageScheduler {
-
-        private val executor = java.util.concurrent.ThreadPoolExecutor(
-            2, 2,
-            60L, TimeUnit.SECONDS,
-            java.util.concurrent.PriorityBlockingQueue<Runnable>()
-        )
-
-        // evita duplicados
-        private val inFlight = HashSet<String>()
-
-        // invalida trabajos antiguos
-        @Volatile private var generation = 0
-
-        fun newGeneration() {
-            generation++
-        }
-
-        fun submit(
-            path: String,
-            priority: Int,
-            task: (gen: Int) -> Unit
-        ) {
-            synchronized(inFlight) {
-                if (inFlight.contains(path)) return
-                inFlight.add(path)
+        positionActualLvs = positionActualLvs.coerceIn(0, levelCount - 1)
+        selectedIndex = positionActualLvs
+        val maxFirstVisible = (levelCount - visibleItems).coerceAtLeast(0)
+        firstVisible = firstVisible.coerceIn(0,maxFirstVisible)
+        when {
+            selectedIndex < firstVisible -> {
+                firstVisible = selectedIndex
             }
 
-            val genAtSubmit = generation
-
-            executor.execute(PriorityTask(priority) {
-                try {
-                    // si cambió la generación, cancela silenciosamente
-                    if (genAtSubmit != generation) return@PriorityTask
-                    task(genAtSubmit)
-                } finally {
-                    synchronized(inFlight) {
-                        inFlight.remove(path)
-                    }
-                }
-            })
-        }
-
-        private class PriorityTask(
-            private val priority: Int,
-            private val block: () -> Unit
-        ) : Runnable, Comparable<PriorityTask> {
-
-            override fun run() = block()
-
-            override fun compareTo(other: PriorityTask): Int {
-                return other.priority - this.priority // mayor prioridad primero
+            selectedIndex >= firstVisible + visibleItems -> {
+                firstVisible = (selectedIndex - visibleItems + 1).coerceAtLeast(0)
             }
         }
+
+        updateRecycler()
+        moverLvs()
     }
 
     private fun showTransitionVideo(isNext: Boolean) {
-        if (isNext) {
-            prev.visibility = View.GONE
-            next.visibility = View.VISIBLE
-
-            nextPlayer.seekTo(0)
-            nextPlayer.start()
-
-            nextPlayer.setOnCompletionListener {
-                next.visibility = View.GONE
-                mediPlayer.start()
-                if (isVideo) video_preview.start()
-            }
-
-        } else {
-            next.visibility = View.GONE
-            prev.visibility = View.VISIBLE
-
-            prevPlayer.seekTo(0)
-            prevPlayer.start()
-
-            prevPlayer.setOnCompletionListener {
-                prev.visibility = View.GONE
-                mediPlayer.start()
-                if (isVideo) video_preview.start()
-            }
-        }
-    }
-
-    private fun playMedia(path: String) {
-        mediPlayer.release()
-        mediPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-            setDataSource(path)
-            prepare()
-            seekTo(startTimeMs)
-            //start()
-        }
-        timer?.start()
-        isTimerRunning = true
+        transitionController.play(if (isNext) SongCarouselController.Direction.NEXT else SongCarouselController.Direction.PREVIOUS)
     }
 
     private fun isFocusCommandWindow (position: Int){
@@ -3360,61 +3145,60 @@ class SelectSong : AppCompatActivity() {
     }
 
     override fun onPause() {
-        super.onPause()
+        activityResumed = false
+        songSelectionJob?.cancel()
         handler.removeCallbacks(runnable)
         handlerContador.removeCallbacks(runnableContador)
         isRunning = false
-        handler.removeCallbacks(carouselRunnable)
-        //mediPlayer.pause()
-        if(bgaSelectSong.isPlaying){
-            bgaSelectSong.pause()
-        }
+        if (::audioController.isInitialized) audioController.onPause()
+        if (::previewController.isInitialized) previewController.onPause()
+        if (::transitionController.isInitialized) transitionController.stop()
+        if (::bgaSelectSong.isInitialized && bgaSelectSong.isPlaying) bgaSelectSong.pause()
+        super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
-        isFocus(oldValue)
+        activityResumed = true
         resetRunnable()
         detenerContador()
-        if (!isRunning) {
-            isRunning = true
-            handler.post(carouselRunnable)
+        if (::audioController.isInitialized) audioController.onResume()
+        if (::previewController.isInitialized) previewController.onResume()
+        if (::carouselController.isInitialized) {
+            isFocus(
+                position = carouselController.selectedIndex(),
+                resetLevelPosition = false
+            )
         }
-        bgaSelectSong.start()
-        if(listEfectsDisplay.isNotEmpty()) {
-            handler.postDelayed(runnable, 1200)
-        }
-        updateRecycler()
-        // Reproducir el MediaPlayer después de que isFocus() haya preparado la canción
-        handler.postDelayed({
-            if (!mediPlayer.isPlaying) {
-                mediPlayer.start()
-                if (isVideo && ::video_preview.isInitialized) {
-                    video_preview.start()
-                }
-            }
-        }, 500)
+        if (::bgaSelectSong.isInitialized) runCatching { bgaSelectSong.start() }
+        if(listEfectsDisplay.isNotEmpty()) handler.postDelayed(runnable, 1200)
+
         isEndingFade = false
         endingFadeAlpha = 0f
     }
 
     override fun onDestroy() {
+        songSelectionGeneration++
+        songSelectionJob?.cancel()
+        downloadJob?.cancel()
         handler.removeCallbacksAndMessages(null)
-        /*
-        if (::prevPlayer.isInitialized) prevPlayer.release()
-        if (::nextPlayer.isInitialized) nextPlayer.release()
-        if (::video_preview.isInitialized) video_preview.release()
         handlerContador.removeCallbacksAndMessages(null)
-        handler.removeCallbacksAndMessages(null)
         timer?.cancel()
-        if(true){
-            if(mediPlayer.isPlaying){
-                mediPlayer.stop()
+        if (::transitionController.isInitialized) transitionController.release()
+        if (::previewController.isInitialized) previewController.release()
+        if (::audioController.isInitialized) audioController.release()
+        if (::bgaSelectSong.isInitialized) runCatching {
+            bgaSelectSong.setOnPreparedListener(null)
+            bgaSelectSong.setOnCompletionListener(null)
+            bgaSelectSong.stopPlayback()
+        }
+        runCatching {
+            if (::mediaPlayerVideo.isInitialized) {
+                if (mediaPlayerVideo.isPlaying) mediaPlayerVideo.stop()
+                mediaPlayerVideo.release()
             }
         }
-        */
         super.onDestroy()
-        Log.d("ACTIVITY_DEBUG", "onDestroy")
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

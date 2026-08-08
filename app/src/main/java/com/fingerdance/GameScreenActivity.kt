@@ -645,48 +645,26 @@ open class GameScreenActivity : AndroidApplication() {
 class MyGameScreen(gameScreenActivity: GameScreenActivity, playerSong: PlayerSong) : Game() {
     val gsa = gameScreenActivity
     val ps = playerSong
-    //VERTICAL KSF's
-    //private var gameScreen: GameScreenKsf? = null
-    //private var gameScreenHD: GameScreenKsfHD? = null
 
-    //VERTICAL SSC's
     private var gameScreenSsc: GameScreenSsc? = null
     private var gameScreenSscHD: GameScreenSscHD? = null
     override fun create() {
         playerSong = ps
         if(halfDouble){
-            //if(playerSong.isSSC){
-                gameScreenSscHD = GameScreenSscHD(gsa)
-                setScreen(gameScreenSscHD)
-            //}else {
-            //    gameScreenHD = GameScreenKsfHD(gsa)
-            //    setScreen(gameScreenHD)
-            //}
+            gameScreenSscHD = GameScreenSscHD(gsa)
+            setScreen(gameScreenSscHD)
         }else {
-            //if(playerSong.isSSC){
-                gameScreenSsc = GameScreenSsc(gsa)
-                setScreen(gameScreenSsc)
-            //}else{
-            //    gameScreen = GameScreenKsf(gsa)
-            //    setScreen(gameScreen)
-            //}
+            gameScreenSsc = GameScreenSsc(gsa)
+            setScreen(gameScreenSsc)
         }
     }
 
     override fun dispose() {
         super.dispose()
         if(halfDouble){
-            //if (playerSong.isSSC) {
-                gameScreenSscHD?.dispose()
-            //} else {
-            //    gameScreenHD?.dispose()
-            //}
+            gameScreenSscHD?.dispose()
         }else {
-            //if(playerSong.isSSC){
-                gameScreenSsc?.dispose()
-            //}else{
-            //    gameScreen?.dispose()
-            //}
+            gameScreenSsc?.dispose()
         }
     }
 }

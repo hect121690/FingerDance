@@ -85,6 +85,7 @@ import kotlin.random.Random
 import androidx.core.graphics.toColorInt
 import com.fingerdance.SelectSong
 import com.fingerdance.ssc.Parser
+import com.fingerdance.ssc.ParserKsf
 
 private val handlerSelectSongHorizontal = Handler(Looper.getMainLooper())
 
@@ -1889,6 +1890,7 @@ class SelectSongHorizontal : AppCompatActivity() {
             checkedValuesLocal = generateCheckedValuesSsc(seccions[level.steps]) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
             playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
             isOficialSong = playerSong.checkedValues != ""
+
             if(playerSong.mirror){
                 if(!isHalfDouble){
                     chart.notes = Parser().makeMirror(chart.notes)
@@ -1906,34 +1908,46 @@ class SelectSongHorizontal : AppCompatActivity() {
         }else {
             playerSong.rutaKsf = level.rutaKsf
             playerSong.isSSC = false
-            load(playerSong.rutaKsf, isHalfDouble)
-            val uniqueId = generateId("${playerSong.level}|${playerSong.type}|${playerSong.player}|${playerSong.chartName}|${playerSong.stepMaker}|${playerSong.difficulty}")
-            checkedValuesLocal = generateCheckedValuesKsf(File(playerSong.rutaKsf)) + "|" + File(playerSong.rutaCancion!!).length() + "-$uniqueId"
+            //load(playerSong.rutaKsf, isHalfDouble)
+            chart = ParserKsf().parseKSF(readFileSsc(level.rutaKsf), valueOffset = valueOffset.toDouble())
+            val uniqueId = generateId(
+                "${playerSong.level}|" +
+                        "${playerSong.type}|" +
+                        "${playerSong.player}|" +
+                        "${playerSong.chartName}|" +
+                        "${playerSong.stepMaker}|" +
+                        playerSong.difficulty)
+            checkedValuesLocal = "${generateCheckedValuesKsf(File(playerSong.rutaKsf))}|${File(playerSong.rutaCancion!!).length()}-$uniqueId"
             playerSong.checkedValues = validateOficialSong(checkedValuesLocal)
             isOficialSong = playerSong.checkedValues != ""
 
-            if (playerSong.mirror) {
-                if (!isHalfDouble) {
-                    ksf.makeMirror()
-                } else {
-                    ksfHD.makeMirror()
+            if(playerSong.mirror){
+                if(!isHalfDouble){
+                    chart.notes = Parser().makeMirror(chart.notes)
+                }else{
+                    chart.notes = Parser().makeMirrorHD(chart.notes)
                 }
             }
-            if (playerSong.rs) {
-                if (!isHalfDouble) {
-                    ksf.makeRandom()
-                } else {
-                    ksfHD.makeRandom()
+            if(playerSong.rs){
+                if(!isHalfDouble){
+                    chart.notes = Parser().makeRandom(chart.notes)
+                }else{
+                    chart.notes = Parser().makeRandomHD(chart.notes)
                 }
             }
         }
 
+        currentSong = song.title
+        currentLevel = level.level
         handlerSelectSongHorizontal.postDelayed({
-            val savedPlayMode = getSavedPlayModeForLevel(isHalfDouble)
-            val savedOrientation = orientationFromPlayMode(savedPlayMode)
+            val savedPlayMode = if (isHalfDouble) {
+                playModeHalf
+            } else {
+                playModeSingle
+            }
 
-            if (savedOrientation != null) {
-                orientationMode = savedOrientation
+            orientationFromPlayMode(savedPlayMode)?.let {
+                orientationMode = it
             }
             val intent = Intent(
                 this,

@@ -475,27 +475,16 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     // ---------------------------------------------------
 
-    private fun getReceptsTexture(
-        arrow: Texture,
-        isMirror: Boolean = false
-    ): Array<TextureRegion> {
-
-        val tmp = TextureRegion.split(
-            arrow,
-            arrow.width,
-            arrow.height / 3
-        )
-
+    private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false) : Array<TextureRegion> {
+        val tmp = TextureRegion.split(arrow, arrow.width, arrow.height / 3)
         val frames = arrayOf(
             tmp[0][0],
             tmp[1][0],
             tmp[2][0]
         )
-
         frames[0].flip(isMirror, true)
         frames[1].flip(isMirror, true)
         frames[2].flip(isMirror, true)
-
         return frames
     }
 
