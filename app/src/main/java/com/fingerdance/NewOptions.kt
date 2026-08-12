@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.R.attr.fadingEdgeLength
 import android.animation.ObjectAnimator
 import android.app.Dialog
 import android.content.Context
@@ -44,6 +45,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -148,6 +150,7 @@ class OptionsActivity : AppCompatActivity(), ItemClickListener {
 
         val adapter = OptionsPagerAdapter(this, fragments)
         viewPager.adapter = adapter
+        viewPager.offscreenPageLimit = 3
 
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
             val tabTitles = listOf("Canciones", "Temas", "Pads", "Ajustes")
@@ -353,7 +356,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             checkBox.text = channel.first
             checkBox.id = View.generateViewId()
             checkBox.setTextColor(Color.WHITE)
-            checkBox.textSize = pxToSp((height / 55).toFloat(), requireContext())
+            checkBox.textSize = 16f //pxToSp((height / 55).toFloat(), requireContext())
             checkBox.typeface = Typeface.DEFAULT_BOLD
             checkBox.setShadowLayer(6f, 0f, 0f, Color.rgb(0, 229, 255))
             checkBox.setPadding(28, 22, 28, 22)
@@ -410,61 +413,194 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     private fun setupDeleteChannel(view: View) {
         val btnDeleteChannel = view.findViewById<Button>(R.id.deleteChannel)
         btnDeleteChannel.setOnClickListener {
-            var nameChannelDelete = ""
-            val layoutOptionsDelete = LinearLayout(requireContext()).apply {
+            val selectedChannelsDelete = linkedSetOf<String>()
+            val colorDanger = Color.rgb(255, 55, 95)
+            val colorCard = Color.argb(170, 25, 8, 16)
+
+            val mainContainer = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(50, 40, 50, 10)
+                setPadding(35, 25, 35, 20)
             }
 
-            val radioChannelsDelete = RadioGroup(requireContext()).apply {
-                removeAllViews()
+            val description = TextView(requireContext()).apply {
+                text = "Selecciona uno o varios canales que deseas eliminar."
+                setTextColor(Color.rgb(220, 220, 220))
+                textSize = 15f
+                setPadding(10, 0, 10, 20)
+            }
+            mainContainer.addView(description)
+
+            val warning = TextView(requireContext()).apply {
+                text = "Los canales seleccionados serán eliminados permanentemente."
+                setTextColor(Color.rgb(255, 120, 140))
+                typeface = Typeface.DEFAULT_BOLD
+                textSize = 14f
+                setPadding(10, 0, 10, 25)
+            }
+            mainContainer.addView(warning)
+
+            val scrollView = ScrollView(requireContext()).apply {
+                isFillViewport = false
+                isVerticalScrollBarEnabled = true
+            }
+
+            val channelsContainer = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
             }
 
             listChannels.forEach { channel ->
-                val radioButton = RadioButton(requireContext())
-                radioButton.text = channel.nombre
-                radioButton.id = View.generateViewId()
-                radioChannelsDelete.addView(radioButton)
+                val channelName = channel.nombre
+                val channelRow = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(18, 10, 22, 10)
+                    background = neonCardDrawable(colorCard, colorDanger, 2)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, 12)
+                    }
+                }
+
+                val checkBox = CheckBox(requireContext()).apply {
+                    id = View.generateViewId()
+                    text = ""
+                    buttonTintList = ColorStateList.valueOf(colorDanger)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                }
+
+                val channelText = TextView(requireContext()).apply {
+                    text = channelName
+                    setTextColor(Color.WHITE)
+                    textSize = 16f //pxToSp((height / 55).toFloat(), requireContext())
+                    typeface = Typeface.DEFAULT_BOLD
+                    gravity = Gravity.CENTER_VERTICAL
+                    setShadowLayer(5f, 0f, 0f, colorDanger)
+                    setPadding(12, 16, 10, 16)
+                    maxLines = 2
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                }
+
+                checkBox.setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked) {
+                        selectedChannelsDelete.add(channelName)
+                    } else {
+                        selectedChannelsDelete.remove(channelName)
+                    }
+                }
+
+                channelRow.setOnClickListener {
+                    checkBox.isChecked = !checkBox.isChecked
+                }
+
+                channelText.setOnClickListener {
+                    checkBox.isChecked = !checkBox.isChecked
+                }
+
+                channelRow.addView(checkBox)
+                channelRow.addView(channelText)
+                channelsContainer.addView(channelRow)
             }
 
-            radioChannelsDelete.setOnCheckedChangeListener { group, checkedId ->
-                val channelSelected = group.findViewById<RadioButton>(checkedId)
-                nameChannelDelete = channelSelected.text.toString()
+            scrollView.addView(channelsContainer)
+            scrollView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (height * 0.40f).toInt()
+            )
+            mainContainer.addView(scrollView)
+
+            val scrollIndicator = TextView(requireContext()).apply {
+                text = "↓  Desliza para ver más canales"
+                setTextColor(Color.rgb(255, 120, 140))
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setPadding(0, 14, 0, 4)
+                visibility = View.INVISIBLE
+            }
+            mainContainer.addView(scrollIndicator)
+
+            scrollView.post {
+                scrollIndicator.visibility = if(scrollView.canScrollVertically(1)) View.VISIBLE else View.INVISIBLE
             }
 
-            layoutOptionsDelete.addView(radioChannelsDelete)
-            val dialogEliminar = AlertDialog.Builder(requireContext())
+            scrollView.setOnScrollChangeListener { _, _, _, _, _ ->
+                scrollIndicator.visibility = if(scrollView.canScrollVertically(1)) View.VISIBLE else View.INVISIBLE
+            }
+
+            val dialogEliminar = AlertDialog.Builder(requireContext(), R.style.DeleteChannelDialog)
+                .setTitle("Eliminar canales")
+                .setView(mainContainer)
                 .setCancelable(false)
-                .setTitle("Eliminar Canal")
-                .setMessage("Selecciona el canal que deseas eliminar. Una vez eliminado, volverás a la pantalla principal")
-                .setView(layoutOptionsDelete)
-                .setPositiveButton("Eliminar") { _, _ ->
-                    val dialogConfirmar = AlertDialog.Builder(requireContext())
+                .setPositiveButton("ELIMINAR", null)
+                .setNegativeButton("CANCELAR") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .create()
+
+            dialogEliminar.setOnShowListener {
+                dialogEliminar.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(colorDanger)
+                dialogEliminar.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
+
+                dialogEliminar.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    if (selectedChannelsDelete.isEmpty()) {
+                        Toast.makeText(requireContext(), "Selecciona al menos un canal para eliminar", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+
+                    val total = selectedChannelsDelete.size
+                    val names = selectedChannelsDelete.joinToString(separator = "\n") { "• $it" }
+                    val message = if (total == 1) {
+                        "Se eliminará el siguiente canal:\n\n$names\n\nEsta acción no se puede revertir."
+                    } else {
+                        "Se eliminarán $total canales:\n\n$names\n\nEsta acción no se puede revertir."
+                    }
+
+                    val dialogConfirmar = AlertDialog.Builder(requireContext(), R.style.DeleteChannelDialog)
+                        .setTitle(if (total == 1) "Eliminar canal" else "Eliminar canales")
+                        .setMessage(message)
                         .setCancelable(false)
-                        .setTitle("Confirmar")
-                        .setMessage(if(nameChannelDelete == ""){
-                            "Selecciona un canal para eliminar"
-                        }else{
-                            "¿Seguro que desea eliminar el canal $nameChannelDelete? Esta acción no se puede revertir."
-                        })
-                        .setPositiveButton("Aceptar") { d, _ ->
-                            if(nameChannelDelete == ""){
-                                d.dismiss()
-                            }else{
-                                deleteChannelFolder(nameChannelDelete)
-                                db.deleteCanal(nameChannelDelete)
-                                Toast.makeText(requireContext(), "El canal: $nameChannelDelete se ha eliminado", Toast.LENGTH_SHORT).show()
-                                themes.edit().putString("allTunes", "").apply()
-                                startActivity(Intent(requireContext(), MainActivity()::class.java))
-                                requireActivity().finish()
+                        .setPositiveButton("ELIMINAR") { _, _ ->
+                            selectedChannelsDelete.forEach { channelName ->
+                                deleteChannelFolder(channelName)
+                                db.deleteCanal(channelName)
                             }
+
+                            themes.edit().putString("allTunes", "").apply()
+
+                            val deletedCount = selectedChannelsDelete.size
+                            Toast.makeText(
+                                requireContext(),
+                                if (deletedCount == 1) {
+                                    "Canal eliminado correctamente"
+                                } else {
+                                    "$deletedCount canales eliminados correctamente"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            startActivity(Intent(requireContext(), MainActivity::class.java))
+                            requireActivity().finish()
                         }
-                        .setNegativeButton("Cancelar") { d, _ -> d.dismiss() }
+                        .setNegativeButton("CANCELAR", null)
                         .create()
+
+                    dialogConfirmar.setOnShowListener {
+                        dialogConfirmar.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(colorDanger)
+                        dialogConfirmar.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
+                    }
+
                     dialogConfirmar.show()
                 }
-                .setNegativeButton("Cancelar") { d, _ -> d.dismiss() }
-                .create()
+            }
 
             dialogEliminar.show()
         }
@@ -1205,33 +1341,49 @@ class TemasFragment : Fragment(R.layout.options_temas), ItemClickListener {
     }
 
     private fun setupThemesList() {
-        val dir = requireContext().getExternalFilesDir("/FingerDance/Themes/")
-        val listThemes = ArrayList<ThemeItem>()
-        val listRutasThemes = mutableListOf<String>()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val listThemes = withContext(Dispatchers.IO) {
+                val dir = requireContext().getExternalFilesDir("/FingerDance/Themes/")
+                val result = ArrayList<ThemeItem>()
+                if (dir == null) {
+                    return@withContext result
+                }
+                val listRutasThemes = mutableListOf<String>()
+                dir.walkTopDown().forEach { file ->
+                    if (file.isDirectory && file.name.equals("GraphicsStatics", ignoreCase = true)
+                    ) {
+                        var hasFiles = false
+                        var totalSize = 0L
+                        file.walkTopDown().forEach { child ->
+                            if (child.isFile) {
+                                hasFiles = true
+                                totalSize += child.length()
+                            }
+                        }
 
-        if (dir != null) {
-            dir.walkTopDown().forEach { file ->
-                if (file.name.equals("GraphicsStatics", ignoreCase = true) && file.isDirectory) {
-                    val hasFiles = file.walkTopDown().any { it.isFile }
-                    val totalSize = file.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-                    if (hasFiles && totalSize > 10_000_000) {
-                        val ruta: String = file.toString().replace("/GraphicsStatics", "", ignoreCase = true)
-                        listRutasThemes.add(ruta)
+                        if (hasFiles && totalSize > 10_000_000L) {
+                            val ruta = file.absolutePath.removeSuffix(File.separator + "GraphicsStatics")
+                            listRutasThemes.add(ruta)
+                        }
                     }
                 }
-            }
-            listRutasThemes.sortBy { it }
-            var nombre = ""
-            var rutaBanner = ""
-            for (index in 0 until listRutasThemes.size) {
-                nombre = listRutasThemes[index].removeRange(0, 74)
-                rutaBanner = listRutasThemes[index] + "/logo_theme.png"
-                val themes = ThemeItem(rutaBanner, nombre, false)
-                listThemes.add(themes)
-            }
-        }
 
-        recyclerThemes.adapter = ThemesAdapter(listThemes, btnGuardar)
+                listRutasThemes.sort()
+                listRutasThemes.forEach { ruta ->
+                    val themeFolder = File(ruta)
+                    val nombre = themeFolder.name
+                    val rutaBanner = File(themeFolder, "logo_theme.png").absolutePath
+                    result.add(ThemeItem(rutaBanner, nombre, false)
+                    )
+                }
+                result
+            }
+            if (!isAdded) {
+                return@launch
+            }
+
+            recyclerThemes.adapter = ThemesAdapter(listThemes, btnGuardar)
+        }
     }
 
     private fun setupButtons() {

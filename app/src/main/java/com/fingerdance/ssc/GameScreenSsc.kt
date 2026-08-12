@@ -26,6 +26,7 @@ import com.fingerdance.height
 import com.fingerdance.heightBtns
 import com.fingerdance.hideImagesPadA
 import com.fingerdance.isEndingFade
+import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
 import com.fingerdance.medidaFlechas
 import com.fingerdance.padPositions
@@ -96,18 +97,27 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     lateinit var arrPadsC : Array<Array<TextureRegion>>
 
-    private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor 1x3")
-    private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor 1x3")
-    private val textureCE = loadTexture(ruta, "Center Ready Receptor 1x3")
+    data class OverlayMetrics(
+        val widthRatio: Float = 1f,
+        val heightRatio: Float = 1f,
+        val offsetXRatio: Float = 0f,
+        val offsetYRatio: Float = 0f
+    )
+
+    private val receptorOverlayMetrics = Array(5) { OverlayMetrics() }
+
+    private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor")
+    private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor")
+    private val textureCE = loadTexture(ruta, "Center Ready Receptor")
 
     lateinit var arrayPad4Bg : Array<TextureRegion>
     lateinit var arrayPad4 : Array<TextureRegion>
 
-    val recept0Frames = getReceptsTexture(textureLD)
-    val recept1Frames = getReceptsTexture(textureLU)
-    val recept2Frames = getReceptsTexture(textureCE)
-    val recept3Frames = getReceptsTexture(textureLU, true)
-    val recept4Frames = getReceptsTexture(textureLD, true)
+    val recept0Frames = getReceptsTexture(textureLD, metricsColumn = 0)
+    val recept1Frames = getReceptsTexture(textureLU, metricsColumn = 1)
+    val recept2Frames = getReceptsTexture(textureCE, metricsColumn = 2)
+    val recept3Frames = getReceptsTexture(textureLU, true, metricsColumn = 3)
+    val recept4Frames = getReceptsTexture(textureLD, true, metricsColumn = 4)
 
     var targetTop = 0f
     private var elapsedTime = 0f
@@ -130,14 +140,12 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
     val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
-    private val lifeLightningTexture =
-        Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barlife_electric 4x6.png"))
-
+    private val lifeLightningTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barlife_electric 4x6.png"))
     val lifeLightningFrames: Array<TextureRegion> = getLifeLightningFrames(lifeLightningTexture)
-
     private val fadeTexture = Texture(Gdx.files.internal("black.png"))
 
     data class PadPositionC(val x: Float, val y: Float, val widthPad: Float, val heightPad: Float)
+
     private val widthPad = width * 0.43f
     private val heightPad = heightBtns * 0.87f
     val padPositionsC = listOf(
@@ -353,158 +361,122 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            batch.draw(recept0Frames[1], (medidaFlechas) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept1Frames[1], (medidaFlechas * 2) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept2Frames[1], (medidaFlechas * 3) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept3Frames[1], (medidaFlechas * 4) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-            batch.draw(recept4Frames[1], (medidaFlechas * 5) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+
+            drawOverlay(recept0Frames[1], 0, medidaFlechas + luaRecepts.screenX)
+            drawOverlay(recept1Frames[1], 1, medidaFlechas * 2 + luaRecepts.screenX)
+            drawOverlay(recept2Frames[1], 2, medidaFlechas * 3 + luaRecepts.screenX)
+            drawOverlay(recept3Frames[1], 3, medidaFlechas * 4 + luaRecepts.screenX)
+            drawOverlay(recept4Frames[1], 4, medidaFlechas * 5 + luaRecepts.screenX)
+
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
 
-    /*
-    private var ySpinAngle = 0f
-    private var ySpinSpeed = 3.5f
-    private var ySpinEnabled = true
+    private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false, metricsColumn: Int? = null): Array<TextureRegion> {
+        val tmp = TextureRegion.split(arrow, arrow.width, arrow.height / 3)
+        val textureData = arrow.textureData
+        if (!textureData.isPrepared) textureData.prepare()
+        val pixmap = textureData.consumePixmap()
 
-    private fun drawRecepts() {
-
-        // 🔁 actualizar ángulo (puedes mover esto a render())
-        if (ySpinEnabled) {
-            ySpinAngle += Gdx.graphics.deltaTime * ySpinSpeed
-        }
-
-        val bases = floatArrayOf(
-            medidaFlechas * 1f,
-            medidaFlechas * 2f,
-            medidaFlechas * 3f,
-            medidaFlechas * 4f,
-            medidaFlechas * 5f
-        )
-
-        val frames = arrayOf(
-            recept0Frames,
-            recept1Frames,
-            recept2Frames,
-            recept3Frames,
-            recept4Frames
-        )
-
-        // 🎯 pivote = centro de las 5 columnas
-        val centerX = medidaFlechas * 3f + medidaFlechas * 0.5f
-
-        val cosA = MathUtils.cos(ySpinAngle)
-        val sinA = MathUtils.sin(ySpinAngle)
-
-        // ===== DRAW BASE =====
-
-        for (i in 0 until 5) {
-
-            val baseCenter = bases[i] + medidaFlechas * 0.5f
-            val xLocal = baseCenter - centerX
-
-            val depth = xLocal * sinA
-            val projCenter = centerX + xLocal * cosA + depth * 0.30f
-
-            val scaleX = abs(cosA).coerceAtLeast(0.2f)
-
-            batch.draw(
-                frames[i][0],
-                projCenter - medidaFlechas/2f,
-                targetTop,
-                medidaFlechas/2f,
-                medidaFlechas/2f,
-                medidaFlechas,
-                medidaFlechas,
-                scaleX,
-                1f,
-                0f
-            )
-        }
-
-        // ===== DRAW OVERLAY =====
-
-        if (showOverlay) {
-
-            aBatch = batch.blendSrcFunc
-            bBatch = batch.blendDstFunc
-            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-
-            for (i in 0 until 5) {
-
-                val baseCenter = bases[i] + medidaFlechas * 0.5f
-                val xLocal = baseCenter - centerX
-
-                val depth = xLocal * sinA
-                val projCenter = centerX + xLocal * cosA + depth * 0.30f
-
-                val scaleX = abs(cosA).coerceAtLeast(0.2f)
-
-                batch.draw(
-                    frames[i][1],
-                    projCenter - medidaFlechas/2f,
-                    targetTop,
-                    medidaFlechas/2f,
-                    medidaFlechas/2f,
-                    medidaFlechas,
-                    medidaFlechas,
-                    scaleX,
-                    1f,
-                    0f
+        try {
+            if (metricsColumn != null) {
+                receptorOverlayMetrics[metricsColumn] = calculateOverlayMetrics(
+                    baseFrame = tmp[0][0],
+                    overlayFrame = tmp[1][0],
+                    pixmap = pixmap,
+                    isMirror = isMirror
                 )
             }
 
-            batch.setBlendFunction(aBatch, bBatch)
-        }
-    }
-    */
-
-    fun loadTexture(ruta: String, fileName: String): Texture {
-        val search = normalizeName(fileName)
-
-        val file = File(ruta).listFiles()?.firstOrNull {
-            it.isFile && normalizeName(it.name) == search
-        } ?: error("No se encontró '$fileName' en $ruta")
-
-        return Texture(Gdx.files.absolute(file.absolutePath))
-    }
-
-    private fun normalizeName(name: String): String {
-        return File(name).nameWithoutExtension
-            .replace(Regex("\\([^)]*\\)"), "")   // (...)
-            .replace(Regex("\\[[^]]*]"), "")     // [...]
-            .replace("_", "")                    // _
-            .replace("-", " ")                   // -
-            .replace(Regex("\\s+"), " ")         // espacios dobles
-            .trim()
-            .lowercase()
-    }
-
-    private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false) : Array<TextureRegion> {
-        val tmp = TextureRegion.split(arrow, arrow.width, arrow.height / 3)
-        val textureData = arrow.textureData
-
-        if (!textureData.isPrepared) {
-            textureData.prepare()
-        }
-        val pixmap = textureData.consumePixmap()
-        try {
             val frames = arrayOf(
                 trimFrame(tmp[0][0], pixmap),
                 trimFrame(tmp[1][0], pixmap),
                 trimFrame(tmp[2][0], pixmap)
             )
 
-            frames.forEach { frame ->
-                frame.flip(isMirror, true)
-            }
-
+            frames.forEach { it.flip(isMirror, true) }
             return frames
         } finally {
-            if (textureData.disposePixmap()) {
-                pixmap.dispose()
+            if (textureData.disposePixmap()) pixmap.dispose()
+        }
+    }
+
+    private fun drawOverlay(frame: TextureRegion, column: Int, baseX: Float) {
+        val metrics = receptorOverlayMetrics[column]
+
+        batch.draw(
+            frame,
+            baseX + medidaFlechas * metrics.offsetXRatio,
+            targetTop + medidaFlechas * metrics.offsetYRatio,
+            medidaFlechas * metrics.widthRatio,
+            medidaFlechas * metrics.heightRatio
+        )
+    }
+
+    private data class Bounds(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
+        val width get() = maxX - minX + 1
+        val height get() = maxY - minY + 1
+    }
+
+    private fun getVisibleBounds(region: TextureRegion, pixmap: Pixmap, alphaThreshold: Int = 1): Bounds {
+        val sourceX = region.regionX
+        val sourceY = region.regionY
+        val sourceWidth = region.regionWidth
+        val sourceHeight = region.regionHeight
+
+        var minX = sourceWidth
+        var minY = sourceHeight
+        var maxX = -1
+        var maxY = -1
+
+        for (y in 0 until sourceHeight) {
+            for (x in 0 until sourceWidth) {
+                val alpha = pixmap.getPixel(sourceX + x, sourceY + y) and 0xFF
+                if (alpha >= alphaThreshold) {
+                    if (x < minX) minX = x
+                    if (y < minY) minY = y
+                    if (x > maxX) maxX = x
+                    if (y > maxY) maxY = y
+                }
             }
         }
+
+        return if (maxX < minX || maxY < minY) {
+            Bounds(0, 0, sourceWidth - 1, sourceHeight - 1)
+        } else {
+            Bounds(minX, minY, maxX, maxY)
+        }
+    }
+
+    private fun calculateOverlayMetrics(baseFrame: TextureRegion, overlayFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): OverlayMetrics {
+        val base = getVisibleBounds(baseFrame, pixmap)
+        val overlay = getVisibleBounds(overlayFrame, pixmap)
+
+        val baseWidth = base.width.toFloat()
+        val baseHeight = base.height.toFloat()
+
+        val widthRatio = overlay.width / baseWidth
+        val heightRatio = overlay.height / baseHeight
+
+        val offsetX = if (!isMirror) {
+            (overlay.minX - base.minX) / baseWidth
+        } else {
+            val sourceWidth = baseFrame.regionWidth
+
+            val baseMirrorX = sourceWidth - base.maxX - 1
+            val overlayMirrorX = sourceWidth - overlay.maxX - 1
+
+            (overlayMirrorX - baseMirrorX) / baseWidth
+        }
+
+        val offsetY = (overlay.minY - base.minY) / baseHeight
+
+        return OverlayMetrics(
+            widthRatio = widthRatio,
+            heightRatio = heightRatio,
+            offsetXRatio = offsetX,
+            offsetYRatio = offsetY
+        )
     }
 
     private fun trimFrame(sourceRegion: TextureRegion, pixmap: Pixmap, alphaThreshold: Int = 1): TextureRegion {

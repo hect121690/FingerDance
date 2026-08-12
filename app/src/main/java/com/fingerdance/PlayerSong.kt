@@ -31,5 +31,6 @@ class PlayerSong(
     var difficulty: String = "",
     var snake: Boolean = false,
     var isSSC: Boolean = false,
-    var isEw: Boolean = false
+    var isEw: Boolean = false,
+    var nameSong: String = "",
 ) : Serializable

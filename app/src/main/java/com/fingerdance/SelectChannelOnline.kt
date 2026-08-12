@@ -1,323 +1,275 @@
 package com.fingerdance
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Typeface
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.SoundPool
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.util.TypedValue
+import android.view.KeyEvent
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.animation.TranslateAnimation
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import android.widget.VideoView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.viewpager2.widget.ViewPager2
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
-import java.io.FileInputStream
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
-
-
-private lateinit var soundSelecctChannel : MediaPlayer
-
-private lateinit var soundPool: SoundPool
-private var channel_mov : Int = 0
-private var channel_back : Int = 0
-private var up_sound : Int = 0
-
-private var press_start : Int = 0
-
-private lateinit var context: Context
-private lateinit var lbNombreChannel: TextView
-private lateinit var linearLayout: LinearLayout
-private lateinit var nav_izq: ImageView
-private lateinit var nav_der: ImageView
-private lateinit var nav_back_Izq: ImageView
-private lateinit var nav_back_der: ImageView
-private lateinit var imgAceptar: ImageView
-private lateinit var imgFloor: ImageView
-private lateinit var indicatorIzq: ImageView
-private lateinit var indicatorDer: ImageView
-
-private lateinit var imageCircle : ImageView
-
-//var listSongsChannel: ArrayList<Song> = ArrayList()
-var listSongsChannelKsfOnline: ArrayList<Song> = ArrayList()
-
-private lateinit var recyclerChannels: ViewPager2
-
-private lateinit var objectAnimator : ObjectAnimator
-
-private var animIndicator: Animation? = null
-private var position : Int = 0
-
-//private lateinit var valueEventListener: ValueEventListener
-
-private lateinit var linearWaitPlayer : LinearLayout
-private lateinit var txWaitForPlayer: TextView
 
 var victoriesP1 = 0
 var victoriesP2 = 0
-
 var getSelectChannel = false
 
-val handlerChannelOnline = Handler(Looper.getMainLooper())
 class SelectChannelOnline : AppCompatActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        supportActionBar?.hide()
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_select_channel_online)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
-        onWindowFocusChanged(true)
 
-        soundSelecctChannel = MediaPlayer.create(this, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/channel_song.mp3")!!.absolutePath)))
-        soundSelecctChannel.isLooping = true
-        if(!soundSelecctChannel.isPlaying){
-            soundSelecctChannel.start()
+    private lateinit var lbNombreChannel: TextView
+    private lateinit var linearLayout: LinearLayout
+    private lateinit var nav_izq: ImageView
+    private lateinit var nav_der: ImageView
+    private lateinit var nav_back_Izq: ImageView
+    private lateinit var nav_back_der: ImageView
+    private lateinit var imgAceptar: ImageView
+    private lateinit var imgFloor: ImageView
+    private lateinit var indicatorIzq: ImageView
+    private lateinit var indicatorDer: ImageView
+    private lateinit var bgaSelectChannel: VideoView
+    private lateinit var imageCircle: ImageView
+    private lateinit var linearWaitPlayer: LinearLayout
+    private lateinit var txWaitForPlayer: TextView
+    private lateinit var txPlayer1: TextView
+    private lateinit var txPlayer2: TextView
+
+    private val handlerSelectChannel = Handler(Looper.getMainLooper())
+    private var position = 0
+    private lateinit var recyclerChannels: RecyclerView
+    private var animIndicator: Animation? = null
+
+    private var roomListener: ValueEventListener? = null
+    private var navigatingByRoom = false
+    private var opponentDisconnectHandled = false
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.repeatCount > 0) return true
+
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            return when (event.keyCode) {
+                KeyEvent.KEYCODE_1 -> {
+                    if (canControlSelection()) nav_izq.performClick()
+                    true
+                }
+                KeyEvent.KEYCODE_3 -> {
+                    if (canControlSelection()) nav_der.performClick()
+                    true
+                }
+                KeyEvent.KEYCODE_5 -> {
+                    if (canControlSelection()) imgAceptar.performClick()
+                    true
+                }
+                KeyEvent.KEYCODE_7 -> {
+                    nav_back_Izq.performClick()
+                    true
+                }
+                KeyEvent.KEYCODE_9 -> {
+                    nav_back_der.performClick()
+                    true
+                }
+                else -> super.dispatchKeyEvent(event)
+            }
         }
+
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        supportActionBar?.hide()
+        setContentView(R.layout.activity_select_channel_online)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    goMain(nav_back_der)
+                }
+            }
+        )
 
         animIndicator = AnimationUtils.loadAnimation(this, R.anim.press_nav)
 
-        val audioAttributes = AudioAttributes.Builder()
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(AudioAttributes.USAGE_GAME)
-            .build()
+        setupViews()
+        setupResources()
+        setupPlayerInfo()
+        setupListeners()
+        updateRoomUi(activeSala)
+    }
 
-        soundPool = SoundPool.Builder()
-            .setMaxStreams(10)
-            .setAudioAttributes(audioAttributes)
-            .build()
-
-        val filePathChannelmov = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/sound_navegation.mp3")!!.absolutePath)
-        val fileDecriptorChannelMov =FileInputStream(filePathChannelmov).fd
-        channel_mov = soundPool.load(fileDecriptorChannelMov, 0, filePathChannelmov.length(),1)
-
-        val filePathChannelBack = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/exit_select_channel.ogg")!!.absolutePath)
-        val fileDecriptorChannelBack =FileInputStream(filePathChannelBack).fd
-        channel_back = soundPool.load(fileDecriptorChannelBack, 0, filePathChannelBack.length(),1)
-
-        val filePathUpSound = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/up_sound.ogg")!!.absolutePath)
-        val fileDecriptorUpSound =FileInputStream(filePathUpSound).fd
-        up_sound = soundPool.load(fileDecriptorUpSound, 0, filePathUpSound.length(), 1)
-
-        val filePathStart = File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/start.ogg")!!.absolutePath)
-        val fileDecriptorStart =FileInputStream(filePathStart).fd
-        press_start = soundPool.load(fileDecriptorStart, 0, filePathStart.length(), 1)
-
+    private fun setupViews() {
+        linearLayout = findViewById(R.id.background)
         nav_izq = findViewById(R.id.nav_izq)
         nav_der = findViewById(R.id.nav_der)
         nav_back_Izq = findViewById(R.id.nav_izq_gray)
         nav_back_der = findViewById(R.id.nav_der_gray)
         imgFloor = findViewById(R.id.floor)
-        val bmFloor = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/floor.png")!!.absolutePath)
-        imgFloor.setImageBitmap(bmFloor)
-
         indicatorIzq = findViewById(R.id.indicatorIzq)
-        val bmIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator.png")!!.absolutePath)
-        indicatorIzq.setImageBitmap(bmIzq)
-        indicatorIzq.rotation = 180f
-
         indicatorDer = findViewById(R.id.indicatorDer)
-        val bmDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/indicator.png")!!.absolutePath)
-        indicatorDer.setImageBitmap(bmDer)
-
         imgAceptar = findViewById(R.id.imgAceptar)
-        val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
-        imgAceptar.setImageBitmap(bm)
-
         imageCircle = findViewById(R.id.imageCircle)
-        val bmCircle = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/preview_circle.png")!!.absolutePath)
-        imageCircle.setImageBitmap(bmCircle)
         lbNombreChannel = findViewById(R.id.lbChannel)
-        lbNombreChannel.isSelected = true
-
-        val animatorSetRotation = AnimationUtils.loadAnimation(this, R.anim.animator_set_rotation)
-        imageCircle.startAnimation(animatorSetRotation)
-
-        val arrowNavIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavIzq.png")!!.absolutePath)
-        val arrowNavDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowNavDer.png")!!.absolutePath)
-        val arrowBackIzq = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackIzq.png")!!.absolutePath)
-        val arrowBackDer = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/ArrowsNav/ArrowBackDer.png")!!.absolutePath)
-
-        val spriteWidth = arrowNavIzq.width / 2
-        val spriteHeight = arrowNavIzq.height / 2
-        val frameDuration = 800
-
-        val navIzq = animaNavs(arrowNavIzq, spriteWidth, spriteHeight, frameDuration)
-        val navDer = animaNavs(arrowNavDer, spriteWidth, spriteHeight, frameDuration)
-        val navBackIzq = animaNavs(arrowBackIzq, spriteWidth, spriteHeight, frameDuration)
-        val navBackDer = animaNavs(arrowBackDer, spriteWidth, spriteHeight, frameDuration)
-
-        nav_izq.setImageDrawable(navIzq)
-        nav_der.setImageDrawable(navDer)
-        nav_back_Izq.setImageDrawable(navBackIzq)
-        nav_back_der.setImageDrawable(navBackDer)
-
-        context = this
-
-        val ancho = (width * 0.6).toInt()
-        val imageViewTheme = findViewById<ImageView>(R.id.imgChannel)
-        val bitTheme = BitmapFactory.decodeFile(this.getExternalFilesDir("/FingerDance/Themes/$tema/logo_theme.png")!!.absolutePath)
-        imageViewTheme.setImageBitmap(bitTheme)
-        imageViewTheme.layoutParams.width = ancho
-
         recyclerChannels = findViewById(R.id.recyclerChannels)
-        recyclerChannels.isUserInputEnabled = false
 
-        recyclerChannels.clipToPadding = false
-        recyclerChannels.adapter = CommandChannel(listChannelsOnline, ancho, this)
-        recyclerChannels.offscreenPageLimit = 3
-
-        objectAnimator = ObjectAnimator.ofFloat(recyclerChannels.getChildAt(position), "rotationY", 180f, 360f)
-        objectAnimator.duration = 500
-        objectAnimator.interpolator = AccelerateDecelerateInterpolator()
-
-        isFocusChannel(position)
-
-        imageCircle.layoutParams.width = width / 10 * 9
-        imageCircle.layoutParams.height = width / 10 * 9
-
-        val medidaNavs = height / 8
-
-        nav_back_Izq.layoutParams.width = medidaNavs
-        nav_back_Izq.layoutParams.height = medidaNavs
-
-        nav_back_der.layoutParams.width = medidaNavs
-        nav_back_der.layoutParams.height = medidaNavs
-
-        nav_izq.layoutParams.width = medidaNavs
-        nav_izq.layoutParams.height = medidaNavs
-
-        nav_der.layoutParams.width = medidaNavs
-        nav_der.layoutParams.height = medidaNavs
-
-        val textSizeLbls = width / 20
-        lbNombreChannel.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSizeLbls.toFloat())
-        lbNombreChannel.layoutParams.width = (width * 0.8).toInt()
-
-        indicatorDer.layoutParams.width = height / 10
-        indicatorDer.layoutParams.height = height / 10
-
-        indicatorIzq.layoutParams.width = height / 10
-        indicatorIzq.layoutParams.height = height / 10
-
-        imgFloor.layoutParams.width = (width * 0.4).toInt()
-        imgAceptar.layoutParams.width = (width * 0.2).toInt()
-        val yDelta = width / 30
-        val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 1.5).toFloat())
-        animateSetTraslation.duration = 400
-        animateSetTraslation.repeatCount = Animation.INFINITE
-        animateSetTraslation.repeatMode = Animation.REVERSE
-        imgAceptar.startAnimation(animateSetTraslation)
-        imgAceptar.bringToFront()
+        txPlayer1 = findViewById(R.id.txPlayer1)
+        txPlayer2 = findViewById(R.id.txPlayer2)
+        linearWaitPlayer = findViewById(R.id.linearWaitPlayer)
 
         txWaitForPlayer = TextView(this).apply {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            setTextColor((Color.WHITE))
-            textSize = textSizeLbls / 2f
-            setTypeface(typeface, Typeface.BOLD)
-            setShadowLayer(2.6f, 2.5f, 1.3f, Color.GREEN)
+            setTextColor(android.graphics.Color.WHITE)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setShadowLayer(2.6f, 2.5f, 1.3f, android.graphics.Color.GREEN)
         }
-        linearWaitPlayer = findViewById(R.id.linearWaitPlayer)
+
+        linearWaitPlayer.removeAllViews()
+        linearWaitPlayer.addView(
+            txWaitForPlayer,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
         linearWaitPlayer.setBackgroundColor("#CC000000".toColorInt())
-        linearWaitPlayer.addView(txWaitForPlayer)
         linearWaitPlayer.bringToFront()
-        linearWaitPlayer.setOnClickListener {
-            // No hace nada
+        linearWaitPlayer.setOnClickListener { }
+
+        val bgaId = resources.getIdentifier(
+            "bgaSelectChannel",
+            "id",
+            packageName
+        )
+
+        if (bgaId != 0) {
+            bgaSelectChannel = findViewById(bgaId)
         }
+    }
 
-        val txPlayer1 = findViewById<TextView>(R.id.txPlayer1)
-        val txPlayer2 = findViewById<TextView>(R.id.txPlayer2)
+    private fun setupResources() {
+        AppResources.soundSelectChannel?.start()
 
-        valueEventListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                activeSala = snapshot.getValue(Sala::class.java)!!
-                if(activeSala.jugador1.listo && activeSala.turno != userName && !readyPlay){
-                    val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    startActivity(intent)
-                }
-                if(activeSala.jugador2.listo && activeSala.turno != userName && !readyPlay){
-                    val intent = Intent(this@SelectChannelOnline, SelectSongOnlineWait()::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    startActivity(intent)
-                }
-
-                if(activeSala.jugador1.listo && activeSala.jugador2.listo && readyPlay){
-                    handlerChannelOnline.postDelayed({
-                        getSelectChannel = false
-                        val intent = Intent(this@SelectChannelOnline, GameScreenActivity::class.java)
-                        startActivity(intent)
-                    }, 3000L)
-                }
-                if(isPlayer1){
-                    txPlayer1.text = "Player 1 \n $userName"
-                    txPlayer2.text = "Player 2 \n ${activeSala.jugador2.id}"
-                }else{
-                    txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
-                    txPlayer2.text = "Player 2 \n $userName"
-                }
-
-                if (!snapshot.hasChild("jugador1") && !snapshot.hasChild("jugador2")) {
-                    firebaseDatabase!!.getReference("rooms/$idSala").removeValue()
-                }
-
-                if (isPlayer1 && activeSala.jugador2.id == "") {
-                    txWaitForPlayer.text = "Esperando jugador 2"
-                    linearWaitPlayer.visibility = View.VISIBLE
-                    return
-                }
-
-                if (activeSala.turno != userName) {
-                    txWaitForPlayer.text = "Esperando selección de \n ${activeSala.turno}"
-                    linearWaitPlayer.visibility = View.VISIBLE
-                } else {
-                    linearWaitPlayer.visibility = View.GONE
-                }
-
+        if (::bgaSelectChannel.isInitialized &&
+            isFileExists(File(bgaPathSelectChannel))
+        ) {
+            bgaSelectChannel.visibility = View.VISIBLE
+            bgaSelectChannel.setVideoPath(bgaPathSelectChannel)
+            bgaSelectChannel.setOnPreparedListener {
+                it.setVolume(0f, 0f)
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al obtener datos: ${error.message}")
+            bgaSelectChannel.start()
+            bgaSelectChannel.setOnCompletionListener {
+                bgaSelectChannel.start()
             }
+        } else {
+            linearLayout.foreground = AppResources.backgroundDrawable
         }
 
-        if(isPlayer1){
-            txPlayer1.text = "Player 1 \n $userName"
-            txPlayer2.text = "Player 2 \n ${activeSala.jugador2.id}"
-        }else{
-            txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
-            txPlayer2.text = "Player 2 \n $userName"
+        indicatorIzq.setImageBitmap(AppResources.indicatorBitmap)
+        indicatorIzq.rotation = 180f
+        indicatorDer.setImageBitmap(AppResources.indicatorBitmap)
+        imageCircle.setImageBitmap(AppResources.logoTheme)
+
+        imgFloor.setImageBitmap(AppResources.bmFloor)
+        imgAceptar.setImageBitmap(AppResources.bmAceptar)
+
+        val ancho = (width * 0.6).toInt()
+        imageCircle.layoutParams.width = ancho
+
+        imgFloor.layoutParams.width = (width * 0.4).toInt()
+        imgAceptar.layoutParams.width = (width * 0.2).toInt()
+
+        val yDelta = width / 30
+        val animateSetTraslation = TranslateAnimation(
+            0f,
+            0f,
+            -yDelta.toFloat(),
+            (yDelta * 1.5f)
+        ).apply {
+            duration = 400
+            repeatCount = Animation.INFINITE
+            repeatMode = Animation.REVERSE
         }
 
-        salaRef.addValueEventListener(valueEventListener)
+        imgAceptar.startAnimation(animateSetTraslation)
+        imgAceptar.bringToFront()
 
+        nav_izq.setImageDrawable(animaNavs(AppResources.arrowNavIzq!!))
+        nav_der.setImageDrawable(animaNavs(AppResources.arrowNavDer!!))
+        nav_back_Izq.setImageDrawable(animaNavs(AppResources.arrowBackIzq!!))
+        nav_back_der.setImageDrawable(animaNavs(AppResources.arrowBackDer!!))
+
+        val adapter = CommandChannel(
+            listChannelsOnline,
+            (width * 0.6).toInt(),
+            this
+        )
+
+        val layoutManager = object : LinearLayoutManager(
+            this,
+            LinearLayoutManager.HORIZONTAL,
+            false
+        ) {
+            override fun canScrollHorizontally(): Boolean = false
+        }
+
+        recyclerChannels.layoutManager = layoutManager
+        recyclerChannels.isNestedScrollingEnabled = false
+        recyclerChannels.adapter = adapter
+
+        if (listChannelsOnline.isNotEmpty()) {
+            val startPosition = Int.MAX_VALUE / 2
+            val mod = startPosition % listChannelsOnline.size
+            val finalStart = startPosition - mod
+
+            recyclerChannels.scrollToPosition(finalStart)
+            position = finalStart
+            isFocusChannel(position)
+        }
+
+        val textSizeLabels = width / 20f
+        lbNombreChannel.setTextSize(
+            android.util.TypedValue.COMPLEX_UNIT_PX,
+            textSizeLabels
+        )
+
+        txWaitForPlayer.setTextSize(
+            android.util.TypedValue.COMPLEX_UNIT_PX,
+            textSizeLabels / 2f
+        )
+    }
+
+    private fun setupPlayerInfo() {
+        txPlayer1.text = "Player 1 \n ${activeSala.jugador1.id}"
+        txPlayer2.text = "Player 2 \n ${activeSala.jugador2.id}"
+    }
+
+    private fun setupListeners() {
         nav_back_Izq.setOnClickListener {
             goMain(nav_back_Izq)
         }
@@ -326,225 +278,429 @@ class SelectChannelOnline : AppCompatActivity() {
             goMain(nav_back_der)
         }
 
-        nav_izq.setOnClickListener(){
-            soundPool.play(channel_mov, 1.0f, 1.0f, 1, 0, 1.0f)
+        nav_izq.setOnClickListener {
+            if (!canControlSelection()) return@setOnClickListener
+            if (listChannelsOnline.isEmpty()) return@setOnClickListener
+
+            AppResources.soundPool?.play(AppResources.channelMov, 1f, 1f, 1, 0, 1f)
+
             nav_izq.startAnimation(animIndicator)
             indicatorIzq.startAnimation(animIndicator)
             iluminaIndicador(indicatorIzq)
 
-            position --
-            if(position < 0){
-                position = listChannelsOnline.size - 1
-            }
+            position--
             isFocusChannel(position)
         }
 
-        nav_der.setOnClickListener(){
-            soundPool.play(channel_mov, 1.0f, 1.0f, 1, 0, 1.0f)
+        nav_der.setOnClickListener {
+            if (!canControlSelection()) return@setOnClickListener
+            if (listChannelsOnline.isEmpty()) return@setOnClickListener
+
+            AppResources.soundPool?.play(AppResources.channelMov, 1f, 1f, 1, 0, 1f)
+
             nav_der.startAnimation(animIndicator)
             indicatorDer.startAnimation(animIndicator)
             iluminaIndicador(indicatorDer)
 
             position++
-            if(position > listChannelsOnline.size - 1){
-                position = 0
-            }
             isFocusChannel(position)
         }
 
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Aviso")
-        builder.setMessage("Este canal no contiene canciones.")
-        builder.setPositiveButton("OK") { dialog, _ ->
-            dialog.dismiss()
-        }
+        imgAceptar.setOnClickListener {
+            if (!canControlSelection()) {
+                Toast.makeText(
+                    this,
+                    "Esperando selección de ${activeSala.turno}",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
 
-        imgAceptar.setOnClickListener(){
-            imgAceptar.isEnabled=false
-            soundPool.play(press_start, 1.0f, 1.0f, 1, 0, 1.0f)
+            if (listChannelsOnline.isEmpty()) return@setOnClickListener
 
-            if(listChannelsOnline[position].listCanciones.size > 0){
-                AppResources.listSongsChannelKsf = listChannelsOnline[position].listCanciones
-                currentChannel = listChannelsOnline[position].nombre
+            imgAceptar.isEnabled = false
 
-                handlerChannelOnline.postDelayed({
-                    val intent = Intent(this, SelectSongOnline()::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    startActivity(intent)
-                    overridePendingTransition(R.anim.anim_command_window_on, 0)
-                    imgAceptar.isEnabled=true
-                    soundSelecctChannel.pause()
-                }, 500)
+            AppResources.soundPool?.play(
+                AppResources.pressStart,
+                1f,
+                1f,
+                1,
+                0,
+                1f
+            )
 
+            val adapter = recyclerChannels.adapter as CommandChannel
+            val realPosition = adapter.getRealPosition(position)
+            val channelSelected = listChannelsOnline[realPosition]
 
-            }else{
-                builder.show()
-                imgAceptar.isEnabled=true
+            if (channelSelected.listCanciones.isNotEmpty()) {
+                AppResources.listSongsChannelKsf =
+                    channelSelected.listCanciones
+
+                currentChannel = channelSelected.nombre
+
+                navigateToSelectSong()
+            } else {
+                AlertDialog.Builder(this)
+                    .setTitle("Aviso")
+                    .setMessage("Este canal no contiene canciones.")
+                    .setPositiveButton("OK") { d, _ ->
+                        d.dismiss()
+                    }
+                    .show()
+
+                imgAceptar.isEnabled = true
             }
         }
 
         imgFloor.setOnClickListener {
             imgAceptar.performClick()
         }
-
-        linearLayout = findViewById(R.id.background)
-        linearLayout.foreground = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_channel.png")!!.absolutePath)
-
     }
 
-    private fun iluminaIndicador(imageView: ImageView?) {
-        val originalColorFilter = imageView!!.colorFilter
+    private fun attachRoomListener() {
+        if (roomListener != null) return
 
-        val colorMatrix = ColorMatrix()
-        val intensidad = 100000f
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 3000
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.REVERSE
-            addUpdateListener { animation ->
-                val value = animation.animatedValue as Float
+        roomListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val sala = snapshot.getValue(Sala::class.java)
 
-                colorMatrix.set(
-                    floatArrayOf(
-                        1f, 0f, 0f, 0f, intensidad * value,
-                        0f, 1f, 0f, 0f, intensidad * value,
-                        0f, 0f, 1f, 0f, intensidad * value,
-                        0f, 0f, 0f, 1f, 0f
-                    )
+                if (sala == null) {
+                    handleRoomClosed()
+                    return
+                }
+
+                activeSala = sala
+                setupPlayerInfo()
+
+                if (
+                    sala.estado == RoomState.CLOSED.name
+                ) {
+                    handleRoomClosed()
+                    return
+                }
+
+                if (!isMyPlayerConnected(sala)) {
+                    handleRoomClosed()
+                    return
+                }
+
+                if (!isOpponentConnected(sala)) {
+                    handleOpponentDisconnected()
+                    return
+                }
+
+                opponentDisconnectHandled = false
+
+                updateRoomUi(sala)
+                checkRoomNavigation(sala)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(
+                    "SelectChannelOnline",
+                    "Error leyendo sala: ${error.message}"
+                )
+            }
+        }
+
+        salaRef.addValueEventListener(roomListener!!)
+    }
+
+    private fun detachRoomListener() {
+        val listener = roomListener ?: return
+        salaRef.removeEventListener(listener)
+        roomListener = null
+    }
+
+    private fun updateRoomUi(sala: Sala) {
+        val myTurn =
+            sala.estado == RoomState.SELECTING.name &&
+                    sala.turno == userName
+
+        if (myTurn) {
+            linearWaitPlayer.visibility = View.GONE
+        } else {
+            txWaitForPlayer.text =
+                "Esperando selección de \n ${sala.turno}"
+
+            linearWaitPlayer.visibility = View.VISIBLE
+        }
+
+        nav_izq.isEnabled = myTurn
+        nav_der.isEnabled = myTurn
+        imgAceptar.isEnabled = myTurn
+        imgFloor.isEnabled = myTurn
+    }
+
+    private fun checkRoomNavigation(sala: Sala) {
+        if (navigatingByRoom) return
+
+        val opponentSelected =
+            sala.turno != userName &&
+                    (
+                            sala.jugador1.listo ||
+                                    sala.jugador2.listo
+                            )
+
+        if (!opponentSelected) return
+
+        navigatingByRoom = true
+
+        val intent = Intent(
+            this,
+            SelectSongOnlineWait::class.java
+        )
+
+        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+        startActivity(intent)
+        overridePendingTransition(
+            R.anim.anim_command_window_on,
+            0
+        )
+    }
+
+    private fun canControlSelection(): Boolean {
+        return activeSala.estado == RoomState.SELECTING.name &&
+                activeSala.turno == userName &&
+                isMyPlayerConnected(activeSala) &&
+                isOpponentConnected(activeSala)
+    }
+
+    private fun isMyPlayerConnected(sala: Sala): Boolean {
+        return if (isPlayer1) {
+            sala.jugador1.id == userName &&
+                    sala.jugador1.conectado
+        } else {
+            sala.jugador2.id == userName &&
+                    sala.jugador2.conectado
+        }
+    }
+
+    private fun isOpponentConnected(sala: Sala): Boolean {
+        return if (isPlayer1) {
+            sala.jugador2.id.isNotBlank() &&
+                    sala.jugador2.conectado
+        } else {
+            sala.jugador1.id.isNotBlank() &&
+                    sala.jugador1.conectado
+        }
+    }
+
+    private fun handleOpponentDisconnected() {
+        if (opponentDisconnectHandled || isFinishing) return
+
+        opponentDisconnectHandled = true
+
+        linearWaitPlayer.visibility = View.VISIBLE
+        txWaitForPlayer.text = "El otro jugador abandonó la sala"
+
+        AlertDialog.Builder(this)
+            .setTitle("Sala finalizada")
+            .setMessage("El otro jugador se desconectó o abandonó la sala.")
+            .setCancelable(false)
+            .setPositiveButton("Aceptar") { d, _ ->
+                d.dismiss()
+                leaveRoom(goToMain = true)
+            }
+            .show()
+    }
+
+    private fun handleRoomClosed() {
+        if (isFinishing) return
+
+        detachRoomListener()
+        isOnline = false
+        //victoriesP1 = 0
+        //victoriesP2 = 0
+
+        Toast.makeText(
+            this,
+            "La sala ya no está disponible",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        finish()
+    }
+
+    private fun isFileExists(file: File): Boolean {
+        return file.exists() && !file.isDirectory
+    }
+
+    private fun animaNavs(
+        bitmap: android.graphics.Bitmap,
+    ): AnimationDrawable {
+        val spriteWidth = bitmap.width / 2
+        val spriteHeight = bitmap.height / 2
+
+        val animation = AnimationDrawable()
+
+        for (r in 0 until 2) {
+            for (c in 0 until 2) {
+                val frame = android.graphics.Bitmap.createBitmap(
+                    bitmap,
+                    c * spriteWidth,
+                    r * spriteHeight,
+                    spriteWidth,
+                    spriteHeight
                 )
 
-                val colorFilter = ColorMatrixColorFilter(colorMatrix)
-                imageView.colorFilter = colorFilter
+                animation.addFrame(frame.toDrawable(resources), 200)
             }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    imageView.colorFilter = originalColorFilter
-                }
-            })
         }
-        animator.start()
-    }
 
-    private fun isFocusChannel (position: Int){
-        val item = listChannelsOnline[position]
-        recyclerChannels.setCurrentItem(position, false)
-        channel = item.nombre
-        lbNombreChannel.text = item.descripcion
-        objectAnimator.start()
-        positionCurrentChannel = position
-
-    }
-
-    fun animaNavs(bitmap : Bitmap, spriteWidth : Int, spriteHeight : Int, frameDuration : Int): AnimationDrawable{
-        val arrowSpritesRD = arrayOf(
-            Bitmap.createBitmap(bitmap, 0, 0, spriteWidth, spriteHeight),
-            Bitmap.createBitmap(bitmap, spriteWidth, 0, spriteWidth, spriteHeight),
-            Bitmap.createBitmap(bitmap, 0, spriteHeight, spriteWidth, spriteHeight),
-            Bitmap.createBitmap(bitmap, spriteWidth, spriteHeight, spriteWidth, spriteHeight))
-            val animation = AnimationDrawable().apply {
-            arrowSpritesRD.forEach {
-                addFrame(BitmapDrawable(it), frameDuration / 4)
-            }
-            isOneShot = false
-        }
+        animation.isOneShot = false
         animation.start()
+
         return animation
     }
 
-    private fun goMain(flecha: ImageView) {
-        soundPool.play(channel_back, 1.0f, 1.0f, 1, 0, 1.0f)
-        flecha.startAnimation(animIndicator)
-        soundSelecctChannel.pause()
+    private fun iluminaIndicador(imageView: ImageView?) {
+        imageView ?: return
 
-        val dialog = AlertDialog.Builder(this@SelectChannelOnline)
+        ObjectAnimator.ofFloat(imageView, "alpha", 1f, 0.3f, 1f).apply {
+            duration = 500
+        }.start()
+    }
+
+    private fun isFocusChannel(position: Int) {
+        if (listChannelsOnline.isEmpty()) return
+
+        val adapter = recyclerChannels.adapter as CommandChannel
+        val realPosition = adapter.getRealPosition(position)
+        val item = listChannelsOnline[realPosition]
+
+        recyclerChannels.scrollToPosition(position)
+
+        channel = item.nombre
+        lbNombreChannel.text = item.descripcion
+        positionCurrentChannel = realPosition
+    }
+
+    private fun navigateToSelectSong() {
+        val intent = Intent(
+            this,
+            SelectSongOnline::class.java
+        )
+
+        startActivity(intent)
+
+        overridePendingTransition(
+            R.anim.anim_command_window_on,
+            0
+        )
+
+        imgAceptar.isEnabled = true
+        AppResources.soundSelectChannel?.pause()
+    }
+
+    private fun goMain(flecha: ImageView) {
+        AppResources.soundPool?.play(AppResources.channelBack, 1f, 1f, 1, 0, 1f)
+
+        flecha.startAnimation(animIndicator)
+
+        AlertDialog.Builder(this)
             .setTitle("Aviso")
-            .setMessage("Deseas abandonar la sala?")
-            .setPositiveButton("Aceptar"){d, _ ->
-                /*
-                val jugador = Jugador()
-                if(activeSala.jugador1.id == userName){
-                    activeSala.jugador1 = jugador
-                    salaRef.setValue(activeSala)
-                }
-                if(activeSala.jugador2.id == userName){
-                    activeSala.jugador2 = jugador
-                    salaRef.setValue(activeSala)
-                }
-                */
-                isOnline = false
-                victoriesP1 = 0
-                victoriesP2 = 0
-                this.finish()
+            .setMessage("¿Deseas abandonar la sala?")
+            .setPositiveButton("Aceptar") { d, _ ->
+                d.dismiss()
+                leaveRoom(goToMain = true)
             }
-            .setNegativeButton("Cancelar"){d, _ ->
+            .setNegativeButton("Cancelar") { d, _ ->
                 d.dismiss()
             }
             .setCancelable(false)
             .show()
     }
 
-    override fun onBackPressed() {
-        goMain(nav_back_Izq)
+    private fun leaveRoom(goToMain: Boolean) {
+        detachRoomListener()
+        if (isPlayer1) {
+            salaRef.child("jugador1/conectado").onDisconnect().cancel()
+            salaRef.removeValue()
+        } else {
+            salaRef.child("jugador2/conectado").onDisconnect().cancel()
+            salaRef.child("jugador2").setValue(Jugador())
+        }
+
+
+        isOnline = false
+        victoriesP1 = 0
+        victoriesP2 = 0
+
+        if (goToMain) {
+            AppResources.soundSelectChannel?.pause()
+            finish()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        attachRoomListener()
     }
 
     override fun onResume() {
         super.onResume()
-        soundSelecctChannel.start()
-        /*
-        if (activeSala.turno != userName){
-            txWaitForPlayer.text = "Esperando selección de \n ${activeSala.turno}"
-            linearWaitPlayer.visibility = View.VISIBLE
-            linearWaitPlayer.setOnClickListener {
-                // No hace nada
-            }
-        }else{
-            linearWaitPlayer.visibility = View.GONE
-        }
 
-        if(isPlayer1){
-            if (activeSala.jugador2.id == "" && !firstOpen){
-                txWaitForPlayer.text = "Esperando jugador 2"
-                linearWaitPlayer.visibility = View.VISIBLE
-                linearWaitPlayer.setOnClickListener {
-                    // No hace nada
+        navigatingByRoom = false
+        AppResources.soundSelectChannel?.start()
+
+        if (::bgaSelectChannel.isInitialized) {
+            try {
+                bgaSelectChannel.resume()
+
+                if (!bgaSelectChannel.isPlaying) {
+                    bgaSelectChannel.start()
                 }
-            }else{
-                firstOpen = true
-                linearWaitPlayer.visibility = View.GONE
+            } catch (_: Exception) {
             }
         }
-        */
-        getSelectChannel = false
+        updateRoomUi(activeSala)
+
     }
 
     override fun onPause() {
         super.onPause()
-        if(soundSelecctChannel.isPlaying){
-            soundSelecctChannel.pause()
+
+        AppResources.soundSelectChannel?.pause()
+
+        if (::bgaSelectChannel.isInitialized &&
+            bgaSelectChannel.isPlaying
+        ) {
+            bgaSelectChannel.pause()
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        detachRoomListener()
+    }
+
     override fun onDestroy() {
+        handlerSelectChannel.removeCallbacksAndMessages(null)
         super.onDestroy()
-        handlerChannelOnline.removeCallbacksAndMessages(null)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+
         if (hasFocus) {
             hideSystemUI()
         }
     }
 
     private fun hideSystemUI() {
-        val decorView: View = window.decorView
-        decorView.setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+        val controller = WindowCompat.getInsetsController(
+            window,
+            window.decorView
+        )
+
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat
+                .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        controller.hide(
+            WindowInsetsCompat.Type.systemBars()
         )
     }
 }

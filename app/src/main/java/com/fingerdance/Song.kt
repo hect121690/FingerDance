@@ -19,16 +19,17 @@ class Song(var title:String = "",
 ) : Serializable
 
 
-data class Ksf(var rutaKsf: String = "",
-               var steps: Int,
-               var level: String = "",
-               var rutaBitActive: String = "",
-               var stepmaker: String = "",
-               var typePlayer: String = "",
-               var checkedValues: String = "",
-               var typeSteps: String = "",
-               var songFile: String = "",
-               var chartName: String = "",
-               var difficulty: String = ""
+data class Ksf(
+    var rutaKsf: String = "",
+    var steps: Int,
+    var level: String = "",
+    var rutaBitActive: String = "",
+    var stepmaker: String = "",
+    var typePlayer: String = "",
+    var checkedValues: String = "",
+    var typeSteps: String = "",
+    var songFile: String = "",
+    var chartName: String = "",
+    var difficulty: String = "",
 )
 

@@ -728,7 +728,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         }
 
                         //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
-                        load(playerSong.rutaKsf)
+                        //load(playerSong.rutaKsf)
 
                         if(isPlayer1){
                             activeSala.jugador1.listo = true
@@ -1007,16 +1007,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error al guardar el archivo", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    fun load(filename: String) {
-        if(!activeSala.cancion.isHalf){
-            ksf = KsfProccess()
-            ksf.load(filename)
-        }else{
-            ksfHD = KsfProccessHD()
-            ksfHD.load(filename)
         }
     }
 

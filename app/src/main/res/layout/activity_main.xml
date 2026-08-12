@@ -8,7 +8,6 @@
     android:rotation="-360"
     tools:context=".MainActivity">
 
-
     <VideoView
         android:id="@+id/video_fondo"
         android:layout_width="match_parent"
@@ -96,7 +95,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-
         <TextView
             android:id="@+id/lbDescargando"
             android:layout_width="match_parent"
@@ -126,6 +124,7 @@
             app:layout_constraintEnd_toStartOf="@+id/bg_download"
             app:layout_constraintStart_toEndOf="@+id/bg_download"
             app:layout_constraintTop_toBottomOf="@+id/lbDescargando" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <LinearLayout
@@ -136,6 +135,37 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"></LinearLayout>
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/txtLoadingMessage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Espere por favor..."
+            android:textColor="@android:color/white"
+            android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/txtLoadingChannel"
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:ellipsize="none"
+            android:gravity="center"
+            android:maxLines="1"
+            android:singleLine="true"
+            android:textColor="@android:color/white"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtLoadingSong"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:ellipsize="none"
+            android:gravity="center"
+            android:maxLines="1"
+            android:singleLine="true"
+            android:textColor="#DDDDDD" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

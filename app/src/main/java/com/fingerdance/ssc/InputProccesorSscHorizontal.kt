@@ -12,7 +12,7 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
-private val TOUCH_RADIUS = widthBtnsHorizontal * 0.12f
+private val TOUCH_RADIUS = widthBtnsHorizontal * MULTIPLER_TOUCH_RADIUS
 
 class InputProcessorSscHorizontal : InputAdapter() {
 
@@ -77,9 +77,15 @@ class InputProcessorSscHorizontal : InputAdapter() {
         return true
     }
 
-    override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
-        val newPads = getPadIndices(screenX.toFloat(), screenY.toFloat())
-        if (newPads.isEmpty()) return true
+    override fun touchDragged(
+        screenX: Int,
+        screenY: Int,
+        pointer: Int
+    ): Boolean {
+        val newPads = getPadIndices(
+            screenX.toFloat(),
+            screenY.toFloat()
+        )
 
         val oldPads = pointerToPadsMap[pointer].orEmpty()
 
@@ -87,6 +93,11 @@ class InputProcessorSscHorizontal : InputAdapter() {
 
         oldPads.forEach { oldPad ->
             padPointers[oldPad].remove(pointer)
+        }
+
+        if (newPads.isEmpty()) {
+            pointerToPadsMap.remove(pointer)
+            return true
         }
 
         newPads.forEach { newPad ->

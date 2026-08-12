@@ -61,6 +61,7 @@ class SscGameplayEngine(
 
     interface Listener {
         fun onColumnActive(column: Int)
+        fun onColumnPressed(column: Int) = Unit
         fun onJudge(
             column: Int,
             judge: Int,
@@ -127,6 +128,7 @@ class SscGameplayEngine(
     private val columnIndex = IntArray(config.columnCount)
     private val keyState = IntArray(config.columnCount)
     private val holdCompletedThisFrame = mutableSetOf<Parser.Note>()
+    private val missedTapVisuals = mutableSetOf<Parser.Note>()
 
     private val noteRowKey = mutableMapOf<Parser.Note, Long>()
     private val rowStates = mutableMapOf<Long, RowState>()
@@ -224,6 +226,7 @@ class SscGameplayEngine(
     }
 
     fun updateStepData(songTimeMs: Double, input: IntArray) {
+        holdCompletedThisFrame.clear()
         require(input.size >= config.columnCount) {
             "El input tiene ${input.size} columnas y el motor necesita ${config.columnCount}."
         }
@@ -245,9 +248,8 @@ class SscGameplayEngine(
                     tryAutoStartHoldOnPress(column, songTimeMs)
                 }
                 KEY_PRESS -> {
-                    listener.onColumnActive(column)
+                    listener.onColumnPressed(column)
                     tryAutoStartHoldOnPress(column, songTimeMs)
-                    //processLongNoteTick(column, songTimeMs)
                 }
                 KEY_UP -> if (longNotes[column].pressed) {
                     endLongNote(column, songTimeMs)
@@ -416,8 +418,10 @@ class SscGameplayEngine(
 
     fun reset() {
         hitNotes.clear()
+        missedTapVisuals.clear()
         finishedHolds.clear()
         releasedHoldBeat.clear()
+        holdCompletedThisFrame.clear()
         for (rowState in rowStates.values) {
             rowState.hitJudgments.clear()
             rowState.resolved = false
@@ -540,12 +544,23 @@ class SscGameplayEngine(
         songTimeMs: Double,
         renderer: Renderer
     ) {
-        if (hitNotes.contains(note)) return
+        val isMissVisual = missedTapVisuals.contains(note)
+        if (hitNotes.contains(note) && !isMissVisual) return
         val offset = offsetForBeat(note.beat, currentBeat, songTimeMs)
-        if (!isOffsetVisible(offset)) return
+        if (!isOffsetVisible(offset)) {
+            if (isMissVisual && offset <= config.drawDistanceAfterTargetsPx) {
+                missedTapVisuals.remove(note)
+            }
+            return
+        }
+
         val y = config.targetY.toInt() + offset.toInt()
-        if (note.isMine) renderer.drawMine(note, note.column, y)
-        else renderer.drawTap(note, note.column, y)
+        if (note.isMine){
+            renderer.drawMine(note, note.column, y)
+        }
+        else {
+            renderer.drawTap(note, note.column, y)
+        }
     }
 
     private fun renderHoldCandidate(
@@ -647,6 +662,7 @@ class SscGameplayEngine(
         val notesInColumn = columnNotes[column]
         val nowBeat = timingData.timeToBeat(timeMs)
         val startIndex = columnIndex[column]
+
         var bestIndex = -1
         var bestJudge = -1
         var minimumAbsoluteDelta = Long.MAX_VALUE
@@ -657,38 +673,60 @@ class SscGameplayEngine(
             if (note.isFake) {
                 continue
             }
+
+            if (hitNotes.contains(note)) {
+                continue
+            }
+
             if (timingData.isBeatInWarp(note.beat) && note.endBeat == null) {
                 continue
             }
 
             val deltaMs = getDeltaMsForNote(note.beat, timeMs)
-            if (deltaMs < -config.zoneBadMs) break
+
+            if (deltaMs < -config.zoneBadMs) {
+                break
+            }
 
             if (note.isMine) {
                 if (abs(deltaMs) <= config.zoneBadMs) {
                     emitJudge(
-                        column, JUDGE_MISS,
+                        column = column,
+                        judge = JUDGE_MISS,
                         isFromInput = true,
                         isMine = true,
                         note = note
                     )
+
                     hitNotes.add(note)
-                    columnIndex[column] = index + 1
                     listener.onMineHit(column, note)
+
+                    advanceColumnIndex(column)
                 }
+
                 continue
             }
 
-            if (note.type != Parser.NoteType.TAP &&
+            if (
+                note.type != Parser.NoteType.TAP &&
                 note.type != Parser.NoteType.HOLD
-            ) continue
+            ) {
+                continue
+            }
 
-            if (note.type == Parser.NoteType.HOLD && longNotes[column].pressed) {
+            if (
+                note.type == Parser.NoteType.HOLD &&
+                longNotes[column].pressed
+            ) {
                 continue
             }
 
             val judge = getJudgeFromDelta(deltaMs)
-            if (judge >= 0 && abs(deltaMs) < minimumAbsoluteDelta) {
+
+            if (
+                judge >= 0 &&
+                abs(deltaMs) < minimumAbsoluteDelta
+            ) {
                 bestIndex = index
                 bestJudge = judge
                 minimumAbsoluteDelta = abs(deltaMs)
@@ -696,19 +734,40 @@ class SscGameplayEngine(
         }
 
         if (bestIndex == -1) return
+
         val note = notesInColumn[bestIndex]
 
         if (note.type == Parser.NoteType.HOLD) {
             listener.onNoteFlare(column)
-            registerRowHit(column, note, JUDGE_PERFECT, isFromInput = true)
+
+            // IMPORTANTE:
+            // HOLD conserva exactamente su regla original:
+            // head siempre PERFECT.
+            registerRowHit(
+                column = column,
+                note = note,
+                judge = JUDGE_PERFECT,
+                isFromInput = true
+            )
+
             startLongNote(column, note, timeMs)
             longNotes[column].lastTickBeat = nowBeat
-            columnIndex[column] = bestIndex + 1
+
+            advanceColumnIndex(column)
+
         } else {
             listener.onNoteFlare(column)
-            registerRowHit(column, note, bestJudge, isFromInput = true)
+
+            registerRowHit(
+                column = column,
+                note = note,
+                judge = bestJudge,
+                isFromInput = true
+            )
+
             hitNotes.add(note)
-            columnIndex[column] = bestIndex + 1
+
+            advanceColumnIndex(column)
         }
     }
 
@@ -740,6 +799,9 @@ class SscGameplayEngine(
 
         if (rowState == null) {
             emitJudge(note.column, JUDGE_MISS, isFromInput = false, note = note)
+            if (note.type == Parser.NoteType.TAP) {
+                missedTapVisuals.add(note)
+            }
             consumeNote(note)
             return
         }
@@ -774,7 +836,42 @@ class SscGameplayEngine(
             note = representativeNote
         )
 
-        if (judge == JUDGE_MISS) consumeRowNotes(rowState)
+        if (judge == JUDGE_MISS) {
+            for (note in rowState.notes) {
+                if (
+                    note.type == Parser.NoteType.TAP &&
+                    !rowState.hitJudgments.containsKey(note)
+                ) {
+                    missedTapVisuals.add(note)
+                }
+            }
+
+            consumeRowNotes(rowState)
+        }
+    }
+
+    private fun advanceColumnIndex(column: Int) {
+        val notesInColumn = columnNotes[column]
+        var index = columnIndex[column]
+
+        while (index < notesInColumn.size) {
+            val note = notesInColumn[index]
+
+            val rowHit = noteRowKey[note]
+                ?.let(rowStates::get)
+                ?.hitJudgments
+                ?.containsKey(note) == true
+
+            val resolved = note.isFake ||
+                        hitNotes.contains(note) ||
+                        finishedHolds.contains(note) ||
+                        rowHit
+
+            if (!resolved) break
+            index++
+        }
+
+        columnIndex[column] = index
     }
 
     private fun consumeRowNotes(rowState: RowState) {
@@ -975,7 +1072,8 @@ class SscGameplayEngine(
             delta <= config.zonePerfectMs -> JUDGE_PERFECT
             delta <= config.zoneGreatMs -> JUDGE_GREAT
             delta <= config.zoneGoodMs -> JUDGE_GOOD
-            else -> JUDGE_BAD
+            delta <= config.zoneBadMs -> JUDGE_BAD
+            else -> -1
         }
     }
 

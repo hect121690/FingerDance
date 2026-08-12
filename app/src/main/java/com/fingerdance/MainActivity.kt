@@ -1,13 +1,9 @@
 package com.fingerdance
 
-import android.animation.AnimatorInflater
 import android.app.Dialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -24,13 +20,11 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.Settings
-import android.text.InputType
+import android.text.method.LinkMovementMethod
 import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
-import android.view.GestureDetector
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -42,7 +36,6 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
@@ -57,9 +50,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import com.android.volley.Request
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.Volley
 import com.fingerdance.ssc.LoadingSongs
 import com.fingerdance.ssc.Parser
 import com.google.common.primitives.Ints.min
@@ -67,6 +57,8 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.MutableData
+import com.google.firebase.database.Transaction
 import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -74,20 +66,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.UUID
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.system.exitProcess
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.text.HtmlCompat
 import com.google.firebase.database.ChildEventListener
 
 private var descargando = true
@@ -108,8 +97,6 @@ var isOnline = false
 
 lateinit var mediaPlayer : MediaPlayer
 var ruta = ""
-var ksf = KsfProccess()
-var ksfHD = KsfProccessHD()
 
 var rutaBase = ""
 
@@ -158,79 +145,13 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var linearDownload : ConstraintLayout
     private lateinit var lbDescargando : TextView
     private lateinit var progressBar : ProgressBar
-    private var idWithRegister = ""
-    private val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
-    private lateinit var gestureDetector: GestureDetector
-    private val directions = mutableListOf<Direction>()
-    private var lastX = 0f
-    private var lastY = 0f
+    private var showUpdateView = true
 
-    private val gestureListener = object : GestureDetector.SimpleOnGestureListener() {
-
-        override fun onDown(e: MotionEvent): Boolean {
-            return true // IMPORTANTE: si no regresas true, no detecta nada
-        }
-
-        override fun onFling(
-            e1: MotionEvent?,
-            e2: MotionEvent,
-            velocityX: Float,
-            velocityY: Float,
-        ): Boolean {
-            return false
-        }
-
-        override fun onScroll(
-            e1: MotionEvent?,
-            e2: MotionEvent,
-            distanceX: Float,
-            distanceY: Float,
-        ): Boolean {
-            return false
-        }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        gestureDetector.onTouchEvent(ev)
-
-        when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                directions.clear()
-                lastX = ev.x
-                lastY = ev.y
-            }
-
-            MotionEvent.ACTION_MOVE -> {
-                val dx = ev.x - lastX
-                val dy = ev.y - lastY
-
-                val direction = getDirection(dx, dy)
-                if (direction != null) {
-                    if (directions.isEmpty() || directions.last() != direction) {
-                        directions.add(direction)
-                    }
-                }
-
-                lastX = ev.x
-                lastY = ev.y
-            }
-
-            MotionEvent.ACTION_UP -> {
-                if (isZGesture()) {
-                    showPasswordDialog()
-                }
-            }
-        }
-
-        return super.dispatchTouchEvent(ev)
-    }
-
-    enum class Direction {
-        RIGHT,
-        DOWN_RIGHT,
-        OTHER
-    }
+    private lateinit var txtLoadingMessage: TextView
+    private lateinit var txtLoadingChannel: TextView
+    private lateinit var txtLoadingSong: TextView
+    private var waitingPlayer2Listener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if(isHorizontalMode){
@@ -248,9 +169,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        gestureDetector = GestureDetector(this, gestureListener)
         db = DataBasePlayer(this)
-        idWithRegister = themes.getString("idWithRegister", "").toString()
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getRealMetrics(metrics)
 
@@ -264,11 +183,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             tema ="default"
         }
 
-        themes.edit().putString("efects", "").apply()
-
         rutaBase = getExternalFilesDir(null)!!.absolutePath
 
-        deviceIdFind = getDeviceId(this@MainActivity)
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -496,6 +412,20 @@ class MainActivity : AppCompatActivity(), Serializable {
         bg_download = findViewById(R.id.bg_download)
         loadingLayout = findViewById(R.id.loadingLayout)
 
+        txtLoadingMessage = findViewById(R.id.txtLoadingMessage)
+        txtLoadingChannel = findViewById(R.id.txtLoadingChannel)
+        txtLoadingSong = findViewById(R.id.txtLoadingSong)
+
+        txtLoadingChannel.setTextSize(
+            TypedValue.COMPLEX_UNIT_PX,
+            16f * resources.displayMetrics.density
+        )
+
+        txtLoadingSong.setTextSize(
+            TypedValue.COMPLEX_UNIT_PX,
+            15f * resources.displayMetrics.density
+        )
+
         loadingLayout.apply {
             setOnClickListener(object : View.OnClickListener {
                 override fun onClick(v: View?) {
@@ -511,6 +441,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 isIndeterminate = true
             }
 
+            /*
             val text = TextView(this@MainActivity).apply {
                 text = ""
                 setTextColor(Color.WHITE)
@@ -518,9 +449,10 @@ class MainActivity : AppCompatActivity(), Serializable {
                 gravity = Gravity.CENTER
                 setPadding(0, 30, 0, 0)
             }
+            */
 
             addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-            addView(text, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            //addView(text, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         }
 
         val folder = File(getExternalFilesDir(null), "FingerDance")
@@ -635,253 +567,9 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun getDirection(dx: Float, dy: Float): Direction? {
-        val threshold = 20f
-        if (abs(dx) < threshold && abs(dy) < threshold) return null
-
-        return when {
-            dx > 0 && abs(dy) < abs(dx) * 0.5f -> Direction.RIGHT
-            dx > 0 && dy > 0 -> Direction.DOWN_RIGHT
-            else -> Direction.OTHER
-        }
-    }
-
-    private fun isZGesture(): Boolean {
-        val filtered = directions.filter { it != Direction.OTHER }
-
-        // Simplificamos secuencia (ej: RIGHT,RIGHT,RIGHT → RIGHT)
-        val simplified = mutableListOf<Direction>()
-        for (d in filtered) {
-            if (simplified.isEmpty() || simplified.last() != d) {
-                simplified.add(d)
-            }
-        }
-
-        return simplified == listOf(
-            Direction.RIGHT,
-            Direction.DOWN_RIGHT,
-            Direction.RIGHT
-        )
-    }
-
-    private fun showPasswordDialog() {
-        val input = EditText(this)
-        input.inputType =
-            InputType.TYPE_CLASS_NUMBER or InputType.TYPE_TEXT_VARIATION_PASSWORD
-
-        AlertDialog.Builder(this)
-            .setTitle("Acceso oculto")
-            .setView(input)
-            .setPositiveButton("OK") { _, _ ->
-                if (input.text.toString() == "2416") {
-                    doSecretAccion()
-                }
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun doSecretAccion() {
-        val editText = EditText(this).apply {
-            hint = "Pega el valor del dispositivo"
-            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            inputType = InputType.TYPE_CLASS_TEXT
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Validar Dispositivo")
-            .setMessage("Ingresa el código del dispositivo")
-            .setView(editText)
-            .setCancelable(true)
-            .setPositiveButton("Validar") { _, _ ->
-                val inputValue = editText.text.toString().trim()
-                if (inputValue.isNotEmpty()) {
-                    processDeviceValidation(inputValue)
-                } else {
-                    Toast.makeText(this, "Por favor ingresa un valor", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancelar") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .create()
-
-        dialog.show()
-    }
-
-    private fun processDeviceValidation(inputValue: String) {
-        // Extraer la parte antes del primer "-"
-        val inputPrefix = inputValue.substringBefore("-")
-
-        getAllowDevices { listAllowDevices ->
-            var foundDevice: String? = null
-            var foundMatch: Boolean = false
-
-            // Buscar coincidencia en listAllowDevices
-            for (device in listAllowDevices) {
-                val devicePrefix = device.substringBefore("-")
-                if (devicePrefix == inputPrefix) {
-                    foundDevice = device
-                    foundMatch = true
-                    break
-                }
-            }
-
-            if (foundMatch && foundDevice != null) {
-                // Encontramos coincidencia, actualizar la fecha
-                val updatedDevice = updateDeviceDate(foundDevice)
-                updateDeviceInFirebase(foundDevice, updatedDevice)
-            } else {
-                // No encontramos coincidencia, insertar un nuevo registro
-                // Extraer solo la parte sin fecha (antes de la última "-" si existe una fecha)
-                val deviceWithoutDate = if (inputValue.matches(Regex(".*-\\d{2}/\\d{2}/\\d{4}$"))) {
-                    // Si el input tiene formato de fecha al final, extraer sin ella
-                    inputValue.substringBeforeLast("-")
-                } else {
-                    // Si no tiene fecha, usar como está
-                    inputValue
-                }
-                val newDevice = deviceWithoutDate + "-" + getDatePlusOneMonth()
-                insertDeviceInFirebase(newDevice)
-            }
-        }
-    }
-
-    private fun updateDeviceDate(device: String): String {
-        val parts = device.split("-")
-
-        if (parts.size >= 2) {
-            val prefix = parts[0] // d6b1286955eda83b
-            val middle = parts[1] // Hectbaren1216$
-
-            // Calcular nueva fecha: hoy + 1 mes - 1 día
-            val newDate = getDatePlusOneMonth()
-
-            return "$prefix-$middle-$newDate"
-        }
-
-        return device
-    }
-
-    private fun getDatePlusOneMonth(): String {
-        return try {
-            val today = LocalDate.now()
-            val nextMonth = today.plusMonths(1).minusDays(1)
-            nextMonth.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-        } catch (e: Exception) {
-            Log.e("DateParsing", "Error al calcular la fecha: ${e.message}")
-            ""
-        }
-    }
-
-    private fun updateDeviceInFirebase(oldDevice: String, newDevice: String) {
-        val databaseRef = firebaseDatabase!!.getReference("freeDevices")
-
-        // Obtener toda la lista de dispositivos
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val devicesList = mutableListOf<String>()
-                var found = false
-
-                // Recorrer y actualizar la lista
-                for (childSnapshot in snapshot.children) {
-                    val device = childSnapshot.value.toString()
-                    if (device == oldDevice) {
-                        devicesList.add(newDevice)
-                        found = true
-                    } else {
-                        devicesList.add(device)
-                    }
-                }
-
-                if (found) {
-                    databaseRef.setValue(devicesList)
-                        .addOnSuccessListener {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Dispositivo actualizado correctamente",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            Log.d("Firebase", "Dispositivo actualizado: $oldDevice -> $newDevice")
-                        }
-                        .addOnFailureListener { error ->
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Error al actualizar: ${error.message}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            Log.e("Firebase", "Error al actualizar: ${error.message}")
-                        }
-                } else {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "No se encontró el dispositivo en Firebase",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Error al leer Firebase: ${error.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-                Log.e("Firebase", "Error al leer: ${error.message}")
-            }
-        })
-    }
-
-    private fun insertDeviceInFirebase(newDevice: String) {
-        val databaseRef = firebaseDatabase!!.getReference("freeDevices")
-
-        // Obtener toda la lista de dispositivos
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val devicesList = mutableListOf<String>()
-
-                // Recorrer y agregar todos los dispositivos existentes
-                for (childSnapshot in snapshot.children) {
-                    devicesList.add(childSnapshot.value.toString())
-                }
-
-                // Agregar el nuevo dispositivo
-                devicesList.add(newDevice)
-
-                // Reescribir el nodo completo con la lista actualizada
-                databaseRef.setValue(devicesList)
-                    .addOnSuccessListener {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Nuevo dispositivo registrado correctamente",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        Log.d("Firebase", "Nuevo dispositivo insertado: $newDevice")
-                    }
-                    .addOnFailureListener { error ->
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Error al insertar: ${error.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        Log.e("Firebase", "Error al insertar: ${error.message}")
-                    }
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Error al leer Firebase: ${error.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-                Log.e("Firebase", "Error al leer: ${error.message}")
-            }
-        })
-    }
-
     private fun creaDescarga() {
         linearDownload.isVisible = true
-        bg_download.setVideoURI(Uri.parse("android.resource://${packageName}/${R.raw.bg_download}"))
+        bg_download.setVideoURI("android.resource://${packageName}/${R.raw.bg_download}".toUri())
         bg_download.start()
         bg_download.setOnCompletionListener {
             bg_download.start()
@@ -1108,31 +796,27 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     private suspend fun creaMain() {
         showLoadingOverlay("Espere por favor...")
-        //cleanFiles()  // Comentado: esto borraba archivos importantes
         loadingLayout.visibility = View.INVISIBLE
 
-        if (resetRegister) {
-            themes.edit().putString("idWithRegister", "").apply()
-            idWithRegister = ""
-        }
         checkAppVersion()
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionApp = packageInfo.versionName ?: ""
-        ksfsEliminados = themes.getBoolean("ksfsEliminados", false)
-
-        if(versionApp == "3.0.5" && !ksfsEliminados){
-            deleteLuasRIP()
+        showUpdateView = themes.getBoolean("showUpdateView", true)
+        //themes.edit().putString("efects", "").apply()
+        if(versionApp == "3.1.7"){
+            deleteOldNoteSkins()
+        }
+        if(versionApp == "3.1.8" && showUpdateView){
             showUpdateDialog(this)
         }
     }
 
-    private var ksfsEliminados = false
-    private fun deleteLuasRIP() {
+    private fun deleteOldNoteSkins() {
         val baseDir = getExternalFilesDir(null)
 
-        val pathChannels = "FingerDance/Songs/Channels"
+        val pathChannels = "FingerDance/NoteSkins"
         val channels = listOf(
-            "$pathChannels/SYNKRONIZED-S1-GOODASSJOB",
+            pathChannels
         )
 
         channels.forEach { path ->
@@ -1145,32 +829,37 @@ class MainActivity : AppCompatActivity(), Serializable {
                 }
             }
         }
-        ksfsEliminados = true
-        themes.edit().putBoolean("ksfsEliminados", ksfsEliminados).apply()
+
     }
 
     private fun showUpdateDialog(context: Context) {
-
         val dialog = Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setContentView(R.layout.dialog_update_notes)
-
         dialog.window?.apply {
-
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
 
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
 
-            decorView.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
+        val txUpdateMessage = dialog.findViewById<TextView>(R.id.txUpdateMessage)
+
+        txUpdateMessage.text = HtmlCompat.fromHtml(
+            context.getString(R.string.message_update),
+            HtmlCompat.FROM_HTML_MODE_LEGACY
+        )
+
+        txUpdateMessage.movementMethod = LinkMovementMethod.getInstance()
+        txUpdateMessage.setLinkTextColor(Color.rgb(0, 191, 255))
 
         val btnClose = dialog.findViewById<Button>(R.id.btnClose)
         btnClose.setOnClickListener {
+            showUpdateView = false
+            themes.edit().putBoolean("showUpdateView", showUpdateView).apply()
             dialog.dismiss()
         }
 
@@ -1200,10 +889,10 @@ class MainActivity : AppCompatActivity(), Serializable {
                 unzipContent()
             } else {
                 Toast.makeText(this, "Error en la descarga", Toast.LENGTH_LONG).show()
-                createMain(startOnline, paypalOn, mpOn)
+                createMain(startOnline)
             }
         } else {
-            createMain(startOnline, paypalOn, mpOn)
+            createMain(startOnline)
         }
     }
 
@@ -1216,7 +905,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             numberUpdateLocal = numberUpdateFirebase
         }
 
-        createMain(startOnline, paypalOn, mpOn)
+        createMain(startOnline)
     }
 
     private fun showForceUpdateDialog() {
@@ -1319,7 +1008,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun createMain(startOnline: Boolean, paypalOn: Boolean =  false, mpOn: Boolean = false){
+    private fun createMain(startOnline: Boolean){
         linearDownload.isVisible = false
         lbDescargando.isVisible = false
         progressBar.isVisible = false
@@ -1422,144 +1111,34 @@ class MainActivity : AppCompatActivity(), Serializable {
         val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
 
         animLogo.setOnLongClickListener {
-            themes.edit().putString("idWithRegister", "").apply()
-            idWithRegister = ""
-            Toast.makeText(this@MainActivity, "Registro reiniciado", Toast.LENGTH_LONG).show()
+            val intent = Intent(this@MainActivity, BluetoothLatencyProfilesActivity::class.java)
+            startActivity(intent)
             true
         }
         btnPlay.setOnClickListener {
-            btnPlay.isEnabled = false
-            if(flagActiveAllows){
-                if(idWithRegister == ""){
-                    showLoadingOverlay("Espere por favor...")
-                    getAllowDevices { toListFreeDevices ->
-                        listAllowDevices = toListFreeDevices
-                        if(listAllowDevices.isNotEmpty()){
-                            val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
-                            if(deviceFree != null) {
-                                idWithRegister = deviceFree
-                                themes.edit().putString("idWithRegister", idWithRegister).apply()
-                                val register = idWithRegister.substringAfterLast("-")
-                                val lastRegister = LocalDate.parse(register, formatter)
-                                loadingLayout.visibility = View.INVISIBLE
-                                if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription(paypalOn, mpOn)
-                                } else {
-                                    lifecycleScope.launch {
-                                        goPlay(goSound, animation)
-                                    }
-                                }
-                            }else{
-                                loadingLayout.visibility = View.INVISIBLE
-                                showPaySuscription(paypalOn, mpOn)
-                            }
-                        }else{
-                            (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
-                        }
-                    }
-                }else{
-                    val register = idWithRegister.substringAfterLast("-")
-                    val lastRegister = LocalDate.parse(register, formatter)
-                    if(LocalDate.now().isAfter(lastRegister) ){
-                        showPaySuscription(paypalOn, mpOn)
-                    } else {
-                        lifecycleScope.launch {
-                            goPlay(goSound, animation)
-                        }
-                    }
-                }
-            }else{
-                lifecycleScope.launch {
-                    goPlay(goSound, animation)
-                }
-            }
-        }
-        btnPlayOnline.setOnClickListener{
-            if(flagActiveAllows){
-                if(idWithRegister == ""){
-                    showLoadingOverlay("Espere por favor...")
-                    getAllowDevices { toListFreeDevices ->
-                        listAllowDevices = toListFreeDevices
-                        if(listAllowDevices.isNotEmpty()){
-                            val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
-                            if(deviceFree != null) {
-                                idWithRegister = deviceFree
-                                themes.edit().putString("idWithRegister", idWithRegister).apply()
-                                val register = idWithRegister.substringAfterLast("-")
-                                val lastRegister = LocalDate.parse(register, formatter)
-                                loadingLayout.visibility = View.INVISIBLE
-                                if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription(paypalOn, mpOn)
-                                } else {
-                                    showOnlineMode(animation, goSound)
-                                }
-                            }else{
-                                loadingLayout.visibility = View.INVISIBLE
-                                showPaySuscription(paypalOn, mpOn)
-                            }
-                        } else{
-                            (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
-                        }
-                    }
-                }else{
-                    val register = idWithRegister.substringAfterLast("-")
-                    val lastRegister = LocalDate.parse(register, formatter)
-                    if(LocalDate.now().isAfter(lastRegister)){
-                        showPaySuscription(paypalOn, mpOn)
-                    } else {
-                        showOnlineMode(animation, goSound)
-                    }
-                }
-            }else{
-                showOnlineMode(animation, goSound)
+            lifecycleScope.launch {
+                goPlay(goSound, animation)
             }
         }
 
-        val goOptionMP = MediaPlayer.create(this@MainActivity, Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString())))
+        btnPlayOnline.setOnClickListener {
+            showOnlineMode(animation, goSound)
+        }
+
+        val goOptionMP = MediaPlayer.create(
+            this@MainActivity,
+            Uri.fromFile(
+                File(
+                    getExternalFilesDir(
+                        "/FingerDance/Themes/$tema/Sounds/option_sound.mp3"
+                    ).toString()
+                )
+            )
+        )
+
         btnOptions.setOnClickListener {
-            if(flagActiveAllows){
-                if(idWithRegister == ""){
-                    showLoadingOverlay("Espere por favor...")
-                    getAllowDevices { toListFreeDevices ->
-                        listAllowDevices = toListFreeDevices
-                        if(listAllowDevices.isNotEmpty()){
-                            val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
-                            if(deviceFree != null) {
-                                idWithRegister = deviceFree
-                                themes.edit().putString("idWithRegister", idWithRegister).apply()
-                                val register = idWithRegister.substringAfterLast("-")
-                                val lastRegister = LocalDate.parse(register, formatter)
-                                loadingLayout.visibility = View.INVISIBLE
-                                if(LocalDate.now().isAfter(lastRegister) ){
-                                    showPaySuscription(paypalOn, mpOn)
-                                } else {
-                                    lifecycleScope.launch {
-                                        goOption(goOptionMP, animation)
-                                    }
-                                }
-                            }else{
-                                loadingLayout.visibility = View.INVISIBLE
-                                showPaySuscription(paypalOn, mpOn)
-                            }
-                        } else {
-                            (loadingLayout.getChildAt(1) as TextView).text = "Ocurrio un error, verifica tu conexión a Internet e intentalo de nuevo"
-                        }
-                    }
-                }else{
-                    val register = idWithRegister.substringAfterLast("-")
-                    val lastRegister = LocalDate.parse(register, formatter)
-                    if(LocalDate.now().isAfter(lastRegister) ){
-                        showPaySuscription(paypalOn, mpOn)
-                    } else {
-                        lifecycleScope.launch {
-                            goOption(goOptionMP, animation)
-                        }
-                    }
-                }
-            }else{
-                lifecycleScope.launch {
-                    goOption(goOptionMP, animation)
-                }
+            lifecycleScope.launch {
+                goOption(goOptionMP, animation)
             }
         }
 
@@ -1578,30 +1157,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             }
             builder.show()
-        }
-
-        btnExit.setOnLongClickListener {
-            val txDeviceId = TextView(this@MainActivity).apply {
-                setTextColor(Color.BLACK)
-                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-                text = deviceIdFind + "-$userName"
-            }
-
-            val dialog = AlertDialog.Builder(this@MainActivity)
-                .setTitle("ID COMPRA")
-                .setMessage("Por favor envia esta clave al desarrollador")
-                .setView(txDeviceId)
-                .setCancelable(false)
-                .setPositiveButton("Copiar") { _, _ ->
-                    val clipboard: ClipboardManager = this@MainActivity.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("", txDeviceId.text.toString())
-                    clipboard.setPrimaryClip(clip)
-                    Toast.makeText(this@MainActivity, "Texto copiado al portapapeles!", Toast.LENGTH_LONG).show()
-                }
-                .create()
-            dialog.show()
-            true
         }
 
         if(userName == ""){
@@ -1632,8 +1187,22 @@ class MainActivity : AppCompatActivity(), Serializable {
                     } else {
                         listCommands = loadCommandsForMain()
 
-                        val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
-                        val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
+                        val progress: (String, String) -> Unit = { channel, song ->
+                            updateLoadingSongs(
+                                channel = channel,
+                                song = song
+                            )
+                        }
+
+                        val listSongsKsf = LoadSongsKsf().getChannels(
+                            context = this@MainActivity,
+                            onProgress = progress
+                        )
+
+                        val listSongsSsc = LoadingSongs().getChannels(
+                            c = this@MainActivity,
+                            onProgress = progress
+                        )
 
                         listChannels = ArrayList(listSongsKsf + listSongsSsc)
 
@@ -1747,8 +1316,23 @@ class MainActivity : AppCompatActivity(), Serializable {
                     } else {
                         listCommands = loadCommandsForMain()
 
-                        val listSongsKsf = LoadSongsKsf().getChannels(this@MainActivity)
-                        val listSongsSsc = LoadingSongs().getChannels(this@MainActivity)
+                        val progress: (String, String) -> Unit = { channel, song ->
+                            updateLoadingSongs(
+                                channel = channel,
+                                song = song
+                            )
+                        }
+
+                        val listSongsKsf = LoadSongsKsf().getChannels(
+                            context = this@MainActivity,
+                            onProgress = progress
+                        )
+
+                        val listSongsSsc = LoadingSongs().getChannels(
+                            c = this@MainActivity,
+                            onProgress = progress
+                        )
+
 
                         listChannels = ArrayList(listSongsKsf + listSongsSsc)
 
@@ -1801,13 +1385,26 @@ class MainActivity : AppCompatActivity(), Serializable {
         return commands
     }
 
-    private fun showLoadingOverlay(message: String) {
+    private fun showLoadingOverlay(message: String, channel: String = "", song: String = "", ) {
         loadingLayout.visibility = View.VISIBLE
-        (loadingLayout.getChildAt(1) as TextView).text = message
+        txtLoadingMessage.text = message
+        txtLoadingChannel.text = channel
+        txtLoadingSong.text = song
+        txtLoadingChannel.visibility = if (channel.isBlank()) View.INVISIBLE else View.VISIBLE
+        txtLoadingSong.visibility = if (song.isBlank()) View.INVISIBLE else View.VISIBLE
+    }
+
+    private fun updateLoadingSongs(channel: String, song: String) {
+        loadingLayout.post {
+            txtLoadingChannel.text = channel
+            txtLoadingSong.text = song
+            txtLoadingChannel.visibility = if (channel.isBlank()) View.INVISIBLE else View.VISIBLE
+            txtLoadingSong.visibility = if (song.isBlank()) View.INVISIBLE else View.VISIBLE
+        }
     }
 
     private fun showOnlineMode(animation: Animation, goSound: MediaPlayer) {
-        btnPlayOnline.isEnabled=false
+        btnPlayOnline.isEnabled = false
         btnPlayOnline.startAnimation(animation)
         val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         btnParams.setMargins(16, 16, 16, 16)
@@ -1850,25 +1447,28 @@ class MainActivity : AppCompatActivity(), Serializable {
         linearOnline.addView(btnCreateRoom)
         linearOnline.addView(btnJoinRoom)
 
-        val linearClave = LinearLayout(this@MainActivity)
-        linearClave.orientation = LinearLayout.VERTICAL // Alineación vertical
-        linearClave.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-        linearClave.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+        val linearClave = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
 
         linearClave.addView(editTextRoom)
         linearClave.addView(btnGetRoom)
         linearClave.visibility = View.GONE
 
-        val linearLayouts = LinearLayout(this@MainActivity)
-        linearLayouts.orientation = LinearLayout.VERTICAL // Alineación vertical
-        linearLayouts.gravity = Gravity.CENTER // Centra los elementos horizontalmente
-        linearLayouts.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+        val linearLayouts = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
         linearLayouts.addView(linearOnline)
         linearLayouts.addView(linearClave)
 
@@ -1891,11 +1491,15 @@ class MainActivity : AppCompatActivity(), Serializable {
             layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
             this.layoutParams = layoutParams
         }
-        var listSalas = arrayListOf<String>()
-        btnJoinRoom.setOnClickListener {
-            getSalas { toListSalas ->
-                listSalas = toListSalas
+
+        val dialogNoSala = AlertDialog.Builder(this@MainActivity)
+            .setTitle("Aviso")
+            .setCancelable(false)
+            .setPositiveButton("Aceptar") { d, _ ->
+                d.dismiss()
             }
+
+        btnJoinRoom.setOnClickListener {
             dialog.setMessage("Ingresa la clave para entrar a la sala")
             linearOnline.visibility = View.GONE
             linearClave.visibility = View.VISIBLE
@@ -1905,66 +1509,222 @@ class MainActivity : AppCompatActivity(), Serializable {
             goSound.start()
             isPlayer1 = true
             isOnline = true
-            idSala =  UUID.randomUUID().toString().substring(0, 8)
-            salaRef = firebaseDatabase!!.getReference("rooms/$idSala")
-            salaRef.child("jugador1").onDisconnect().removeValue()
-            val jugador1 = Jugador(id = userName)
+            idSala = UUID.randomUUID().toString().substring(0, 8)
+            salaRef = firebaseDatabase.getReference("rooms/$idSala")
 
-            activeSala = Sala(turno = userName, jugador1 = jugador1)
-            salaRef.setValue(activeSala).addOnSuccessListener {
-                mostrarCodigoSala(dialog)
-            }
+            val jugador1 = Jugador(
+                id = userName,
+                conectado = true
+            )
+
+            activeSala = Sala(
+                jugador1 = jugador1,
+                turno = userName,
+                estado = RoomState.WAITING.name
+            )
+
+            salaRef.setValue(activeSala)
+                .addOnSuccessListener {
+                    salaRef
+                        .child("jugador1/conectado")
+                        .onDisconnect()
+                        .setValue(false)
+
+                    mostrarCodigoSala(dialog)
+                }
+                .addOnFailureListener { error ->
+                    isOnline = false
+                    btnPlayOnline.isEnabled = true
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "No se pudo crear la sala: ${error.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
         }
 
-        val dialogNoSala = AlertDialog.Builder(this@MainActivity)
-            .setTitle("Aviso")
-            .setCancelable(false)
-            .setPositiveButton("Aceptar"){d ,_ ->
-                d.dismiss()
+        btnGetRoom.setOnClickListener {
+            val roomCode = editTextRoom.text.toString().trim()
+
+            if (roomCode.isEmpty()) {
+                dialogNoSala
+                    .setMessage("Debe ingresar la clave de la sala")
+                    .show()
+                return@setOnClickListener
             }
 
-        btnGetRoom.setOnClickListener {
-            if(editTextRoom.text.toString() != ""){
-                if(listSalas.find { it == editTextRoom.text.toString() } != null){
-                    idSala = editTextRoom.text.toString()
-                    goSound.start()
+            btnGetRoom.isEnabled = false
+            goSound.start()
+
+            idSala = roomCode
+            salaRef = firebaseDatabase.getReference("rooms/$idSala")
+
+            val jugador2 = Jugador(
+                id = userName,
+                conectado = true
+            )
+
+            salaRef.runTransaction(object : Transaction.Handler {
+                override fun doTransaction(currentData: MutableData): Transaction.Result {
+                    val sala = currentData.getValue(Sala::class.java)
+                        ?: return Transaction.abort()
+
+                    if (sala.estado != RoomState.WAITING.name) {
+                        return Transaction.abort()
+                    }
+
+                    if (sala.jugador1.id.isBlank() || !sala.jugador1.conectado) {
+                        return Transaction.abort()
+                    }
+
+                    if (
+                        sala.jugador2.id.isNotBlank() &&
+                        sala.jugador2.conectado
+                    ) {
+                        return Transaction.abort()
+                    }
+
+                    sala.jugador2 = jugador2
+                    sala.estado = RoomState.SELECTING.name
+                    currentData.value = sala
+
+                    return Transaction.success(currentData)
+                }
+
+                override fun onComplete(
+                    error: DatabaseError?,
+                    committed: Boolean,
+                    currentData: DataSnapshot?
+                ) {
+                    btnGetRoom.isEnabled = true
+
+                    if (error != null) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Error al entrar a la sala: ${error.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return
+                    }
+
+                    if (!committed) {
+                        dialogNoSala
+                            .setMessage(
+                                "La sala no existe, ya tiene dos jugadores o ya no está disponible"
+                            )
+                            .show()
+                        return
+                    }
+
+                    val sala = currentData?.getValue(Sala::class.java)
+
+                    if (sala == null) {
+                        dialogNoSala
+                            .setMessage("La sala ya no existe")
+                            .show()
+                        return
+                    }
+
                     isOnline = true
                     isPlayer1 = false
-                    salaRef = firebaseDatabase!!.getReference("rooms/${editTextRoom.text}")
-                    salaRef.child("jugador2/id").setValue(userName)
-                    salaRef.child("jugador2").onDisconnect().removeValue()
-                    salaRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                        override fun onDataChange(snapshot: DataSnapshot) {
-                            activeSala = snapshot.getValue(Sala::class.java)!!
-                        }
-                        override fun onCancelled(error: DatabaseError) {}
-                    })
-                    listChannelsOnline = LoadSongsKsf().getChannelsOnline(this@MainActivity)
-                    if(themes.getString("efects", "").toString() == ""){
-                        listCommands = getFilesCW(this@MainActivity)
-                        val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                        val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                        listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-                        themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                    }else{
-                        val jsonListCommands = themes.getString("efects", "")
-                        listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-                    }
-                    loadSounds(this@MainActivity)
-                    val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    startActivity(intent)
-                    mediaPlayerMain.pause()
-                    soundPlayer!!.pause()
-                    btnPlayOnline.isEnabled = true
+                    activeSala = sala
+
+                    salaRef
+                        .child("jugador2/conectado")
+                        .onDisconnect()
+                        .setValue(false)
+
                     dialog.dismiss()
-                }else{
-                    dialogNoSala.setMessage("La clave de la sala no existe")
-                    dialogNoSala.show()
+                    prepareOnlineAndOpenSelectChannel()
                 }
-            }else{
-                dialogNoSala.setMessage("Debe ingresa la clave de la sala")
-                dialogNoSala.show()
+            })
+        }
+    }
+
+    private fun prepareOnlineAndOpenSelectChannel() {
+        showLoadingOverlay("Espere por favor...")
+
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val progress: (String, String) -> Unit = { channel, song ->
+                        updateLoadingSongs(
+                            channel = channel,
+                            song = song
+                        )
+                    }
+
+                    listChannelsOnline = LoadingSongs().getChannelsOnline(
+                        context = this@MainActivity,
+                        onProgress = progress
+                    )
+
+                    if (themes.getString("efects", "").orEmpty().isEmpty()) {
+                        listCommands = getFilesCW(this@MainActivity)
+
+                        val ordenEspecifico = listOf(
+                            "-.05",
+                            "-.1",
+                            "-.5",
+                            "-1",
+                            "0",
+                            "1",
+                            ".5",
+                            ".1",
+                            ".05"
+                        )
+
+                        val ordenMap = ordenEspecifico
+                            .withIndex()
+                            .associate { it.value to it.index }
+
+                        listCommands
+                            .find {
+                                it.descripcion == "Cambiar la velocidad de la nota."
+                            }
+                            ?.listCommandValues
+                            ?.sortBy {
+                                ordenMap[it.value] ?: Int.MAX_VALUE
+                            }
+
+                        themes.edit()
+                            .putString("efects", gson.toJson(listCommands))
+                            .apply()
+                    } else {
+                        val jsonListCommands = themes.getString("efects", "")
+
+                        listCommands = gson.fromJson(
+                            jsonListCommands,
+                            object : TypeToken<ArrayList<Command>>() {}.type
+                        )
+                    }
+
+                    loadSounds(this@MainActivity)
+                }
+
+                loadingLayout.visibility = View.INVISIBLE
+
+                val intent = Intent(
+                    this@MainActivity,
+                    SelectChannelOnline::class.java
+                )
+                intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                startActivity(intent)
+
+                mediaPlayerMain.pause()
+                soundPlayer?.pause()
+                btnPlayOnline.isEnabled = true
+
+            } catch (e: Exception) {
+                loadingLayout.visibility = View.INVISIBLE
+                btnPlayOnline.isEnabled = true
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error al cargar modo online: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
@@ -2008,250 +1768,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         exitProcess(0)
     }
 
-    private fun showPaySuscription(paypalOn: Boolean, mpOn: Boolean) {
-        /*
-        val deviceFree = listAllowDevices.find { it.substringBefore("-") == deviceIdFind }
-        val isPass = deviceFree == deviceIdFind
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Validacion Device ID")
-            .setMessage("Dispositivo ID: $deviceIdFind | Dispositivo encontrado en base: $deviceFree | $isPass")
-            .setPositiveButton("Aceptar") { d, _ ->
-                d.dismiss()
-            }
-            .show()
-        */
-        mediaPlayerMain.pause()
-        video_fondo.pause()
-        idWithRegister = ""
-        themes.edit().putString("idWithRegister", "").apply()
-        soundPlayer?.takeIf { it.isPlaying }?.pause()
-
-        val layoutAviso = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor("#121212".toColorInt())
-            setPadding(64, 64, 64, 64)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-
-        val tvMensaje = TextView(this).apply {
-            text = getString(R.string.PaySuscriptionInfo)
-            setTextColor(Color.WHITE)
-            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            textSize = 18f
-            setPadding(16, 16, 16, 32)
-        }
-
-        fun createStyledButton(
-            text: String,
-            iconRes: Int,
-            bgColor: Int,
-            textColor: Int = Color.WHITE,
-            colorIconDraw: Boolean = false,
-        ): Button {
-            return Button(this).apply {
-                this.text = text
-                isAllCaps = false
-                setTextColor(textColor)
-                background = ContextCompat.getDrawable(this@MainActivity, bgColor)
-                textAlignment = View.TEXT_ALIGNMENT_CENTER
-                textSize = 16f
-                setPadding(24, 16, 24, 16)
-                compoundDrawablePadding = 16
-                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                val icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
-                if (colorIconDraw) {
-                    icon?.setTint(textColor)
-                }
-                setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null)
-
-                layoutParams = LinearLayout.LayoutParams(
-                    medidaFlechas.toInt() * 3,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    setMargins(0, 16, 0, 0)
-                }
-                stateListAnimator =
-                    AnimatorInflater.loadStateListAnimator(context, android.R.animator.fade_in)
-            }
-        }
-
-        val btnFacebook = createStyledButton(
-            "Facebook",
-            R.drawable.facebook,
-            R.drawable.bg_button_base,
-            colorIconDraw = true
-        ).apply {
-            backgroundTintList = ColorStateList.valueOf(0xFF1877F2.toInt())
-        }
-
-        val btnWhatsapp = createStyledButton(
-            "WhatsApp",
-            R.drawable.whatsapp,
-            R.drawable.bg_button_base,
-            colorIconDraw = true
-        ).apply {
-            backgroundTintList = ColorStateList.valueOf(0xFF25D366.toInt())
-        }
-
-        val btnMercadoPago = createStyledButton(
-            "Pagar con\nMercado Pago",
-            R.drawable.mercado_pago,
-            R.drawable.bg_button_base,
-        ).apply {
-            backgroundTintList = ColorStateList.valueOf("#009EE3".toColorInt())
-        }
-        val btnPaypal = createStyledButton(
-            "Pagar con\nPayPal",
-            R.drawable.paypal,
-            R.drawable.bg_button_paypal,
-            textColor = Color.BLACK,
-        )
-
-        val spaceBottom = Space(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-        }
-
-        val btnSalir = createStyledButton(
-            "Salir",
-            android.R.drawable.ic_menu_close_clear_cancel,
-            R.drawable.bg_button_base
-        ).apply {
-            backgroundTintList = ColorStateList.valueOf(0xFFD32F2F.toInt())
-            setTextColor(Color.WHITE)
-            isAllCaps = true
-            layoutParams = LinearLayout.LayoutParams(
-                medidaFlechas.toInt() * 3,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        layoutAviso.addView(tvMensaje)
-        layoutAviso.addView(btnFacebook)
-        layoutAviso.addView(btnWhatsapp)
-        if (mpOn) {
-            layoutAviso.addView(btnMercadoPago)
-        }
-        if(paypalOn){
-            layoutAviso.addView(btnPaypal)
-        }
-        layoutAviso.addView(spaceBottom)
-        layoutAviso.addView(btnSalir)
-        setContentView(layoutAviso)
-        layoutAviso.bringToFront()
-
-        btnFacebook.setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, "https://www.facebook.com/share/g/18pNnxajis/".toUri()))
-            finishAffinity()
-        }
-
-        btnWhatsapp.setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, "https://chat.whatsapp.com/JXXFQ1TpRnz0HfeRb71RuT".toUri()))
-            finishAffinity()
-        }
-
-        btnMercadoPago.setOnClickListener {
-            showLoadingOverlay("redirigiendo...")
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadingLayout.visibility = View.INVISIBLE
-            }, 250)
-            val jsonBody = JSONObject().apply {
-                put("descripcion", "Suscripción mensual Finger Dance")
-                put("monto", 25)
-                put("deviceId", deviceIdFind)
-                put("userName", userName)
-            }
-
-            val request = JsonObjectRequest(
-                Request.Method.POST,
-                "https://us-central1-fingerdance.cloudfunctions.net/createPreference",
-                jsonBody,
-                { response ->
-                    val preferenceId = response.getString("preferenceId")
-                    val mpUrl = "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=$preferenceId"
-                    startActivity(Intent(Intent.ACTION_VIEW, mpUrl.toUri()))
-                },
-                { error ->
-                    Toast.makeText(this, "Error al generar pago: ${error.message}", Toast.LENGTH_LONG).show()
-                }
-            )
-            Volley.newRequestQueue(this).add(request)
-        }
-
-        btnPaypal.setOnClickListener {
-            showLoadingOverlay("redirigiendo...")
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadingLayout.visibility = View.INVISIBLE
-            }, 250)
-            val url = "https://createpaypalorder-pc2otnl6da-uc.a.run.app"
-            val jsonBody = JSONObject().apply {
-                put("descripcion", "Suscripción Finger Dance")
-                put("monto", 25)
-                put("deviceId", deviceIdFind)
-                put("userName", userName)
-            }
-            val request = object : JsonObjectRequest(
-                Method.POST,
-                url,
-                jsonBody,
-                { response ->
-                    try {
-                        val orderId = response.getString("orderId")
-                        val paypalUrl = "https://www.paypal.com/checkoutnow?token=$orderId"
-                        val intent = Intent(Intent.ACTION_VIEW, paypalUrl.toUri()).apply {
-                            addCategory(Intent.CATEGORY_BROWSABLE)
-                            setPackage("com.android.chrome") // fuerza Chrome
-                        }
-                        try {
-                            startActivity(intent)
-                        } catch (e: Exception) {
-                            // si no hay Chrome, abre con cualquier navegador disponible
-                            startActivity(Intent(Intent.ACTION_VIEW, paypalUrl.toUri()))
-                        }
-                        loadingLayout.visibility = View.INVISIBLE
-                    } catch (e: Exception) {
-                        Log.e("PAYPAL", "Error procesando respuesta: ${e.message}")
-                    }
-                },
-                { error ->
-                    Log.e("PAYPAL", "Error al crear orden PayPal: ${error.networkResponse?.statusCode ?: "?"}")
-                    Log.e("PAYPAL", "Detalle: ${error.message}")
-                    error.printStackTrace()
-                }
-            ) {
-                override fun getHeaders(): MutableMap<String, String> {
-                    return hashMapOf("Content-Type" to "application/json")
-                }
-            }
-
-            Volley.newRequestQueue(this).add(request)
-        }
-
-
-        btnSalir.setOnClickListener { finishAffinity() }
-    }
-
-    private fun getSalas(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("rooms")
-        val listResult = arrayListOf<String>()
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (salas in snapshot.children) {
-                    listResult.add(salas.key.toString())
-                }
-                callback(listResult)
-                return
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
-            }
-        })
-    }
-
     private fun mostrarCodigoSala(alertDialog: AlertDialog) {
         val txSalaId = TextView(this@MainActivity).apply {
             setTextColor(Color.BLACK)
@@ -2262,38 +1778,115 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val dialog = AlertDialog.Builder(this@MainActivity)
             .setTitle("Crear sala")
-            .setMessage("Envia esta clave al jugador que quieras invitar a la sala")
+            .setMessage("Envía esta clave al jugador que quieras invitar a la sala")
             .setView(txSalaId)
             .setCancelable(false)
             .setPositiveButton("Compartir") { d, _ ->
                 alertDialog.dismiss()
                 d.dismiss()
 
-                listChannelsOnline = LoadSongsKsf().getChannelsOnline(this@MainActivity)
-                if(themes.getString("efects", "").toString() == ""){
-                    listCommands = getFilesCW(this@MainActivity)
-                    val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1", ".5", ".1", ".05")
-                    val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
-                    listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }!!.listCommandValues.sortBy { ordenMap[it.value] ?: Int.MAX_VALUE }
-                    themes.edit().putString("efects", gson.toJson(listCommands)).apply()
-                }else{
-                    val jsonListCommands = themes.getString("efects", "")
-                    listCommands = gson.fromJson(jsonListCommands, object : TypeToken<ArrayList<Command>>() {}.type)
-                }
-                loadSounds(this@MainActivity)
-                val intent = Intent(this@MainActivity, SelectChannelOnline::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                startActivity(intent)
-                mediaPlayerMain.pause()
-                soundPlayer!!.pause()
-                btnPlayOnline.isEnabled = true
+                waitForPlayer2()
                 mostrarDialogoCompartir(this)
             }
-            .setNegativeButton("Cancelar"){_, _ ->
-                firebaseDatabase!!.getReference("rooms/$idSala").removeValue()
+            .setNegativeButton("Cancelar") { _, _ ->
+                cancelCreatedRoom()
             }
             .create()
+
         dialog.show()
+    }
+
+    private fun waitForPlayer2() {
+        stopWaitingPlayer2Listener()
+
+        val waitingDialog = AlertDialog.Builder(this@MainActivity)
+            .setTitle("Sala $idSala")
+            .setMessage("Esperando a que el jugador 2 entre a la sala...")
+            .setCancelable(false)
+            .setNegativeButton("Cancelar sala") { _, _ ->
+                stopWaitingPlayer2Listener()
+                cancelCreatedRoom()
+            }
+            .create()
+
+        waitingDialog.show()
+
+        waitingPlayer2Listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val sala = snapshot.getValue(Sala::class.java)
+
+                if (sala == null) {
+                    stopWaitingPlayer2Listener()
+                    waitingDialog.dismiss()
+                    isOnline = false
+                    btnPlayOnline.isEnabled = true
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "La sala ya no existe",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return
+                }
+
+                activeSala = sala
+
+                val player2Ready =
+                    sala.jugador2.id.isNotBlank() &&
+                            sala.jugador2.conectado &&
+                            sala.estado == RoomState.SELECTING.name
+
+                if (!player2Ready) {
+                    return
+                }
+
+                stopWaitingPlayer2Listener()
+                waitingDialog.dismiss()
+
+                prepareOnlineAndOpenSelectChannel()
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                stopWaitingPlayer2Listener()
+                waitingDialog.dismiss()
+                isOnline = false
+                btnPlayOnline.isEnabled = true
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error esperando al jugador 2: ${error.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+        salaRef.addValueEventListener(waitingPlayer2Listener!!)
+    }
+
+    private fun stopWaitingPlayer2Listener() {
+        val listener = waitingPlayer2Listener ?: return
+
+        if (::salaRef.isInitialized) {
+            salaRef.removeEventListener(listener)
+        }
+
+        waitingPlayer2Listener = null
+    }
+
+    private fun cancelCreatedRoom() {
+        stopWaitingPlayer2Listener()
+
+        if (::salaRef.isInitialized) {
+            salaRef
+                .child("jugador1/conectado")
+                .onDisconnect()
+                .cancel()
+
+            salaRef.removeValue()
+        }
+
+        isOnline = false
+        btnPlayOnline.isEnabled = true
     }
 
     private fun mostrarDialogoCompartir(context: Context) {
@@ -2301,33 +1894,16 @@ class MainActivity : AppCompatActivity(), Serializable {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, idSala)
         }
-        context.startActivity(Intent.createChooser(intent, "Compartir con"))
+
+        context.startActivity(
+            Intent.createChooser(
+                intent,
+                "Compartir con"
+            )
+        )
     }
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
-
-    private fun getAllowDevices(callback: (ArrayList<String>) -> Unit) {
-        val databaseRef = firebaseDatabase.getReference("freeDevices")
-        val listResult = arrayListOf<String>()
-        databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (devices in snapshot.children) {
-                    listResult.add(devices.value.toString())
-                }
-                callback(listResult)
-                return
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer datos", error.toException())
-            }
-        })
-    }
-
-
-    private fun getDeviceId(context: Context): String {
-        return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-    }
 
     private fun ingresaNameUser(){
         val editTextName = EditText(this).apply {
@@ -2450,6 +2026,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     override fun onDestroy() {
+        stopWaitingPlayer2Listener()
         super.onDestroy()
 
         // Liberar MediaPlayers
@@ -2545,7 +2122,15 @@ class ObjPuntaje(
     var checkedValues: String,
     var puntaje: String = "",
     var grade: String = "",
-    )
+)
+
+enum class RoomState {
+    WAITING,
+    SELECTING,
+    PLAYING,
+    RESULTS,
+    CLOSED
+}
 
 data class Resultado(
     var perfect: String = "0",
@@ -2559,8 +2144,15 @@ data class Resultado(
 
 data class Jugador(
     var id: String = "",
+    var conectado: Boolean = false,
     var listo: Boolean = false,
-    var result: Resultado = Resultado(),
+    var live: LiveResult = LiveResult(),
+    var result: Resultado = Resultado()
+)
+
+data class LiveResult(
+    var score: Int = 0,
+    var combo: Int = 0
 )
 
 data class Sala(
@@ -2570,6 +2162,7 @@ data class Sala(
     var turno: String = "",
     var date: String = "",
     var readyToResult: Boolean = false,
+    var estado: String = RoomState.WAITING.name
 )
 
 data class CancionOnline(

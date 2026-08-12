@@ -27,6 +27,7 @@ import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
@@ -283,8 +284,20 @@ class SelectSong : AppCompatActivity() {
 
         recyclerLvs = findViewById(R.id.recyclerLvs)
         recyclerLvs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        recyclerLvs.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                // Retorna true para interceptar el toque y evitar el scroll
+                return true
+            }
+        })
         recyclerLvsVacios = findViewById(R.id.recyclerNoLvs)
         recyclerLvsVacios.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        recyclerLvsVacios.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                // Retorna true para interceptar el toque y evitar el scroll
+                return true
+            }
+        })
         linearListSongs = findViewById(R.id.linearListSongs)
 
         recyclerCommands = findViewById(R.id.recyclerCommands)
@@ -2311,16 +2324,6 @@ class SelectSong : AppCompatActivity() {
 
     }
 
-    fun load(filename: String, isHalfDouble: Boolean = false) {
-        if(!isHalfDouble){
-            ksf = KsfProccess()
-            ksf.load(filename)
-        }else{
-            ksfHD = KsfProccessHD()
-            ksfHD.load(filename)
-        }
-    }
-
     private fun iniciarContador() {
         handlerContador.postDelayed(runnableContador, 0)
     }
@@ -2816,9 +2819,21 @@ class SelectSong : AppCompatActivity() {
         lbWorldName.isVisible = false
     }
 
-    private fun moverLvs() {
-        val realPosition = getRealIndex(oldValue) // CLAVE
-        val lv = AppResources.listSongsChannelKsf[realPosition].listKsf[positionActualLvs]
+    private fun moverLvs(realPosition: Int = getRealIndex(oldValue)) {
+        val songs = AppResources.listSongsChannelKsf
+        if (songs.isEmpty()) return
+
+        val safeRealPosition = realPosition.coerceIn(0, songs.lastIndex)
+        val levels = songs[safeRealPosition].listKsf
+        if (levels.isEmpty()) {
+            resetIndicatorPosition()
+            return
+        }
+
+        positionActualLvs = positionActualLvs.coerceIn(0, levels.lastIndex)
+        selectedIndex = positionActualLvs
+
+        val lv = levels[positionActualLvs]
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultySelected else difficultySelectedHD)
 
         lbLvActive.text = lv.level
@@ -2990,22 +3005,28 @@ class SelectSong : AppCompatActivity() {
             if (resetLevelPosition) {
                 resetIndicatorPosition()
             } else {
-                restoreLevelPosition(item.listKsf.size)
+                restoreLevelPosition(
+                    realPosition = real,
+                    levelCount = item.listKsf.size
+                )
             }
             timer?.start()
             isTimerRunning = true
         }
     }
 
-    private fun restoreLevelPosition(levelCount: Int) {
+    private fun restoreLevelPosition(realPosition: Int, levelCount: Int) {
         if (levelCount <= 0) {
             resetIndicatorPosition()
             return
         }
+
         positionActualLvs = positionActualLvs.coerceIn(0, levelCount - 1)
         selectedIndex = positionActualLvs
+
         val maxFirstVisible = (levelCount - visibleItems).coerceAtLeast(0)
-        firstVisible = firstVisible.coerceIn(0,maxFirstVisible)
+        firstVisible = firstVisible.coerceIn(0, maxFirstVisible)
+
         when {
             selectedIndex < firstVisible -> {
                 firstVisible = selectedIndex
@@ -3017,7 +3038,7 @@ class SelectSong : AppCompatActivity() {
         }
 
         updateRecycler()
-        moverLvs()
+        moverLvs(realPosition)
     }
 
     private fun showTransitionVideo(isNext: Boolean) {
@@ -3165,8 +3186,10 @@ class SelectSong : AppCompatActivity() {
         if (::audioController.isInitialized) audioController.onResume()
         if (::previewController.isInitialized) previewController.onResume()
         if (::carouselController.isInitialized) {
+            val index = carouselController.selectedIndex()
+            oldValue = index
             isFocus(
-                position = carouselController.selectedIndex(),
+                position = index,
                 resetLevelPosition = false
             )
         }
@@ -3219,8 +3242,3 @@ class SelectSong : AppCompatActivity() {
     }
 
 }
-
-
-
-
-

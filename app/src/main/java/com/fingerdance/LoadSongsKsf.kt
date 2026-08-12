@@ -12,7 +12,7 @@ import java.nio.file.Paths
 class LoadSongsKsf {
 
     private lateinit var channel: Channels
-    fun getChannels(context: Context): ArrayList<Channels> {
+    fun getChannels(context: Context, onProgress: ((channel: String, song: String) -> Unit)? = null): ArrayList<Channels> {
         val dir = context.getExternalFilesDir("/FingerDance/Songs/Channels/")
         val listChannels = ArrayList<Channels>()
         val listRutasChannels = mutableListOf<String>()
@@ -34,11 +34,12 @@ class LoadSongsKsf {
             var listSongs: ArrayList<Song>
 
             for (index in 0 until listRutasChannels.size) {
-                nombre = listRutasChannels[index].removeRange(0, 82)
+                nombre = File(listRutasChannels[index]).name //listRutasChannels[index].removeRange(0, 82)
+                onProgress ?.invoke(nombre, "")
                 descripcion = readFile(listRutasChannels[index] + "/info_ksf/text.ini")
                 banner = listRutasChannels[index] + "/banner_ksf.png"
                 rutaChannel = listRutasChannels[index]
-                listSongs = getSongs(rutaChannel, context)
+                listSongs = getSongs(rutaChannel, context, channelName = nombre, onProgress = onProgress)
                 channel = Channels(nombre, descripcion, banner, listSongs)
 
                 listChannels.add(channel)
@@ -47,39 +48,12 @@ class LoadSongsKsf {
         return listChannels
     }
 
-    fun getChannelsOnline(context: Context): ArrayList<Channels> {
-        val baseDir = context.getExternalFilesDir("/FingerDance/Songs/Channels/")
-        val listChannels = ArrayList<Channels>()
-
-        if (baseDir?.exists() == true && baseDir.isDirectory) {
-            val listRutasChannels = mutableListOf<String>()
-
-            // Filtrar solo las carpetas que coincidan con la lista
-            baseDir.listFiles()?.forEach { file ->
-                if (file.isDirectory && validFolders.contains(file.name)) {
-                    val infoDir = File(file, "info_ksf")
-                    if (infoDir.exists() && infoDir.isDirectory) {
-                        listRutasChannels.add(file.absolutePath)
-                    }
-                }
-            }
-
-            listRutasChannels.sort()
-
-            for (rutaChannel in listRutasChannels) {
-                val nombre = rutaChannel.substringAfterLast("/") // Nombre de la carpeta
-                val descripcion = readFile("$rutaChannel/info_ksf/text.ini")
-                val banner = "$rutaChannel/banner_ksf.png"
-                val listSongs = getSongs(rutaChannel, context)
-
-                val channel = Channels(nombre, descripcion, banner, listSongs)
-                listChannels.add(channel)
-            }
-        }
-        return listChannels
-    }
-
-    private fun getSongs(rutaChannel: String, c: Context): ArrayList<Song> {
+    private fun getSongs(
+        rutaChannel: String,
+        c: Context,
+        channelName: String,
+        onProgress: ((channel: String, song: String) -> Unit)?
+    ): ArrayList<Song> {
 
         val listSongs = ArrayList<Song>()
         val rutaBitActive = c.getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/img_lv.png").toString()
@@ -99,6 +73,7 @@ class LoadSongsKsf {
             val listKsf = arrayListOf<Ksf>()
             val songKsf = Song()
             val dir = File(listRutas[index])
+
             val channel = rutaChannel.split("/")
             val i = channel.size - 1
             songKsf.channel = channel[i]
@@ -110,6 +85,11 @@ class LoadSongsKsf {
                         }
                         if(it.toString().endsWith("Title.png", ignoreCase = true)){
                             songKsf.rutaTitle = it.absolutePath
+
+                            onProgress?.invoke(
+                                channelName,
+                                dir.name
+                            )
                         }
                         if(it.toString().endsWith(".mp3", ignoreCase = true) || it.toString().endsWith(".ogg", ignoreCase = true)){
                             songKsf.rutaSong = it.absolutePath

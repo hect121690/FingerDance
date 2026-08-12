@@ -9,12 +9,16 @@ import com.fingerdance.generateCheckedValuesSsc
 import com.fingerdance.generateId
 import com.fingerdance.readFileSsc
 import com.fingerdance.tema
+import com.fingerdance.validFolders
 import java.io.File
 import java.text.Normalizer
 
 class LoadingSongs {
 
-    fun getChannels(c: Context): ArrayList<Channels> {
+    fun getChannels(
+        c: Context,
+        onProgress: ((channel: String, song: String) -> Unit)? = null
+    ): ArrayList<Channels> {
         val dir = c.getExternalFilesDir("/FingerDance/Songs/Channels/")
         val listChannels = ArrayList<Channels>()
         val rutas = mutableListOf<String>()
@@ -29,9 +33,10 @@ class LoadingSongs {
 
         for (ruta in rutas) {
             val nombre = File(ruta).name
+            onProgress?.invoke(nombre, "")
             val descripcion = readFileSsc("$ruta/info/text.ini")
             val banner = "$ruta/banner.png"
-            val songs = getSongs(ruta, c)
+            val songs = getSongs(ruta, c, channelName = nombre, onProgress = onProgress)
 
             listChannels.add(Channels(nombre, descripcion, banner, songs))
         }
@@ -39,9 +44,47 @@ class LoadingSongs {
         return listChannels
     }
 
+    fun getChannelsOnline(context: Context, onProgress: ((channel: String, song: String) -> Unit)?): ArrayList<Channels> {
+        val baseDir = context.getExternalFilesDir("/FingerDance/Songs/Channels/")
+        val listChannels = ArrayList<Channels>()
+
+        if (baseDir?.exists() == true && baseDir.isDirectory) {
+            val listRutasChannels = mutableListOf<String>()
+
+            // Filtrar solo las carpetas que coincidan con la lista
+            baseDir.listFiles()?.forEach { file ->
+                if (file.isDirectory && validFolders.contains(file.name)) {
+                    val infoDir = File(file, "info")
+                    if (infoDir.exists() && infoDir.isDirectory) {
+                        listRutasChannels.add(file.absolutePath)
+                    }
+                }
+            }
+
+            listRutasChannels.sort()
+
+            for (rutaChannel in listRutasChannels) {
+                val nombre = rutaChannel.substringAfterLast("/") // Nombre de la carpeta
+                val descripcion = readFileSsc("$rutaChannel/info/text.ini")
+                val banner = "$rutaChannel/banner.png"
+                val listSongs = getSongs(rutaChannel, context, channelName = nombre, onProgress = onProgress)
+
+                val channel = Channels(nombre, descripcion, banner, listSongs)
+                listChannels.add(channel)
+            }
+        }
+        return listChannels
+    }
+
+
     // SOLO muestro getSongs que es donde estaba el problema
 
-    private fun getSongs(rutaChannel: String, c: Context): ArrayList<Song> {
+    private fun getSongs(
+        rutaChannel: String,
+        c: Context,
+        channelName: String,
+        onProgress: ((channel: String, song: String) -> Unit)?
+    ): ArrayList<Song> {
 
         val listSongs = ArrayList<Song>()
 
@@ -102,6 +145,10 @@ class LoadingSongs {
                         }
                     }
                 }
+                onProgress?.invoke(
+                    channelName,
+                    name.ifBlank { dir.name }
+                )
                 rutaBga = "$ruta/song.mp4"
                 rutaPreview = "$ruta/song_p.mp4"
                 val listLevels = arrayListOf<Ksf>()
@@ -115,6 +162,7 @@ class LoadingSongs {
                     var checkedValues = ""
                     var credit = ""
                     var difficulty = ""
+                    var songFile = ""
 
                     val arr2 = seccions[index].split(Regex("\\r?\\n"))
 
@@ -130,6 +178,7 @@ class LoadingSongs {
                             line.startsWith("#CREDIT:") -> credit = getValue(line)
                             line.startsWith("#DIFFICULTY:") -> difficulty = getValue(line)
                             line.startsWith("#DISPLAYBPM:") -> displayBpm = parseDisplayBpm(line) ?: ""
+                            line.startsWith("#MUSIC:") -> songFile = getValue(line)
                             line.startsWith("#NOTES:") -> break
                         }
                     }
@@ -157,7 +206,8 @@ class LoadingSongs {
                                 checkedValues = checkedValues,
                                 stepmaker = credit,
                                 chartName = chartName,
-                                difficulty = difficulty
+                                difficulty = difficulty,
+                                songFile = songFile
                             )
                         )
                     }

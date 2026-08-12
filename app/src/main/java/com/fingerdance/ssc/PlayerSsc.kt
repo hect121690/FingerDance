@@ -27,6 +27,7 @@ import com.fingerdance.hjGreat
 import com.fingerdance.hjPerfect
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
+import com.fingerdance.loadTexture
 import com.fingerdance.luaFlare
 import com.fingerdance.luaNotes
 import com.fingerdance.luaRecepts
@@ -92,11 +93,6 @@ class PlayerSsc(
         const val JUDGE_GOOD = 2
         const val JUDGE_BAD = 3
         const val JUDGE_MISS = 4
-
-        const val KEY_NONE = 0
-        const val KEY_DOWN = 1
-        const val KEY_PRESS = 2
-        const val KEY_UP = 3
 
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
@@ -251,21 +247,21 @@ class PlayerSsc(
 
     private fun initCommonInfo() {
         mine = Texture(Gdx.files.absolute("${File(ruta).parent}/Tap Mine 3x2.png"))
-        downLeftTap = screen.loadTexture(ruta, "DownLeft Tap Note 3x2")
-        upLeftTap = screen.loadTexture(ruta, "UpLeft Tap Note 3x2")
-        centerTap = screen.loadTexture(ruta, "Center Tap Note 3x2")
+        downLeftTap = loadTexture(ruta, "DownLeft Tap Note")
+        upLeftTap = loadTexture(ruta, "UpLeft Tap Note")
+        centerTap = loadTexture(ruta, "Center Tap Note")
         upRightTap = upLeftTap
         downRightTap = downLeftTap
 
-        downLeftBody = screen.loadTexture(ruta, "DownLeft Hold Body Active 6x1")
-        upLeftBody = screen.loadTexture(ruta, "UpLeft Hold Body Active 6x1")
-        centerBody = screen.loadTexture(ruta, "Center Hold Body Active 6x1")
+        downLeftBody = loadTexture(ruta, "DownLeft Hold Body Active")
+        upLeftBody = loadTexture(ruta, "UpLeft Hold Body Active")
+        centerBody = loadTexture(ruta, "Center Hold Body Active")
         upRightBody = upLeftBody
         downRightBody = downLeftBody
 
-        downLeftBottom = screen.loadTexture(ruta, "DownLeft Hold BottomCap Active 6x1")
-        upLeftBottom = screen.loadTexture(ruta, "UpLeft Hold BottomCap Active 6x1")
-        centerBottom = screen.loadTexture(ruta, "Center Hold BottomCap Active 6x1")
+        downLeftBottom = loadTexture(ruta, "DownLeft Hold BottomCap Active")
+        upLeftBottom = loadTexture(ruta, "UpLeft Hold BottomCap Active")
+        centerBottom = loadTexture(ruta, "Center Hold BottomCap Active")
         upRightBottom = upLeftBottom
         downRightBottom = downLeftBottom
 
@@ -389,12 +385,11 @@ class PlayerSsc(
     }
 
     fun updateStepData(songTimeMs: Double) {
+        inputProcessor.update()
         gameplayEngine.updateStepData(
             songTimeMs = songTimeMs,
             input = inputProcessor.getKeyBoard
         )
-
-        inputProcessor.update()
 
         if (
             barLifeCalculator.state.failed &&
@@ -1403,6 +1398,11 @@ class PlayerSsc(
     override fun onColumnActive(column: Int) {
         if (column !in 0..4) return
         startExpand(column)
+        drawPressedPad(column)
+    }
+
+    override fun onColumnPressed(column: Int) {
+        if (column !in 0..4) return
         drawPressedPad(column)
     }
 

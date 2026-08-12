@@ -25,9 +25,13 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="36">
         <activity
-            android:name=".PadEditorActivity"
+            android:name=".BluetoothLatencyProfilesActivity"
             android:exported="false"
-            android:screenOrientation="landscape"/>
+            android:screenOrientation="portrait"/>
+        <activity
+            android:name=".BluetoothLatencyActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".LoadResourcesActivity"
             android:configChanges="orientation|screenSize"

@@ -691,7 +691,7 @@ class SelectSongOnline : AppCompatActivity() {
                             prepare()
                         }
                         val isHalfDouble = listItemsKsf[oldValue].listKsf[positionActualLvs].typePlayer == "B"
-                        load(playerSong.rutaKsf!!, isHalfDouble)
+                        //load(playerSong.rutaKsf!!, isHalfDouble)
                         //readyPlay = true
 
                     }
@@ -951,16 +951,6 @@ class SelectSongOnline : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error al guardar el archivo", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    fun load(filename: String, isHalfDouble: Boolean = false) {
-        if(!isHalfDouble){
-            ksf = KsfProccess()
-            ksf.load(filename)
-        }else{
-            ksfHD = KsfProccessHD()
-            ksfHD.load(filename)
         }
     }
 

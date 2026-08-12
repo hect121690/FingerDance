@@ -12,7 +12,7 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
-private val TOUCH_RADIUS = widthBtnsHorizontal * 0.12f
+private val TOUCH_RADIUS = widthBtnsHorizontal * MULTIPLER_TOUCH_RADIUS
 
 class InputProcessorSscHorizontalHD : InputAdapter() {
 

@@ -26,6 +26,7 @@ import com.fingerdance.hjGreat
 import com.fingerdance.hjPerfect
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
+import com.fingerdance.loadTexture
 import com.fingerdance.luaFlare
 import com.fingerdance.luaNotes
 import com.fingerdance.luaRecepts
@@ -85,13 +86,6 @@ class PlayerSscHorizontalHD (
         const val JUDGE_BAD = 3
         const val JUDGE_MISS = 4
 
-        const val KEY_NONE = 0
-        const val KEY_DOWN = 1
-        const val KEY_PRESS = 2
-        const val KEY_UP = 3
-
-        const val MINE_PENALTY = 0.025f
-
         private lateinit var mine: Texture
         private lateinit var downLeftTap: Texture
         private lateinit var upLeftTap: Texture
@@ -135,6 +129,13 @@ class PlayerSscHorizontalHD (
         val x: Float = Gdx.graphics.width / 2f,
         val y: Float = Gdx.graphics.height / 2f
     )
+
+    data class HoldMetrics(
+        val widthRatio: Float,
+        val offsetRatio: Float
+    )
+
+    private val holdMetrics = Array(5) { Array(6) { HoldMetrics(1f, 0f) } }
 
     private val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
 
@@ -242,22 +243,22 @@ class PlayerSscHorizontalHD (
 
     private fun initCommonInfo() {
         mine = Texture(Gdx.files.absolute("${File(ruta).parent}/Tap Mine 3x2.png"))
-        downLeftTap = Texture(Gdx.files.absolute("$ruta/DownLeft Tap Note 3x2.png"))
-        upLeftTap = Texture(Gdx.files.absolute("$ruta/UpLeft Tap Note 3x2.png"))
-        centerTap = Texture(Gdx.files.absolute("$ruta/Center Tap Note 3x2.png"))
+        downLeftTap = loadTexture(ruta, "DownLeft Tap Note")
+        upLeftTap = loadTexture(ruta, "UpLeft Tap Note")
+        centerTap = loadTexture(ruta, "Center Tap Note")
         upRightTap = upLeftTap
         downRightTap = downLeftTap
 
-        downLeftBody = Texture(Gdx.files.absolute("$ruta/DownLeft Hold Body Active 6x1.png"))
-        upLeftBody = Texture(Gdx.files.absolute("$ruta/UpLeft Hold Body Active 6x1.png"))
-        centerBody = Texture(Gdx.files.absolute("$ruta/Center Hold Body Active 6x1.png"))
+        downLeftBody = loadTexture(ruta, "DownLeft Hold Body Active")
+        upLeftBody = loadTexture(ruta, "UpLeft Hold Body Active")
+        centerBody = loadTexture(ruta, "Center Hold Body Active")
         upRightBody = upLeftBody
         downRightBody = downLeftBody
 
-        downLeftBottom = Texture(Gdx.files.absolute("$ruta/DownLeft Hold BottomCap Active 6x1.png"))
-        upLeftBottom = Texture(Gdx.files.absolute("$ruta/UpLeft Hold BottomCap Active 6x1.png"))
-        centerBottom = Texture(Gdx.files.absolute("$ruta/Center Hold BottomCap Active 6x1.png"))
-        upRightBottom = upLeftBody
+        downLeftBottom = loadTexture(ruta, "DownLeft Hold BottomCap Active")
+        upLeftBottom = loadTexture(ruta, "UpLeft Hold BottomCap Active")
+        centerBottom = loadTexture(ruta, "Center Hold BottomCap Active")
+        upRightBottom = upLeftBottom
         downRightBottom = downLeftBottom
 
         val ldArrowFrame = getArrows3x2(downLeftTap)
@@ -296,11 +297,11 @@ class PlayerSscHorizontalHD (
             ruBodyArrowFrame,
             rdBodyArrowFrame)
 
-        val ldBottomArrowFrame = getArrows6x1(downLeftBottom)
-        val luBottomArrowFrame = getArrows6x1(upLeftBottom)
-        val ceBottomArrowFrame = getArrows6x1(centerBottom)
-        val ruBottomArrowFrame = getArrows6x1(upLeftBottom, true)
-        val rdBottomArrowFrame = getArrows6x1(downLeftBottom, true)
+        val ldBottomArrowFrame = getArrows6x1(downLeftBottom, metricsColumn = 0)
+        val luBottomArrowFrame = getArrows6x1(upLeftBottom, metricsColumn = 1)
+        val ceBottomArrowFrame = getArrows6x1(centerBottom, metricsColumn = 2)
+        val ruBottomArrowFrame = getArrows6x1(upLeftBottom, true, metricsColumn = 3)
+        val rdBottomArrowFrame = getArrows6x1(downLeftBottom, true, metricsColumn = 4)
 
         arrArrowsBottom = arrayOf(
             ldBottomArrowFrame,
@@ -315,7 +316,7 @@ class PlayerSscHorizontalHD (
             rdBottomArrowFrame)
 
         sprFlare = Texture(Gdx.files.absolute("$ruta/Flare 6x1.png"))
-        flareArrowFrame = getArrows6x1(sprFlare)
+        flareArrowFrame = getArrows6x1Flare(sprFlare)
 
         arrMines = getArrows3x2(mine)
         createWhiteTexture()
@@ -350,6 +351,7 @@ class PlayerSscHorizontalHD (
 
     fun render(songTimeMs: Double) {
         val timeCom = screen.timeGetTime()
+        val delta = Gdx.graphics.deltaTime
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
 
@@ -374,6 +376,9 @@ class PlayerSscHorizontalHD (
             songTimeMs = songTimeMs,
             renderer = this
         )
+
+        updateExpandAnimations(delta)
+        drawExpandEffects()
 
         val beatPhase = (currentBeat - kotlin.math.floor(currentBeat)).toFloat()
         val stretchProgress = beatPhase.coerceIn(0f, 1f)
@@ -408,12 +413,11 @@ class PlayerSscHorizontalHD (
     }
 
     fun updateStepData(songTimeMs: Double) {
+        inputProcessor.update()
         gameplayEngine.updateStepData(
             songTimeMs = songTimeMs,
             input = inputProcessor.getKeyBoard
         )
-
-        inputProcessor.update()
 
         if (
             barLifeCalculator.state.failed &&
@@ -557,8 +561,12 @@ class PlayerSscHorizontalHD (
         val remainingLength = (y2 - y).toFloat()
         val heightBody = remainingLength - middleSizeFlechas
 
+        val metric = holdMetrics[x % 5][arrowFrame.coerceIn(0, 5)]
+        val widthBody = medidaFlechasHorizontal * metric.widthRatio
+        val leftBody = left + medidaFlechasHorizontal * metric.offsetRatio
+
         if (heightBody > 0f) {
-            batch.draw(arrArrowsBody[x][arrowFrame], left, posY, medidaFlechasHorizontal, heightBody)
+            batch.draw(arrArrowsBody[x][arrowFrame], leftBody, posY, widthBody, heightBody)
         }
 
         if (remainingLength > heightBodyHead) {
@@ -574,6 +582,9 @@ class PlayerSscHorizontalHD (
         val left = computeLeft(x, y)
         val posY = y.toFloat() + middleSizeFlechas
         var heightBody = (y2 - y).toFloat() - middleSizeFlechas
+        val metric = holdMetrics[x % 5][arrowFrame.coerceIn(0, 5)]
+        val widthBody = medidaFlechasHorizontal * metric.widthRatio
+        val leftBody = left + medidaFlechasHorizontal * metric.offsetRatio
         if (isMidLine) {
             if (posY + heightBody > MEASUREVANISH && posY < initArrow){
                 var currentY = posY
@@ -592,7 +603,7 @@ class PlayerSscHorizontalHD (
 
                     if (alphaSegment > 0f) {
                         batch.setColor(1f, 1f, 1f, alphaSegment)
-                        batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechasHorizontal, drawHeight)
+                        batch.draw(arrArrowsBody[x][arrowFrame], leftBody, currentY, widthBody, drawHeight)
                     }
 
                     currentY += drawHeight
@@ -633,7 +644,7 @@ class PlayerSscHorizontalHD (
 
                 if (alphaSegment > 0f) {
                     batch.setColor(1f, 1f, 1f, alphaSegment)
-                    batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechasHorizontal, drawHeight)
+                    batch.draw(arrArrowsBody[x][arrowFrame], leftBody, currentY, widthBody, drawHeight)
                 }
 
                 currentY += drawHeight
@@ -663,6 +674,9 @@ class PlayerSscHorizontalHD (
         val left = computeLeft(x, y)
         val posY = y.toFloat() + middleSizeFlechas
         var heightBody = (y2 - y).toFloat() - middleSizeFlechas
+        val metric = holdMetrics[x % 5][arrowFrame.coerceIn(0, 5)]
+        val widthBody = medidaFlechasHorizontal * metric.widthRatio
+        val leftBody = left + medidaFlechasHorizontal * metric.offsetRatio
         if (posY < MEASURE) {
             if (posY + heightBody > MEASURE) {
                 heightBody = (MEASURE - posY).toFloat()
@@ -672,7 +686,7 @@ class PlayerSscHorizontalHD (
                 val alphaSegment = getAlpha(currentY, MEASURE)
                 val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
                 batch.setColor(1f, 1f, 1f, alphaSegment)
-                batch.draw(arrArrowsBody[x][arrowFrame], left, currentY, medidaFlechasHorizontal, drawHeight)
+                batch.draw(arrArrowsBody[x][arrowFrame], leftBody, currentY, widthBody, drawHeight)
                 currentY += drawHeight
             }
 
@@ -842,26 +856,100 @@ class PlayerSscHorizontalHD (
         }
     }
 
-    private fun showExpand(x: Int) {
-        batch.setColor(1f, 1f, 1f, 0.7f)
+    private val expandDuration = 0.18f
+    private val expandMaximumScale = 1.22f
+    private val expandElapsed = FloatArray(10) { expandDuration }
 
-        when (x) {
-            2 -> batch.draw(screen.receptCE[2], luaRecepts.screenX + screen.spaceInitHorizontalHD - posX, topPos, sizeScale, sizeScale)
-            3 -> batch.draw(screen.receptRU[2], luaRecepts.screenX + (medidaFlechasHorizontal) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            4 -> batch.draw(screen.receptRD[2], luaRecepts.screenX + (medidaFlechasHorizontal * 2) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            5 -> batch.draw(screen.receptLD[2], luaRecepts.screenX + (medidaFlechasHorizontal * 3) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            6 -> batch.draw(screen.receptLU[2], luaRecepts.screenX + (medidaFlechasHorizontal * 4) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
-            7 -> batch.draw(screen.receptCE[2], luaRecepts.screenX + (medidaFlechasHorizontal * 5) - posX + screen.spaceInitHorizontalHD, topPos, sizeScale, sizeScale)
+    private fun startExpand(position: Int) {
+        if (position !in 2..7) return
+        expandElapsed[position] = 0f
+    }
+
+    private fun updateExpandAnimations(delta: Float) {
+        for (position in 2..7) {
+            if (expandElapsed[position] < expandDuration) {
+                expandElapsed[position] =
+                    (expandElapsed[position] + delta).coerceAtMost(expandDuration)
+            }
         }
+    }
+
+    private fun getExpandReceptor(position: Int): TextureRegion? {
+        return when (position) {
+            2 -> screen.receptCE[2]
+            3 -> screen.receptRU[2]
+            4 -> screen.receptRD[2]
+            5 -> screen.receptLD[2]
+            6 -> screen.receptLU[2]
+            7 -> screen.receptCE[2]
+            else -> null
+        }
+    }
+
+    private fun getReceptorX(position: Int): Float {
+        return getLaneX(position) - posX + luaRecepts.screenX
+    }
+
+    private fun drawExpandEffect(position: Int) {
+        if (position !in 2..7) return
+
+        val elapsed = expandElapsed[position]
+        if (elapsed >= expandDuration) return
+
+        val receptor = getExpandReceptor(position) ?: return
+        val progress = (elapsed / expandDuration).coerceIn(0f, 1f)
+        val scale = 1f + (expandMaximumScale - 1f) * progress
+        val alpha = (0.8f - progress * progress).coerceIn(0f, 0.8f)
+
+        val baseX = getReceptorX(position)
+        val baseY = topPos
+
+        // HorizontalHD muestra seis receptores (2..7) y los posiciona con getLaneX().
+        // El viejo showExpand ya los agrandaba centrados mediante sizeScale/posX,
+        // por eso aquí el crecimiento adicional usa el centro real de cada receptor.
+        val originX = sizeScale * 0.50f
+        val originY = sizeScale * 0.50f
+
+        val previousSrc = batch.blendSrcFunc
+        val previousDst = batch.blendDstFunc
+
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+        batch.setColor(1f, 1f, 1f, alpha)
+
+        batch.draw(
+            receptor,
+            baseX,
+            baseY,
+            originX,
+            originY,
+            sizeScale,
+            sizeScale,
+            scale,
+            scale,
+            0f
+        )
+
+        batch.setColor(1f, 1f, 1f, 1f)
+        batch.setBlendFunction(previousSrc, previousDst)
+    }
+
+    private fun drawExpandEffects() {
+        for (position in 2..7) {
+            drawExpandEffect(position)
+        }
+        batch.setColor(1f, 1f, 1f, 1f)
+    }
+
+    private fun drawPressedPad(position: Int) {
+        if (position !in 2..7) return
+
+        batch.setColor(1f, 1f, 1f, 1f)
 
         if (showPadB == 3) {
-
-            batch.setColor(1f, 1f, 1f, 1f)
-
             batch.draw(
-                screen.arrayPad4[x % 5],
-                padPositionsHorizontalHD[x][0],
-                padPositionsHorizontalHD[x][1],
+                screen.arrayPad4[position % 5],
+                padPositionsHorizontalHD[position][0],
+                padPositionsHorizontalHD[position][1],
                 widthBtnsHorizontal,
                 heightBtnsHorizontal
             )
@@ -1029,25 +1117,24 @@ class PlayerSscHorizontalHD (
 
     private fun getArrows3x2(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
         val tmp = TextureRegion.split(arrow, arrow.width / 3, arrow.height / 2)
+        val textureData = arrow.textureData
 
-        return if (!isMirror) {
+        if (!textureData.isPrepared) textureData.prepare()
+        val pixmap = textureData.consumePixmap()
+
+        try {
             val frames = arrayOf(
-                tmp[0][0], tmp[0][1], tmp[0][2],
-                tmp[1][0], tmp[1][1], tmp[1][2]
+                trimFrame(tmp[0][0], pixmap), trimFrame(tmp[0][1], pixmap), trimFrame(tmp[0][2], pixmap),
+                trimFrame(tmp[1][0], pixmap), trimFrame(tmp[1][1], pixmap), trimFrame(tmp[1][2], pixmap)
             )
-            frames.forEach { it.flip(false, true) }
-            frames
-        } else {
-            val frames = arrayOf(
-                tmp[0][0], tmp[0][1], tmp[0][2],
-                tmp[1][0], tmp[1][1], tmp[1][2]
-            )
-            frames.forEach { it.flip(true, true) }
-            frames
+            frames.forEach { it.flip(isMirror, true) }
+            return frames
+        } finally {
+            if (textureData.disposePixmap()) pixmap.dispose()
         }
     }
 
-    private fun getArrows6x1(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
+    private fun getArrows6x1Flare(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
         arrow.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         val tmp = TextureRegion.split(arrow, arrow.width / 6, arrow.height)
 
@@ -1066,6 +1153,138 @@ class PlayerSscHorizontalHD (
             frames.forEach { it.flip(true, true) }
             frames
         }
+    }
+
+    private fun getArrows6x1(
+        arrow: Texture,
+        isMirror: Boolean = false,
+        metricsColumn: Int? = null
+    ): Array<TextureRegion> {
+        arrow.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+        val tmp = TextureRegion.split(arrow, arrow.width / 6, arrow.height)
+        val textureData = arrow.textureData
+
+        if (!textureData.isPrepared) textureData.prepare()
+        val pixmap = textureData.consumePixmap()
+
+        try {
+            val sourceFrames = arrayOf(
+                tmp[0][0], tmp[0][1], tmp[0][2],
+                tmp[0][3], tmp[0][4], tmp[0][5]
+            )
+
+            if (metricsColumn != null && metricsColumn in 0..4) {
+                for (i in sourceFrames.indices) {
+                    val metric = calculateHoldMetrics(sourceFrames[i], pixmap)
+                    holdMetrics[metricsColumn][i] = if (isMirror) {
+                        HoldMetrics(
+                            widthRatio = metric.widthRatio,
+                            offsetRatio =
+                                (1f - metric.offsetRatio - metric.widthRatio).coerceIn(0f, 1f)
+                        )
+                    } else {
+                        metric
+                    }
+                }
+            }
+
+            val frames = Array(6) { i -> trimFrame(sourceFrames[i], pixmap) }
+            frames.forEach { it.flip(isMirror, true) }
+            return frames
+        } finally {
+            if (textureData.disposePixmap()) pixmap.dispose()
+        }
+    }
+
+    private fun calculateHoldMetrics(
+        sourceRegion: TextureRegion,
+        pixmap: Pixmap,
+        alphaThreshold: Int = 1
+    ): HoldMetrics {
+        val sourceX = sourceRegion.regionX
+        val sourceY = sourceRegion.regionY
+        val sourceWidth = sourceRegion.regionWidth
+        val sourceHeight = sourceRegion.regionHeight
+
+        var trimMinX = sourceWidth
+        var trimMinY = sourceHeight
+        var trimMaxX = -1
+        var trimMaxY = -1
+
+        for (y in 0 until sourceHeight) {
+            for (x in 0 until sourceWidth) {
+                val alpha = pixmap.getPixel(sourceX + x, sourceY + y) and 0xFF
+                if (alpha >= alphaThreshold) {
+                    if (x < trimMinX) trimMinX = x
+                    if (y < trimMinY) trimMinY = y
+                    if (x > trimMaxX) trimMaxX = x
+                    if (y > trimMaxY) trimMaxY = y
+                }
+            }
+        }
+
+        if (trimMaxX < trimMinX || trimMaxY < trimMinY) {
+            return HoldMetrics(1f, 0f)
+        }
+
+        val firstRow = trimMinY
+        var lineMinX = sourceWidth
+        var lineMaxX = -1
+
+        for (x in trimMinX..trimMaxX) {
+            val alpha = pixmap.getPixel(sourceX + x, sourceY + firstRow) and 0xFF
+            if (alpha >= alphaThreshold) {
+                if (x < lineMinX) lineMinX = x
+                if (x > lineMaxX) lineMaxX = x
+            }
+        }
+
+        if (lineMaxX < lineMinX) return HoldMetrics(1f, 0f)
+
+        val trimmedWidth = trimMaxX - trimMinX + 1
+        val lineWidth = lineMaxX - lineMinX + 1
+
+        return HoldMetrics(
+            widthRatio = (lineWidth.toFloat() / trimmedWidth).coerceIn(0f, 1f),
+            offsetRatio =
+                ((lineMinX - trimMinX).toFloat() / trimmedWidth).coerceIn(0f, 1f)
+        )
+    }
+
+    private fun trimFrame(
+        sourceRegion: TextureRegion,
+        pixmap: Pixmap,
+        alphaThreshold: Int = 1
+    ): TextureRegion {
+        val sourceX = sourceRegion.regionX
+        val sourceY = sourceRegion.regionY
+        val sourceWidth = sourceRegion.regionWidth
+        val sourceHeight = sourceRegion.regionHeight
+
+        var minX = sourceWidth
+        var minY = sourceHeight
+        var maxX = -1
+        var maxY = -1
+
+        for (y in 0 until sourceHeight) {
+            for (x in 0 until sourceWidth) {
+                val alpha = pixmap.getPixel(sourceX + x, sourceY + y) and 0xFF
+                if (alpha >= alphaThreshold) {
+                    if (x < minX) minX = x
+                    if (y < minY) minY = y
+                    if (x > maxX) maxX = x
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+
+        if (maxX < minX || maxY < minY) {
+            return TextureRegion(sourceRegion, 0, 0, 1, 1)
+        }
+
+        val trimmedWidth = maxX - minX + 1
+        val trimmedHeight = maxY - minY + 1
+        return TextureRegion(sourceRegion, minX, minY, trimmedWidth, trimmedHeight)
     }
 
     fun disposePlayer() {
@@ -1142,7 +1361,14 @@ class PlayerSscHorizontalHD (
     }
 
     override fun onColumnActive(column: Int) {
-        showExpand(column)
+        if (column !in 2..7) return
+        startExpand(column)
+        drawPressedPad(column)
+    }
+
+    override fun onColumnPressed(column: Int) {
+        if (column !in 2..7) return
+        drawPressedPad(column)
     }
 
     override fun onJudge(

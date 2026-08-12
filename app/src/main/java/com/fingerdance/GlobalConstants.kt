@@ -10,6 +10,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
+import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.Texture
 import com.fingerdance.ssc.Parser.Chart
 import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
@@ -217,6 +219,8 @@ var luaJudge = LuaTransform()
 
 var isEndingFade = false
 var endingFadeAlpha = 0f
+
+const val MULTIPLER_TOUCH_RADIUS = 0.10f
 
 // ========== FUNCIONES HELPER ==========
 
@@ -574,6 +578,27 @@ fun loadSounds(c: Context) {
     getRankB(pathSounds)
     getNavigationSounds(pathSounds)
     getSoundEndSong(pathSounds)
+}
+
+fun loadTexture(ruta: String, fileName: String): Texture {
+    val search = normalizeName(fileName)
+
+    val file = File(ruta).listFiles()?.firstOrNull {
+        it.isFile &&
+                it.extension.equals("png", ignoreCase = true) &&
+                normalizeName(it.name).contains(search)
+    } ?: error("No se encontró un PNG que contenga '$fileName' en $ruta")
+
+    return Texture(Gdx.files.absolute(file.absolutePath))
+}
+
+private fun normalizeName(name: String): String {
+    return File(name).nameWithoutExtension
+        .replace("_", " ")
+        .replace("-", " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .lowercase()
 }
 
 private fun readFile(path: String): String {

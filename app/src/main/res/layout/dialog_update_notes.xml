@@ -22,7 +22,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="INFORMACIÓN"
+                android:text="Actualización Finger Dance 3.0.8"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:textSize="24sp"
@@ -31,7 +31,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Finger Dance 3.0.5"
+                android:text="Novedades:"
                 android:textColor="#00E5FF"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -57,22 +57,14 @@
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/txUpdateMessage"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="• El Ranking Global fue reiniciado debido a ajustes realizados en el sistema de calificación de la aplicación.\n\n• Se integró soporte para archivos Lua exclusivos de Finger Dance, permitiendo añadir nuevos efectos visuales y transformaciones durante la jugabilidad.\n\n• Se agregó un fix para el mensaje de nivel modificado en canciones.\n\n• Mejoras generales de estabilidad y compatibilidad."
                         android:textColor="#DDDDDD"
+                        android:textColorLink="#00BFFF"
                         android:textSize="15sp"
-                        android:lineSpacingExtra="4dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="⚠️ IMPORTANTE\n\nDebido a los cambios realizados en el sistema de evaluación, el Ranking Global anterior ya no es compatible con la nueva versión."
-                        android:textColor="#FFD54F"
-                        android:textStyle="bold"
-                        android:textSize="14sp"
-                        android:layout_marginTop="18dp" />
-
+                        android:lineSpacingExtra="4dp"
+                        android:linksClickable="true" />
                 </LinearLayout>
 
             </ScrollView>

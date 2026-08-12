@@ -27,6 +27,7 @@ import android.util.LruCache
 import android.util.TypedValue
 import android.view.Choreographer
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
@@ -407,6 +408,18 @@ class SelectSongHorizontal : AppCompatActivity() {
         recyclerLvsEmpty = findViewById(R.id.recyclerLvsEmptyHorizontal)
         indicatorLayout = findViewById(R.id.indicatorCurrentLv)
 
+        recyclerLvs.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                // Retorna true para interceptar el toque y evitar el scroll
+                return true
+            }
+        })
+        recyclerLvsEmpty.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                // Retorna true para interceptar el toque y evitar el scroll
+                return true
+            }
+        })
 
         txInfoCurrentSong = findViewById(R.id.txInfoCurrentSong)
         linearLvAndRanking = findViewById(R.id.linearLvAndRanking)
@@ -770,7 +783,6 @@ class SelectSongHorizontal : AppCompatActivity() {
                 } else {
                     oldValueCommandValues++
                     isFocusCommandWindowValues(oldValueCommandValues)
-
                 }
             }
         }
@@ -2237,16 +2249,6 @@ class SelectSongHorizontal : AppCompatActivity() {
         lbNameSong.startAnimation(AppResources.animNameSong)
         startSongPlayback(song.rutaSong)
         recyclerLvs.adapter?.notifyDataSetChanged()
-    }
-
-    fun load(filename: String, isHalfDouble: Boolean = false) {
-        if(!isHalfDouble){
-            ksf = KsfProccess()
-            ksf.load(filename)
-        }else{
-            ksfHD = KsfProccessHD()
-            ksfHD.load(filename)
-        }
     }
 
     private fun llenaLvsKsf(listLvs: MutableList<Ksf>) {

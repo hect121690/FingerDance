@@ -18,7 +18,7 @@
 
 
     <string-array name="tips_array">
-        <item>Compite con un amigo! Prueba el modo ONLINE.</item>
+        <!--<item>Compite con un amigo! Prueba el modo ONLINE.</item>-->
         <item>Recuerda configurar el OFFSET en el CommnadWindow si sientes que las flechas no van a ritmo.</item>
         <item>Puedes elegir o configurar otros Pads en la seccion Options</item>
         <item>Puedes descargar mas packs disponibles de canciones en la seccion Option/Canciones.</item>
@@ -92,5 +92,24 @@
 
     <string name="favorites_description">En este canal encontraras tus canciones favoritas.
     </string>
+
+    <string name="message_update"><![CDATA[
+    • Se incluyeron nuevas NoteSkins para personalizar aún más la apariencia de las notas durante el juego.<br><br>
+
+    • Se agregaron nuevos canales disponibles para descargar, incluyendo el canal PHOENIX 2.
+    <a href="https://www.facebook.com/TheResistance2019">Gracias a The Resistance Simfiles</a>
+    <font color="#9E9E9E"> · Toca el enlace para visitar su página</font>.<br><br>
+    • Se corrigió un error que provocaba que las canciones en formato KSF no funcionaran en orientación horizontal.<br><br>
+
+    • Se mejoró la precisión al detectar y calificar las pisadas, especialmente en canciones con patrones rápidos y muchas notas seguidas.<br><br>
+
+    • Las notas que no fueron pisadas ahora continúan su recorrido de forma más natural después de marcarse como MISS.<br><br>
+
+    • Se mejoró la apariencia y alineación de las notas largas para que se adapten correctamente a diferentes NoteSkins.<br><br>
+
+    • Se mejoraron los efectos visuales al pisar las notas y la animación de los receptores.<br><br>
+
+    • Se realizaron mejoras generales de estabilidad, rendimiento y compatibilidad.
+]]></string>
 
 </resources>
