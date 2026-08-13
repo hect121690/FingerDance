@@ -1,0 +1,70 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_online">
+
+    <ImageView
+        android:id="@+id/imgBackground"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:src="@drawable/img_create_sala"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!--  Código real sobre la placa holográfica  -->
+    <TextView
+        android:id="@+id/txtRoomCode"
+        android:layout_width="94dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_room_code_overlay"
+        android:gravity="center"
+        android:letterSpacing="0.08"
+        android:rotation="-4"
+        android:rotationX="15"
+        android:rotationY="21"
+        android:text="12345678"
+        android:textColor="#FFFFFF"
+        android:textSize="14dp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/imgBackground"
+        app:layout_constraintEnd_toEndOf="@id/imgBackground"
+        app:layout_constraintHeight_percent="0.105"
+        app:layout_constraintHorizontal_bias="0.13"
+        app:layout_constraintStart_toStartOf="@id/imgBackground"
+        app:layout_constraintTop_toTopOf="@id/imgBackground"
+        app:layout_constraintVertical_bias="0.502"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <!--  Área invisible encima de la zona que usaremos como COMPARTIR  -->
+    <Button
+        android:id="@+id/btnShareOverlay"
+        android:layout_width="180dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/button_online"
+        android:text="COMPARTIR"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/imgBackground" />
+
+    <Button
+        android:id="@+id/btnCancel"
+        android:layout_width="180dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_dialog_online"
+        android:text="CANCELAR SALA"
+        android:textColor="#F43C6B"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnShareOverlay" />
+</androidx.constraintlayout.widget.ConstraintLayout>

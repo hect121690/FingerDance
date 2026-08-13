@@ -458,6 +458,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         val folder = File(getExternalFilesDir(null), "FingerDance")
         if (folder.exists()) {
             lifecycleScope.launch {
+                startOnline = true
                 creaMain()
             }
         } else {
@@ -1385,7 +1386,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         return commands
     }
 
-    private fun showLoadingOverlay(message: String, channel: String = "", song: String = "", ) {
+    private fun showLoadingOverlay(message: String, channel: String = "", song: String = "") {
         loadingLayout.visibility = View.VISIBLE
         txtLoadingMessage.text = message
         txtLoadingChannel.text = channel
@@ -1406,107 +1407,44 @@ class MainActivity : AppCompatActivity(), Serializable {
     private fun showOnlineMode(animation: Animation, goSound: MediaPlayer) {
         btnPlayOnline.isEnabled = false
         btnPlayOnline.startAnimation(animation)
-        val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        btnParams.setMargins(16, 16, 16, 16)
-        val btnCreateRoom = Button(this@MainActivity).apply {
-            text = "Crear Sala"
-            setPadding(20, 10, 20, 10)
-            background = ContextCompat.getDrawable(context, R.drawable.button_online)
-            setTextColor(Color.WHITE)
-        }
-        val btnJoinRoom = Button(this@MainActivity).apply {
-            text = "Unirme a Sala"
-            setPadding(20, 10, 20, 10)
-            background = ContextCompat.getDrawable(context, R.drawable.button_online)
-            setTextColor(Color.WHITE)
-        }
 
-        val btnGetRoom = Button(this@MainActivity).apply {
-            text = "Entrar"
-            setPadding(20, 10, 20, 10)
-            background = ContextCompat.getDrawable(context, R.drawable.button_pink)
-            setTextColor(Color.WHITE)
-        }
+        val view = layoutInflater.inflate(R.layout.dialog_online, null)
 
-        val editTextRoom = EditText(this@MainActivity).apply {
-            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            hint = "Ingresar clave"
-        }
-
-        val linearOnline = LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        btnCreateRoom.layoutParams = btnParams
-        btnJoinRoom.layoutParams = btnParams
-
-        linearOnline.addView(btnCreateRoom)
-        linearOnline.addView(btnJoinRoom)
-
-        val linearClave = LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        linearClave.addView(editTextRoom)
-        linearClave.addView(btnGetRoom)
-        linearClave.visibility = View.GONE
-
-        val linearLayouts = LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        linearLayouts.addView(linearOnline)
-        linearLayouts.addView(linearClave)
+        val btnCreateRoom = view.findViewById<Button>(R.id.btnCreateRoom)
+        val btnJoinRoom = view.findViewById<Button>(R.id.btnJoinRoom)
+        val btnCancel = view.findViewById<Button>(R.id.btnCancel)
 
         val dialog = AlertDialog.Builder(this@MainActivity)
-            .setTitle("Modo Online 1 vs 1")
-            .setMessage("Elige una opción:")
-            .setView(linearLayouts)
+            .setView(view)
             .setCancelable(false)
-            .setNegativeButton("Cancelar") { d, _ ->
-                d.dismiss()
-                btnPlayOnline.isEnabled = true
-            }
-            .show()
+            .create()
 
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
-            textSize = 18f
-            setTextColor(Color.RED)
-            val layoutParams = this.layoutParams as LinearLayout.LayoutParams
-            layoutParams.gravity = Gravity.CENTER
-            layoutParams.width = LinearLayout.LayoutParams.MATCH_PARENT
-            this.layoutParams = layoutParams
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setLayout(
+                    (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                )
+            }
         }
 
-        val dialogNoSala = AlertDialog.Builder(this@MainActivity)
-            .setTitle("Aviso")
-            .setCancelable(false)
-            .setPositiveButton("Aceptar") { d, _ ->
-                d.dismiss()
-            }
+        dialog.show()
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            btnPlayOnline.isEnabled = true
+        }
 
         btnJoinRoom.setOnClickListener {
-            dialog.setMessage("Ingresa la clave para entrar a la sala")
-            linearOnline.visibility = View.GONE
-            linearClave.visibility = View.VISIBLE
+            dialog.dismiss()
+            mostrarJoinSala(goSound)
         }
 
         btnCreateRoom.setOnClickListener {
+            btnCreateRoom.isEnabled = false
             goSound.start()
+
             isPlayer1 = true
             isOnline = true
             idSala = UUID.randomUUID().toString().substring(0, 8)
@@ -1530,31 +1468,63 @@ class MainActivity : AppCompatActivity(), Serializable {
                         .onDisconnect()
                         .setValue(false)
 
-                    mostrarCodigoSala(dialog)
+                    dialog.dismiss()
+                    mostrarCodigoSala()
                 }
                 .addOnFailureListener { error ->
+                    btnCreateRoom.isEnabled = true
                     isOnline = false
                     btnPlayOnline.isEnabled = true
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "No se pudo crear la sala: ${error.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    mostrarErrorSala("No se pudo crear la sala:${error.message.orEmpty()}")
                 }
         }
+    }
 
-        btnGetRoom.setOnClickListener {
-            val roomCode = editTextRoom.text.toString().trim()
+    private fun mostrarJoinSala(goSound: MediaPlayer) {
+        val view = layoutInflater.inflate(R.layout.dialog_join_sala, null)
+
+        val editRoomCode = view.findViewById<EditText>(R.id.editRoomCode)
+        val btnEnter = view.findViewById<View>(R.id.btnEnterOverlay)
+        val btnCancel = view.findViewById<Button>(R.id.btnCancel)
+
+        val dialog = AlertDialog.Builder(this@MainActivity)
+            .setView(view)
+            .setCancelable(false)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+                setLayout(
+                    (resources.displayMetrics.widthPixels * 0.94f).toInt(),
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+
+        dialog.show()
+
+        editRoomCode.requestFocus()
+
+        dialog.window?.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+        )
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            btnPlayOnline.isEnabled = true
+        }
+
+        btnEnter.setOnClickListener {
+            val roomCode = editRoomCode.text.toString().trim()
 
             if (roomCode.isEmpty()) {
-                dialogNoSala
-                    .setMessage("Debe ingresar la clave de la sala")
-                    .show()
+                mostrarErrorSala("Debes ingresar la clave de la sala")
                 return@setOnClickListener
             }
 
-            btnGetRoom.isEnabled = false
+            btnEnter.isEnabled = false
+            editRoomCode.isEnabled = false
             goSound.start()
 
             idSala = roomCode
@@ -1578,10 +1548,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                         return Transaction.abort()
                     }
 
-                    if (
-                        sala.jugador2.id.isNotBlank() &&
-                        sala.jugador2.conectado
-                    ) {
+                    if (sala.jugador2.id.isNotBlank() && sala.jugador2.conectado) {
                         return Transaction.abort()
                     }
 
@@ -1595,34 +1562,25 @@ class MainActivity : AppCompatActivity(), Serializable {
                 override fun onComplete(
                     error: DatabaseError?,
                     committed: Boolean,
-                    currentData: DataSnapshot?
+                    currentData: DataSnapshot?,
                 ) {
-                    btnGetRoom.isEnabled = true
+                    btnEnter.isEnabled = true
+                    editRoomCode.isEnabled = true
 
                     if (error != null) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Error al entrar a la sala: ${error.message}",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        mostrarErrorSala("Error al entrar a la sala:${error.message}")
                         return
                     }
 
                     if (!committed) {
-                        dialogNoSala
-                            .setMessage(
-                                "La sala no existe, ya tiene dos jugadores o ya no está disponible"
-                            )
-                            .show()
+                        mostrarErrorSala("La sala no existe, ya tiene dos jugadores o ya no está disponible")
                         return
                     }
 
                     val sala = currentData?.getValue(Sala::class.java)
 
                     if (sala == null) {
-                        dialogNoSala
-                            .setMessage("La sala ya no existe")
-                            .show()
+                        mostrarErrorSala("La sala ya no existe")
                         return
                     }
 
@@ -1630,10 +1588,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     isPlayer1 = false
                     activeSala = sala
 
-                    salaRef
-                        .child("jugador2/conectado")
-                        .onDisconnect()
-                        .setValue(false)
+                    salaRef.child("jugador2/conectado").onDisconnect().setValue(false)
 
                     dialog.dismiss()
                     prepareOnlineAndOpenSelectChannel()
@@ -1642,90 +1597,81 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
+    private fun mostrarErrorSala(message: String) {
+        val view = layoutInflater.inflate(R.layout.dialog_sala_not_found, null)
+
+        val txtMessage = view.findViewById<TextView>(R.id.txtMessage)
+        val btnAccept = view.findViewById<Button>(R.id.btnAccept)
+
+        txtMessage.text = message
+
+        val dialog = AlertDialog.Builder(this@MainActivity)
+            .setView(view)
+            .setCancelable(false)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setLayout(
+                    (resources.displayMetrics.widthPixels * 0.90f).toInt(),
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+
+        dialog.show()
+
+        btnAccept.setOnClickListener {
+            dialog.dismiss()
+        }
+    }
+
     private fun prepareOnlineAndOpenSelectChannel() {
         showLoadingOverlay("Espere por favor...")
+        try {
+            val jsonListChannels = themes.getString("allTunes", "")
+            listChannels = gson.fromJson(
+                jsonListChannels,
+                object : TypeToken<ArrayList<Channels>>() {}.type
+            )
+            listChannelsOnline = listChannels.filter { it.nombre in validFolders } as ArrayList<Channels>
 
-        lifecycleScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val progress: (String, String) -> Unit = { channel, song ->
-                        updateLoadingSongs(
-                            channel = channel,
-                            song = song
-                        )
+            if (themes.getString("efects", "").orEmpty().isEmpty()) {
+                listCommands = getFilesCW(this@MainActivity)
+                val ordenEspecifico = listOf("-.05", "-.1", "-.5", "-1", "0", "1",".5", ".1", ".05")
+                val ordenMap = ordenEspecifico.withIndex().associate { it.value to it.index }
+
+                listCommands.find { it.descripcion == "Cambiar la velocidad de la nota." }
+                    ?.listCommandValues
+                    ?.sortBy {
+                        ordenMap[it.value] ?: Int.MAX_VALUE
                     }
 
-                    listChannelsOnline = LoadingSongs().getChannelsOnline(
-                        context = this@MainActivity,
-                        onProgress = progress
-                    )
-
-                    if (themes.getString("efects", "").orEmpty().isEmpty()) {
-                        listCommands = getFilesCW(this@MainActivity)
-
-                        val ordenEspecifico = listOf(
-                            "-.05",
-                            "-.1",
-                            "-.5",
-                            "-1",
-                            "0",
-                            "1",
-                            ".5",
-                            ".1",
-                            ".05"
-                        )
-
-                        val ordenMap = ordenEspecifico
-                            .withIndex()
-                            .associate { it.value to it.index }
-
-                        listCommands
-                            .find {
-                                it.descripcion == "Cambiar la velocidad de la nota."
-                            }
-                            ?.listCommandValues
-                            ?.sortBy {
-                                ordenMap[it.value] ?: Int.MAX_VALUE
-                            }
-
-                        themes.edit()
-                            .putString("efects", gson.toJson(listCommands))
-                            .apply()
-                    } else {
-                        val jsonListCommands = themes.getString("efects", "")
-
-                        listCommands = gson.fromJson(
-                            jsonListCommands,
-                            object : TypeToken<ArrayList<Command>>() {}.type
-                        )
-                    }
-
-                    loadSounds(this@MainActivity)
-                }
-
-                loadingLayout.visibility = View.INVISIBLE
-
-                val intent = Intent(
-                    this@MainActivity,
-                    SelectChannelOnline::class.java
+                themes.edit().putString("efects", gson.toJson(listCommands)).apply()
+            } else {
+                val jsonListCommands = themes.getString("efects", "")
+                listCommands = gson.fromJson(
+                    jsonListCommands,
+                    object : TypeToken<ArrayList<Command>>() {}.type
                 )
-                intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                startActivity(intent)
-
-                mediaPlayerMain.pause()
-                soundPlayer?.pause()
-                btnPlayOnline.isEnabled = true
-
-            } catch (e: Exception) {
-                loadingLayout.visibility = View.INVISIBLE
-                btnPlayOnline.isEnabled = true
-
-                Toast.makeText(
-                    this@MainActivity,
-                    "Error al cargar modo online: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
             }
+
+            loadSounds(this@MainActivity)
+
+            loadingLayout.visibility = View.INVISIBLE
+
+            val intent = Intent(this@MainActivity, LoadResourcesActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            startActivity(intent)
+            mediaPlayerMain.pause()
+            soundPlayer?.pause()
+            btnPlayOnline.isEnabled = true
+
+        } catch (e: Exception) {
+            loadingLayout.visibility = View.INVISIBLE
+            btnPlayOnline.isEnabled = true
+            Toast.makeText(this@MainActivity, "Error al cargar modo online: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1768,48 +1714,77 @@ class MainActivity : AppCompatActivity(), Serializable {
         exitProcess(0)
     }
 
-    private fun mostrarCodigoSala(alertDialog: AlertDialog) {
-        val txSalaId = TextView(this@MainActivity).apply {
-            setTextColor(Color.BLACK)
-            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-            text = idSala
-        }
+    private fun mostrarCodigoSala() {
+        val view = layoutInflater.inflate(R.layout.dialog_create_sala, null)
+
+        val txtRoomCode = view.findViewById<TextView>(R.id.txtRoomCode)
+        val btnShare = view.findViewById<View>(R.id.btnShareOverlay)
+        val btnCancel = view.findViewById<Button>(R.id.btnCancel)
+
+        txtRoomCode.text = idSala
 
         val dialog = AlertDialog.Builder(this@MainActivity)
-            .setTitle("Crear sala")
-            .setMessage("Envía esta clave al jugador que quieras invitar a la sala")
-            .setView(txSalaId)
+            .setView(view)
             .setCancelable(false)
-            .setPositiveButton("Compartir") { d, _ ->
-                alertDialog.dismiss()
-                d.dismiss()
-
-                waitForPlayer2()
-                mostrarDialogoCompartir(this)
-            }
-            .setNegativeButton("Cancelar") { _, _ ->
-                cancelCreatedRoom()
-            }
             .create()
 
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setLayout(
+                    (resources.displayMetrics.widthPixels * 0.94f).toInt(),
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+
         dialog.show()
+
+        btnShare.setOnClickListener {
+            dialog.dismiss()
+            waitForPlayer2()
+            mostrarDialogoCompartir(this)
+        }
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            cancelCreatedRoom()
+        }
     }
 
     private fun waitForPlayer2() {
         stopWaitingPlayer2Listener()
 
+        val view = layoutInflater.inflate(R.layout.dialog_wait_player, null)
+
+        val txtWaitingMessage = view.findViewById<TextView>(R.id.txtWaitingMessage)
+        val txtWaitingRoomCode = view.findViewById<TextView>(R.id.txtWaitingRoomCode)
+        val btnCancelRoom = view.findViewById<Button>(R.id.btnCancelRoom)
+
+        txtWaitingRoomCode.text = idSala
+
         val waitingDialog = AlertDialog.Builder(this@MainActivity)
-            .setTitle("Sala $idSala")
-            .setMessage("Esperando a que el jugador 2 entre a la sala...")
+            .setView(view)
             .setCancelable(false)
-            .setNegativeButton("Cancelar sala") { _, _ ->
-                stopWaitingPlayer2Listener()
-                cancelCreatedRoom()
-            }
             .create()
 
+        waitingDialog.setOnShowListener {
+            waitingDialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setLayout(
+                    (resources.displayMetrics.widthPixels * 0.90f).toInt(),
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+
         waitingDialog.show()
+
+        btnCancelRoom.setOnClickListener {
+            stopWaitingPlayer2Listener()
+            waitingDialog.dismiss()
+            cancelCreatedRoom()
+        }
 
         waitingPlayer2Listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -1818,25 +1793,30 @@ class MainActivity : AppCompatActivity(), Serializable {
                 if (sala == null) {
                     stopWaitingPlayer2Listener()
                     waitingDialog.dismiss()
+
                     isOnline = false
                     btnPlayOnline.isEnabled = true
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "La sala ya no existe",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this@MainActivity, "La sala ya no existe", Toast.LENGTH_SHORT).show()
                     return
                 }
 
                 activeSala = sala
 
-                val player2Ready =
-                    sala.jugador2.id.isNotBlank() &&
-                            sala.jugador2.conectado &&
-                            sala.estado == RoomState.SELECTING.name
+                val player2Connected = sala.jugador2.id.isNotBlank() && sala.jugador2.conectado
 
-                if (!player2Ready) {
+                if (!player2Connected) {
+                    txtWaitingMessage.text = "Esperando a que el jugador 2 entre a la sala..."
+                    return
+                }
+                txtWaitingMessage.text = "${sala.jugador2.id} se ha unido a la sala"
+                // Si Player 2 ya está conectado pero la sala sigue WAITING,
+                // el host la cambia a SELECTING.
+                if (sala.estado == RoomState.WAITING.name) {
+                    salaRef.child("estado").setValue(RoomState.SELECTING.name)
+                    return
+                }
+
+                if (sala.estado != RoomState.SELECTING.name) {
                     return
                 }
 
@@ -1849,17 +1829,12 @@ class MainActivity : AppCompatActivity(), Serializable {
             override fun onCancelled(error: DatabaseError) {
                 stopWaitingPlayer2Listener()
                 waitingDialog.dismiss()
+
                 isOnline = false
                 btnPlayOnline.isEnabled = true
-
-                Toast.makeText(
-                    this@MainActivity,
-                    "Error esperando al jugador 2: ${error.message}",
-                    Toast.LENGTH_LONG
-                ).show()
+                mostrarErrorSala("Error esperando al jugador 2:\n${error.message}")
             }
         }
-
         salaRef.addValueEventListener(waitingPlayer2Listener!!)
     }
 
@@ -1877,11 +1852,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         stopWaitingPlayer2Listener()
 
         if (::salaRef.isInitialized) {
-            salaRef
-                .child("jugador1/conectado")
-                .onDisconnect()
-                .cancel()
-
+            salaRef.child("jugador1/conectado").onDisconnect().cancel()
             salaRef.removeValue()
         }
 
@@ -2147,12 +2118,12 @@ data class Jugador(
     var conectado: Boolean = false,
     var listo: Boolean = false,
     var live: LiveResult = LiveResult(),
-    var result: Resultado = Resultado()
+    var result: Resultado = Resultado(),
 )
 
 data class LiveResult(
     var score: Int = 0,
-    var combo: Int = 0
+    var combo: Int = 0,
 )
 
 data class Sala(
@@ -2162,7 +2133,7 @@ data class Sala(
     var turno: String = "",
     var date: String = "",
     var readyToResult: Boolean = false,
-    var estado: String = RoomState.WAITING.name
+    var estado: String = RoomState.WAITING.name,
 )
 
 data class CancionOnline(

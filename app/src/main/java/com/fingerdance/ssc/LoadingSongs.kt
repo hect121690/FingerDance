@@ -182,6 +182,9 @@ class LoadingSongs {
                             line.startsWith("#NOTES:") -> break
                         }
                     }
+                    if(numberLevel == "") {
+                        numberLevel = difficulty.toIntOrNull()?.toString() ?: "0"
+                    }
 
                     if (displayBpm.isBlank() && bpmsLine.isNotBlank()) {
                         displayBpm = extractDisplayBpmFromBpms(listOf(bpmsLine))

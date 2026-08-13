@@ -23,7 +23,7 @@ class LoadResourcesActivity : AppCompatActivity() {
     private var rutaBase: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (isHorizontalMode) {
+        if (isHorizontalMode && !isOnline) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         } else {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -71,7 +71,7 @@ class LoadResourcesActivity : AppCompatActivity() {
         val intent = if (isHorizontalMode) {
             Intent(this, SelectChannelHorizontal::class.java)
         } else {
-            Intent(this, SelectChannel::class.java)
+            Intent(this, if(isOnline) SelectChannelOnline::class.java else SelectChannel::class.java)
         }
         startActivity(intent)
         finish()

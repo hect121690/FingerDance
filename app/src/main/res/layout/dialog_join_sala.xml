@@ -1,0 +1,72 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_online">
+
+    <ImageView
+        android:id="@+id/imgBackground"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:src="@drawable/img_join_sala"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!--  Caja real de entrada, colocada sobre el panel dibujado de la imagen  -->
+    <EditText
+        android:id="@+id/editRoomCode"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@android:color/transparent"
+        android:gravity="center"
+        android:hint="Ingresar clave..."
+        android:inputType="text"
+        android:maxLines="1"
+        android:maxLength="8"
+        android:padding="4dp"
+        android:singleLine="true"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#AFC2C8"
+        android:textSize="14dp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/imgBackground"
+        app:layout_constraintEnd_toEndOf="@id/imgBackground"
+        app:layout_constraintHeight_percent="0.105"
+        app:layout_constraintHorizontal_bias="0.485"
+        app:layout_constraintStart_toStartOf="@id/imgBackground"
+        app:layout_constraintTop_toTopOf="@id/imgBackground"
+        app:layout_constraintVertical_bias="0.85"
+        app:layout_constraintWidth_percent="0.35" />
+
+    <!--  Área invisible encima del botón ENTRAR que ya está dibujado  -->
+    <Button
+        android:id="@+id/btnEnterOverlay"
+        android:layout_width="180dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/button_pink"
+        android:text="UNIRME A SALA"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/imgBackground" />
+
+    <Button
+        android:id="@+id/btnCancel"
+        android:layout_width="180dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_dialog_online"
+        android:text="CANCELAR"
+        android:textColor="#F43C6B"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnEnterOverlay" />
+</androidx.constraintlayout.widget.ConstraintLayout>
