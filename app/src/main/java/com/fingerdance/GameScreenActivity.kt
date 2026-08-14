@@ -1,15 +1,15 @@
 package com.fingerdance
 
-import android.R.attr.alpha
-import android.R.attr.pivotY
-import android.R.attr.scaleY
-import android.animation.ValueAnimator
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,35 +18,29 @@ import android.view.Surface
 import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
+import android.view.ViewPropertyAnimator
 import android.view.WindowManager
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.annotation.RequiresApi
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.isVisible
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.fingerdance.ssc.GameScreenSsc
+import com.fingerdance.ssc.GameScreenSscHD
+import com.fingerdance.ssc.PlayerSsc
+import com.fingerdance.ssc.SongClock
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.io.File
-import android.content.pm.ActivityInfo
-import android.graphics.RenderEffect
-import android.graphics.Shader
-import android.os.Build
-import android.view.Gravity.isVertical
-import android.view.ViewPropertyAnimator
-import android.widget.FrameLayout
-import android.window.OnBackInvokedCallback
-import android.window.OnBackInvokedDispatcher
-import androidx.annotation.RequiresApi
-import androidx.core.graphics.drawable.toDrawable
-import com.fingerdance.ssc.GameScreenSscHD
-import com.fingerdance.ssc.Parser
-import com.fingerdance.ssc.SongClock
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
@@ -84,6 +78,10 @@ open class GameScreenActivity : AndroidApplication() {
         } else {
             null
         }
+
+    private var onlinePlayerSsc: PlayerSsc? = null
+    private var opponentLiveListener: ValueEventListener? = null
+    private var lastOpponentLive = LiveResult()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -125,6 +123,10 @@ open class GameScreenActivity : AndroidApplication() {
         }
 
         resultSong = ResultSong()
+        if (isOnline) {
+            resetMyOnlineLive()
+            startOnlineLiveSync()
+        }
         val pathImgs = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play")!!.absolutePath
         bitPerfectGame = BitmapFactory.decodeFile("$pathImgs/perfect_game.png")
         bitPerfectGame = trimTransparentEdges(bitPerfectGame)
@@ -170,6 +172,63 @@ open class GameScreenActivity : AndroidApplication() {
                 mediPlayer.stop()
             }
         }, timeToPlay)
+    }
+
+    private fun resetMyOnlineLive() {
+        val myLivePath = if (isPlayer1) {
+            "jugador1/live"
+        } else {
+            "jugador2/live"
+        }
+
+        salaRef.child(myLivePath).setValue(
+            LiveResult(
+                score = 0
+            )
+        )
+    }
+
+    fun registerOnlinePlayerSsc(playerSsc: PlayerSsc) {
+        onlinePlayerSsc = playerSsc
+
+        if (isOnline) {
+            playerSsc.updateOpponentLive(lastOpponentLive)
+        }
+    }
+
+    private fun startOnlineLiveSync() {
+        if (!isOnline) return
+        val opponentPath = if (isPlayer1) {
+            "jugador2/live"
+        } else {
+            "jugador1/live"
+        }
+
+        val opponentRef = salaRef.child(opponentPath)
+
+        opponentLiveListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val live = snapshot.getValue(LiveResult::class.java) ?: LiveResult()
+                lastOpponentLive = live
+                onlinePlayerSsc?.updateOpponentLive(live)
+            }
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("ONLINE_LIVE", "Error leyendo LiveResult rival: ${error.message}")
+            }
+        }
+
+        opponentRef.addValueEventListener(opponentLiveListener!!)
+    }
+
+    private fun stopOnlineLiveSync() {
+        val listener = opponentLiveListener ?: return
+        val opponentPath = if (isPlayer1) {
+            "jugador2/live"
+        } else {
+            "jugador1/live"
+        }
+        salaRef.child(opponentPath).removeEventListener(listener)
+        opponentLiveListener = null
     }
 
     private fun trimTransparentEdges(source: Bitmap): Bitmap {
@@ -488,6 +547,10 @@ open class GameScreenActivity : AndroidApplication() {
     }
 
     override fun onDestroy() {
+        if (isOnline) {
+            stopOnlineLiveSync()
+        }
+        onlinePlayerSsc = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             backInvokedCallback?.let { callback ->
                 onBackInvokedDispatcher.unregisterOnBackInvokedCallback(callback)

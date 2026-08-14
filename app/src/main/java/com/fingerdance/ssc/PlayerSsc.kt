@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.GameScreenActivity
+import com.fingerdance.LiveResult
 import com.fingerdance.aBatch
 import com.fingerdance.bBatch
 import com.fingerdance.breakSong
@@ -27,6 +28,7 @@ import com.fingerdance.hjGreat
 import com.fingerdance.hjPerfect
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
+import com.fingerdance.isPlayer1
 import com.fingerdance.loadTexture
 import com.fingerdance.luaFlare
 import com.fingerdance.luaNotes
@@ -40,6 +42,7 @@ import com.fingerdance.padPositions
 import com.fingerdance.playerSong
 import com.fingerdance.resultSong
 import com.fingerdance.ruta
+import com.fingerdance.salaRef
 import com.fingerdance.showPadB
 import com.fingerdance.soundPoolSelectSong
 import com.fingerdance.sound_mine
@@ -47,6 +50,7 @@ import com.fingerdance.valueOffset
 import com.fingerdance.widthBtns
 import com.fingerdance.widthJudges
 import java.io.File
+import kotlin.math.round
 
 class PlayerSsc(
     val screen: GameScreenSsc,
@@ -126,6 +130,11 @@ class PlayerSsc(
 
         const val LIFE_LIGHTNING_FPS = 16f
         const val LIFE_LIGHTNING_FRAME_DURATION = 1f / LIFE_LIGHTNING_FPS
+
+        private lateinit var arrChibiWinP1: Array<TextureRegion>
+        private lateinit var arrChibiWinP2: Array<TextureRegion>
+        private lateinit var arrChibiLoseP1: Array<TextureRegion>
+        private lateinit var arrChibiLoseP2: Array<TextureRegion>
     }
 
     data class PlayerFlare(var startTime: Long = 0)
@@ -231,6 +240,15 @@ class PlayerSsc(
     private var luaFlashDuration = 0L
     lateinit var luaEngine: LuaEngine
 
+    private var myCurrentScore = 0
+    @Volatile
+    private var opponentCurrentScore = 0
+
+    private var lastLiveSendMs = 0L
+    private var lastSentScore = -1
+
+    private val LIVE_SEND_INTERVAL_MS = 250L
+
     init {
         currentTimeToExpands = timeGetTime()
         initCommonInfo()
@@ -242,6 +260,9 @@ class PlayerSsc(
         }
         if (isAp || isVanish) {
             noEffects = true
+        }
+        if (isOnline) {
+            activity.registerOnlinePlayerSsc(this)
         }
     }
 
@@ -292,12 +313,18 @@ class PlayerSsc(
         sprFlare = Texture(Gdx.files.absolute("$ruta/Flare 6x1.png"))
         flareArrowFrame = getArrows6x1Flare(sprFlare)
 
+        arrChibiWinP1 = getChibis3x2(Texture(Gdx.files.internal("chibi_win_p1.png")))
+        arrChibiWinP2 = getChibis3x2(Texture(Gdx.files.internal("chibi_win_p2.png")))
+        arrChibiLoseP1 = getChibis3x2(Texture(Gdx.files.internal("chibi_lose_p1.png")))
+        arrChibiLoseP2 = getChibis3x2(Texture(Gdx.files.internal("chibi_lose_p2.png")))
+
         arrMines = getArrows3x2(mine)
         createWhiteTexture()
         initColumnNotes()
         inputProcessor.resetState()
         luaEngine = LuaEngine(playerSsc = this, widthNotes = medidaFlechas * 5f)
         barLifeCalculator.reset()
+        resultSong.totalScoreNotes = gameplayEngine.totalScoreNotes
     }
 
     private data class LongNotePress(
@@ -372,6 +399,10 @@ class PlayerSsc(
         drawMineFlash(timeCom)
         drawLuaFlash(timeCom)
 
+        if (isOnline) {
+            drawChibis()
+        }
+
         if (m_judge.startTime == 0L) {
             return
         }
@@ -380,8 +411,108 @@ class PlayerSsc(
             m_judge.startTime = 0
             return
         }
-
         drawJudge(timeCom - m_judge.startTime)
+    }
+
+    private fun drawChibis() {
+        when {
+            myCurrentScore > opponentCurrentScore -> {
+                if (isPlayer1) {
+                    drawChibiWinP1()
+                    drawChibiLoseP2()
+                } else {
+                    drawChibiLoseP1()
+                    drawChibiWinP2()
+                }
+            }
+
+            myCurrentScore < opponentCurrentScore -> {
+                if (isPlayer1) {
+                    drawChibiLoseP1()
+                    drawChibiWinP2()
+                } else {
+                    drawChibiWinP1()
+                    drawChibiLoseP2()
+                }
+            }
+
+            else -> {
+                drawChibiWinP1()
+                drawChibiWinP2()
+            }
+        }
+    }
+
+    private val chibiSizeWin = medidaFlechas * 2f
+    private val chibiSizeLose = medidaFlechas * 1.5f
+    private val chibiYWin = Gdx.graphics.height * 0.5f - (chibiSizeWin)
+    private val chibiYLose = Gdx.graphics.height * 0.5f - (medidaFlechas * 1.5f)
+    private val chibiXp1 = 0f
+    private val chibiXp2Win = Gdx.graphics.width - chibiSizeWin
+    private val chibiXp2Lose = Gdx.graphics.width - chibiSizeLose
+
+    private fun drawChibiWinP1() {
+        val chibiFrame = ((timeGetTime() / 100) % arrChibiWinP1.size).toInt()
+        batch.draw(arrChibiWinP1[chibiFrame], chibiXp1, chibiYWin, chibiSizeWin, chibiSizeWin)
+    }
+
+    private fun drawChibiLoseP1() {
+        val chibiFrame = ((timeGetTime() / 100) % arrChibiLoseP1.size).toInt()
+        batch.draw(arrChibiLoseP1[chibiFrame], chibiXp1, chibiYLose, chibiSizeLose, chibiSizeLose)
+    }
+
+    private fun drawChibiWinP2() {
+        val chibiFrame = ((timeGetTime() / 100) % arrChibiWinP2.size).toInt()
+        batch.draw(arrChibiWinP2[chibiFrame], chibiXp2Win, chibiYWin, chibiSizeWin, chibiSizeWin)
+    }
+
+    private fun drawChibiLoseP2() {
+        val chibiFrame = ((timeGetTime() / 100) % arrChibiLoseP2.size).toInt()
+        batch.draw(arrChibiLoseP2[chibiFrame], chibiXp2Lose, chibiYLose, chibiSizeLose, chibiSizeLose)
+    }
+
+    private fun calculateCurrentScore(): Int {
+        val totalNotes = resultSong.totalScoreNotes
+        if (totalNotes <= 0) return 0
+
+        val noteWeights =
+            resultSong.perfect * 1.0 +
+                    resultSong.great * 0.6 +
+                    resultSong.good * 0.2 +
+                    resultSong.bad * 0.1
+
+        val rawScore = ((0.995 * noteWeights + 0.005 * resultSong.maxCombo) / totalNotes) * 1_000_000.0
+
+        return round(rawScore).toInt().coerceIn(0, 1_000_000)
+    }
+
+    fun updateOpponentLive(live: LiveResult) {
+        opponentCurrentScore = live.score
+    }
+
+    private fun sendLiveScoreIfNeeded() {
+        if (!isOnline) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastLiveSendMs < LIVE_SEND_INTERVAL_MS) {
+            return
+        }
+        lastLiveSendMs = now
+        if (myCurrentScore == lastSentScore) {
+            return
+        }
+
+        lastSentScore = myCurrentScore
+
+        val livePath = if (isPlayer1) {
+            "jugador1/live"
+        } else {
+            "jugador2/live"
+        }
+        salaRef.child(livePath).setValue(
+            LiveResult(
+                score = myCurrentScore
+            )
+        )
     }
 
     fun updateStepData(songTimeMs: Double) {
@@ -390,6 +521,10 @@ class PlayerSsc(
             songTimeMs = songTimeMs,
             input = inputProcessor.getKeyBoard
         )
+
+        if (isOnline) {
+            sendLiveScoreIfNeeded()
+        }
 
         if (
             barLifeCalculator.state.failed &&
@@ -466,6 +601,10 @@ class PlayerSsc(
 
         if (resultSong.maxCombo < curCombo) {
             resultSong.maxCombo = curCombo
+        }
+
+        if (isOnline) {
+            myCurrentScore = calculateCurrentScore()
         }
 
         val lifeJudgment = when (judge) {
@@ -1147,6 +1286,16 @@ class PlayerSsc(
     private fun onMineHit(timeCom: Long) {
         mineFlashStartTime = timeCom
         soundPoolSelectSong.play(sound_mine, 1f, 1f, 1, 0, 1f)
+    }
+
+    private fun getChibis3x2(chibi: Texture): Array<TextureRegion> {
+        val tmp = TextureRegion.split(chibi, chibi.width / 3, chibi.height / 2)
+        val frames = arrayOf(
+            tmp[0][0], tmp[0][1], tmp[0][2],
+            tmp[1][0], tmp[1][1], tmp[1][2]
+        )
+        frames.forEach { it.flip(true, true) }
+        return frames
     }
 
     private fun getArrows3x2(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {

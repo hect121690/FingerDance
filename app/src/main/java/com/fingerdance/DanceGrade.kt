@@ -50,6 +50,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.drawable.toDrawable
+import com.google.firebase.database.MutableData
+import com.google.firebase.database.Transaction
 
 
 private lateinit var bgConstraint: ConstraintLayout
@@ -90,6 +92,8 @@ class DanceGrade : AppCompatActivity() {
 
     private lateinit var imgGradeDescription: ImageView
     private var resultListener: ValueEventListener? = null
+    private var acceptResultListener: ValueEventListener? = null
+    private var nextRoundStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -251,7 +255,7 @@ class DanceGrade : AppCompatActivity() {
         val good = 0.2 * resultSong.good
         val bad = 0.1 * resultSong.bad
         val miss = 0
-        val totalNotes = resultSong.perfect + resultSong.great + resultSong.good + resultSong.bad + resultSong.miss
+        val totalNotes = resultSong.totalScoreNotes
         val noteWeighs = perfect + great + good + bad + miss
         val rawScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / maxOf(1, totalNotes)) * 1000000)
         totalScore = if (rawScore > 999998) 1000000 else rawScore.roundToInt()
@@ -388,19 +392,16 @@ class DanceGrade : AppCompatActivity() {
                     }, 1000)
                 } else {
                     // Online mode - wait for both players
-                    activeSala.readyToResult = true
-                    salaRef.child("readyToResult").setValue(activeSala.readyToResult).addOnSuccessListener {
-                        listenForBothPlayersReady(
-                            textViewsP1,
-                            textViewsP2,
-                            imgGradeP1,
-                            imgGradeP2,
-                            imgWinP1,
-                            imgWinP2,
-                            imgDraw,
-                            txNameChannel
-                        )
-                    }
+                   listenForBothPlayersReady(
+                        textViewsP1,
+                        textViewsP2,
+                        imgGradeP1,
+                        imgGradeP2,
+                        imgWinP1,
+                        imgWinP2,
+                        imgDraw,
+                        txNameChannel
+                   )
                 }
             }
         }, 1000L)
@@ -677,6 +678,17 @@ class DanceGrade : AppCompatActivity() {
                             showGradeP1(activeSala.jugador1.result.score.toInt())
                             showGradeP2(activeSala.jugador2.result.score.toInt())
                             getWinner(imgGradeP1, imgGradeP2, imgWinP1, imgWinP2, imgDraw, txNameChannel)
+                            if (isPlayer1) {
+                                val updates = mapOf<String, Any>(
+                                    "estado" to RoomState.RESULTS.name,
+                                    "jugador1/listo" to false,
+                                    "jugador2/listo" to false
+                                )
+
+                                salaRef.updateChildren(updates)
+                            }
+
+                            listenForBothPlayersAccepted()
                             getBtnAceptar()
                         }, 1000)
                     }
@@ -691,38 +703,132 @@ class DanceGrade : AppCompatActivity() {
         salaRef.addValueEventListener(resultListener!!)
     }
 
+    private fun listenForBothPlayersAccepted() {
+        if (!isOnline || acceptResultListener != null) return
+
+        acceptResultListener = object : ValueEventListener {
+
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val sala = snapshot.getValue(Sala::class.java) ?: return
+                activeSala = sala
+
+                if (sala.estado == RoomState.SELECTING.name) {
+                    getSelectChannel = true
+
+                    acceptResultListener?.let {
+                        salaRef.removeEventListener(it)
+                    }
+
+                    acceptResultListener = null
+                    finish()
+                    return
+                }
+
+                if (sala.estado != RoomState.RESULTS.name) return
+
+                val player1Accepted = sala.jugador1.listo
+                val player2Accepted = sala.jugador2.listo
+
+                if (!player1Accepted || !player2Accepted) return
+                if (nextRoundStarted) return
+
+                nextRoundStarted = true
+
+                if (isPlayer1) {
+                    prepareNextRound()
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(
+                    "DanceGrade",
+                    "Error esperando aceptación de resultados: ${error.message}"
+                )
+            }
+        }
+
+        salaRef.addValueEventListener(acceptResultListener!!)
+    }
+
     private fun determineWinner() {
         val scoreP1 = activeSala.jugador1.result.score.toIntOrNull() ?: 0
         val scoreP2 = activeSala.jugador2.result.score.toIntOrNull() ?: 0
 
-        if (isPlayer1) {
-            when {
-                scoreP1 > scoreP2 -> {
-                    winP1 = true
-                    victoriesP1++
+        winP1 = false
+        winP2 = false
+        draw = false
+
+        when {
+            scoreP1 > scoreP2 -> {
+                winP1 = true
+                victoriesP1++
+            }
+
+            scoreP2 > scoreP1 -> {
+                winP2 = true
+                victoriesP2++
+            }
+
+            else -> {
+                draw = true
+            }
+        }
+    }
+
+    private fun prepareNextRound() {
+        salaRef.runTransaction(
+            object : Transaction.Handler {
+
+                override fun doTransaction(currentData: MutableData): Transaction.Result {
+                    val sala = currentData.getValue(Sala::class.java)
+                        ?: return Transaction.abort()
+
+                    sala.turno = getNextTurn(sala)
+
+                    sala.jugador1.listo = false
+                    sala.jugador2.listo = false
+
+                    sala.jugador1.live = LiveResult()
+                    sala.jugador2.live = LiveResult()
+
+                    sala.jugador1.result = Resultado()
+                    sala.jugador2.result = Resultado()
+
+                    sala.cancion = CancionOnline()
+                    sala.estado = RoomState.SELECTING.name
+
+                    currentData.value = sala
+
+                    return Transaction.success(currentData)
                 }
-                scoreP1 < scoreP2 -> {
-                    winP2 = true
-                    victoriesP2++
-                }
-                else -> {
-                    draw = true
+
+                override fun onComplete(
+                    error: DatabaseError?,
+                    committed: Boolean,
+                    snapshot: DataSnapshot?
+                ) {
+                    if (error != null) {
+                        Log.e(
+                            "DanceGrade",
+                            "Error preparando siguiente ronda: ${error.message}"
+                        )
+                        return
+                    }
+
+                    if (committed) {
+                        getSelectChannel = true
+                        finish()
+                    }
                 }
             }
+        )
+    }
+
+    private fun getNextTurn(sala: Sala): String {
+        return if (sala.turno == sala.jugador1.id) {
+            sala.jugador2.id
         } else {
-            when {
-                scoreP2 > scoreP1 -> {
-                    winP1 = true
-                    victoriesP1++
-                }
-                scoreP2 < scoreP1 -> {
-                    winP2 = true
-                    victoriesP2++
-                }
-                else -> {
-                    draw = true
-                }
-            }
+            sala.jugador1.id
         }
     }
 
@@ -738,10 +844,21 @@ class DanceGrade : AppCompatActivity() {
         bgWait.isVisible = true
         countMiss = 0
 
-        handlerDG.postDelayed({
-            getSelectChannel = true
-            this.finish()
-        }, 3500)
+        if (!isOnline) {
+            handlerDG.postDelayed({
+                getSelectChannel = true
+                finish()
+            }, 3500)
+            return
+        }
+
+        val readyPath = if (isPlayer1) {
+            "jugador1/listo"
+        } else {
+            "jugador2/listo"
+        }
+
+        salaRef.child(readyPath).setValue(true)
     }
 
     private fun getWinner(
@@ -1296,10 +1413,22 @@ class DanceGrade : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+
         if (::mediaPlayerEvaluation.isInitialized) {
             mediaPlayerEvaluation.release()
         }
-        resultListener?.let { salaRef.removeEventListener(it) }
+
+        resultListener?.let {
+            salaRef.removeEventListener(it)
+        }
+
+        acceptResultListener?.let {
+            salaRef.removeEventListener(it)
+        }
+
+        resultListener = null
+        acceptResultListener = null
+
         handlerDG.removeCallbacksAndMessages(null)
     }
 

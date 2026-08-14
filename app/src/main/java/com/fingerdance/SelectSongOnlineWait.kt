@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -40,6 +42,9 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -119,6 +124,10 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private lateinit var btnAddPreview: Button
     private lateinit var btnAddBga: Button
     private var currentPathSong: String = ""
+    private lateinit var bgaSelectSong: VideoView
+    private var roomListener: ValueEventListener? = null
+    private var gameStarted = false
+    private var localReadySent = false
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
@@ -164,6 +173,15 @@ class SelectSongOnlineWait : AppCompatActivity() {
         constraintMain = findViewById(R.id.constraintMain)
         linearBG = findViewById(R.id.linearBG)
         linearBG.background = Drawable.createFromPath(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/bg_select_song.png")!!.absolutePath)
+        bgaSelectSong = findViewById(R.id.bgaSelectSong)
+        bgaSelectSong.visibility = View.GONE
+        if (isFileExists(File(bgaPathSelectSong))) {
+            bgaSelectSong.visibility = View.VISIBLE
+            bgaSelectSong.setVideoPath(bgaPathSelectSong)
+            bgaSelectSong.setOnPreparedListener { it.setVolume(0f, 0f) }
+            bgaSelectSong.start()
+            bgaSelectSong.setOnCompletionListener { bgaSelectSong.start() }
+        }
 
         imgPrev = findViewById(R.id.imgPrev)
         imgPrev.layoutParams.height = (width * 0.75).toInt()
@@ -730,25 +748,15 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
                         //load(playerSong.rutaKsf)
 
-                        if(isPlayer1){
-                            activeSala.jugador1.listo = true
-                        }else{
-                            activeSala.jugador2.listo = true
+                        if (!localReadySent) {
+                            localReadySent = true
+                            readyPlay = true
+                            val readyPath = if (isPlayer1) "jugador1/listo" else "jugador2/listo"
+                            salaRef.child(readyPath).setValue(true).addOnFailureListener {
+                                localReadySent = false
+                                Toast.makeText(this, "No se pudo confirmar que estás listo", Toast.LENGTH_SHORT).show()
+                            }
                         }
-
-                        val turnoActual = activeSala.turno
-                        if (turnoActual == activeSala.jugador1.id) {
-                            activeSala.turno = activeSala.jugador2.id
-                        }else{
-                            activeSala.turno = activeSala.jugador1.id
-                        }
-                        //salaRef.child("turno").setValue(activeSala.turno)
-                        readyPlay = true
-                        salaRef.setValue(activeSala)
-
-                        activeSala.jugador1.listo = false
-                        activeSala.jugador2.listo = false
-                        salaRef.setValue(activeSala)
 
                     }
                 }
@@ -1207,6 +1215,47 @@ class SelectSongOnlineWait : AppCompatActivity() {
         Toast.makeText(this, "No disponible durante el truno del jugador ${activeSala.turno}", Toast.LENGTH_SHORT).show()
     }
 
+    private fun attachRoomListener() {
+        if (roomListener != null) return
+        roomListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val sala = snapshot.getValue(Sala::class.java) ?: return
+                activeSala = sala
+                if (sala.estado == RoomState.PLAYING.name) startOnlineGame()
+            }
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("SelectSongOnlineWait", "Sala: ${error.message}")
+            }
+        }
+        salaRef.addValueEventListener(roomListener!!)
+    }
+
+    private fun detachRoomListener() {
+        roomListener?.let { salaRef.removeEventListener(it) }
+        roomListener = null
+    }
+
+    private fun startOnlineGame() {
+        if (gameStarted || !localReadySent) return
+        gameStarted = true
+        val intent = Intent(this, GameScreenActivity::class.java)
+        isVertical = true
+        intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.isHalf)
+        startActivity(intent)
+        initGameScreen = true
+        ready = 0
+    }
+
+    override fun onStart() {
+        super.onStart()
+        attachRoomListener()
+    }
+
+    override fun onStop() {
+        detachRoomListener()
+        super.onStop()
+    }
+
     override fun onPause() {
         super.onPause()
     }
@@ -1227,6 +1276,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        detachRoomListener()
         super.onDestroy()
     }
 
@@ -1248,8 +1298,3 @@ class SelectSongOnlineWait : AppCompatActivity() {
     }
 
 }
-
-
-
-
-

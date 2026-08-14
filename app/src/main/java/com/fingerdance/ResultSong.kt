@@ -12,6 +12,7 @@ class ResultSong: Serializable {
     var level: String = ""
     var banner: String? = null
     var listEfects: MutableList<String>? = null
+    var totalScoreNotes: Int = 0
 
     constructor(
         perfect: Int = 0,
@@ -22,9 +23,9 @@ class ResultSong: Serializable {
         maxCombo: Int = 0,
         level: String = "",
         banner: String = "",
-        listEfects: MutableList<String> = mutableListOf()
+        listEfects: MutableList<String> = mutableListOf(),
+        totalScoreNotes: Int = 0
     ){
-
         this.perfect = perfect
         this.great = great
         this.good = good
@@ -34,5 +35,6 @@ class ResultSong: Serializable {
         this.level = level
         this.banner = banner
         this.listEfects = listEfects
+        this.totalScoreNotes = totalScoreNotes
     }
 }

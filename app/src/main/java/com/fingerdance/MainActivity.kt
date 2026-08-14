@@ -9,6 +9,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -25,6 +29,7 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -73,7 +78,10 @@ import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
+import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.max
+import kotlin.math.sqrt
 import kotlin.system.exitProcess
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.text.HtmlCompat
@@ -131,10 +139,141 @@ lateinit var channel : String
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
+    private lateinit var image_fondo : ImageView
     private lateinit var bg_download : VideoView
     private lateinit var mediaPlayerMain : MediaPlayer
     private var soundPlayer : MediaPlayer? = null
     private var currentVideoPosition : Int = 0
+
+    // Fondo principal: usa video si existe fondo.mp4; de lo contrario usa fondo.png con parallax.
+    private var usingVideoBackground = false
+    private var parallaxEnabled = false
+
+    private lateinit var sensorManager: SensorManager
+    private var parallaxSensor: Sensor? = null
+
+    // La primera inclinación detectada se toma como el centro del efecto.
+    private var parallaxBaseHorizontalTilt: Float? = null
+    private var parallaxBaseForwardTilt: Float? = null
+
+    private var parallaxCurrentX = 0f
+    private var parallaxCurrentY = 0f
+
+    // Ajustes del efecto.
+    private val parallaxSmoothing = 0.10f
+    private val parallaxMaxTiltRadians = Math.toRadians(15.0).toFloat()
+    private val parallaxMaxXDp = 20f
+    private val parallaxMaxYDp = 24f
+    private val parallaxScaleSafety = 0.045f
+
+    private val parallaxSensorListener = object : SensorEventListener {
+
+        override fun onSensorChanged(event: SensorEvent) {
+            if (!parallaxEnabled) return
+
+            // TYPE_GRAVITY es la opción principal. Si el teléfono no lo tiene,
+            // usamos TYPE_ACCELEROMETER como fallback.
+            if (event.sensor.type != Sensor.TYPE_GRAVITY &&
+                event.sensor.type != Sensor.TYPE_ACCELEROMETER
+            ) {
+                return
+            }
+
+            val rawX = event.values[0]
+            val rawY = event.values[1]
+            val rawZ = event.values[2]
+
+            // Convertimos los ejes del sensor a los ejes visuales de la pantalla.
+            // Así funciona correctamente tanto en portrait como en landscape.
+            val displayRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display?.rotation ?: Surface.ROTATION_0
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay.rotation
+            }
+
+            val screenX: Float
+            val screenY: Float
+
+            when (displayRotation) {
+                Surface.ROTATION_90 -> {
+                    screenX = -rawY
+                    screenY = rawX
+                }
+
+                Surface.ROTATION_180 -> {
+                    screenX = -rawX
+                    screenY = -rawY
+                }
+
+                Surface.ROTATION_270 -> {
+                    screenX = rawY
+                    screenY = -rawX
+                }
+
+                else -> {
+                    screenX = rawX
+                    screenY = rawY
+                }
+            }
+
+            /*
+             * Horizontal: inclinación izquierda/derecha.
+             *
+             * Forward: inclinación de la parte superior del teléfono
+             * hacia adelante/atrás. Usar atan2(Z, Y) da una respuesta
+             * mucho más natural que tomar solamente pitch de getOrientation().
+             */
+            val horizontalTilt = atan2(
+                screenX,
+                sqrt((screenY * screenY) + (rawZ * rawZ))
+            )
+
+            val forwardTilt = atan2(rawZ, screenY)
+
+            if (parallaxBaseHorizontalTilt == null || parallaxBaseForwardTilt == null) {
+                parallaxBaseHorizontalTilt = horizontalTilt
+                parallaxBaseForwardTilt = forwardTilt
+                return
+            }
+
+            val horizontalDelta = angleDelta(
+                horizontalTilt,
+                parallaxBaseHorizontalTilt!!
+            )
+
+            val forwardDelta = angleDelta(
+                forwardTilt,
+                parallaxBaseForwardTilt!!
+            )
+
+            val normalizedX =
+                (horizontalDelta / parallaxMaxTiltRadians).coerceIn(-1f, 1f)
+
+            val normalizedY =
+                (forwardDelta / parallaxMaxTiltRadians).coerceIn(-1f, 1f)
+
+            val maxX = dpToPx(parallaxMaxXDp)
+            val maxY = dpToPx(parallaxMaxYDp)
+
+            // El fondo se mueve en sentido contrario a la inclinación.
+            val targetX = -normalizedX * maxX
+            val targetY = -normalizedY * maxY
+
+            // Suavizado para evitar vibraciones y movimientos bruscos.
+            parallaxCurrentX +=
+                (targetX - parallaxCurrentX) * parallaxSmoothing
+
+            parallaxCurrentY +=
+                (targetY - parallaxCurrentY) * parallaxSmoothing
+
+            image_fondo.translationX = parallaxCurrentX
+            image_fondo.translationY = parallaxCurrentY
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
     private lateinit var animLogo : ImageView
     private lateinit var btnPlay : Button
     private lateinit var btnPlayOnline : Button
@@ -184,7 +323,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         rutaBase = getExternalFilesDir(null)!!.absolutePath
-
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -409,8 +547,19 @@ class MainActivity : AppCompatActivity(), Serializable {
         lbDescargando = findViewById(R.id.lbDescargando)
         progressBar = findViewById(R.id.downloadProgress)
         video_fondo = findViewById(R.id.video_fondo)
+        image_fondo = findViewById(R.id.image_fondo)
         bg_download = findViewById(R.id.bg_download)
         loadingLayout = findViewById(R.id.loadingLayout)
+
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+        parallaxSensor =
+            sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
+                ?: sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        image_fondo.scaleType = ImageView.ScaleType.CENTER_CROP
+        image_fondo.visibility = View.GONE
+        image_fondo.setBackgroundColor("#020713".toColorInt())
 
         txtLoadingMessage = findViewById(R.id.txtLoadingMessage)
         txtLoadingChannel = findViewById(R.id.txtLoadingChannel)
@@ -1097,16 +1246,8 @@ class MainActivity : AppCompatActivity(), Serializable {
         bmLogo = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/logo.png")
         animLogo.setImageBitmap(bmLogo)
         bgaOff = "$rutaBase/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4"
-        video_fondo.setVideoPath("$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.mp4")
-
-        video_fondo.start()
-        video_fondo.setOnPreparedListener{ mp ->
-            mediaPlayerMain = mp
-            mediaPlayerMain.isLooping = true}
-        if(currentVideoPosition != 0){
-            mediaPlayerMain.seekTo(currentVideoPosition)
-            mediaPlayerMain.start()
-        }
+        mediaPlayerMain = MediaPlayer()
+        configureMainBackground()
 
         val goSound = MediaPlayer.create(this@MainActivity, Uri.fromFile(File("$rutaBase/FingerDance/Themes/$tema/Sounds/hitme.mp3")))
         val animation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.press_button)
@@ -1165,6 +1306,195 @@ class MainActivity : AppCompatActivity(), Serializable {
         }else{
             Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun configureMainBackground() {
+        val videoFile = File(
+            "$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.mp4"
+        )
+
+        val imageFile = File(
+            "$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.png"
+        )
+
+        when {
+            videoFile.exists() && videoFile.isFile -> {
+                usingVideoBackground = true
+                stopParallax()
+
+                image_fondo.visibility = View.GONE
+                image_fondo.setImageDrawable(null)
+                image_fondo.translationX = 0f
+                image_fondo.translationY = 0f
+
+                video_fondo.visibility = View.VISIBLE
+                video_fondo.setVideoPath(videoFile.absolutePath)
+
+                video_fondo.setOnPreparedListener { mp ->
+                    mediaPlayerMain = mp
+                    mediaPlayerMain.isLooping = true
+
+                    if (currentVideoPosition > 0) {
+                        mp.seekTo(currentVideoPosition)
+                    }
+
+                    mp.start()
+                }
+
+                video_fondo.start()
+            }
+
+            imageFile.exists() && imageFile.isFile -> {
+                usingVideoBackground = false
+
+                try {
+                    video_fondo.stopPlayback()
+                } catch (_: Exception) {
+                }
+
+                video_fondo.visibility = View.GONE
+
+                image_fondo.visibility = View.VISIBLE
+                image_fondo.setBackgroundColor("#020713".toColorInt())
+                image_fondo.scaleType = ImageView.ScaleType.CENTER_CROP
+                image_fondo.setImageDrawable(
+                    Drawable.createFromPath(imageFile.absolutePath)
+                )
+
+                resetParallaxCenter()
+
+                // Calcula automáticamente cuánto debe agrandarse la imagen
+                // para que nunca aparezcan franjas al moverla.
+                configureParallaxScale()
+
+                startParallax()
+            }
+
+            else -> {
+                usingVideoBackground = false
+                stopParallax()
+
+                try {
+                    video_fondo.stopPlayback()
+                } catch (_: Exception) {
+                }
+
+                video_fondo.visibility = View.GONE
+
+                image_fondo.visibility = View.VISIBLE
+                image_fondo.setImageDrawable(null)
+                image_fondo.setBackgroundColor("#020713".toColorInt())
+                image_fondo.scaleX = 1f
+                image_fondo.scaleY = 1f
+                image_fondo.translationX = 0f
+                image_fondo.translationY = 0f
+
+                Log.w(
+                    "MainActivity",
+                    "No existe fondo.mp4 ni fondo.png para el tema $tema"
+                )
+            }
+        }
+    }
+
+    /**
+     * Calcula el zoom mínimo necesario para que el desplazamiento máximo
+     * del parallax nunca deje ver el fondo del layout.
+     */
+    private fun configureParallaxScale() {
+        image_fondo.post {
+            if (image_fondo.width <= 0 || image_fondo.height <= 0) {
+                return@post
+            }
+
+            val maxX = dpToPx(parallaxMaxXDp)
+            val maxY = dpToPx(parallaxMaxYDp)
+
+            val viewWidth = image_fondo.width.toFloat()
+            val viewHeight = image_fondo.height.toFloat()
+
+            val scaleNeededX =
+                1f + ((maxX * 2f) / viewWidth)
+
+            val scaleNeededY =
+                1f + ((maxY * 2f) / viewHeight)
+
+            val finalScale =
+                maxOf(scaleNeededX, scaleNeededY) + parallaxScaleSafety
+
+            image_fondo.scaleX = finalScale
+            image_fondo.scaleY = finalScale
+
+            Log.d(
+                "MainActivity",
+                "Parallax scale: $finalScale | maxX=$maxX maxY=$maxY"
+            )
+        }
+    }
+
+    private fun startParallax() {
+        if (usingVideoBackground) return
+        if (!::image_fondo.isInitialized) return
+        if (image_fondo.visibility != View.VISIBLE) return
+
+        val sensor = parallaxSensor
+
+        if (sensor == null) {
+            parallaxEnabled = false
+            Log.w(
+                "MainActivity",
+                "El dispositivo no tiene TYPE_GRAVITY ni TYPE_ACCELEROMETER"
+            )
+            return
+        }
+
+        if (parallaxEnabled) return
+
+        resetParallaxCenter()
+        parallaxEnabled = true
+
+        sensorManager.registerListener(
+            parallaxSensorListener,
+            sensor,
+            SensorManager.SENSOR_DELAY_GAME
+        )
+    }
+
+    private fun stopParallax() {
+        if (::sensorManager.isInitialized) {
+            sensorManager.unregisterListener(parallaxSensorListener)
+        }
+
+        parallaxEnabled = false
+    }
+
+    private fun resetParallaxCenter() {
+        parallaxBaseHorizontalTilt = null
+        parallaxBaseForwardTilt = null
+
+        parallaxCurrentX = 0f
+        parallaxCurrentY = 0f
+
+        if (::image_fondo.isInitialized) {
+            image_fondo.translationX = 0f
+            image_fondo.translationY = 0f
+        }
+    }
+
+    private fun dpToPx(dp: Float): Float {
+        return dp * resources.displayMetrics.density
+    }
+
+    private fun angleDelta(current: Float, base: Float): Float {
+        var delta = current - base
+
+        val twoPi = (2.0 * PI).toFloat()
+        val pi = PI.toFloat()
+
+        while (delta > pi) delta -= twoPi
+        while (delta < -pi) delta += twoPi
+
+        return delta
     }
 
     private fun goPlay(goSound: MediaPlayer, animation: Animation) {
@@ -1530,70 +1860,136 @@ class MainActivity : AppCompatActivity(), Serializable {
             idSala = roomCode
             salaRef = firebaseDatabase.getReference("rooms/$idSala")
 
-            val jugador2 = Jugador(
-                id = userName,
-                conectado = true
-            )
+            salaRef.get().addOnSuccessListener { snapshot ->
 
-            salaRef.runTransaction(object : Transaction.Handler {
-                override fun doTransaction(currentData: MutableData): Transaction.Result {
-                    val sala = currentData.getValue(Sala::class.java)
-                        ?: return Transaction.abort()
-
-                    if (sala.estado != RoomState.WAITING.name) {
-                        return Transaction.abort()
+                    if (!snapshot.exists()) {
+                        btnEnter.isEnabled = true
+                        editRoomCode.isEnabled = true
+                        mostrarErrorSala("La sala no existe")
+                        return@addOnSuccessListener
                     }
 
-                    if (sala.jugador1.id.isBlank() || !sala.jugador1.conectado) {
-                        return Transaction.abort()
+                    val salaActual = snapshot.getValue(Sala::class.java)
+
+                    if (salaActual == null) {
+                        btnEnter.isEnabled = true
+                        editRoomCode.isEnabled = true
+                        mostrarErrorSala("No se pudo leer la información de la sala")
+                        return@addOnSuccessListener
                     }
 
-                    if (sala.jugador2.id.isNotBlank() && sala.jugador2.conectado) {
-                        return Transaction.abort()
+                    if (salaActual.estado != RoomState.WAITING.name) {
+                        btnEnter.isEnabled = true
+                        editRoomCode.isEnabled = true
+                        mostrarErrorSala("La sala ya no está disponible")
+                        return@addOnSuccessListener
                     }
 
-                    sala.jugador2 = jugador2
-                    sala.estado = RoomState.SELECTING.name
-                    currentData.value = sala
+                    if (
+                        salaActual.jugador1.id.isBlank() ||
+                        !salaActual.jugador1.conectado
+                    ) {
+                        btnEnter.isEnabled = true
+                        editRoomCode.isEnabled = true
+                        mostrarErrorSala("El creador de la sala ya no está conectado")
+                        return@addOnSuccessListener
+                    }
 
-                    return Transaction.success(currentData)
+                    val jugador2 = Jugador(
+                        id = userName,
+                        conectado = true,
+                        listo = false
+                    )
+
+                    salaRef.runTransaction(object : Transaction.Handler {
+
+                        override fun doTransaction(
+                            currentData: MutableData
+                        ): Transaction.Result {
+
+                            val sala = currentData.getValue(Sala::class.java)
+                                ?: return Transaction.abort()
+
+                            // Volvemos a validar TODO dentro de la transacción.
+                            // La lectura anterior solo fue una prevalidación.
+                            if (sala.estado != RoomState.WAITING.name) {
+                                return Transaction.abort()
+                            }
+
+                            if (
+                                sala.jugador1.id.isBlank() ||
+                                !sala.jugador1.conectado
+                            ) {
+                                return Transaction.abort()
+                            }
+
+                            if (
+                                sala.jugador2.id.isNotBlank() &&
+                                sala.jugador2.conectado
+                            ) {
+                                return Transaction.abort()
+                            }
+
+                            sala.jugador2 = jugador2
+                            sala.estado = RoomState.SELECTING.name
+
+                            currentData.value = sala
+
+                            return Transaction.success(currentData)
+                        }
+
+                        override fun onComplete(
+                            error: DatabaseError?,
+                            committed: Boolean,
+                            currentData: DataSnapshot?
+                        ) {
+                            btnEnter.isEnabled = true
+                            editRoomCode.isEnabled = true
+
+                            if (error != null) {
+                                mostrarErrorSala(
+                                    "Error al entrar a la sala: ${error.message}"
+                                )
+                                return
+                            }
+
+                            if (!committed) {
+                                mostrarErrorSala(
+                                    "La sala ya fue ocupada o ya no está disponible"
+                                )
+                                return
+                            }
+
+                            val sala = currentData?.getValue(Sala::class.java)
+
+                            if (sala == null) {
+                                mostrarErrorSala("La sala ya no existe")
+                                return
+                            }
+
+                            isOnline = true
+                            isPlayer1 = false
+                            activeSala = sala
+
+                            salaRef
+                                .child("jugador2/conectado")
+                                .onDisconnect()
+                                .setValue(false)
+
+                            dialog.dismiss()
+
+                            prepareOnlineAndOpenSelectChannel()
+                        }
+                    })
                 }
-
-                override fun onComplete(
-                    error: DatabaseError?,
-                    committed: Boolean,
-                    currentData: DataSnapshot?,
-                ) {
+                .addOnFailureListener { error ->
                     btnEnter.isEnabled = true
                     editRoomCode.isEnabled = true
 
-                    if (error != null) {
-                        mostrarErrorSala("Error al entrar a la sala:${error.message}")
-                        return
-                    }
-
-                    if (!committed) {
-                        mostrarErrorSala("La sala no existe, ya tiene dos jugadores o ya no está disponible")
-                        return
-                    }
-
-                    val sala = currentData?.getValue(Sala::class.java)
-
-                    if (sala == null) {
-                        mostrarErrorSala("La sala ya no existe")
-                        return
-                    }
-
-                    isOnline = true
-                    isPlayer1 = false
-                    activeSala = sala
-
-                    salaRef.child("jugador2/conectado").onDisconnect().setValue(false)
-
-                    dialog.dismiss()
-                    prepareOnlineAndOpenSelectChannel()
+                    mostrarErrorSala(
+                        "Error consultando la sala: ${error.message}"
+                    )
                 }
-            })
         }
     }
 
@@ -1943,7 +2339,9 @@ class MainActivity : AppCompatActivity(), Serializable {
     override fun onPause() {
         super.onPause()
 
-        if (::mediaPlayerMain.isInitialized) {
+        stopParallax()
+
+        if (usingVideoBackground && ::mediaPlayerMain.isInitialized) {
             try {
                 if (mediaPlayerMain.isPlaying) {
                     currentVideoPosition = mediaPlayerMain.currentPosition
@@ -1955,6 +2353,13 @@ class MainActivity : AppCompatActivity(), Serializable {
                 }
             } catch (e: IllegalStateException) {
                 Log.w("MainActivity", "mediaPlayerMain no estaba listo para pausar: ${e.message}")
+            }
+        } else {
+            soundPlayer?.let {
+                try {
+                    if (it.isPlaying) it.pause()
+                } catch (_: Exception) {
+                }
             }
         }
 
@@ -1971,9 +2376,9 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     override fun onResume() {
         super.onResume()
-        if(::mediaPlayerMain.isInitialized){
+
+        if (usingVideoBackground && ::mediaPlayerMain.isInitialized) {
             try {
-                // Solo iniciar si no está reproduciendo
                 if (!video_fondo.isPlaying) {
                     video_fondo.start()
                 }
@@ -1981,7 +2386,18 @@ class MainActivity : AppCompatActivity(), Serializable {
                     soundPlayer!!.start()
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "Error en onResume al iniciar videos: ${e.message}")
+                Log.e("MainActivity", "Error en onResume al iniciar video: ${e.message}")
+            }
+        } else if (!usingVideoBackground && ::image_fondo.isInitialized && image_fondo.visibility == View.VISIBLE) {
+            resetParallaxCenter()
+            startParallax()
+
+            try {
+                if (soundPlayer != null && !soundPlayer!!.isPlaying) {
+                    soundPlayer!!.start()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error en onResume al iniciar audio: ${e.message}")
             }
         }
         if(linearDownload.isVisible){
@@ -1998,6 +2414,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     override fun onDestroy() {
         stopWaitingPlayer2Listener()
+        stopParallax()
         super.onDestroy()
 
         // Liberar MediaPlayers
@@ -2122,8 +2539,7 @@ data class Jugador(
 )
 
 data class LiveResult(
-    var score: Int = 0,
-    var combo: Int = 0,
+    var score: Int = 0
 )
 
 data class Sala(
@@ -2132,7 +2548,6 @@ data class Sala(
     var jugador2: Jugador = Jugador(),
     var turno: String = "",
     var date: String = "",
-    var readyToResult: Boolean = false,
     var estado: String = RoomState.WAITING.name,
 )
 

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FINGER DANCE</title>
+
     <style>
         * {
             margin: 0;
@@ -11,22 +12,28 @@
             box-sizing: border-box;
         }
 
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
         section {
+            position: relative;
+
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            background: #042104;
-            animation: animateBg 10s linear infinite;
-        }
 
-        @keyframes animateBg {
-            0% {
-                filter: hue-rotate(0deg);
-            }
-            100% {
-                filter: hue-rotate(360deg);
-            }
+            width: 100%;
+            min-height: 100vh;
+
+            background-image: url('img_splash.png');
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-color: #000;
         }
 
         section .loader {
@@ -52,13 +59,17 @@
             width: 15px;
             height: 15px;
             border-radius: 50%;
-            background: #00ff0a;
-            box-shadow: 0 0 10px #00ff0a,
-                        0 0 20px #00ff0a,
-                        0 0 40px #00ff0a,
-                        0 0 60px #00ff0a,
-                        0 0 80px #00ff0a,
-                        0 0 100px #00ff0a;
+
+            background: #00eaff;
+
+            box-shadow:
+                0 0 10px #00eaff,
+                0 0 20px #00eaff,
+                0 0 40px #00eaff,
+                0 0 60px #00eaff,
+                0 0 80px #00eaff,
+                0 0 100px #00eaff;
+
             animation: animate 2s linear infinite;
             animation-delay: calc(0.1s * var(--i));
         }
@@ -67,7 +78,9 @@
             0% {
                 transform: scale(1);
             }
-            80%, 100% {
+
+            80%,
+            100% {
                 transform: scale(0);
             }
         }
@@ -75,40 +88,47 @@
         .title {
             position: absolute;
             bottom: 10%;
-            color: #00ff0a;
+
+            color: #00eaff;
             font-size: 24px;
             font-family: Arial, sans-serif;
             font-weight: bold;
-            text-shadow: 0 0 20px #00ff0a;
+            text-shadow: 0 0 20px #00eaff;
             letter-spacing: 3px;
         }
     </style>
 </head>
+
 <body>
-    <section>
-        <div class="loader">
-            <span style="--i:1;"></span>
-            <span style="--i:2;"></span>
-            <span style="--i:3;"></span>
-            <span style="--i:4;"></span>
-            <span style="--i:5;"></span>
-            <span style="--i:6;"></span>
-            <span style="--i:7;"></span>
-            <span style="--i:8;"></span>
-            <span style="--i:9;"></span>
-            <span style="--i:10;"></span>
-            <span style="--i:11;"></span>
-            <span style="--i:12;"></span>
-            <span style="--i:13;"></span>
-            <span style="--i:14;"></span>
-            <span style="--i:15;"></span>
-            <span style="--i:16;"></span>
-            <span style="--i:17;"></span>
-            <span style="--i:18;"></span>
-            <span style="--i:19;"></span>
-            <span style="--i:20;"></span>
-        </div>
-        <div class="title">FINGER DANCE</div>
-    </section>
+
+<section>
+
+    <div class="loader">
+        <span style="--i:1;"></span>
+        <span style="--i:2;"></span>
+        <span style="--i:3;"></span>
+        <span style="--i:4;"></span>
+        <span style="--i:5;"></span>
+        <span style="--i:6;"></span>
+        <span style="--i:7;"></span>
+        <span style="--i:8;"></span>
+        <span style="--i:9;"></span>
+        <span style="--i:10;"></span>
+        <span style="--i:11;"></span>
+        <span style="--i:12;"></span>
+        <span style="--i:13;"></span>
+        <span style="--i:14;"></span>
+        <span style="--i:15;"></span>
+        <span style="--i:16;"></span>
+        <span style="--i:17;"></span>
+        <span style="--i:18;"></span>
+        <span style="--i:19;"></span>
+        <span style="--i:20;"></span>
+    </div>
+
+    <div class="title">FINGER DANCE</div>
+
+</section>
+
 </body>
 </html>

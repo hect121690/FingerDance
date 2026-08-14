@@ -257,7 +257,7 @@ class DanceGradeHorizontal : AppCompatActivity() {
         val good = 0.2 * resultSong.good
         val bad = 0.1 * resultSong.bad
         val miss = 0
-        val totalNotes = resultSong.perfect + resultSong.great + resultSong.good + resultSong.bad + resultSong.miss
+        val totalNotes = resultSong.totalScoreNotes
         val noteWeighs = perfect + great + good + bad + miss
         val rawScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / maxOf(1, totalNotes)) * 1000000)
         totalScore = if (rawScore > 999998) 1000000 else rawScore.roundToInt()
@@ -395,19 +395,16 @@ class DanceGradeHorizontal : AppCompatActivity() {
                     }, 1000)
                 } else {
                     // Online mode - wait for both players
-                    activeSala.readyToResult = true
-                    salaRef.child("readyToResult").setValue(activeSala.readyToResult).addOnSuccessListener {
-                        listenForBothPlayersReady(
-                            textViewsP1,
-                            textViewsP2,
-                            imgGradeP1,
-                            imgGradeP2,
-                            imgWinP1,
-                            imgWinP2,
-                            imgDraw,
-                            txNameChannel
-                        )
-                    }
+                    listenForBothPlayersReady(
+                        textViewsP1,
+                        textViewsP2,
+                        imgGradeP1,
+                        imgGradeP2,
+                        imgWinP1,
+                        imgWinP2,
+                        imgDraw,
+                        txNameChannel
+                    )
                 }
             }
         }, 1000L)

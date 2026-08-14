@@ -8,6 +8,15 @@
     android:textAlignment="center"
     tools:context=".SelectSongOnline">
 
+    <VideoView
+        android:id="@+id/bgaSelectSong"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <LinearLayout
         android:id="@+id/linearBG"
         android:layout_width="match_parent"
@@ -40,12 +49,32 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.16">
 
-            <VideoView
+            <TextureView
                 android:id="@+id/videoPreview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
         </RelativeLayout>
+
+        <TextureView
+            android:id="@+id/preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="@id/linearPrevViewSong"
+            app:layout_constraintBottom_toBottomOf="@id/linearPrevViewSong"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextureView
+            android:id="@+id/next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="@id/linearPrevViewSong"
+            app:layout_constraintBottom_toBottomOf="@id/linearPrevViewSong"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <ImageView
             android:id="@+id/imgPrev"
@@ -83,6 +112,27 @@
             app:layout_constraintHorizontal_bias="0.98"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/txCurrentChannel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/txPlayerName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:textColor="@color/white"
+            app:layout_constraintTop_toBottomOf="@id/txCurrentChannel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <ImageView
             android:id="@+id/imageCircleSS"
@@ -209,6 +259,18 @@
             app:layout_constraintTop_toTopOf="@+id/imgOffsetActual"
             app:layout_constraintVertical_bias="0.1" />
 
+        <TextView
+            android:id="@+id/txInfoCurrentSong"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="001/001"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp" />
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/linearListSongs"
             android:layout_width="match_parent"
@@ -222,7 +284,7 @@
             app:layout_constraintVertical_bias="0.44">
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerViewSelectSongOnline"
+                android:id="@+id/recyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="100dp"
                 android:gravity="center_vertical"
@@ -268,7 +330,15 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_bias="0.50" />
 
-
+            <ProgressBar
+                android:id="@+id/progressLoading"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <ImageView
@@ -416,7 +486,7 @@
             app:layout_constraintVertical_bias="0.525">
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerNoLvsOnline"
+                android:id="@+id/recyclerNoLvs"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
@@ -426,7 +496,7 @@
                 app:layout_constraintTop_toTopOf="parent" />
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerLvsOnline"
+                android:id="@+id/recyclerLvs"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
@@ -441,11 +511,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="@id/recyclerLvsOnline"
+                app:layout_constraintStart_toStartOf="@id/recyclerLvs"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_bias="0.25" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <ImageView
+            android:id="@+id/btnCommandWindowVertical"
+            android:layout_width="120dp"
+            android:layout_height="48dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/floor_song"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
 
         <ImageView
             android:id="@+id/floor_song"
