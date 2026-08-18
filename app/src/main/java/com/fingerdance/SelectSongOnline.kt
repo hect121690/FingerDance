@@ -225,6 +225,11 @@ class SelectSongOnline : AppCompatActivity() {
     private var roomListener: com.google.firebase.database.ValueEventListener? = null
     private var selectionSent = false
     private var gameStarted = false
+    private var localReadySent = false
+    private var roomLoadingStarted = false
+    private var playingTransitionScheduled = false
+    private var opponentLeftHandled = false
+    private var loadingToGameTimer: CountDownTimer? = null
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -243,6 +248,7 @@ class SelectSongOnline : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         getSupportActionBar()?.hide()
         super.onCreate(savedInstanceState)
+        getSelectChannel = false
         setContentView(R.layout.activity_select_song_online)
 
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
@@ -1535,11 +1541,13 @@ class SelectSongOnline : AppCompatActivity() {
             isHalf = isHalfDouble
         )
         selectionSent = true
-        txTip.text = "Esperando al otro jugador..."
+        localReadySent = true
+        showWaitingForOpponentReady()
         val updates = hashMapOf<String, Any>("cancion" to selected)
         updates[if (isPlayer1) "jugador1/listo" else "jugador2/listo"] = true
         salaRef.updateChildren(updates).addOnFailureListener {
             selectionSent = false
+            localReadySent = false
             imgAceptar.isEnabled = true
             Toast.makeText(this, "No se pudo guardar la selección", Toast.LENGTH_SHORT).show()
         }
@@ -1550,19 +1558,156 @@ class SelectSongOnline : AppCompatActivity() {
         txPlayer2Online.text = "Player 2\n${sala.jugador2.id}"
     }
 
+    private fun isMyPlayerConnected(sala: Sala): Boolean {
+        return if (isPlayer1) sala.jugador1.conectado else sala.jugador2.conectado
+    }
+
+    private fun isOpponentConnected(sala: Sala): Boolean {
+        return if (isPlayer1) sala.jugador2.conectado else sala.jugador1.conectado
+    }
+
+    private fun bothPlayersReady(sala: Sala): Boolean {
+        return sala.jugador1.listo && sala.jugador2.listo
+    }
+
+    private fun hasSelectedSong(sala: Sala): Boolean {
+        return sala.cancion.nameSong.isNotBlank() &&
+                sala.cancion.rutaCancion.isNotBlank() &&
+                sala.cancion.rutaKsf.isNotBlank()
+    }
+
+    private fun myReady(sala: Sala): Boolean {
+        return if (isPlayer1) sala.jugador1.listo else sala.jugador2.listo
+    }
+
+    private fun getOpponentName(sala: Sala): String {
+        return if (isPlayer1) sala.jugador2.id else sala.jugador1.id
+    }
+
+    private fun showWaitingForOpponentReady() {
+        linearLoading.isVisible = true
+        imgLoading.isVisible = true
+        if (activeSala.cancion.rutaBanner.isNotBlank()) {
+            BitmapFactory.decodeFile(activeSala.cancion.rutaBanner)?.let {
+                imgLoading.setImageBitmap(it)
+            }
+        }
+        txTip.text = "Espere por favor..."
+        findViewById<ProgressBar>(R.id.progressBar).progress = 0
+    }
+
+    private fun showBothPlayersLoading() {
+        if (roomLoadingStarted) return
+        roomLoadingStarted = true
+        showWaitingForOpponentReady()
+        txTip.text = "Cargando partida..."
+        showProgressBar(4000L)
+    }
+
+    private fun hideRoomLoading() {
+        if (!linearLoading.isVisible) return
+        linearLoading.isVisible = false
+        imgLoading.isVisible = false
+    }
+
+    private fun handleOpponentLeftDuringOnline(sala: Sala) {
+        if (opponentLeftHandled || isFinishing) return
+        opponentLeftHandled = true
+        linearLoading.isVisible = true
+        imgLoading.isVisible = false
+        txTip.text = "El jugador ${getOpponentName(sala)} abandonó la sala"
+        AlertDialog.Builder(this)
+            .setTitle("Sala finalizada")
+            .setMessage("El jugador ${getOpponentName(sala)} abandonó la sala.")
+            .setCancelable(false)
+            .setPositiveButton("Salir") { d, _ ->
+                d.dismiss()
+                exitOnlineToMainAfterOpponentLeft()
+            }
+            .show()
+    }
+
+    private fun exitOnlineToMainAfterOpponentLeft() {
+        detachRoomListener()
+        loadingToGameTimer?.cancel()
+        roomLoadingStarted = false
+        playingTransitionScheduled = false
+        isOnline = false
+        getSelectChannel = false
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
+    }
+
+    private fun schedulePlayingTransitionIfNeeded(sala: Sala) {
+        if (sala.turno != userName || playingTransitionScheduled) return
+        playingTransitionScheduled = true
+        loadingToGameTimer?.cancel()
+        loadingToGameTimer = object : CountDownTimer(4000L, 4000L) {
+            override fun onTick(millisUntilFinished: Long) = Unit
+
+            override fun onFinish() {
+                if (gameStarted || isFinishing) return
+                salaRef.child("estado").setValue(RoomState.PLAYING.name).addOnFailureListener {
+                    playingTransitionScheduled = false
+                    roomLoadingStarted = false
+                    Toast.makeText(this@SelectSongOnline, "No se pudo sincronizar el inicio", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        loadingToGameTimer?.start()
+    }
+
     private fun attachRoomListener() {
         if (roomListener != null) return
         roomListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val sala = snapshot.getValue(Sala::class.java) ?: return
-                activeSala = sala
-                updatePlayerLabels(sala)
-                if (!sala.jugador1.conectado || !sala.jugador2.conectado) return
-                if (sala.estado == RoomState.SELECTING.name && sala.turno == userName && sala.jugador1.listo && sala.jugador2.listo) {
-                    salaRef.child("estado").setValue(RoomState.PLAYING.name)
+                val sala = snapshot.getValue(Sala::class.java)
+                if (sala == null) {
+                    exitOnlineToMainAfterOpponentLeft()
                     return
                 }
-                if (sala.estado == RoomState.PLAYING.name) startOnlineGame()
+                activeSala = sala
+                updatePlayerLabels(sala)
+
+                localReadySent = myReady(sala)
+
+                if (!isMyPlayerConnected(sala)) {
+                    exitOnlineToMainAfterOpponentLeft()
+                    return
+                }
+
+                if (!isOpponentConnected(sala)) {
+                    handleOpponentLeftDuringOnline(sala)
+                    return
+                }
+
+                opponentLeftHandled = false
+
+                if (sala.estado == RoomState.SELECTING.name && !hasSelectedSong(sala)) {
+                    roomLoadingStarted = false
+                    playingTransitionScheduled = false
+                    hideRoomLoading()
+                    return
+                }
+
+                if (sala.estado == RoomState.SELECTING.name && !bothPlayersReady(sala) && localReadySent) {
+                    roomLoadingStarted = false
+                    showWaitingForOpponentReady()
+                    return
+                }
+
+                if (sala.estado == RoomState.SELECTING.name && bothPlayersReady(sala) && hasSelectedSong(sala)) {
+                    showBothPlayersLoading()
+                    schedulePlayingTransitionIfNeeded(sala)
+                    return
+                }
+
+                if (sala.estado == RoomState.PLAYING.name) {
+                    startOnlineGame()
+                }
             }
             override fun onCancelled(error: DatabaseError) {
                 Log.e("SelectSongOnline", "Sala: ${error.message}")
@@ -1577,8 +1722,9 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun startOnlineGame() {
-        if (gameStarted || !selectionSent) return
+        if (gameStarted || !bothPlayersReady(activeSala) || !hasSelectedSong(activeSala)) return
         gameStarted = true
+        loadingToGameTimer?.cancel()
         val intent = Intent(this, GameScreenActivity::class.java)
         isVertical = orientationMode == OrientationMode.VERTICAL
         intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.isHalf)
@@ -2689,6 +2835,9 @@ class SelectSongOnline : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).setValue(true)
+        salaRef.child(myPath).onDisconnect().setValue(false)
         attachRoomListener()
     }
 
@@ -2712,6 +2861,11 @@ class SelectSongOnline : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (getSelectChannel) {
+            getSelectChannel = false
+            goSelectChannel()
+            return
+        }
         activityResumed = true
         resetRunnable()
         detenerContador()
@@ -2736,6 +2890,7 @@ class SelectSongOnline : AppCompatActivity() {
         songSelectionGeneration++
         songSelectionJob?.cancel()
         downloadJob?.cancel()
+        loadingToGameTimer?.cancel()
         handler.removeCallbacksAndMessages(null)
         handlerContador.removeCallbacksAndMessages(null)
         timer?.cancel()

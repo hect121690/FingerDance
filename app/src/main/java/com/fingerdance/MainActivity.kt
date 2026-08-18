@@ -1859,138 +1859,116 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             idSala = roomCode
             salaRef = firebaseDatabase.getReference("rooms/$idSala")
+            val jugador2 = Jugador(
+                id = userName,
+                conectado = true,
+                listo = false
+            )
 
-            salaRef.get().addOnSuccessListener { snapshot ->
+            attemptJoinRoom(
+                dialog = dialog,
+                editRoomCode = editRoomCode,
+                btnEnter = btnEnter,
+                jugador2 = jugador2,
+                retryIfMissing = true
+            )
+        }
+    }
 
-                    if (!snapshot.exists()) {
-                        btnEnter.isEnabled = true
-                        editRoomCode.isEnabled = true
-                        mostrarErrorSala("La sala no existe")
-                        return@addOnSuccessListener
-                    }
+    private fun attemptJoinRoom(
+        dialog: AlertDialog,
+        editRoomCode: EditText,
+        btnEnter: View,
+        jugador2: Jugador,
+        retryIfMissing: Boolean
+    ) {
+        var abortReason = "La sala ya fue ocupada o ya no está disponible"
 
-                    val salaActual = snapshot.getValue(Sala::class.java)
-
-                    if (salaActual == null) {
-                        btnEnter.isEnabled = true
-                        editRoomCode.isEnabled = true
-                        mostrarErrorSala("No se pudo leer la información de la sala")
-                        return@addOnSuccessListener
-                    }
-
-                    if (salaActual.estado != RoomState.WAITING.name) {
-                        btnEnter.isEnabled = true
-                        editRoomCode.isEnabled = true
-                        mostrarErrorSala("La sala ya no está disponible")
-                        return@addOnSuccessListener
-                    }
-
-                    if (
-                        salaActual.jugador1.id.isBlank() ||
-                        !salaActual.jugador1.conectado
-                    ) {
-                        btnEnter.isEnabled = true
-                        editRoomCode.isEnabled = true
-                        mostrarErrorSala("El creador de la sala ya no está conectado")
-                        return@addOnSuccessListener
-                    }
-
-                    val jugador2 = Jugador(
-                        id = userName,
-                        conectado = true,
-                        listo = false
-                    )
-
-                    salaRef.runTransaction(object : Transaction.Handler {
-
-                        override fun doTransaction(
-                            currentData: MutableData
-                        ): Transaction.Result {
-
-                            val sala = currentData.getValue(Sala::class.java)
-                                ?: return Transaction.abort()
-
-                            // Volvemos a validar TODO dentro de la transacción.
-                            // La lectura anterior solo fue una prevalidación.
-                            if (sala.estado != RoomState.WAITING.name) {
-                                return Transaction.abort()
-                            }
-
-                            if (
-                                sala.jugador1.id.isBlank() ||
-                                !sala.jugador1.conectado
-                            ) {
-                                return Transaction.abort()
-                            }
-
-                            if (
-                                sala.jugador2.id.isNotBlank() &&
-                                sala.jugador2.conectado
-                            ) {
-                                return Transaction.abort()
-                            }
-
-                            sala.jugador2 = jugador2
-                            sala.estado = RoomState.SELECTING.name
-
-                            currentData.value = sala
-
-                            return Transaction.success(currentData)
-                        }
-
-                        override fun onComplete(
-                            error: DatabaseError?,
-                            committed: Boolean,
-                            currentData: DataSnapshot?
-                        ) {
-                            btnEnter.isEnabled = true
-                            editRoomCode.isEnabled = true
-
-                            if (error != null) {
-                                mostrarErrorSala(
-                                    "Error al entrar a la sala: ${error.message}"
-                                )
-                                return
-                            }
-
-                            if (!committed) {
-                                mostrarErrorSala(
-                                    "La sala ya fue ocupada o ya no está disponible"
-                                )
-                                return
-                            }
-
-                            val sala = currentData?.getValue(Sala::class.java)
-
-                            if (sala == null) {
-                                mostrarErrorSala("La sala ya no existe")
-                                return
-                            }
-
-                            isOnline = true
-                            isPlayer1 = false
-                            activeSala = sala
-
-                            salaRef
-                                .child("jugador2/conectado")
-                                .onDisconnect()
-                                .setValue(false)
-
-                            dialog.dismiss()
-
-                            prepareOnlineAndOpenSelectChannel()
-                        }
-                    })
+        salaRef.runTransaction(object : Transaction.Handler {
+            override fun doTransaction(currentData: MutableData): Transaction.Result {
+                val sala = currentData.getValue(Sala::class.java)
+                if (sala == null) {
+                    abortReason = "La sala no existe"
+                    return Transaction.abort()
                 }
-                .addOnFailureListener { error ->
+
+                if (sala.estado != RoomState.WAITING.name) {
+                    abortReason = "La sala ya no está disponible"
+                    return Transaction.abort()
+                }
+
+                if (sala.jugador1.id.isBlank() || !sala.jugador1.conectado) {
+                    abortReason = "El creador de la sala ya no está conectado"
+                    return Transaction.abort()
+                }
+
+                if (sala.jugador2.id.isNotBlank() && sala.jugador2.conectado) {
+                    abortReason = "La sala ya fue ocupada"
+                    return Transaction.abort()
+                }
+
+                sala.jugador2 = jugador2
+                sala.estado = RoomState.SELECTING.name
+                currentData.value = sala
+                return Transaction.success(currentData)
+            }
+
+            override fun onComplete(
+                error: DatabaseError?,
+                committed: Boolean,
+                currentData: DataSnapshot?
+            ) {
+                if (error != null) {
                     btnEnter.isEnabled = true
                     editRoomCode.isEnabled = true
-
-                    mostrarErrorSala(
-                        "Error consultando la sala: ${error.message}"
-                    )
+                    mostrarErrorSala("Error al entrar a la sala: ${error.message}")
+                    return
                 }
-        }
+
+                if (!committed) {
+                    if (retryIfMissing && abortReason == "La sala no existe") {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            attemptJoinRoom(
+                                dialog = dialog,
+                                editRoomCode = editRoomCode,
+                                btnEnter = btnEnter,
+                                jugador2 = jugador2,
+                                retryIfMissing = false
+                            )
+                        }, 250L)
+                        return
+                    }
+
+                    btnEnter.isEnabled = true
+                    editRoomCode.isEnabled = true
+                    mostrarErrorSala(abortReason)
+                    return
+                }
+
+                val sala = currentData?.getValue(Sala::class.java)
+                if (sala == null) {
+                    btnEnter.isEnabled = true
+                    editRoomCode.isEnabled = true
+                    mostrarErrorSala("No se pudo leer la información de la sala")
+                    return
+                }
+
+                btnEnter.isEnabled = true
+                editRoomCode.isEnabled = true
+
+                isOnline = true
+                isPlayer1 = false
+                activeSala = sala
+
+                salaRef
+                    .child("jugador2/conectado")
+                    .onDisconnect()
+                    .setValue(false)
+
+                dialog.dismiss()
+                prepareOnlineAndOpenSelectChannel()
+            }
+        })
     }
 
     private fun mostrarErrorSala(message: String) {
@@ -2024,6 +2002,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun prepareOnlineAndOpenSelectChannel() {
+        getSelectChannel = false
         showLoadingOverlay("Espere por favor...")
         try {
             val jsonListChannels = themes.getString("allTunes", "")

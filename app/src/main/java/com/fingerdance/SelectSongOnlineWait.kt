@@ -32,6 +32,7 @@ import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.WindowCompat
@@ -125,9 +126,13 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private lateinit var btnAddBga: Button
     private var currentPathSong: String = ""
     private lateinit var bgaSelectSong: VideoView
+    private lateinit var txTip: TextView
     private var roomListener: ValueEventListener? = null
     private var gameStarted = false
     private var localReadySent = false
+    private var roomLoadingStarted = false
+    private var opponentLeftHandled = false
+    private var loadingToGameTimer: CountDownTimer? = null
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
@@ -688,7 +693,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
         }
 
         //val tipsArray = resources.getStringArray(R.array.tips_array)
-        val txTip = findViewById<TextView>(R.id.txTip)
+        txTip = findViewById(R.id.txTip)
 
         linearLoading.setOnClickListener(object : View.OnClickListener {
             override fun onClick(v: View?) {
@@ -707,10 +712,9 @@ class SelectSongOnlineWait : AppCompatActivity() {
                     if(!linearLoading.isVisible){
                         linearLoading.isVisible = true
                         imgLoading.isVisible = true
-                        showProgressBar(3000L)
                         mediPlayer.pause()
 
-                        txTip.text = "Espera por favor"
+                        txTip.text = "Espere por favor..."
 
                         playerSong.speed = txVelocidadActual.text.toString()
                         if (playerSong.rutaNoteSkin != "") {
@@ -1219,8 +1223,41 @@ class SelectSongOnlineWait : AppCompatActivity() {
         if (roomListener != null) return
         roomListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val sala = snapshot.getValue(Sala::class.java) ?: return
+                val sala = snapshot.getValue(Sala::class.java)
+                if (sala == null) {
+                    exitOnlineToMainAfterOpponentLeft()
+                    return
+                }
                 activeSala = sala
+                localReadySent = if (isPlayer1) sala.jugador1.listo else sala.jugador2.listo
+
+                val myConnected = if (isPlayer1) sala.jugador1.conectado else sala.jugador2.conectado
+                val opponentConnected = if (isPlayer1) sala.jugador2.conectado else sala.jugador1.conectado
+                val bothReady = sala.jugador1.listo && sala.jugador2.listo
+
+                if (!myConnected) {
+                    exitOnlineToMainAfterOpponentLeft()
+                    return
+                }
+
+                if (!opponentConnected) {
+                    handleOpponentLeftDuringOnline(sala)
+                    return
+                }
+
+                opponentLeftHandled = false
+
+                if (sala.estado == RoomState.SELECTING.name && localReadySent && !bothReady) {
+                    showWaitingForOpponentReady()
+                    roomLoadingStarted = false
+                    return
+                }
+
+                if (sala.estado == RoomState.SELECTING.name && bothReady) {
+                    showBothPlayersLoading()
+                    return
+                }
+
                 if (sala.estado == RoomState.PLAYING.name) startOnlineGame()
             }
             override fun onCancelled(error: DatabaseError) {
@@ -1230,14 +1267,67 @@ class SelectSongOnlineWait : AppCompatActivity() {
         salaRef.addValueEventListener(roomListener!!)
     }
 
+    private fun showWaitingForOpponentReady() {
+        linearLoading.isVisible = true
+        imgLoading.isVisible = true
+        if (activeSala.cancion.rutaBanner.isNotBlank()) {
+            BitmapFactory.decodeFile(activeSala.cancion.rutaBanner)?.let {
+                imgLoading.setImageBitmap(it)
+            }
+        }
+        txTip.text = "Espere por favor..."
+        findViewById<ProgressBar>(R.id.progressBar).progress = 0
+    }
+
+    private fun showBothPlayersLoading() {
+        if (roomLoadingStarted) return
+        roomLoadingStarted = true
+        showWaitingForOpponentReady()
+        txTip.text = "Cargando partida..."
+        showProgressBar(4000L)
+    }
+
+    private fun handleOpponentLeftDuringOnline(sala: Sala) {
+        if (opponentLeftHandled || isFinishing) return
+        opponentLeftHandled = true
+        linearLoading.isVisible = true
+        imgLoading.isVisible = false
+        val opponentName = if (isPlayer1) sala.jugador2.id else sala.jugador1.id
+        txTip.text = "El jugador $opponentName abandonó la sala"
+        AlertDialog.Builder(this)
+            .setTitle("Sala finalizada")
+            .setMessage("El jugador $opponentName abandonó la sala.")
+            .setCancelable(false)
+            .setPositiveButton("Salir") { d, _ ->
+                d.dismiss()
+                exitOnlineToMainAfterOpponentLeft()
+            }
+            .show()
+    }
+
+    private fun exitOnlineToMainAfterOpponentLeft() {
+        detachRoomListener()
+        loadingToGameTimer?.cancel()
+        roomLoadingStarted = false
+        isOnline = false
+        getSelectChannel = false
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
+    }
+
     private fun detachRoomListener() {
         roomListener?.let { salaRef.removeEventListener(it) }
         roomListener = null
     }
 
     private fun startOnlineGame() {
-        if (gameStarted || !localReadySent) return
+        if (gameStarted) return
+        if (!(activeSala.jugador1.listo && activeSala.jugador2.listo)) return
         gameStarted = true
+        loadingToGameTimer?.cancel()
         val intent = Intent(this, GameScreenActivity::class.java)
         isVertical = true
         intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.isHalf)
@@ -1248,6 +1338,9 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).setValue(true)
+        salaRef.child(myPath).onDisconnect().setValue(false)
         attachRoomListener()
     }
 
@@ -1268,6 +1361,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
         ready = 0
         imgFloor.setImageBitmap(bmFloor)
         if(getSelectChannel){
+            getSelectChannel = false
             this.finish()
             if(mediPlayer.isPlaying){
                 mediPlayer.stop()
@@ -1277,6 +1371,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
     override fun onDestroy() {
         detachRoomListener()
+        loadingToGameTimer?.cancel()
         super.onDestroy()
     }
 

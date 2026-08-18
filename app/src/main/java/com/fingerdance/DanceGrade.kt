@@ -7,6 +7,7 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -21,6 +22,7 @@ import android.os.Looper
 import android.util.Log
 import android.util.Rational
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
@@ -91,9 +93,13 @@ class DanceGrade : AppCompatActivity() {
     private var enabledSaveFirebase = true
 
     private lateinit var imgGradeDescription: ImageView
+    private lateinit var bgWait: ConstraintLayout
+    private lateinit var imgWait: ImageView
+    private lateinit var txRoomStatus: TextView
     private var resultListener: ValueEventListener? = null
     private var acceptResultListener: ValueEventListener? = null
     private var nextRoundStarted = false
+    private var opponentLeftHandled = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -127,11 +133,32 @@ class DanceGrade : AppCompatActivity() {
         val bm = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/press_floor.png")!!.absolutePath)
         imgAceptar.setImageBitmap(bm)
 
-        val bgWait = findViewById<ConstraintLayout>(R.id.bg_wait)
-        val imgWait = findViewById<ImageView>(R.id.img_wait)
+        bgWait = findViewById(R.id.bg_wait)
+        imgWait = findViewById(R.id.img_wait)
         bgWait.isVisible = false
         imgWait.isVisible = false
         bgWait.setOnClickListener { /* Prevent clicks */ }
+        txRoomStatus = TextView(this).apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            gravity = Gravity.CENTER
+            setTextColor(ContextCompat.getColor(context, R.color.white))
+            setTypeface(typeface, Typeface.BOLD)
+            setShadowLayer(1.8f, 1.2f, 1.2f, Color.BLACK)
+            textSize = 18f
+            isVisible = false
+        }
+        bgWait.addView(
+            txRoomStatus,
+            ConstraintLayout.LayoutParams(
+                ConstraintLayout.LayoutParams.MATCH_PARENT,
+                ConstraintLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                marginStart = 24
+                marginEnd = 24
+            }
+        )
 
         val numberWait = Random.nextInt(1, 10)
         imgWait.setImageBitmap(BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/img_dance_grade ($numberWait).png")!!.absolutePath))
@@ -641,6 +668,21 @@ class DanceGrade : AppCompatActivity() {
     ) {
         resultListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                val p1Connected = snapshot.child("jugador1/conectado").getValue(Boolean::class.java) ?: false
+                val p2Connected = snapshot.child("jugador2/conectado").getValue(Boolean::class.java) ?: false
+                if (!p1Connected || !p2Connected) {
+                    val myConnected = if (isPlayer1) p1Connected else p2Connected
+                    if (!myConnected) {
+                        finishAfterOpponentLeft()
+                        return
+                    }
+                    val p1Name = snapshot.child("jugador1/id").getValue(String::class.java).orEmpty()
+                    val p2Name = snapshot.child("jugador2/id").getValue(String::class.java).orEmpty()
+                    val opponentName = if (isPlayer1) p2Name else p1Name
+                    handleOpponentLeft(opponentName)
+                    return
+                }
+
                 val player1Ready = snapshot.child("jugador1/result/score").exists()
                 val player2Ready = snapshot.child("jugador2/result/score").exists()
 
@@ -712,6 +754,18 @@ class DanceGrade : AppCompatActivity() {
                 val sala = snapshot.getValue(Sala::class.java) ?: return
                 activeSala = sala
 
+                val myConnected = if (isPlayer1) sala.jugador1.conectado else sala.jugador2.conectado
+                val opponentConnected = if (isPlayer1) sala.jugador2.conectado else sala.jugador1.conectado
+                if (!myConnected) {
+                    finishAfterOpponentLeft()
+                    return
+                }
+                if (!opponentConnected) {
+                    handleOpponentLeft(if (isPlayer1) sala.jugador2.id else sala.jugador1.id)
+                    return
+                }
+                opponentLeftHandled = false
+
                 if (sala.estado == RoomState.SELECTING.name) {
                     getSelectChannel = true
 
@@ -773,6 +827,39 @@ class DanceGrade : AppCompatActivity() {
                 draw = true
             }
         }
+    }
+
+    private fun handleOpponentLeft(opponentNameRaw: String) {
+        if (!isOnline || opponentLeftHandled || isFinishing) return
+        opponentLeftHandled = true
+        val opponentName = opponentNameRaw.ifBlank { "rival" }
+        bgWait.isVisible = true
+        imgWait.isVisible = false
+        txRoomStatus.isVisible = true
+        txRoomStatus.text = "El jugador $opponentName abandonó la sala"
+        AlertDialog.Builder(this)
+            .setTitle("Sala finalizada")
+            .setMessage("El jugador $opponentName abandonó la sala.")
+            .setCancelable(false)
+            .setPositiveButton("Salir") { d, _ ->
+                d.dismiss()
+                finishAfterOpponentLeft()
+            }
+            .show()
+    }
+
+    private fun finishAfterOpponentLeft() {
+        resultListener?.let { salaRef.removeEventListener(it) }
+        acceptResultListener?.let { salaRef.removeEventListener(it) }
+        resultListener = null
+        acceptResultListener = null
+        isOnline = false
+        getSelectChannel = false
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
     }
 
     private fun prepareNextRound() {
@@ -1439,6 +1526,15 @@ class DanceGrade : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (isOnline) {
+            val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+            salaRef.child(myPath).setValue(true)
+            salaRef.child(myPath).onDisconnect().setValue(false)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (::mediaPlayerEvaluation.isInitialized && !mediaPlayerEvaluation.isPlaying) {
@@ -1463,4 +1559,3 @@ class DanceGrade : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_FULLSCREEN)
     }
 }
-

@@ -122,6 +122,7 @@ class SelectChannelOnline : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
+        getSelectChannel = false
         supportActionBar?.hide()
         setContentView(R.layout.activity_select_channel_online)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -558,11 +559,25 @@ class SelectChannelOnline : AppCompatActivity() {
             .setTitle("Sala finalizada")
             .setMessage("El ${if(isPlayer1) activeSala.jugador2.id else activeSala.jugador1.id} se desconectó o abandonó la sala.")
             .setCancelable(false)
-            .setPositiveButton("Aceptar") { d, _ ->
+            .setPositiveButton("Salir") { d, _ ->
                 d.dismiss()
-                leaveRoom(goToMain = true)
+                exitOnlineToMain()
             }
             .show()
+    }
+
+    private fun exitOnlineToMain() {
+        detachRoomListener()
+        isOnline = false
+        victoriesP1 = 0
+        victoriesP2 = 0
+        getSelectChannel = false
+        AppResources.soundSelectChannel?.pause()
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
     }
 
 
@@ -701,6 +716,9 @@ class SelectChannelOnline : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).setValue(true)
+        salaRef.child(myPath).onDisconnect().setValue(false)
         attachRoomListener()
     }
 
