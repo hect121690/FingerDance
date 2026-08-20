@@ -130,6 +130,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private var roomLoadingStarted = false
     private var opponentLeftHandled = false
     private var loadingToGameTimer: CountDownTimer? = null
+    private var roomSnapshotSeen = false
     private lateinit var btnCommandWindow: ImageView
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -714,10 +715,19 @@ class SelectSongOnlineWait : AppCompatActivity() {
                             localReadySent = true
                             readyPlay = true
                             val readyPath = if (isPlayer1) "jugador1/listo" else "jugador2/listo"
-                            salaRef.child(readyPath).setValue(true).addOnFailureListener {
-                                localReadySent = false
-                                Toast.makeText(this, "No se pudo confirmar que estás listo", Toast.LENGTH_SHORT).show()
-                            }
+                            salaRef.child(readyPath).setValue(true)
+                                .addOnSuccessListener {
+                                    if (isPlayer1) {
+                                        activeSala.jugador1.listo = true
+                                    } else {
+                                        activeSala.jugador2.listo = true
+                                    }
+                                    showWaitingForOpponentReady()
+                                }
+                                .addOnFailureListener {
+                                    localReadySent = false
+                                    Toast.makeText(this, "No se pudo confirmar que estás listo", Toast.LENGTH_SHORT).show()
+                                }
                         }
 
                     }
@@ -1184,9 +1194,11 @@ class SelectSongOnlineWait : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
                 if (sala == null) {
+                    if (!roomSnapshotSeen) return
                     exitOnlineToMainWithoutMessage()
                     return
                 }
+                roomSnapshotSeen = true
                 activeSala = sala
                 localReadySent = if (isPlayer1) sala.jugador1.listo else sala.jugador2.listo
 
@@ -1358,4 +1370,3 @@ class SelectSongOnlineWait : AppCompatActivity() {
     }
 
 }
-

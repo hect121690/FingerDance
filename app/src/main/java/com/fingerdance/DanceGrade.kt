@@ -52,8 +52,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import androidx.core.graphics.drawable.toDrawable
-import com.google.firebase.database.MutableData
-import com.google.firebase.database.Transaction
 
 
 private lateinit var bgConstraint: ConstraintLayout
@@ -314,7 +312,11 @@ class DanceGrade : AppCompatActivity() {
                 activeSala.jugador1.result.miss = resultSong.miss.toString()
                 activeSala.jugador1.result.maxCombo = resultSong.maxCombo.toString()
                 activeSala.jugador1.result.score = totalScore.toString()
-                salaRef.child("jugador1/result").setValue(activeSala.jugador1.result)
+                salaRef.child("jugador1/result")
+                    .setValue(activeSala.jugador1.result)
+                    .addOnFailureListener { error ->
+                        Log.e("DanceGrade", "No se pudo publicar resultado P1: ${error.message}")
+                    }
             } else {
                 activeSala.jugador2.result.perfect = resultSong.perfect.toString()
                 activeSala.jugador2.result.great = resultSong.great.toString()
@@ -323,7 +325,11 @@ class DanceGrade : AppCompatActivity() {
                 activeSala.jugador2.result.miss = resultSong.miss.toString()
                 activeSala.jugador2.result.maxCombo = resultSong.maxCombo.toString()
                 activeSala.jugador2.result.score = totalScore.toString()
-                salaRef.child("jugador2/result").setValue(activeSala.jugador2.result)
+                salaRef.child("jugador2/result")
+                    .setValue(activeSala.jugador2.result)
+                    .addOnFailureListener { error ->
+                        Log.e("DanceGrade", "No se pudo publicar resultado P2: ${error.message}")
+                    }
             }
         }
 
@@ -726,6 +732,12 @@ class DanceGrade : AppCompatActivity() {
                 // P1 sólo marca RESULTS. NO toca listo aquí.
                 if (isPlayer1 && sala.estado == RoomState.PLAYING.name) {
                     salaRef.child("estado").setValue(RoomState.RESULTS.name)
+                        .addOnSuccessListener {
+                            activeSala.estado = RoomState.RESULTS.name
+                        }
+                        .addOnFailureListener { error ->
+                            Log.e("DanceGrade", "No se pudo marcar RESULTS: ${error.message}")
+                        }
                 }
 
                 listenForRoundReset()
@@ -884,55 +896,39 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun prepareNextRound() {
-        salaRef.runTransaction(object : Transaction.Handler {
-            override fun doTransaction(currentData: MutableData): Transaction.Result {
-                val sala = currentData.getValue(Sala::class.java)
-                    ?: return Transaction.abort()
+        val nextTurn = getNextTurn(activeSala)
 
-                if (sala.estado != RoomState.RESULTS.name) {
-                    return Transaction.abort()
-                }
+        val updates = hashMapOf<String, Any?>(
+            "turno" to nextTurn,
+            "cancion" to CancionOnline(),
+            "jugador1/listo" to false,
+            "jugador2/listo" to false,
+            "jugador1/live" to LiveResult(),
+            "jugador2/live" to LiveResult(),
+            "jugador1/result" to null,
+            "jugador2/result" to null,
+            "estado" to RoomState.SELECTING.name
+        )
 
-                if (sala.jugador1.listo || sala.jugador2.listo) {
-                    return Transaction.abort()
-                }
-
-                val nextTurn = getNextTurn(sala)
-
-                // Modificamos sólo los nodos de control de la siguiente ronda.
-                // No reserializamos Sala completa porque necesitamos que result
-                // quede realmente ausente hasta el próximo DanceGrade.
-                currentData.child("turno").value = nextTurn
-                currentData.child("cancion").value = CancionOnline()
-                currentData.child("jugador1/listo").value = false
-                currentData.child("jugador2/listo").value = false
-                currentData.child("jugador1/live").value = LiveResult()
-                currentData.child("jugador2/live").value = LiveResult()
-                currentData.child("jugador1/result").value = null
-                currentData.child("jugador2/result").value = null
-                currentData.child("estado").value = RoomState.SELECTING.name
-
-                return Transaction.success(currentData)
+        salaRef.updateChildren(updates)
+            .addOnSuccessListener {
+                // P1 escribió la transición de ronda: actualiza su copia local
+                // y navega inmediatamente. P2 llegará por su listener al observar
+                // estado=SELECTING.
+                activeSala.turno = nextTurn
+                activeSala.cancion = CancionOnline()
+                activeSala.jugador1.listo = false
+                activeSala.jugador2.listo = false
+                activeSala.jugador1.live = LiveResult()
+                activeSala.jugador2.live = LiveResult()
+                activeSala.estado = RoomState.SELECTING.name
+                navigateToSelectChannelOnline()
             }
-
-            override fun onComplete(
-                error: DatabaseError?,
-                committed: Boolean,
-                snapshot: DataSnapshot?
-            ) {
-                if (error != null) {
-                    nextRoundStarted = false
-                    Log.e("DanceGrade", "Error preparando siguiente ronda: ${error.message}")
-                    return
-                }
-
-                if (!committed) {
-                    nextRoundStarted = false
-                }
-                // No navegamos desde aquí. Ambos dispositivos navegarán
-                // cuando el listener observe estado=SELECTING.
+            .addOnFailureListener { error ->
+                nextRoundStarted = false
+                Log.e("DanceGrade", "Error preparando siguiente ronda: ${error.message}")
+                Toast.makeText(this, "No se pudo preparar la siguiente ronda", Toast.LENGTH_SHORT).show()
             }
-        })
     }
 
     private fun getNextTurn(sala: Sala): String {
@@ -980,6 +976,13 @@ class DanceGrade : AppCompatActivity() {
 
         // En DanceGrade aceptar significa BAJAR mi propio listo.
         salaRef.child(readyPath).setValue(false)
+            .addOnSuccessListener {
+                if (isPlayer1) {
+                    activeSala.jugador1.listo = false
+                } else {
+                    activeSala.jugador2.listo = false
+                }
+            }
             .addOnFailureListener {
                 acceptSent = false
                 imgAceptar.isEnabled = true
@@ -1624,4 +1627,3 @@ class DanceGrade : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_FULLSCREEN)
     }
 }
-

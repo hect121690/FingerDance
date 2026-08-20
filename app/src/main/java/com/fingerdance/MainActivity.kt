@@ -64,8 +64,6 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.MutableData
-import com.google.firebase.database.Transaction
 import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -368,6 +366,7 @@ class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var txtLoadingChannel: TextView
     private lateinit var txtLoadingSong: TextView
     private var waitingPlayer2Listener: ValueEventListener? = null
+    private var waitingPlayer2RoomSeen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if(isHorizontalMode){
@@ -1950,8 +1949,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 dialog = dialog,
                 editRoomCode = editRoomCode,
                 btnEnter = btnEnter,
-                jugador2 = jugador2,
-                retryIfMissing = true
+                jugador2 = jugador2
             )
         }
     }
@@ -1961,87 +1959,81 @@ class MainActivity : AppCompatActivity(), Serializable {
         editRoomCode: EditText,
         btnEnter: View,
         jugador2: Jugador,
-        retryIfMissing: Boolean,
     ) {
-        var abortReason = "La sala ya fue ocupada o ya no está disponible"
+        // La lectura se usa solamente para validar la sala.
+        // La navegación NO depende del snapshot posterior a una Transaction:
+        // depende del addOnSuccessListener de la escritura real de P2.
+        salaRef.get()
+            .addOnSuccessListener { snapshot ->
+                val sala = snapshot.getValue(Sala::class.java)
 
-        salaRef.runTransaction(object : Transaction.Handler {
-            override fun doTransaction(currentData: MutableData): Transaction.Result {
-                val sala = currentData.getValue(Sala::class.java)
-
-                if (sala == null) {
-                    abortReason = "La sala no existe"
-                    return Transaction.abort()
+                if (sala == null || !snapshot.exists()) {
+                    btnEnter.isEnabled = true
+                    editRoomCode.isEnabled = true
+                    mostrarErrorSala("La sala no existe")
+                    return@addOnSuccessListener
                 }
 
                 if (sala.estado != RoomState.WAITING.name) {
-                    abortReason = "La sala ya no está esperando jugadores"
-                    return Transaction.abort()
+                    btnEnter.isEnabled = true
+                    editRoomCode.isEnabled = true
+                    mostrarErrorSala("La sala ya no está esperando jugadores")
+                    return@addOnSuccessListener
                 }
 
                 if (sala.jugador1.id.isBlank() || !sala.jugador1.conectado) {
-                    abortReason = "El jugador 1 ya no está conectado"
-                    return Transaction.abort()
+                    btnEnter.isEnabled = true
+                    editRoomCode.isEnabled = true
+                    mostrarErrorSala("El jugador 1 ya no está conectado")
+                    return@addOnSuccessListener
                 }
 
-                // Si ya hay un ID de Player 2, la posición está ocupada.
                 if (sala.jugador2.id.isNotBlank()) {
-                    abortReason = "La sala ya tiene un jugador 2"
-                    return Transaction.abort()
-                }
-
-                // Insertamos solamente los tres campos de Player 2.
-                // No tocamos jugador1, turno, canción ni resultados.
-                currentData.child("jugador2/id").value = jugador2.id
-                currentData.child("jugador2/conectado").value = true
-                currentData.child("jugador2/listo").value = false
-                currentData.child("estado").value = RoomState.SELECTING.name
-
-                return Transaction.success(currentData)
-            }
-
-            override fun onComplete(
-                databaseError: DatabaseError?,
-                committed: Boolean,
-                currentData: DataSnapshot?
-            ) {
-                if (databaseError != null) {
                     btnEnter.isEnabled = true
                     editRoomCode.isEnabled = true
-                    mostrarErrorSala("Error al unir a la sala: ${databaseError.message.orEmpty()}")
-                    return
+                    mostrarErrorSala("La sala ya tiene un jugador 2")
+                    return@addOnSuccessListener
                 }
 
-                if (!committed) {
-                    btnEnter.isEnabled = true
-                    editRoomCode.isEnabled = true
-                    mostrarErrorSala(abortReason)
-                    return
-                }
+                val updates = hashMapOf<String, Any>(
+                    "jugador2/id" to jugador2.id,
+                    "jugador2/conectado" to true,
+                    "jugador2/listo" to false,
+                    "estado" to RoomState.SELECTING.name
+                )
 
-                val sala = currentData?.getValue(Sala::class.java)
-                if (sala == null) {
-                    btnEnter.isEnabled = true
-                    editRoomCode.isEnabled = true
-                    mostrarErrorSala("No se pudo leer la sala después de entrar")
-                    return
-                }
+                salaRef.updateChildren(updates)
+                    .addOnSuccessListener {
+                        // Actualizamos la copia local con exactamente lo que acabamos
+                        // de confirmar que Firebase guardó. No hacemos otra lectura.
+                        sala.jugador2.id = jugador2.id
+                        sala.jugador2.conectado = true
+                        sala.jugador2.listo = false
+                        sala.estado = RoomState.SELECTING.name
 
-                isPlayer1 = false
-                isOnline = true
-                activeSala = sala
+                        isPlayer1 = false
+                        isOnline = true
+                        activeSala = sala
 
-                // Player 2 queda conectado en la transacción. Registramos
-                // onDisconnect antes de abrir el flujo de juego.
-                salaRef.child("jugador2/conectado")
-                    .onDisconnect()
-                    .setValue(false)
-                    .addOnCompleteListener {
-                        dialog.dismiss()
-                        prepareOnlineAndOpenSelectChannel()
+                        salaRef.child("jugador2/conectado")
+                            .onDisconnect()
+                            .setValue(false)
+                            .addOnCompleteListener {
+                                dialog.dismiss()
+                                prepareOnlineAndOpenSelectChannel()
+                            }
+                    }
+                    .addOnFailureListener { error ->
+                        btnEnter.isEnabled = true
+                        editRoomCode.isEnabled = true
+                        mostrarErrorSala("No se pudo unir a la sala: ${error.message.orEmpty()}")
                     }
             }
-        })
+            .addOnFailureListener { error ->
+                btnEnter.isEnabled = true
+                editRoomCode.isEnabled = true
+                mostrarErrorSala("No se pudo consultar la sala: ${error.message.orEmpty()}")
+            }
     }
 
     private fun mostrarErrorSala(message: String) {
@@ -2191,10 +2183,11 @@ class MainActivity : AppCompatActivity(), Serializable {
         btnShare.setOnClickListener {
             dialog.dismiss()
 
-            // El host entra de inmediato al flujo Online. SelectChannelOnline
-            // mostrará "Esperando al jugador 2" mientras la sala siga WAITING.
+            // P1 comparte el código y se queda en MainActivity esperando.
+            // Sólo pasará a SelectChannelOnline cuando P2 haya escrito
+            // jugador2 + estado=SELECTING correctamente en Firebase.
             mostrarDialogoCompartir(this)
-            prepareOnlineAndOpenSelectChannel()
+            waitForPlayer2()
         }
 
         btnCancel.setOnClickListener {
@@ -2237,43 +2230,44 @@ class MainActivity : AppCompatActivity(), Serializable {
             cancelCreatedRoom()
         }
 
+        waitingPlayer2RoomSeen = false
+
         waitingPlayer2Listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
 
+                // Firebase puede entregar primero un snapshot local vacío.
+                // No lo tratamos como sala cerrada hasta haber visto la sala
+                // al menos una vez en este listener.
                 if (sala == null) {
+                    if (!waitingPlayer2RoomSeen) {
+                        txtWaitingMessage.text = "Sincronizando sala..."
+                        return
+                    }
+
                     stopWaitingPlayer2Listener()
                     waitingDialog.dismiss()
-
                     isOnline = false
                     btnPlayOnline.isEnabled = true
                     Toast.makeText(this@MainActivity, "La sala ya no existe", Toast.LENGTH_SHORT).show()
                     return
                 }
 
+                waitingPlayer2RoomSeen = true
                 activeSala = sala
 
                 val player2Connected = sala.jugador2.id.isNotBlank() && sala.jugador2.conectado
 
-                if (!player2Connected) {
+                if (!player2Connected || sala.estado != RoomState.SELECTING.name) {
                     txtWaitingMessage.text = "Esperando a que el jugador 2 entre a la sala..."
                     return
                 }
+
+                // P2 ya confirmó mediante addOnSuccessListener que escribió
+                // sus datos y estado=SELECTING. P1 sólo observa ese cambio.
                 txtWaitingMessage.text = "${sala.jugador2.id} se ha unido a la sala"
-                // Si Player 2 ya está conectado pero la sala sigue WAITING,
-                // el host la cambia a SELECTING.
-                if (sala.estado == RoomState.WAITING.name) {
-                    salaRef.child("estado").setValue(RoomState.SELECTING.name)
-                    return
-                }
-
-                if (sala.estado != RoomState.SELECTING.name) {
-                    return
-                }
-
                 stopWaitingPlayer2Listener()
                 waitingDialog.dismiss()
-
                 prepareOnlineAndOpenSelectChannel()
             }
 
@@ -2297,6 +2291,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         waitingPlayer2Listener = null
+        waitingPlayer2RoomSeen = false
     }
 
     private fun cancelCreatedRoom() {
@@ -2623,4 +2618,3 @@ data class CancionOnline(
 interface ItemClickListener {
     fun onItemClick(item: Pair<String, String>)
 }
-

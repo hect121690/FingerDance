@@ -66,6 +66,7 @@ class SelectChannelOnline : AppCompatActivity() {
     private var roomListener: ValueEventListener? = null
     private var navigatingByRoom = false
     private var opponentDisconnectHandled = false
+    private var roomSnapshotSeen = false
 
 
     // ============================================================
@@ -392,10 +393,12 @@ class SelectChannelOnline : AppCompatActivity() {
                 val sala = snapshot.getValue(Sala::class.java)
 
                 if (sala == null) {
+                    if (!roomSnapshotSeen) return
                     handleRoomClosed()
                     return
                 }
 
+                roomSnapshotSeen = true
                 activeSala = sala
                 setupPlayerInfo()
 

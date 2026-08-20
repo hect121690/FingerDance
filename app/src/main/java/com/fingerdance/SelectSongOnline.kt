@@ -219,6 +219,7 @@ class SelectSongOnline : AppCompatActivity() {
     private var playingTransitionScheduled = false
     private var opponentLeftHandled = false
     private var loadingToGameTimer: CountDownTimer? = null
+    private var roomSnapshotSeen = false
 
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -1080,15 +1081,25 @@ class SelectSongOnline : AppCompatActivity() {
         )
         selectionSent = true
         localReadySent = true
-        showWaitingForOpponentReady()
+
         val updates = hashMapOf<String, Any>("cancion" to selected)
         updates[if (isPlayer1) "jugador1/listo" else "jugador2/listo"] = true
-        salaRef.updateChildren(updates).addOnFailureListener {
-            selectionSent = false
-            localReadySent = false
-            imgAceptar.isEnabled = true
-            Toast.makeText(this, "No se pudo guardar la selección", Toast.LENGTH_SHORT).show()
-        }
+        salaRef.updateChildren(updates)
+            .addOnFailureListener {
+                selectionSent = false
+                localReadySent = false
+                imgAceptar.isEnabled = true
+                Toast.makeText(this, "No se pudo guardar la selección", Toast.LENGTH_SHORT).show()
+            }
+            .addOnSuccessListener {
+                activeSala.cancion = selected
+                if (isPlayer1) {
+                    activeSala.jugador1.listo = true
+                } else {
+                    activeSala.jugador2.listo = true
+                }
+                showWaitingForOpponentReady()
+            }
     }
 
     private fun updatePlayerLabels(sala: Sala) {
@@ -1200,11 +1211,16 @@ class SelectSongOnline : AppCompatActivity() {
 
             override fun onFinish() {
                 if (gameStarted || isFinishing) return
-                salaRef.child("estado").setValue(RoomState.PLAYING.name).addOnFailureListener {
-                    playingTransitionScheduled = false
-                    roomLoadingStarted = false
-                    Toast.makeText(this@SelectSongOnline, "No se pudo sincronizar el inicio", Toast.LENGTH_SHORT).show()
-                }
+                salaRef.child("estado").setValue(RoomState.PLAYING.name)
+                    .addOnSuccessListener {
+                        activeSala.estado = RoomState.PLAYING.name
+                        startOnlineGame()
+                    }
+                    .addOnFailureListener {
+                        playingTransitionScheduled = false
+                        roomLoadingStarted = false
+                        Toast.makeText(this@SelectSongOnline, "No se pudo sincronizar el inicio", Toast.LENGTH_SHORT).show()
+                    }
             }
         }
         loadingToGameTimer?.start()
@@ -1216,9 +1232,11 @@ class SelectSongOnline : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
                 if (sala == null) {
+                    if (!roomSnapshotSeen) return
                     exitOnlineToMainWithoutMessage()
                     return
                 }
+                roomSnapshotSeen = true
                 activeSala = sala
                 updatePlayerLabels(sala)
 
@@ -2391,4 +2409,3 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
 }
-
