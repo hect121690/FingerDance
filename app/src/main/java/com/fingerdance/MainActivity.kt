@@ -2193,8 +2193,8 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             // El host entra de inmediato al flujo Online. SelectChannelOnline
             // mostrará "Esperando al jugador 2" mientras la sala siga WAITING.
-            prepareOnlineAndOpenSelectChannel()
             mostrarDialogoCompartir(this)
+            prepareOnlineAndOpenSelectChannel()
         }
 
         btnCancel.setOnClickListener {

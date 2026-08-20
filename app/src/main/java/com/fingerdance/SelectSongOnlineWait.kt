@@ -53,48 +53,6 @@ import java.math.BigDecimal
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private lateinit var linearBG: LinearLayout
-private lateinit var buttonLayout: LinearLayout
-private lateinit var constraintMain: ConstraintLayout
-private lateinit var lbNameSong: TextView
-private lateinit var lbArtist: TextView
-private lateinit var lbLvActive: TextView
-
-private lateinit var lbCurrentBpm: TextView
-private lateinit var txCurrentBpm: TextView
-private lateinit var lbBpm: TextView
-private lateinit var txInfoCW: TextView
-private lateinit var imgVelocidadActual: ImageView
-private lateinit var txVelocidadActual: TextView
-
-private lateinit var imgOffset: ImageView
-private lateinit var txOffset: TextView
-
-private lateinit var imgDisplay: ImageView
-private lateinit var imgJudge: ImageView
-private lateinit var imgNoteSkin: ImageView
-private lateinit var imgNoteSkinFondo: ImageView
-private lateinit var nav_izq: ImageView
-private lateinit var nav_der: ImageView
-private lateinit var nav_back_Izq: ImageView
-private lateinit var nav_back_der: ImageView
-private lateinit var commandWindowBG: LinearLayout
-private lateinit var linearMenus: LinearLayout
-private lateinit var linearTop: LinearLayout
-private lateinit var linearCurrent: LinearLayout
-private lateinit var linearValues: LinearLayout
-private lateinit var linearCommands: LinearLayout
-private lateinit var linearInfo: LinearLayout
-private lateinit var linearBottom: LinearLayout
-private lateinit var linearLoading: LinearLayout
-private lateinit var imgLoading: ImageView
-private lateinit var imgAceptar: ImageView
-private lateinit var imgFloor: ImageView
-private lateinit var imgLvSelected: ImageView
-private lateinit var video_fondo : VideoView
-private lateinit var imgPrev: ImageView
-private lateinit var imageCircle : ImageView
-
 private lateinit var mediaPlayerVideo : MediaPlayer
 private lateinit var commandWindow: ConstraintLayout
 
@@ -112,15 +70,54 @@ private val sequencePattern = listOf(false, true, false, true, false, true)
 private lateinit var bmFloor: Bitmap
 private lateinit var bmFloor2: Bitmap
 
-private val handler = Handler()
-
-private lateinit var imgContador: ImageView
+private val handlerSelectSongOnlineWait = Handler()
 
 private val startTimeMs = 30000
-private var timer: CountDownTimer? = null
-private var isTimerRunning = false
 
 class SelectSongOnlineWait : AppCompatActivity() {
+    private lateinit var linearBG: LinearLayout
+    private lateinit var buttonLayout: LinearLayout
+    private lateinit var constraintMain: ConstraintLayout
+    private lateinit var lbNameSong: TextView
+    private lateinit var lbArtist: TextView
+    private lateinit var lbLvActive: TextView
+
+    private lateinit var lbCurrentBpm: TextView
+    private lateinit var txCurrentBpm: TextView
+    private lateinit var lbBpm: TextView
+    private lateinit var txInfoCW: TextView
+    private lateinit var imgVelocidadActual: ImageView
+    private lateinit var txVelocidadActual: TextView
+
+    private lateinit var imgOffset: ImageView
+    private lateinit var txOffset: TextView
+
+    private lateinit var imgDisplay: ImageView
+    private lateinit var imgJudge: ImageView
+    private lateinit var imgNoteSkin: ImageView
+    private lateinit var imgNoteSkinFondo: ImageView
+    private lateinit var nav_izq: ImageView
+    private lateinit var nav_der: ImageView
+    private lateinit var nav_back_Izq: ImageView
+    private lateinit var nav_back_der: ImageView
+    private lateinit var commandWindowBG: LinearLayout
+    private lateinit var linearMenus: LinearLayout
+    private lateinit var linearTop: LinearLayout
+    private lateinit var linearCurrent: LinearLayout
+    private lateinit var linearValues: LinearLayout
+    private lateinit var linearCommands: LinearLayout
+    private lateinit var linearInfo: LinearLayout
+    private lateinit var linearBottom: LinearLayout
+    private lateinit var linearLoading: LinearLayout
+    private lateinit var imgLoading: ImageView
+    private lateinit var imgAceptar: ImageView
+    private lateinit var imgFloor: ImageView
+    private lateinit var imgLvSelected: ImageView
+    private lateinit var video_fondo : VideoView
+    private lateinit var imgPrev: ImageView
+    private lateinit var imageCircle : ImageView
+    private lateinit var imgContador: ImageView
+
     private lateinit var overlayBG: View
     private lateinit var btnAddPreview: Button
     private lateinit var btnAddBga: Button
@@ -133,6 +130,8 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private var roomLoadingStarted = false
     private var opponentLeftHandled = false
     private var loadingToGameTimer: CountDownTimer? = null
+    private lateinit var btnCommandWindow: ImageView
+
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             val namePreview = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
@@ -232,8 +231,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
         lbCurrentBpm = findViewById(R.id.lbCurrentBpm)
         txCurrentBpm = findViewById(R.id.txCurrentBpm)
-        //txAV = findViewById(R.id.txAV)
-        //txAV.isVisible = false
 
         imgVelocidadActual = findViewById(R.id.imgVelocidadActual)
         val bmVA= BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/command_window/Command_Effect.png")!!.absolutePath)
@@ -270,11 +267,20 @@ class SelectSongOnlineWait : AppCompatActivity() {
         imgContador = findViewById(R.id.imgContador)
         imgContador.layoutParams.height = (sizeLvs * .45).toInt()
 
-        //iniciarContador()
-
         val anchoRecyclerCommands = linearMenus.layoutParams.width / 3
         recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)
         recyclerCommandsValues.layoutParams.width = anchoRecyclerCommands
+
+        btnCommandWindow = findViewById<ImageView>(R.id.btnCommandWindowVertical)
+        btnCommandWindow.apply {
+            layoutParams.width = (width * 0.3).toInt()
+            layoutParams.height = medidaFlechas.toInt()
+            setImageDrawable(Drawable.createFromPath("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/command_window/btnShowCW.png"))
+            visibility = View.GONE
+            setOnClickListener {
+                showCommandWindow(true)
+            }
+        }
 
         val anchoTxInfo = linearMenus.layoutParams.width - linearMenus.layoutParams.width / 7
         showCommandWindow(false)
@@ -309,11 +315,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         }else{
             imgLvSelected.setImageBitmap(selectedHD)
         }
-
-        //imgLvSelected.isVisible = false
-
-        //val rutaGrades = getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/dance_grade/").toString()
-        //arrayBestGrades = getGrades(rutaGrades)
 
         val yDelta = width / 40
         val animateSetTraslation = TranslateAnimation(0f, 0f, -yDelta.toFloat(), (yDelta * 2).toFloat())
@@ -441,14 +442,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 }
                 video_fondo.visibility = View.VISIBLE
                 imgPrev.visibility = View.GONE
-
-                //val retriever = MediaMetadataRetriever()
-                //retriever.setDataSource(item.rutaPreview)
                 video_fondo.start()
-                //val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
-                //if(hasAudio != null ){
-                //video_fondo.setOnPreparedListener { mp -> mp.setVolume(0.0f, 0.0f) }
-                //}
                 video_fondo.setOnCompletionListener {
                     video_fondo.start()
                 }
@@ -467,12 +461,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         seekTo(startTimeMs)
                         start()
                     }
-
-                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                    //mediPlayer.seekTo(startTimeMs)
-                    //mediPlayer.start()
-                    timer?.start()
-                    isTimerRunning = true
                 }else{
                     mediPlayer = MediaPlayer().apply {
                         setAudioAttributes(
@@ -486,12 +474,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         seekTo(startTimeMs)
                         start()
                     }
-
-                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaPreview)))
-                    //mediPlayer.seekTo(startTimeMs)
-                    //mediPlayer.start()
-                    timer?.start()
-                    isTimerRunning = true
                 }
             }else{
                 val img = BitmapFactory.decodeFile(activeSala.cancion.rutaDisc)
@@ -513,12 +495,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         seekTo(startTimeMs)
                         start()
                     }
-
-                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                    //mediPlayer.seekTo(startTimeMs)
-                    //mediPlayer.start()
-                    timer?.start()
-                    isTimerRunning = true
                 }else{
                     mediPlayer = MediaPlayer().apply {
                         setAudioAttributes(
@@ -532,12 +508,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
                         seekTo(startTimeMs)
                         start()
                     }
-
-                    //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                    //mediPlayer.seekTo(startTimeMs)
-                    //mediPlayer.start()
-                    timer?.start()
-                    isTimerRunning = true
                 }
             }
         }else{
@@ -560,12 +530,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
                     seekTo(startTimeMs)
                     start()
                 }
-
-                //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                //mediPlayer.seekTo(startTimeMs)
-                //mediPlayer.start()
-                timer?.start()
-                isTimerRunning = true
             }else{
                 mediPlayer = MediaPlayer().apply {
                     setAudioAttributes(
@@ -579,12 +543,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
                     seekTo(startTimeMs)
                     start()
                 }
-
-                //mediPlayer = MediaPlayer.create(this, Uri.fromFile(File(activeSala.cancion.rutaCancion)))
-                //mediPlayer.seekTo(startTimeMs)
-                //mediPlayer.start()
-                timer?.start()
-                isTimerRunning = true
             }
         }
         if(activeSala.cancion.nameSong == ""){
@@ -1006,7 +964,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 }
             }
             Toast.makeText(this, "Espere por favor...", Toast.LENGTH_SHORT).show()
-            handler.postDelayed({
+            handlerSelectSongOnlineWait.postDelayed({
                 if(!isBGA){
                     Toast.makeText(this, "Se guardo el preview correctamente", Toast.LENGTH_SHORT).show()
                 }else{
@@ -1085,6 +1043,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
             linearBottom.visibility = View.VISIBLE
             lbCurrentBpm.visibility = View.VISIBLE
             txCurrentBpm.visibility = View.VISIBLE
+            btnCommandWindow.visibility = View.GONE
 
             commandWindow.startAnimation(animOn)
             commandWindowBG.startAnimation(animOn)
@@ -1105,6 +1064,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
             linearBottom.visibility = View.GONE
             lbCurrentBpm.visibility = View.GONE
             txCurrentBpm.visibility = View.GONE
+            btnCommandWindow.visibility = View.VISIBLE
 
             commandWindow.startAnimation(animOff)
             commandWindowBG.startAnimation(animOff)
@@ -1139,7 +1099,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
     private fun isFocusCommandWindowValues (position: Int){
         soundPoolSelectSong.play(command_moveKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-        //listCommands[oldValueCommand].listCommandValues.sortedWith(compareBy { it.rutaCommandImg })
         val item = listCommands[oldValueCommand].listCommandValues[position]
         recyclerCommandsValues.setCurrentItem(position)
         val reset = "por defecto"

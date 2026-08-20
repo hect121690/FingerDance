@@ -118,16 +118,9 @@ private val sequence = mutableListOf<Boolean>()
 private val sequencePattern = listOf(false, true, false, true, false, true)
 
 private var contador = 0
-
-private val handler = Handler(Looper.getMainLooper())
-private val handlerContador = Handler(Looper.getMainLooper())
-
-private var reductor = 100
+private var handlerSelectSongOnline = Handler(Looper.getMainLooper())
 
 private val startTimeMs = 30000
-private var timer: CountDownTimer? = null
-private var isTimerRunning = false
-
 
 //private var idAdd = ""
 //private var interstitialAd: InterstitialAd? = null
@@ -204,14 +197,10 @@ class SelectSongOnline : AppCompatActivity() {
 
     private lateinit var tipsArray : Array<String>
     private lateinit var txTip : TextView
-    private var modeSelected = false
-    private var orientationMode = OrientationMode.VERTICAL
-    private lateinit var selectModeContainer : FrameLayout
 
     private var selectedIndex = 0
     private val visibleItems = 9
     private var firstVisible = 0
-    private var isRunning = false
     private lateinit var artworkRepository: SongArtworkRepository
     private lateinit var carouselController: SongCarouselController
     private lateinit var previewController: SongPreviewController
@@ -222,7 +211,7 @@ class SelectSongOnline : AppCompatActivity() {
     private var activityResumed = false
     private lateinit var txPlayer1Online: TextView
     private lateinit var txPlayer2Online: TextView
-    private var roomListener: com.google.firebase.database.ValueEventListener? = null
+    private var roomListener: ValueEventListener? = null
     private var selectionSent = false
     private var gameStarted = false
     private var localReadySent = false
@@ -411,8 +400,6 @@ class SelectSongOnline : AppCompatActivity() {
         imgContador = findViewById(R.id.imgContador)
         imgContador.layoutParams.height = (sizeLvs * .45).toInt()
 
-        iniciarContador()
-
         indicatorLayout = findViewById(R.id.indicatorImageView)
         indicatorLayout.setImageBitmap(AppResources.bmIndicator)
         indicatorLayout.layoutParams.width = sizeLvs
@@ -480,23 +467,6 @@ class SelectSongOnline : AppCompatActivity() {
         val anim = AnimationUtils.loadAnimation(this, R.anim.anim_select)
         imgSelected.startAnimation(anim)
 
-        selectModeContainer = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(Color.BLACK)
-            setOnClickListener(object : View.OnClickListener {
-                override fun onClick(v: View?) {
-                    // No hace nada
-                }
-            })
-            visibility = View.INVISIBLE
-        }
-
-        buildSelectMode(animateSetTraslation)
-        constraintMain.addView(selectModeContainer)
-
         nav_izq = findViewById(R.id.nav_izq_song)
         nav_der = findViewById(R.id.nav_der_song)
         nav_back_Izq = findViewById(R.id.back_izq)
@@ -529,8 +499,6 @@ class SelectSongOnline : AppCompatActivity() {
 
         llenaCommands(listCommands)
 
-        //Por ahora solo se enviaran KSF
-        //val listVacios = ArrayList<Lvs>()
         val listVacios = ArrayList<Ksf>()
         val rutaLvSelected = "$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/img_lv_back.png"
 
@@ -539,13 +507,7 @@ class SelectSongOnline : AppCompatActivity() {
         }
         llenaLvsVacios(listVacios)
 
-
-        //setupRecyclerView((height * 0.06).toInt(), (width * 0.2).toInt())
-
         setupSongCarousel()
-
-
-        //layoutManager = recyclerLvs.layoutManager as LinearLayoutManager
         imageCircle.layoutParams.width = (width * 0.95).toInt()
         imageCircle.layoutParams.height = imageCircle.layoutParams.width
 
@@ -642,7 +604,7 @@ class SelectSongOnline : AppCompatActivity() {
                 Toast.makeText(this, "Manten presionado para volver al Selecet Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
-            if (imgLvSelected.isVisible && !commandWindow.isVisible && !selectModeContainer.isVisible) {
+            if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideSelectLv(anim)
             }
@@ -657,25 +619,15 @@ class SelectSongOnline : AppCompatActivity() {
                 linearValues.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
             }
-            if (selectModeContainer.isVisible) {
-                modeSelected = false
-                selectModeContainer.visibility = View.INVISIBLE
-                imgFloor.visibility = View.VISIBLE
-                imgAceptar.visibility = View.VISIBLE
-                txNameChannel.visibility = View.VISIBLE
-                txPlayerName.visibility = View.VISIBLE
-                imgAceptar.startAnimation(animateSetTraslation)
-            }
         }
         nav_back_der.setOnClickListener() {
             ready = 0
             imgFloor.setImageBitmap(AppResources.bmFloor)
             if (carouselSong.isVisible && !commandWindow.isVisible) {
-                //goSelectChannel()
                 Toast.makeText(this, "Manten presionado para volver al Select Channel", Toast.LENGTH_SHORT).show()
                 soundPoolSelectSong.play(selectSong_movKsf, 1.0f, 1.0f, 1, 0, 1.0f)
             }
-            if (imgLvSelected.isVisible && !commandWindow.isVisible && !selectModeContainer.isVisible) {
+            if (imgLvSelected.isVisible && !commandWindow.isVisible) {
                 soundPoolSelectSong.play(up_SelectSoundKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                 hideSelectLv(anim)
             }
@@ -689,15 +641,6 @@ class SelectSongOnline : AppCompatActivity() {
                 linearValues.isVisible = false
                 linearCurrent.isVisible = false
                 isFocusCommandWindow(oldValueCommand)
-            }
-            if (selectModeContainer.isVisible) {
-                modeSelected = false
-                selectModeContainer.visibility = View.INVISIBLE
-                imgFloor.visibility = View.VISIBLE
-                imgAceptar.visibility = View.VISIBLE
-                txNameChannel.visibility = View.VISIBLE
-                txPlayerName.visibility = View.VISIBLE
-                imgAceptar.startAnimation(animateSetTraslation)
             }
         }
 
@@ -791,20 +734,7 @@ class SelectSongOnline : AppCompatActivity() {
             if(imgLvSelected.isVisible && !commandWindow.isVisible){
                 if (ready == 1) {
                     soundPoolSelectSong.play(selectKsf, 1.0f, 1.0f, 1, 0, 1.0f)
-
-                    if (modeSelected) {
-                        goGameScreenActivity(anim, txPlayerName, txNameChannel)
-                    } else {
-                        val hasSavedOrientation = applySavedOrientationIfExists()
-
-                        if (hasSavedOrientation) {
-                            goGameScreenActivity(anim, txPlayerName, txNameChannel)
-                        } else {
-                            txNameChannel.visibility = View.INVISIBLE
-                            txPlayerName.visibility = View.INVISIBLE
-                            showSelectMode()
-                        }
-                    }
+                    goGameScreenActivity(anim, txPlayerName, txNameChannel)
                 }
 
                 imgAceptar.isEnabled = true
@@ -1087,246 +1017,6 @@ class SelectSongOnline : AppCompatActivity() {
         return level.typePlayer == "B"
     }
 
-    private fun getSavedPlayModeForCurrentLevel(): Int {
-        return if (getSelectedLevelIsHalfDouble()) {
-            playModeHalf
-        } else {
-            playModeSingle
-        }
-    }
-
-    private fun orientationFromPlayMode(playMode: Int): OrientationMode? {
-        return when (playMode) {
-            1 -> OrientationMode.VERTICAL
-            2 -> OrientationMode.HORIZONTAL
-            else -> null
-        }
-    }
-
-    private fun applySavedOrientationIfExists(): Boolean {
-        val savedPlayMode = getSavedPlayModeForCurrentLevel()
-        val savedOrientation = orientationFromPlayMode(savedPlayMode)
-
-        return if (savedOrientation != null) {
-            modeSelected = true
-            orientationMode = savedOrientation
-            true
-        } else {
-            modeSelected = false
-            false
-        }
-    }
-
-    private fun showSelectMode() {
-        //sube los controles SOBRE el overlay
-        selectModeContainer.visibility = View.VISIBLE
-        imgAceptar.bringToFront()
-        imgFloor.bringToFront()
-        nav_back_Izq.bringToFront()
-        nav_back_der.bringToFront()
-        imgFloor.visibility = View.INVISIBLE
-        imgAceptar.visibility = View.INVISIBLE
-        imgAceptar.animation = null
-    }
-
-    private fun buildSelectMode(animateSetTraslation: Animation){
-        val hand = ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(medidaFlechas.toInt(), medidaFlechas.toInt(), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-            setImageBitmap(BitmapFactory.decodeStream(assets.open("hand_tap_here.png"))) // tu imagen
-            alpha = 0f
-        }
-
-        val aceptarTop = imgAceptar.top.takeIf { it > 0 }
-            ?: (resources.displayMetrics.heightPixels * 0.8f).toInt()
-
-        val availableHeight = aceptarTop
-
-        val verticalLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                availableHeight
-            ).apply {
-                topMargin = (resources.displayMetrics.heightPixels * 0.06f).toInt()
-            }
-        }
-
-        selectModeContainer.addView(verticalLayout)
-        selectModeContainer.addView(hand)
-
-        // 🔥 PRELOAD (IMPORTANTE)
-        val hPrev = BitmapFactory.decodeStream(assets.open("horizontal_mode_prev.png"))
-        val hSelect = BitmapFactory.decodeStream(assets.open("horizontal_mode_select.png"))
-
-        val vPrev = BitmapFactory.decodeStream(assets.open("vertical_mode_prev.png"))
-        val vSelect = BitmapFactory.decodeStream(assets.open("vertical_mode_select.png"))
-
-        // 🔥 referencias
-        lateinit var imgHorizontal: ImageView
-        lateinit var imgVertical: ImageView
-
-        fun createSection(
-            initialBitmap: Bitmap,
-            assignRef: (ImageView) -> Unit,
-            onClick: () -> Unit
-        ): FrameLayout {
-
-            val section = FrameLayout(this).apply {
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            }
-
-            val image = ImageView(this).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    (resources.displayMetrics.widthPixels * 0.75f).toInt(),
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    Gravity.CENTER
-                )
-                scaleType = ImageView.ScaleType.FIT_XY
-                setImageBitmap(initialBitmap)
-            }
-
-            assignRef(image)
-
-            image.setOnClickListener {
-                onClick()
-            }
-
-            section.addView(image)
-            return section
-        }
-
-        // 🔽 vertical
-        val topSection = createSection(vPrev, { imgVertical = it }) {
-            isHandRunning = false
-            hand.animate().cancel()
-            hand.visibility = View.GONE
-            imgFloor.visibility = View.VISIBLE
-            imgAceptar.visibility = View.VISIBLE
-            imgAceptar.startAnimation(animateSetTraslation)
-            modeSelected = true
-            orientationMode = OrientationMode.VERTICAL
-
-            // 🔥 actualizar imágenes
-            imgVertical.setImageBitmap(vSelect)
-            imgHorizontal.setImageBitmap(hPrev)
-        }
-
-        // 🔝 horizontal
-        val bottomSection = createSection(hPrev, { imgHorizontal = it }) {
-            isHandRunning = false
-            hand.animate().cancel()
-            hand.visibility = View.GONE
-            imgFloor.visibility = View.VISIBLE
-            imgAceptar.visibility = View.VISIBLE
-            imgAceptar.startAnimation(animateSetTraslation)
-            modeSelected = true
-            orientationMode = OrientationMode.HORIZONTAL
-
-            // 🔥 actualizar imágenes
-            imgHorizontal.setImageBitmap(hSelect)
-            imgVertical.setImageBitmap(vPrev)
-        }
-
-        val textInfo = TextView(this).apply {
-            text = "Selecciona como quieres jugar"
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setPadding(0, 20, 0, 20)
-            setTypeface(typeface, Typeface.BOLD)
-
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        verticalLayout.addView(topSection)
-        verticalLayout.addView(textInfo)
-        verticalLayout.addView(bottomSection)
-
-        selectModeContainer.post {
-            isHandRunning = true
-            startHandAnimation(hand, imgVertical, imgHorizontal)
-        }
-    }
-
-    var isHandRunning = false
-    private fun startHandAnimation(hand: View, top: View, bottom: View) {
-        hand.x = (selectModeContainer.width / 2f) - (hand.width / 2f)
-        hand.y = getCenterY(top) - hand.height / 2f
-
-        fun moveAndTap(targetY: Float, onEnd: () -> Unit) {
-
-            hand.animate().cancel()
-
-            hand.animate()
-                .alpha(1f)
-                .y(targetY - hand.height / 2)
-                .setDuration(1000)
-                .setInterpolator(android.view.animation.DecelerateInterpolator())
-                .withEndAction {
-
-                    // tap 1
-                    hand.animate()
-                        .scaleX(0.85f)
-                        .scaleY(0.85f)
-                        .setDuration(80)
-                        .withEndAction {
-
-                            // regreso
-                            hand.animate()
-                                .scaleX(1f)
-                                .scaleY(1f)
-                                .setDuration(80)
-                                .withEndAction {
-
-                                    // tap 2
-                                    hand.animate()
-                                        .scaleX(0.85f)
-                                        .scaleY(0.85f)
-                                        .setDuration(80)
-                                        .withEndAction {
-
-                                            hand.animate()
-                                                .scaleX(1f)
-                                                .scaleY(1f)
-                                                .setDuration(80)
-                                                .withEndAction {
-                                                    hand.postDelayed({
-                                                        onEnd()
-                                                    }, 150) // 🔥 pausa natural
-                                                }
-                                        }
-                                }
-                        }
-                }
-        }
-        fun loop() {
-            if (!isHandRunning) return
-
-            moveAndTap(getCenterY(top)) {
-                if (!isHandRunning) return@moveAndTap
-
-                moveAndTap(getCenterY(bottom)) {
-                    loop()
-                }
-            }
-        }
-
-        loop()
-    }
-
-    private fun getCenterY(v: View): Float {
-        val loc = IntArray(2)
-        v.getLocationOnScreen(loc)
-
-        val containerLoc = IntArray(2)
-        selectModeContainer.getLocationOnScreen(containerLoc)
-
-        return (loc[1] - containerLoc[1]) + v.height / 2f
-    }
-
     private fun goGameScreenActivity(anim: Animation, txPlayerName: TextView, txNameChannel: TextView) {
         if (selectionSent) return
         val real = getRealIndex(oldValue)
@@ -1586,7 +1276,7 @@ class SelectSongOnline : AppCompatActivity() {
         gameStarted = true
         loadingToGameTimer?.cancel()
         val intent = Intent(this, GameScreenActivity::class.java)
-        isVertical = orientationMode == OrientationMode.VERTICAL
+        isVertical = true
         intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.isHalf)
         startActivity(intent)
         initGameScreen = true
@@ -2145,7 +1835,7 @@ class SelectSongOnline : AppCompatActivity() {
             override fun onCompleted(composition: Composition, result: ExportResult) {
                 if (inputFile.exists()) inputFile.delete()
                 File(outputFile).renameTo(File(inputFile.absolutePath))
-                handler.postDelayed({
+                handlerSelectSongOnline.postDelayed({
                     if(!isBGA){
                         Toast.makeText(context, "Se guardo el preview correctamente", Toast.LENGTH_SHORT).show()
                     }else{
@@ -2168,68 +1858,9 @@ class SelectSongOnline : AppCompatActivity() {
 
     }
 
-    private fun iniciarContador() {
-        handlerContador.postDelayed(runnableContador, 0)
-    }
-    private val runnableContador: Runnable = object : Runnable {
-        override fun run() {
-            actualizarImagenNumero(reductor)
-            reductor--
-            if(isCounter){
-                handlerContador.postDelayed(this, 1000)
-                if(reductor < 0){
-                    detenerContador()
-                    if(ready == 1){
-                        if(commandWindow.isVisible){
-                            showCommandWindow(false)
-                        }
-                        imgAceptar.performClick()
-                    }
-                    if(ready == 0){
-                        if(commandWindow.isVisible){
-                            showCommandWindow(false)
-                        }
-                        imgAceptar.performClick()
-                        imgAceptar.performClick()
-                    }
-
-                }
-            }else{
-                detenerContador()
-            }
-        }
-    }
-
-    private fun actualizarImagenNumero(numero: Int) {
-        val unidad = numero % 10
-        val decena = numero / 10
-        val bitmapUnidad = dividirPNG(unidad)
-        val bitmapDecena = dividirPNG(decena)
-        val bitmapNumeroCompleto = combinarBitmaps(bitmapDecena, bitmapUnidad)
-
-        imgContador.setImageBitmap(bitmapNumeroCompleto)
-    }
-
-    private fun dividirPNG(digito: Int): Bitmap {
-        val anchoTotal = AppResources.bitmapNumber.width
-        val anchoDigito = anchoTotal / 10
-        val x = anchoDigito * digito
-        return Bitmap.createBitmap(AppResources.bitmapNumber, x, 0, anchoDigito, AppResources.bitmapNumber.height)
-    }
-
-    private fun combinarBitmaps(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
-        val anchoTotal = bitmap1.width + bitmap2.width
-        val bitmapCombinado = Bitmap.createBitmap(anchoTotal, bitmap1.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmapCombinado)
-        canvas.drawBitmap(bitmap1, 0f, 0f, null)
-        canvas.drawBitmap(bitmap2, bitmap1.width.toFloat(), 0f, null)
-        return bitmapCombinado
-    }
-
-    private fun detenerContador() {
-        handlerContador.removeCallbacks(runnableContador)
-        handlerContador.postDelayed(runnableContador, 1000)
-        reductor = 99
+    private fun resetRunnable() {
+        handlerSelectSongOnline.removeCallbacks(runnable)
+        handlerSelectSongOnline.postDelayed(runnable, 0)
     }
 
     private val runnable: Runnable = object : Runnable {
@@ -2240,13 +1871,8 @@ class SelectSongOnline : AppCompatActivity() {
             } else {
                 contador = 0
             }
-            handler.postDelayed(this, 1200)
+            handlerSelectSongOnline.postDelayed(this, 1200)
         }
-    }
-
-    private fun resetRunnable() {
-        handler.removeCallbacks(runnable)
-        handler.postDelayed(runnable, 0)
     }
 
     private fun getRutaNoteSkin(rutaOriginal: String): String {
@@ -2373,17 +1999,10 @@ class SelectSongOnline : AppCompatActivity() {
             mediaPlayerVideo.release()
         }
         detachRoomListener()
-        handlerContador.removeCallbacksAndMessages(null)
-        handler.removeCallbacksAndMessages(null)
-        timer?.cancel()
+        handlerSelectSongOnline.removeCallbacksAndMessages(null)
         resetRunnable()
-        detenerContador()
         finish()
         overridePendingTransition(0,R.anim.anim_command_window_off)
-    }
-
-    private fun isTimerRunning(): Boolean {
-        return isTimerRunning
     }
 
     private fun hideSelectLv(anim: Animation) {
@@ -2512,16 +2131,7 @@ class SelectSongOnline : AppCompatActivity() {
         songSelectionJob?.cancel()
         currentPathSong = item.rutaSong
         currentSong = item.title
-        timer?.cancel()
-        timer = object : CountDownTimer(10000, 1000) {
-            override fun onTick(millisUntilFinished: Long) {}
-            override fun onFinish() {
-                if (generation == songSelectionGeneration) {
-                    audioController.stop()
-                    isTimerRunning = false
-                }
-            }
-        }
+
         songSelectionJob = lifecycleScope.launch {
             if (generation != songSelectionGeneration || isFinishing || isDestroyed) return@launch
             previewController.show(item, generation)
@@ -2536,10 +2146,12 @@ class SelectSongOnline : AppCompatActivity() {
             txInfoCurrentSong.text = String.format("%03d/%03d", real + 1, AppResources.listSongsChannelKsf.size)
             displayBPM = item.displayBpm.replace("BPM ", "").substringBefore("-").toFloatOrNull() ?: 0f
             llenaLvsKsf(item.listKsf)
-            if (resetLevelPosition) resetIndicatorPosition()
-            else restoreLevelPosition(real, item.listKsf.size)
-            timer?.start()
-            isTimerRunning = true
+            if (resetLevelPosition){
+                resetIndicatorPosition()
+            } else {
+                restoreLevelPosition(real, item.listKsf.size)
+            }
+
         }
     }
 
@@ -2709,9 +2321,7 @@ class SelectSongOnline : AppCompatActivity() {
     override fun onPause() {
         activityResumed = false
         songSelectionJob?.cancel()
-        handler.removeCallbacks(runnable)
-        handlerContador.removeCallbacks(runnableContador)
-        isRunning = false
+        handlerSelectSongOnline.removeCallbacks(runnable)
         if (::audioController.isInitialized) audioController.onPause()
         if (::previewController.isInitialized) previewController.onPause()
         if (::transitionController.isInitialized) transitionController.stop()
@@ -2723,7 +2333,6 @@ class SelectSongOnline : AppCompatActivity() {
         super.onResume()
         activityResumed = true
         resetRunnable()
-        detenerContador()
         if (::audioController.isInitialized) audioController.onResume()
         if (::previewController.isInitialized) previewController.onResume()
         if (::carouselController.isInitialized) {
@@ -2735,7 +2344,7 @@ class SelectSongOnline : AppCompatActivity() {
             )
         }
         if (::bgaSelectSong.isInitialized) runCatching { bgaSelectSong.start() }
-        if(listEfectsDisplay.isNotEmpty()) handler.postDelayed(runnable, 1200)
+        if(listEfectsDisplay.isNotEmpty()) handlerSelectSongOnline.postDelayed(runnable, 1200)
 
         isEndingFade = false
         endingFadeAlpha = 0f
@@ -2746,9 +2355,7 @@ class SelectSongOnline : AppCompatActivity() {
         songSelectionJob?.cancel()
         downloadJob?.cancel()
         loadingToGameTimer?.cancel()
-        handler.removeCallbacksAndMessages(null)
-        handlerContador.removeCallbacksAndMessages(null)
-        timer?.cancel()
+        handlerSelectSongOnline.removeCallbacksAndMessages(null)
         if (::transitionController.isInitialized) transitionController.release()
         if (::previewController.isInitialized) previewController.release()
         if (::audioController.isInitialized) audioController.release()
