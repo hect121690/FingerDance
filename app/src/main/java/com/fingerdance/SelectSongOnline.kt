@@ -1079,158 +1079,6 @@ class SelectSongOnline : AppCompatActivity() {
         audioController.onResume()
     }
 
-
-
-    private fun showModifyOffsetDialog() {
-        val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
-        val original = readFileSsc(fileSsc.absolutePath)
-        val charts = parseSscCharts(original)
-        val dialogView = layoutInflater.inflate(R.layout.dialog_edit_offsets, null)
-
-        val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerCharts)
-        val checkAll = dialogView.findViewById<CheckBox>(R.id.checkAll)
-        val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
-        val adapter = ChartOffsetAdapter(charts)
-        recycler.layoutManager = LinearLayoutManager(this)
-        recycler.adapter = adapter
-        checkAll.setOnCheckedChangeListener { _, checked ->
-            charts.forEach {
-                it.checked = checked
-            }
-            adapter.notifyDataSetChanged()
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-
-        btnSave.setOnClickListener {
-
-            val updated = processSscOffsets(
-                original,
-                charts.filter { it.checked },
-                valueOffset.toInt()
-            )
-
-            fileSsc.writeText(updated)
-
-            exportModifiedSscToPublicFingerDance(
-                sourceSsc = fileSsc,
-                updatedContent = updated
-            )
-
-            dialog.dismiss()
-        }
-
-        dialog.show()
-    }
-
-    private fun parseSscCharts(content: String): MutableList<SscChart> {
-
-        val result = mutableListOf<SscChart>()
-
-        val blocks = content.split("#NOTEDATA:;")
-
-        blocks.forEachIndexed { index, block ->
-
-            if (!block.contains("#STEPSTYPE:"))
-                return@forEachIndexed
-
-            fun get(tag: String): String {
-
-                return Regex("#$tag:(.*?);").find(block)?.groupValues?.get(1)?.trim() ?: ""
-            }
-
-            val stepType = get("STEPSTYPE")
-
-            if (stepType == "pump-double") return@forEachIndexed
-
-            result.add(
-                SscChart(
-                    blockIndex = index,
-                    stepType = stepType,
-                    level = get("METER"),
-                    difficulty = get("DIFFICULTY"),
-                    description = get("DESCRIPTION"),
-                    chartName = get("CHARTNAME"),
-                    credit = get("CREDIT"),
-                    offset = get("OFFSET").toDoubleOrNull() ?: 0.0
-                )
-            )
-        }
-
-        return result
-    }
-
-    private fun processSscOffsets(content: String, selected: List<SscChart>, valueOffset: Int): String {
-        val blocks = content.split("#NOTEDATA:;").toMutableList()
-        selected.forEach { chart ->
-            val index = chart.blockIndex
-
-            if (index >= blocks.size)
-                return@forEach
-
-            val block = blocks[index]
-            val regex = Regex("#OFFSET:([-+]?[0-9]*\\.?[0-9]+);")
-
-            val match = regex.find(block)
-            val currentOffset = match?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-
-            val newOffset = currentOffset + ((valueOffset * 10) / 1000.0)
-            val formatted = String.format("%.6f", newOffset)
-            val newBlock = if (match != null) {
-                regex.replace(block) {
-                    "#OFFSET:$formatted;"
-                }
-            } else {
-                block + "\n#OFFSET:$formatted;"
-            }
-            blocks[index] = newBlock
-        }
-
-        return blocks.joinToString("#NOTEDATA:;")
-    }
-
-    private fun exportModifiedSscToPublicFingerDance(sourceSsc: File, updatedContent: String) {
-        val normalizedPath = sourceSsc.absolutePath.replace("\\", "/")
-
-        val marker = "/Channels/"
-        val index = normalizedPath.indexOf(marker)
-
-        if (index == -1) {
-            throw IllegalStateException("No se encontró /Channels/ en la ruta: $normalizedPath")
-        }
-
-        val relativeAfterChannels = normalizedPath.substring(index + marker.length)
-        val parts = relativeAfterChannels.split("/")
-
-        if (parts.size < 3) {
-            throw IllegalStateException("Ruta SSC inválida: $normalizedPath")
-        }
-
-        val channelName = parts[0]          // 17-PRIME
-        val songFolderName = parts[1]       // 1401 - Nemesis
-        val sscFileName = sourceSsc.name    // UCS Lv.19.ssc
-
-        val targetDir = File(
-            Environment.getExternalStorageDirectory(),
-            "Finger Dance/Songs/Channels/$channelName/$songFolderName"
-        )
-
-        if (!targetDir.exists()) {
-            targetDir.mkdirs()
-        }
-
-        val targetFile = File(targetDir, sscFileName)
-
-        targetFile.writeText(updatedContent)
-        Toast.makeText(this, "Offset modificado y copia guardada", Toast.LENGTH_SHORT).show()
-        txCurrentBpm.text = "0"
-        txOffset.text = txCurrentBpm.text
-        valueOffset = txOffset.text.toString().toLong()
-        themes.edit().putLong("valueOffset", valueOffset).apply()
-    }
-
     private fun getSelectedLevelIsHalfDouble(): Boolean {
         val real = getRealIndex(oldValue)
         val song = AppResources.listSongsChannelKsf[real]
@@ -1592,7 +1440,7 @@ class SelectSongOnline : AppCompatActivity() {
                 imgLoading.setImageBitmap(it)
             }
         }
-        txTip.text = "Espere por favor..."
+        txTip.text = "${getOpponentName(activeSala)} preparándose, espera por favor"
         findViewById<ProgressBar>(R.id.progressBar).progress = 0
     }
 
@@ -1613,29 +1461,41 @@ class SelectSongOnline : AppCompatActivity() {
     private fun handleOpponentLeftDuringOnline(sala: Sala) {
         if (opponentLeftHandled || isFinishing) return
         opponentLeftHandled = true
-        linearLoading.isVisible = true
-        imgLoading.isVisible = false
-        txTip.text = "El jugador ${getOpponentName(sala)} abandonó la sala"
-        AlertDialog.Builder(this)
-            .setTitle("Sala finalizada")
-            .setMessage("El jugador ${getOpponentName(sala)} abandonó la sala.")
-            .setCancelable(false)
-            .setPositiveButton("Salir") { d, _ ->
-                d.dismiss()
-                exitOnlineToMainAfterOpponentLeft()
-            }
-            .show()
+
+        OnlineRoomExitOverlay.show(
+            activity = this,
+            playerName = getOpponentName(sala)
+        ) {
+            cleanupRoomAndExitToMain()
+        }
     }
 
-    private fun exitOnlineToMainAfterOpponentLeft() {
+    private fun cleanupRoomAndExitToMain() {
         detachRoomListener()
         loadingToGameTimer?.cancel()
         roomLoadingStarted = false
         playingTransitionScheduled = false
+
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).onDisconnect().cancel()
+
+        salaRef.removeValue().addOnCompleteListener {
+            isOnline = false
+            getSelectChannel = false
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish()
+        }
+    }
+
+    private fun exitOnlineToMainWithoutMessage() {
+        detachRoomListener()
+        loadingToGameTimer?.cancel()
         isOnline = false
-        getSelectChannel = false
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         startActivity(intent)
         finish()
@@ -1666,7 +1526,7 @@ class SelectSongOnline : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
                 if (sala == null) {
-                    exitOnlineToMainAfterOpponentLeft()
+                    exitOnlineToMainWithoutMessage()
                     return
                 }
                 activeSala = sala
@@ -1675,7 +1535,7 @@ class SelectSongOnline : AppCompatActivity() {
                 localReadySent = myReady(sala)
 
                 if (!isMyPlayerConnected(sala)) {
-                    exitOnlineToMainAfterOpponentLeft()
+                    exitOnlineToMainWithoutMessage()
                     return
                 }
 
@@ -2861,11 +2721,6 @@ class SelectSongOnline : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (getSelectChannel) {
-            getSelectChannel = false
-            goSelectChannel()
-            return
-        }
         activityResumed = true
         resetRunnable()
         detenerContador()
@@ -2929,3 +2784,4 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
 }
+

@@ -1225,7 +1225,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
                 if (sala == null) {
-                    exitOnlineToMainAfterOpponentLeft()
+                    exitOnlineToMainWithoutMessage()
                     return
                 }
                 activeSala = sala
@@ -1236,7 +1236,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 val bothReady = sala.jugador1.listo && sala.jugador2.listo
 
                 if (!myConnected) {
-                    exitOnlineToMainAfterOpponentLeft()
+                    exitOnlineToMainWithoutMessage()
                     return
                 }
 
@@ -1275,7 +1275,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 imgLoading.setImageBitmap(it)
             }
         }
-        txTip.text = "Espere por favor..."
+        txTip.text = "Preparación lista, espera por favor"
         findViewById<ProgressBar>(R.id.progressBar).progress = 0
     }
 
@@ -1290,29 +1290,42 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private fun handleOpponentLeftDuringOnline(sala: Sala) {
         if (opponentLeftHandled || isFinishing) return
         opponentLeftHandled = true
-        linearLoading.isVisible = true
-        imgLoading.isVisible = false
+
         val opponentName = if (isPlayer1) sala.jugador2.id else sala.jugador1.id
-        txTip.text = "El jugador $opponentName abandonó la sala"
-        AlertDialog.Builder(this)
-            .setTitle("Sala finalizada")
-            .setMessage("El jugador $opponentName abandonó la sala.")
-            .setCancelable(false)
-            .setPositiveButton("Salir") { d, _ ->
-                d.dismiss()
-                exitOnlineToMainAfterOpponentLeft()
-            }
-            .show()
+
+        OnlineRoomExitOverlay.show(
+            activity = this,
+            playerName = opponentName
+        ) {
+            cleanupRoomAndExitToMain()
+        }
     }
 
-    private fun exitOnlineToMainAfterOpponentLeft() {
+    private fun cleanupRoomAndExitToMain() {
         detachRoomListener()
         loadingToGameTimer?.cancel()
         roomLoadingStarted = false
+
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).onDisconnect().cancel()
+
+        salaRef.removeValue().addOnCompleteListener {
+            isOnline = false
+            getSelectChannel = false
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish()
+        }
+    }
+
+    private fun exitOnlineToMainWithoutMessage() {
+        detachRoomListener()
+        loadingToGameTimer?.cancel()
         isOnline = false
-        getSelectChannel = false
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         startActivity(intent)
         finish()
@@ -1360,13 +1373,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         imgLoading.isVisible = false
         ready = 0
         imgFloor.setImageBitmap(bmFloor)
-        if(getSelectChannel){
-            getSelectChannel = false
-            this.finish()
-            if(mediPlayer.isPlaying){
-                mediPlayer.stop()
-            }
-        }
     }
 
     override fun onDestroy() {
@@ -1393,3 +1399,4 @@ class SelectSongOnlineWait : AppCompatActivity() {
     }
 
 }
+

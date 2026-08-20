@@ -1678,8 +1678,27 @@ class PadsFragment : Fragment(R.layout.options_pads) {
         switchImagePadA.layoutParams.width = (width * .75).toInt()
         switchImagePadA.isChecked = tempHideImagesPadA
 
-        val bgPadsPictures = view.findViewById<ImageView>(R.id.bg_pads_pictures)
+        val widthPadsA = (width * 0.8).toInt()
+        val heightPadsA = (height * 0.4).toInt()
         val bgPads = view.findViewById<ImageView>(R.id.bg_pads)
+        val bgPadsPictures = view.findViewById<ImageView>(R.id.bg_pads_pictures)
+        bgPads.layoutParams = LinearLayout.LayoutParams(
+            widthPadsA,
+            heightPadsA
+        )
+
+        bgPadsPictures.layoutParams = LinearLayout.LayoutParams(
+            widthPadsA,
+            heightPadsA
+        )
+
+        bgPads.setImageBitmap(BitmapFactory.decodeFile(requireContext()
+            .getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/bg_pads.png")!!
+            .absolutePath))
+
+        bgPadsPictures.setImageBitmap(BitmapFactory.decodeFile(requireContext()
+            .getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/game_play/bg_pads_pictures.png")!!
+            .absolutePath))
 
         bgPadsPictures.visibility = View.GONE
         bgPads.visibility = View.GONE

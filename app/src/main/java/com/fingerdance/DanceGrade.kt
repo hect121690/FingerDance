@@ -100,6 +100,9 @@ class DanceGrade : AppCompatActivity() {
     private var acceptResultListener: ValueEventListener? = null
     private var nextRoundStarted = false
     private var opponentLeftHandled = false
+    private var resultUiCompleted = false
+    private var acceptSent = false
+    private var navigatingNextRound = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -282,7 +285,7 @@ class DanceGrade : AppCompatActivity() {
         val good = 0.2 * resultSong.good
         val bad = 0.1 * resultSong.bad
         val miss = 0
-        val totalNotes = resultSong.totalScoreNotes
+        val totalNotes = resultSong.perfect + resultSong.great + resultSong.good + resultSong.bad + resultSong.miss
         val noteWeighs = perfect + great + good + bad + miss
         val rawScore = ((((0.995 * noteWeighs) + (0.005 * resultSong.maxCombo)) / maxOf(1, totalNotes)) * 1000000)
         totalScore = if (rawScore > 999998) 1000000 else rawScore.roundToInt()
@@ -419,7 +422,7 @@ class DanceGrade : AppCompatActivity() {
                     }, 1000)
                 } else {
                     // Online mode - wait for both players
-                   listenForBothPlayersReady(
+                    listenForBothPlayersReady(
                         textViewsP1,
                         textViewsP2,
                         imgGradeP1,
@@ -428,7 +431,7 @@ class DanceGrade : AppCompatActivity() {
                         imgWinP2,
                         imgDraw,
                         txNameChannel
-                   )
+                    )
                 }
             }
         }, 1000L)
@@ -666,138 +669,141 @@ class DanceGrade : AppCompatActivity() {
         imgDraw: ImageView,
         txNameChannel: TextView,
     ) {
+        if (resultListener != null) return
+
         resultListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val p1Connected = snapshot.child("jugador1/conectado").getValue(Boolean::class.java) ?: false
-                val p2Connected = snapshot.child("jugador2/conectado").getValue(Boolean::class.java) ?: false
+                val sala = snapshot.getValue(Sala::class.java) ?: return
+                activeSala = sala
+
+                val p1Connected = sala.jugador1.conectado
+                val p2Connected = sala.jugador2.conectado
+
                 if (!p1Connected || !p2Connected) {
                     val myConnected = if (isPlayer1) p1Connected else p2Connected
                     if (!myConnected) {
-                        finishAfterOpponentLeft()
+                        finishAfterLocalExit()
                         return
                     }
-                    val p1Name = snapshot.child("jugador1/id").getValue(String::class.java).orEmpty()
-                    val p2Name = snapshot.child("jugador2/id").getValue(String::class.java).orEmpty()
-                    val opponentName = if (isPlayer1) p2Name else p1Name
-                    handleOpponentLeft(opponentName)
+                    handleOpponentLeft(if (isPlayer1) sala.jugador2.id else sala.jugador1.id)
                     return
                 }
 
-                val player1Ready = snapshot.child("jugador1/result/score").exists()
-                val player2Ready = snapshot.child("jugador2/result/score").exists()
+                opponentLeftHandled = false
 
-                if (player1Ready && player2Ready) {
-                    // Both players ready, remove listener
-                    resultListener?.let { salaRef.removeEventListener(it) }
-                    resultListener = null
+                // Los nodos result se eliminan al crear/preparar cada ronda.
+                // Sólo vuelven a existir cuando cada DanceGrade publica su resultado.
+                val player1ResultReady = snapshot.child("jugador1/result/score").exists()
+                val player2ResultReady = snapshot.child("jugador2/result/score").exists()
 
-                    // Update local activeSala with latest data
-                    activeSala.jugador1.result.apply {
-                        perfect = snapshot.child("jugador1/result/perfect").getValue(String::class.java) ?: "0"
-                        great = snapshot.child("jugador1/result/great").getValue(String::class.java) ?: "0"
-                        good = snapshot.child("jugador1/result/good").getValue(String::class.java) ?: "0"
-                        bad = snapshot.child("jugador1/result/bad").getValue(String::class.java) ?: "0"
-                        miss = snapshot.child("jugador1/result/miss").getValue(String::class.java) ?: "0"
-                        maxCombo = snapshot.child("jugador1/result/maxCombo").getValue(String::class.java) ?: "0"
-                        score = snapshot.child("jugador1/result/score").getValue(String::class.java) ?: "0"
-                    }
-                    activeSala.jugador2.result.apply {
-                        perfect = snapshot.child("jugador2/result/perfect").getValue(String::class.java) ?: "0"
-                        great = snapshot.child("jugador2/result/great").getValue(String::class.java) ?: "0"
-                        good = snapshot.child("jugador2/result/good").getValue(String::class.java) ?: "0"
-                        bad = snapshot.child("jugador2/result/bad").getValue(String::class.java) ?: "0"
-                        miss = snapshot.child("jugador2/result/miss").getValue(String::class.java) ?: "0"
-                        maxCombo = snapshot.child("jugador2/result/maxCombo").getValue(String::class.java) ?: "0"
-                        score = snapshot.child("jugador2/result/score").getValue(String::class.java) ?: "0"
-                    }
+                if (!player1ResultReady || !player2ResultReady || resultUiCompleted) return
 
-                    CoroutineScope(Dispatchers.Main).launch {
-                        setCountsP1(textViewsP1)
-                        setCountsP2(textViewsP2)
+                resultUiCompleted = true
 
-                        handlerDG.postDelayed({
-                            determineWinner()
-                            showGradeP1(activeSala.jugador1.result.score.toInt())
-                            showGradeP2(activeSala.jugador2.result.score.toInt())
-                            getWinner(imgGradeP1, imgGradeP2, imgWinP1, imgWinP2, imgDraw, txNameChannel)
-                            if (isPlayer1) {
-                                val updates = mapOf<String, Any>(
-                                    "estado" to RoomState.RESULTS.name,
-                                    "jugador1/listo" to false,
-                                    "jugador2/listo" to false
-                                )
+                resultListener?.let { salaRef.removeEventListener(it) }
+                resultListener = null
 
-                                salaRef.updateChildren(updates)
-                            }
+                activeSala.jugador1.result.apply {
+                    perfect = snapshot.child("jugador1/result/perfect").getValue(String::class.java) ?: "0"
+                    great = snapshot.child("jugador1/result/great").getValue(String::class.java) ?: "0"
+                    good = snapshot.child("jugador1/result/good").getValue(String::class.java) ?: "0"
+                    bad = snapshot.child("jugador1/result/bad").getValue(String::class.java) ?: "0"
+                    miss = snapshot.child("jugador1/result/miss").getValue(String::class.java) ?: "0"
+                    maxCombo = snapshot.child("jugador1/result/maxCombo").getValue(String::class.java) ?: "0"
+                    score = snapshot.child("jugador1/result/score").getValue(String::class.java) ?: "0"
+                }
 
-                            listenForBothPlayersAccepted()
-                            getBtnAceptar()
-                        }, 1000)
+                activeSala.jugador2.result.apply {
+                    perfect = snapshot.child("jugador2/result/perfect").getValue(String::class.java) ?: "0"
+                    great = snapshot.child("jugador2/result/great").getValue(String::class.java) ?: "0"
+                    good = snapshot.child("jugador2/result/good").getValue(String::class.java) ?: "0"
+                    bad = snapshot.child("jugador2/result/bad").getValue(String::class.java) ?: "0"
+                    miss = snapshot.child("jugador2/result/miss").getValue(String::class.java) ?: "0"
+                    maxCombo = snapshot.child("jugador2/result/maxCombo").getValue(String::class.java) ?: "0"
+                    score = snapshot.child("jugador2/result/score").getValue(String::class.java) ?: "0"
+                }
+
+                // P1 sólo marca RESULTS. NO toca listo aquí.
+                if (isPlayer1 && sala.estado == RoomState.PLAYING.name) {
+                    salaRef.child("estado").setValue(RoomState.RESULTS.name)
+                }
+
+                listenForRoundReset()
+
+                CoroutineScope(Dispatchers.Main).launch {
+                    setCountsP1(textViewsP1)
+                    setCountsP2(textViewsP2)
+
+                    delay(1000)
+                    determineWinner()
+                    showGradeP1(activeSala.jugador1.result.score.toIntOrNull() ?: 0)
+                    showGradeP2(activeSala.jugador2.result.score.toIntOrNull() ?: 0)
+
+                    getWinner(
+                        imgGradeP1,
+                        imgGradeP2,
+                        imgWinP1,
+                        imgWinP2,
+                        imgDraw,
+                        txNameChannel
+                    ) {
+                        // El botón aparece solamente después de terminar
+                        // conteos, grades y animación de ganador.
+                        getBtnAceptar()
                     }
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e("Firebase", "Error listening for results: ${error.message}")
-                getBtnAceptar()
             }
         }
+
         salaRef.addValueEventListener(resultListener!!)
     }
 
-    private fun listenForBothPlayersAccepted() {
+    private fun listenForRoundReset() {
         if (!isOnline || acceptResultListener != null) return
 
         acceptResultListener = object : ValueEventListener {
-
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java) ?: return
                 activeSala = sala
 
                 val myConnected = if (isPlayer1) sala.jugador1.conectado else sala.jugador2.conectado
                 val opponentConnected = if (isPlayer1) sala.jugador2.conectado else sala.jugador1.conectado
+
                 if (!myConnected) {
-                    finishAfterOpponentLeft()
+                    finishAfterLocalExit()
                     return
                 }
+
                 if (!opponentConnected) {
                     handleOpponentLeft(if (isPlayer1) sala.jugador2.id else sala.jugador1.id)
                     return
                 }
+
                 opponentLeftHandled = false
 
                 if (sala.estado == RoomState.SELECTING.name) {
-                    getSelectChannel = true
-
-                    acceptResultListener?.let {
-                        salaRef.removeEventListener(it)
-                    }
-
-                    acceptResultListener = null
-                    finish()
+                    navigateToSelectChannelOnline()
                     return
                 }
 
                 if (sala.estado != RoomState.RESULTS.name) return
 
-                val player1Accepted = sala.jugador1.listo
-                val player2Accepted = sala.jugador2.listo
+                val bothAccepted = !sala.jugador1.listo && !sala.jugador2.listo
+                if (!bothAccepted) return
 
-                if (!player1Accepted || !player2Accepted) return
-                if (nextRoundStarted) return
-
-                nextRoundStarted = true
-
-                if (isPlayer1) {
+                // P1 es el único que ejecuta la transición de ronda.
+                if (isPlayer1 && !nextRoundStarted) {
+                    nextRoundStarted = true
                     prepareNextRound()
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e(
-                    "DanceGrade",
-                    "Error esperando aceptación de resultados: ${error.message}"
-                )
+                Log.e("DanceGrade", "Error esperando cierre de ronda: ${error.message}")
             }
         }
 
@@ -832,83 +838,101 @@ class DanceGrade : AppCompatActivity() {
     private fun handleOpponentLeft(opponentNameRaw: String) {
         if (!isOnline || opponentLeftHandled || isFinishing) return
         opponentLeftHandled = true
+
         val opponentName = opponentNameRaw.ifBlank { "rival" }
-        bgWait.isVisible = true
-        imgWait.isVisible = false
-        txRoomStatus.isVisible = true
-        txRoomStatus.text = "El jugador $opponentName abandonó la sala"
-        AlertDialog.Builder(this)
-            .setTitle("Sala finalizada")
-            .setMessage("El jugador $opponentName abandonó la sala.")
-            .setCancelable(false)
-            .setPositiveButton("Salir") { d, _ ->
-                d.dismiss()
-                finishAfterOpponentLeft()
-            }
-            .show()
+
+        OnlineRoomExitOverlay.show(
+            activity = this,
+            playerName = opponentName
+        ) {
+            cleanupRoomAndExitToMain()
+        }
     }
 
-    private fun finishAfterOpponentLeft() {
+    private fun finishAfterLocalExit() {
         resultListener?.let { salaRef.removeEventListener(it) }
         acceptResultListener?.let { salaRef.removeEventListener(it) }
         resultListener = null
         acceptResultListener = null
         isOnline = false
-        getSelectChannel = false
+
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         startActivity(intent)
         finish()
     }
 
-    private fun prepareNextRound() {
-        salaRef.runTransaction(
-            object : Transaction.Handler {
+    private fun cleanupRoomAndExitToMain() {
+        resultListener?.let { salaRef.removeEventListener(it) }
+        acceptResultListener?.let { salaRef.removeEventListener(it) }
+        resultListener = null
+        acceptResultListener = null
 
-                override fun doTransaction(currentData: MutableData): Transaction.Result {
-                    val sala = currentData.getValue(Sala::class.java)
-                        ?: return Transaction.abort()
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).onDisconnect().cancel()
 
-                    sala.turno = getNextTurn(sala)
-
-                    sala.jugador1.listo = false
-                    sala.jugador2.listo = false
-
-                    sala.jugador1.live = LiveResult()
-                    sala.jugador2.live = LiveResult()
-
-                    sala.jugador1.result = Resultado()
-                    sala.jugador2.result = Resultado()
-
-                    sala.cancion = CancionOnline()
-                    sala.estado = RoomState.SELECTING.name
-
-                    currentData.value = sala
-
-                    return Transaction.success(currentData)
-                }
-
-                override fun onComplete(
-                    error: DatabaseError?,
-                    committed: Boolean,
-                    snapshot: DataSnapshot?
-                ) {
-                    if (error != null) {
-                        Log.e(
-                            "DanceGrade",
-                            "Error preparando siguiente ronda: ${error.message}"
-                        )
-                        return
-                    }
-
-                    if (committed) {
-                        getSelectChannel = true
-                        finish()
-                    }
-                }
+        salaRef.removeValue().addOnCompleteListener {
+            isOnline = false
+            getSelectChannel = false
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
-        )
+            startActivity(intent)
+            finish()
+        }
+    }
+
+    private fun prepareNextRound() {
+        salaRef.runTransaction(object : Transaction.Handler {
+            override fun doTransaction(currentData: MutableData): Transaction.Result {
+                val sala = currentData.getValue(Sala::class.java)
+                    ?: return Transaction.abort()
+
+                if (sala.estado != RoomState.RESULTS.name) {
+                    return Transaction.abort()
+                }
+
+                if (sala.jugador1.listo || sala.jugador2.listo) {
+                    return Transaction.abort()
+                }
+
+                val nextTurn = getNextTurn(sala)
+
+                // Modificamos sólo los nodos de control de la siguiente ronda.
+                // No reserializamos Sala completa porque necesitamos que result
+                // quede realmente ausente hasta el próximo DanceGrade.
+                currentData.child("turno").value = nextTurn
+                currentData.child("cancion").value = CancionOnline()
+                currentData.child("jugador1/listo").value = false
+                currentData.child("jugador2/listo").value = false
+                currentData.child("jugador1/live").value = LiveResult()
+                currentData.child("jugador2/live").value = LiveResult()
+                currentData.child("jugador1/result").value = null
+                currentData.child("jugador2/result").value = null
+                currentData.child("estado").value = RoomState.SELECTING.name
+
+                return Transaction.success(currentData)
+            }
+
+            override fun onComplete(
+                error: DatabaseError?,
+                committed: Boolean,
+                snapshot: DataSnapshot?
+            ) {
+                if (error != null) {
+                    nextRoundStarted = false
+                    Log.e("DanceGrade", "Error preparando siguiente ronda: ${error.message}")
+                    return
+                }
+
+                if (!committed) {
+                    nextRoundStarted = false
+                }
+                // No navegamos desde aquí. Ambos dispositivos navegarán
+                // cuando el listener observe estado=SELECTING.
+            }
+        })
     }
 
     private fun getNextTurn(sala: Sala): String {
@@ -920,15 +944,23 @@ class DanceGrade : AppCompatActivity() {
     }
 
     private fun handleAcceptClick(bgWait: ConstraintLayout, imgWait: ImageView) {
+        if (isOnline && (acceptSent || !resultUiCompleted)) return
+
         soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
 
-        mediaPlayerEvaluation.stop()
+        if (::mediaPlayerEvaluation.isInitialized && mediaPlayerEvaluation.isPlaying) {
+            mediaPlayerEvaluation.stop()
+        }
         soundPoolSelectSong.stop(isPlayingRankA)
         soundPoolSelectSong.stop(isPlayingRankB)
         soundPoolSelectSong.stop(isPlayingNewRecord)
 
         imgWait.isVisible = true
         bgWait.isVisible = true
+        txRoomStatus.isVisible = isOnline
+        if (isOnline) {
+            txRoomStatus.text = "Esperando al otro jugador..."
+        }
         countMiss = 0
 
         if (!isOnline) {
@@ -939,13 +971,38 @@ class DanceGrade : AppCompatActivity() {
             return
         }
 
-        val readyPath = if (isPlayer1) {
-            "jugador1/listo"
-        } else {
-            "jugador2/listo"
-        }
+        acceptSent = true
+        imgAceptar.isEnabled = false
+        imgAceptar.visibility = View.INVISIBLE
+        imgFloor.visibility = View.INVISIBLE
 
-        salaRef.child(readyPath).setValue(true)
+        val readyPath = if (isPlayer1) "jugador1/listo" else "jugador2/listo"
+
+        // En DanceGrade aceptar significa BAJAR mi propio listo.
+        salaRef.child(readyPath).setValue(false)
+            .addOnFailureListener {
+                acceptSent = false
+                imgAceptar.isEnabled = true
+                imgAceptar.visibility = View.VISIBLE
+                imgFloor.visibility = View.VISIBLE
+                Toast.makeText(this, "No se pudo confirmar la salida de resultados", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun navigateToSelectChannelOnline() {
+        if (navigatingNextRound || isFinishing || isDestroyed) return
+        navigatingNextRound = true
+
+        resultListener?.let { salaRef.removeEventListener(it) }
+        acceptResultListener?.let { salaRef.removeEventListener(it) }
+        resultListener = null
+        acceptResultListener = null
+
+        val intent = Intent(this, SelectChannelOnline::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        startActivity(intent)
+        finish()
     }
 
     private fun getWinner(
@@ -955,9 +1012,15 @@ class DanceGrade : AppCompatActivity() {
         imgWinP2: ImageView,
         imgDraw: ImageView,
         txNameChannel: TextView,
+        onComplete: (() -> Unit)? = null,
     ) {
         handlerDG.postDelayed({
-            txNameChannel.text = getString(R.string.victories_text, victoriesP1.toString(), victoriesP2.toString())
+            txNameChannel.text = getString(
+                R.string.victories_text,
+                victoriesP1.toString(),
+                victoriesP2.toString()
+            )
+
             imgGradeP1.setImageBitmap(gradeP1)
             animateImageViewP1(imgGradeP1)
 
@@ -968,7 +1031,9 @@ class DanceGrade : AppCompatActivity() {
                 if (winP1) imgWinP1.setImageBitmap(BitmapFactory.decodeFile(rutaWin))
                 if (winP2) imgWinP2.setImageBitmap(BitmapFactory.decodeFile(rutaWin))
                 if (draw) imgDraw.setImageBitmap(BitmapFactory.decodeFile(rutaDraw))
+                onComplete?.invoke()
             }, 250)
+
             soundPoolSelectSong.play(rank_sound, 1.0f, 1.0f, 1, 0, 1.0f)
         }, 500L)
     }
@@ -1559,3 +1624,4 @@ class DanceGrade : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_FULLSCREEN)
     }
 }
+

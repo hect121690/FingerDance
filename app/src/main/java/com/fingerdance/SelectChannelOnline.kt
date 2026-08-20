@@ -385,9 +385,8 @@ class SelectChannelOnline : AppCompatActivity() {
     // ============================================================
 
     private fun attachRoomListener() {
-        if (roomListener != null) {
-            return
-        }
+        if (roomListener != null) return
+
         roomListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
@@ -396,6 +395,7 @@ class SelectChannelOnline : AppCompatActivity() {
                     handleRoomClosed()
                     return
                 }
+
                 activeSala = sala
                 setupPlayerInfo()
 
@@ -405,12 +405,19 @@ class SelectChannelOnline : AppCompatActivity() {
                 }
 
                 if (!isMyPlayerConnected(sala)) {
-                    handleRoomClosed()
+                    exitOnlineToMainWithoutMessage()
+                    return
+                }
+
+                // WAITING es un estado válido exclusivamente mientras P1
+                // espera a que exista Player 2. No es abandono.
+                if (sala.estado == RoomState.WAITING.name) {
+                    updateRoomUi(sala)
                     return
                 }
 
                 if (!isOpponentConnected(sala)) {
-                    handleOpponentDisconnected()
+                    handleOpponentDisconnected(sala)
                     return
                 }
 
@@ -418,10 +425,12 @@ class SelectChannelOnline : AppCompatActivity() {
                 updateRoomUi(sala)
                 checkRoomNavigation(sala)
             }
+
             override fun onCancelled(error: DatabaseError) {
                 Log.e("SelectChannelOnline", "Error leyendo sala: ${error.message}")
             }
         }
+
         salaRef.addValueEventListener(roomListener!!)
     }
 
@@ -437,27 +446,41 @@ class SelectChannelOnline : AppCompatActivity() {
     // ============================================================
 
     private fun updateRoomUi(sala: Sala) {
-        val myTurn = sala.estado == RoomState.SELECTING.name && sala.turno == userName
-        if (myTurn) {
-            linearWaitPlayer.visibility = View.GONE
-        } else {
-            txWaitForPlayer.text =
-                if (sala.estado == RoomState.SELECTING.name) {
-                    "Esperando selección de\n${sala.turno}"
-                } else {
-                    "Sincronizando sala..."
-                }
-            linearWaitPlayer.visibility = View.VISIBLE
-            linearWaitPlayer.bringToFront()
-        }
+        val myTurn =
+            sala.estado == RoomState.SELECTING.name &&
+                    sala.turno == userName &&
+                    isMyPlayerConnected(sala) &&
+                    isOpponentConnected(sala)
 
+        when {
+            sala.estado == RoomState.WAITING.name && isPlayer1 -> {
+                txWaitForPlayer.text = "Esperando al jugador 2"
+                linearWaitPlayer.visibility = View.VISIBLE
+                linearWaitPlayer.bringToFront()
+            }
+
+            myTurn -> {
+                linearWaitPlayer.visibility = View.GONE
+            }
+
+            sala.estado == RoomState.SELECTING.name -> {
+                txWaitForPlayer.text = "Espera mientras ${sala.turno} elige la canción"
+                linearWaitPlayer.visibility = View.VISIBLE
+                linearWaitPlayer.bringToFront()
+            }
+
+            else -> {
+                txWaitForPlayer.text = "Sincronizando sala..."
+                linearWaitPlayer.visibility = View.VISIBLE
+                linearWaitPlayer.bringToFront()
+            }
+        }
 
         nav_izq.isEnabled = myTurn
         nav_der.isEnabled = myTurn
         imgAceptar.isEnabled = myTurn
         imgFloor.isEnabled = myTurn
     }
-
 
     // ============================================================
     // PLAYER QUE ESPERA
@@ -546,53 +569,65 @@ class SelectChannelOnline : AppCompatActivity() {
     // RIVAL DESCONECTADO
     // ============================================================
 
-    private fun handleOpponentDisconnected() {
-
-        if (opponentDisconnectHandled || isFinishing) {
-            return
-        }
+    private fun handleOpponentDisconnected(sala: Sala) {
+        if (opponentDisconnectHandled || isFinishing) return
         opponentDisconnectHandled = true
-        linearWaitPlayer.visibility = View.VISIBLE
-        linearWaitPlayer.bringToFront()
-        txWaitForPlayer.text = "El jugador ${if(isPlayer1) activeSala.jugador2.id else activeSala.jugador1.id} abandonó la sala"
-        AlertDialog.Builder(this)
-            .setTitle("Sala finalizada")
-            .setMessage("El ${if(isPlayer1) activeSala.jugador2.id else activeSala.jugador1.id} se desconectó o abandonó la sala.")
-            .setCancelable(false)
-            .setPositiveButton("Salir") { d, _ ->
-                d.dismiss()
-                exitOnlineToMain()
-            }
-            .show()
+
+        val opponentName = if (isPlayer1) sala.jugador2.id else sala.jugador1.id
+
+        OnlineRoomExitOverlay.show(
+            activity = this,
+            playerName = opponentName
+        ) {
+            cleanupRoomAndExitToMain()
+        }
     }
 
-    private fun exitOnlineToMain() {
+    private fun exitOnlineToMainWithoutMessage() {
         detachRoomListener()
         isOnline = false
-        victoriesP1 = 0
-        victoriesP2 = 0
-        getSelectChannel = false
-        AppResources.soundSelectChannel?.pause()
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         startActivity(intent)
         finish()
     }
 
+    private fun cleanupRoomAndExitToMain() {
+        detachRoomListener()
+
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).onDisconnect().cancel()
+
+        salaRef.removeValue().addOnCompleteListener {
+            isOnline = false
+            victoriesP1 = 0
+            victoriesP2 = 0
+            getSelectChannel = false
+            AppResources.soundSelectChannel?.pause()
+
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish()
+        }
+    }
 
     // ============================================================
     // SALA CERRADA
     // ============================================================
 
     private fun handleRoomClosed() {
-        if (isFinishing) {
-            return
+        if (isFinishing) return
+
+        val opponentName = runCatching {
+            if (isPlayer1) activeSala.jugador2.id else activeSala.jugador1.id
+        }.getOrDefault("rival")
+
+        OnlineRoomExitOverlay.show(this, opponentName) {
+            exitOnlineToMainWithoutMessage()
         }
-        detachRoomListener()
-        isOnline = false
-        Toast.makeText(this, "La sala ya no está disponible", Toast.LENGTH_SHORT).show()
-        finish()
     }
 
 
@@ -651,22 +686,26 @@ class SelectChannelOnline : AppCompatActivity() {
 
     private fun leaveRoom(goToMain: Boolean) {
         detachRoomListener()
-        if (isPlayer1) {
-            salaRef.child("jugador1/conectado").onDisconnect().cancel()
-            salaRef.removeValue()
-        } else {
-            salaRef.child("jugador2/conectado").onDisconnect().cancel()
-            salaRef.child("jugador2").setValue(Jugador())
-        }
+
+        val myPath = if (isPlayer1) "jugador1/conectado" else "jugador2/conectado"
+        salaRef.child(myPath).onDisconnect().cancel()
+
+        // Conservamos el ID para que el rival pueda mostrar quién abandonó.
+        salaRef.child(myPath).setValue(false)
+
         isOnline = false
         victoriesP1 = 0
         victoriesP2 = 0
-        if (goToMain){
+
+        if (goToMain) {
             AppResources.soundSelectChannel?.pause()
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
             finish()
         }
     }
-
 
     // ============================================================
     // ANIMACIONES
@@ -720,6 +759,13 @@ class SelectChannelOnline : AppCompatActivity() {
         salaRef.child(myPath).setValue(true)
         salaRef.child(myPath).onDisconnect().setValue(false)
         attachRoomListener()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        navigatingByRoom = false
+        opponentDisconnectHandled = false
     }
 
     override fun onResume() {

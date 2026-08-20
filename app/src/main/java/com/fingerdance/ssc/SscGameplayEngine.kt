@@ -168,8 +168,6 @@ class SscGameplayEngine(
     var currentBeat: Double = 0.0
         private set
 
-    val totalScoreNotes: Int = calculateTotalScoreNotes()
-
     init {
         for (note in allNotes) {
             if (note.column in 0 until config.columnCount) {
@@ -413,41 +411,6 @@ class SscGameplayEngine(
         }
 
         listener.onHoldFinished(column, note)
-    }
-
-    private fun calculateTotalScoreNotes(): Int {
-        val normalRows = rowStates.size
-
-        val holdRows = mutableSetOf<Long>()
-
-        val validHolds = allNotes.filter { note ->
-            note.column in config.activeColumns &&
-                    !note.isFake &&
-                    !note.isMine &&
-                    note.type == Parser.NoteType.HOLD &&
-                    note.endBeat != null
-        }
-
-        for (note in validHolds) {
-            val endBeat = note.endBeat ?: continue
-
-            var tickBeat = getNextHoldTickBeat(note.beat)
-
-            while (tickBeat < endBeat) {
-                if (!timingData.isBeatInWarp(tickBeat)) {
-                    holdRows.add(rowKeyForBeat(tickBeat))
-                }
-
-                val ticksPerBeat = findCurrentTick(tickBeat)
-                    .coerceAtLeast(1.0)
-
-                tickBeat += 1.0 / ticksPerBeat
-            }
-
-            holdRows.add(rowKeyForBeat(endBeat))
-        }
-
-        return normalRows + holdRows.size
     }
 
     fun reset() {

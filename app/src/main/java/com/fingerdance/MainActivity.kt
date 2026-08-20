@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import android.app.Dialog
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -39,6 +40,7 @@ import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -136,6 +138,81 @@ lateinit var bitNR3 : Bitmap
 private var bmLogo : Bitmap? = null
 
 lateinit var channel : String
+
+object OnlineRoomExitOverlay {
+    private const val OVERLAY_TAG = "online_room_exit_overlay"
+
+    fun show(
+        activity: Activity,
+        playerName: String,
+        onExit: () -> Unit
+    ) {
+        if (activity.isFinishing || activity.isDestroyed) return
+
+        val root = activity.window.decorView as? ViewGroup ?: return
+        if (root.findViewWithTag<View>(OVERLAY_TAG) != null) return
+
+        val overlay = FrameLayout(activity).apply {
+            tag = OVERLAY_TAG
+            setBackgroundColor(Color.BLACK)
+            isClickable = true
+            isFocusable = true
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val content = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(48, 48, 48, 48)
+        }
+
+        val message = TextView(activity).apply {
+            text = "El jugador ${playerName.ifBlank { "rival" }} abandonó la sala"
+            gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            setTextColor(Color.WHITE)
+            textSize = 22f
+        }
+
+        val button = Button(activity).apply {
+            text = "SALIR"
+            isAllCaps = true
+            setOnClickListener {
+                isEnabled = false
+                onExit()
+            }
+        }
+
+        content.addView(
+            message,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 48 }
+        )
+        content.addView(
+            button,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        overlay.addView(
+            content,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        root.addView(overlay)
+        overlay.bringToFront()
+    }
+}
 
 class MainActivity : AppCompatActivity(), Serializable {
     private lateinit var video_fondo : VideoView
@@ -1269,13 +1346,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         val goOptionMP = MediaPlayer.create(
             this@MainActivity,
-            Uri.fromFile(
-                File(
-                    getExternalFilesDir(
-                        "/FingerDance/Themes/$tema/Sounds/option_sound.mp3"
-                    ).toString()
-                )
-            )
+            Uri.fromFile(File(getExternalFilesDir("/FingerDance/Themes/$tema/Sounds/option_sound.mp3").toString()))
         )
 
         btnOptions.setOnClickListener {
@@ -1362,11 +1433,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 )
 
                 resetParallaxCenter()
-
-                // Calcula automáticamente cuánto debe agrandarse la imagen
-                // para que nunca aparezcan franjas al moverla.
                 configureParallaxScale()
-
                 startParallax()
             }
 
@@ -1397,10 +1464,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    /**
-     * Calcula el zoom mínimo necesario para que el desplazamiento máximo
-     * del parallax nunca deje ver el fondo del layout.
-     */
     private fun configureParallaxScale() {
         image_fondo.post {
             if (image_fondo.width <= 0 || image_fondo.height <= 0) {
@@ -1751,7 +1814,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         dialog.setOnShowListener {
             dialog.window?.apply {
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
                 setLayout(
                     (resources.displayMetrics.widthPixels * 0.92f).toInt(),
                     WindowManager.LayoutParams.WRAP_CONTENT
@@ -1782,24 +1845,42 @@ class MainActivity : AppCompatActivity(), Serializable {
 
             val jugador1 = Jugador(
                 id = userName,
-                conectado = true
+                conectado = true,
+                listo = false
             )
 
             activeSala = Sala(
                 jugador1 = jugador1,
-                turno = userName,
+                turno = jugador1.id,
                 estado = RoomState.WAITING.name
             )
 
             salaRef.setValue(activeSala)
                 .addOnSuccessListener {
-                    salaRef
-                        .child("jugador1/conectado")
-                        .onDisconnect()
-                        .setValue(false)
+                    // Los resultados deben NO existir hasta que cada DanceGrade
+                    // publique el resultado real de la ronda.
+                    val cleanInitialResults = hashMapOf<String, Any?>(
+                        "jugador1/result" to null,
+                        "jugador2/result" to null
+                    )
 
-                    dialog.dismiss()
-                    mostrarCodigoSala()
+                    salaRef.updateChildren(cleanInitialResults)
+                        .addOnSuccessListener {
+                            salaRef
+                                .child("jugador1/conectado")
+                                .onDisconnect()
+                                .setValue(false)
+                                .addOnCompleteListener {
+                                    dialog.dismiss()
+                                    mostrarCodigoSala()
+                                }
+                        }
+                        .addOnFailureListener { error ->
+                            btnCreateRoom.isEnabled = true
+                            isOnline = false
+                            btnPlayOnline.isEnabled = true
+                            mostrarErrorSala("No se pudo inicializar la sala: ${error.message.orEmpty()}")
+                        }
                 }
                 .addOnFailureListener { error ->
                     btnCreateRoom.isEnabled = true
@@ -1880,65 +1961,58 @@ class MainActivity : AppCompatActivity(), Serializable {
         editRoomCode: EditText,
         btnEnter: View,
         jugador2: Jugador,
-        retryIfMissing: Boolean
+        retryIfMissing: Boolean,
     ) {
         var abortReason = "La sala ya fue ocupada o ya no está disponible"
 
         salaRef.runTransaction(object : Transaction.Handler {
             override fun doTransaction(currentData: MutableData): Transaction.Result {
                 val sala = currentData.getValue(Sala::class.java)
+
                 if (sala == null) {
                     abortReason = "La sala no existe"
                     return Transaction.abort()
                 }
 
                 if (sala.estado != RoomState.WAITING.name) {
-                    abortReason = "La sala ya no está disponible"
+                    abortReason = "La sala ya no está esperando jugadores"
                     return Transaction.abort()
                 }
 
                 if (sala.jugador1.id.isBlank() || !sala.jugador1.conectado) {
-                    abortReason = "El creador de la sala ya no está conectado"
+                    abortReason = "El jugador 1 ya no está conectado"
                     return Transaction.abort()
                 }
 
-                if (sala.jugador2.id.isNotBlank() && sala.jugador2.conectado) {
-                    abortReason = "La sala ya fue ocupada"
+                // Si ya hay un ID de Player 2, la posición está ocupada.
+                if (sala.jugador2.id.isNotBlank()) {
+                    abortReason = "La sala ya tiene un jugador 2"
                     return Transaction.abort()
                 }
 
-                sala.jugador2 = jugador2
-                sala.estado = RoomState.SELECTING.name
-                currentData.value = sala
+                // Insertamos solamente los tres campos de Player 2.
+                // No tocamos jugador1, turno, canción ni resultados.
+                currentData.child("jugador2/id").value = jugador2.id
+                currentData.child("jugador2/conectado").value = true
+                currentData.child("jugador2/listo").value = false
+                currentData.child("estado").value = RoomState.SELECTING.name
+
                 return Transaction.success(currentData)
             }
 
             override fun onComplete(
-                error: DatabaseError?,
+                databaseError: DatabaseError?,
                 committed: Boolean,
                 currentData: DataSnapshot?
             ) {
-                if (error != null) {
+                if (databaseError != null) {
                     btnEnter.isEnabled = true
                     editRoomCode.isEnabled = true
-                    mostrarErrorSala("Error al entrar a la sala: ${error.message}")
+                    mostrarErrorSala("Error al unir a la sala: ${databaseError.message.orEmpty()}")
                     return
                 }
 
                 if (!committed) {
-                    if (retryIfMissing && abortReason == "La sala no existe") {
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            attemptJoinRoom(
-                                dialog = dialog,
-                                editRoomCode = editRoomCode,
-                                btnEnter = btnEnter,
-                                jugador2 = jugador2,
-                                retryIfMissing = false
-                            )
-                        }, 250L)
-                        return
-                    }
-
                     btnEnter.isEnabled = true
                     editRoomCode.isEnabled = true
                     mostrarErrorSala(abortReason)
@@ -1949,24 +2023,23 @@ class MainActivity : AppCompatActivity(), Serializable {
                 if (sala == null) {
                     btnEnter.isEnabled = true
                     editRoomCode.isEnabled = true
-                    mostrarErrorSala("No se pudo leer la información de la sala")
+                    mostrarErrorSala("No se pudo leer la sala después de entrar")
                     return
                 }
 
-                btnEnter.isEnabled = true
-                editRoomCode.isEnabled = true
-
-                isOnline = true
                 isPlayer1 = false
+                isOnline = true
                 activeSala = sala
 
-                salaRef
-                    .child("jugador2/conectado")
+                // Player 2 queda conectado en la transacción. Registramos
+                // onDisconnect antes de abrir el flujo de juego.
+                salaRef.child("jugador2/conectado")
                     .onDisconnect()
                     .setValue(false)
-
-                dialog.dismiss()
-                prepareOnlineAndOpenSelectChannel()
+                    .addOnCompleteListener {
+                        dialog.dismiss()
+                        prepareOnlineAndOpenSelectChannel()
+                    }
             }
         })
     }
@@ -2117,7 +2190,10 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         btnShare.setOnClickListener {
             dialog.dismiss()
-            waitForPlayer2()
+
+            // El host entra de inmediato al flujo Online. SelectChannelOnline
+            // mostrará "Esperando al jugador 2" mientras la sala siga WAITING.
+            prepareOnlineAndOpenSelectChannel()
             mostrarDialogoCompartir(this)
         }
 
@@ -2518,7 +2594,7 @@ data class Jugador(
 )
 
 data class LiveResult(
-    var score: Int = 0
+    var score: Int = 0,
 )
 
 data class Sala(
@@ -2547,3 +2623,4 @@ data class CancionOnline(
 interface ItemClickListener {
     fun onItemClick(item: Pair<String, String>)
 }
+

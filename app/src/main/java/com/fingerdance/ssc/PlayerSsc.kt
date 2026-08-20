@@ -324,7 +324,6 @@ class PlayerSsc(
         inputProcessor.resetState()
         luaEngine = LuaEngine(playerSsc = this, widthNotes = medidaFlechas * 5f)
         barLifeCalculator.reset()
-        resultSong.totalScoreNotes = gameplayEngine.totalScoreNotes
     }
 
     private data class LongNotePress(
@@ -472,7 +471,12 @@ class PlayerSsc(
     }
 
     private fun calculateCurrentScore(): Int {
-        val totalNotes = resultSong.totalScoreNotes
+        /*
+        ///////////////////////////////
+        //Esta seccion se tiene que recalcular
+        ///////////////////////////////
+        */
+        val totalNotes = resultSong.perfect + resultSong.great + resultSong.good + resultSong.bad + resultSong.miss
         if (totalNotes <= 0) return 0
 
         val noteWeights =

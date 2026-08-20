@@ -96,15 +96,17 @@ var currentLevel = ""
 var positionCurrentChannel = 0
 var isVideo = false
 
-var hjPerfect = 25L
-var hjGreat = 41L
-var hjGood = 115L
-var hjBad = 140L
+// NORMAL
+var nPerfect = 65L
+var nGreat   = 105L
+var nGood    = 145L
+var nBad     = 185L
 
-var nPerfect = 55L
-var nGreat = 90L
-var nGood = 135L
-var nBad = 180L
+// HARD
+var hjPerfect = 40L
+var hjGreat   = 70L
+var hjGood    = 100L
+var hjBad     = 130L
 
 lateinit var soundPoolSelectSong: SoundPool
 var selectSong_movKsf : Int = 0
