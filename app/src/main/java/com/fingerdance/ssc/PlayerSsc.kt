@@ -19,7 +19,6 @@ import com.fingerdance.bBatch
 import com.fingerdance.breakSong
 import com.fingerdance.chart
 import com.fingerdance.decimoHeigtn
-import com.fingerdance.displayBPM
 import com.fingerdance.heightBtns
 import com.fingerdance.heightJudges
 import com.fingerdance.hjBad
@@ -201,7 +200,7 @@ class PlayerSsc(
     val barLifeCalculator = BarLifeCalculator(level = currentChartLevel)
     private var lifeLightningTime = 0f
 
-    var m_fCurBPM = displayBPM
+    var m_fCurBPM = 0f
     private var arrowFrame = 0
     private var m_iStepWidth = 5
     var curCombo = 0

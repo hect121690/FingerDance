@@ -1067,17 +1067,24 @@ class SelectSongOnline : AppCompatActivity() {
         currentSong = song.title
         currentLevel = level.level
         val selected = CancionOnline(
-            rutaKsf = level.rutaKsf,
-            rutaCancion = playerSong.rutaCancion ?: song.rutaSong,
-            rutaBGA = song.rutaBGA,
-            rutaPreview = song.rutaPreview,
-            rutaBanner = song.rutaTitle,
-            rutaDisc = song.rutaDisc,
-            nivel = level.level,
-            artists = song.artist,
+            ruta = File(song.rutaSsc).parent ?: "",
+            fileSsc = File(song.rutaSsc).name,
+            fileSong = File(song.rutaSong).name,
+            fileBga = File(song.rutaBGA).name,
+            filePreview = File(song.rutaPreview).name,
+            fileBanner = File(song.rutaTitle).name,
+            fileDisc = File(song.rutaDisc).name,
+            artist = song.artist,
             nameSong = song.title,
-            bpm = displayBPM.toString(),
-            isHalf = isHalfDouble
+            bpmDisplay = displayBPM.toString(),
+            level = LevelOnline(
+                level = level.level,
+                steps = level.steps,
+                type = level.typePlayer,
+                chartName = level.chartName,
+                stepmaker = level.stepmaker,
+                difficulty = level.difficulty
+            )
         )
         selectionSent = true
         localReadySent = true
@@ -1120,9 +1127,7 @@ class SelectSongOnline : AppCompatActivity() {
     }
 
     private fun hasSelectedSong(sala: Sala): Boolean {
-        return sala.cancion.nameSong.isNotBlank() &&
-                sala.cancion.rutaCancion.isNotBlank() &&
-                sala.cancion.rutaKsf.isNotBlank()
+        return sala.cancion.ruta.isNotBlank()
     }
 
     private fun myReady(sala: Sala): Boolean {
@@ -1136,8 +1141,9 @@ class SelectSongOnline : AppCompatActivity() {
     private fun showWaitingForOpponentReady() {
         linearLoading.isVisible = true
         imgLoading.isVisible = true
-        if (activeSala.cancion.rutaBanner.isNotBlank()) {
-            BitmapFactory.decodeFile(activeSala.cancion.rutaBanner)?.let {
+        if (activeSala.cancion.fileBanner.isNotBlank()) {
+            val bannerPath = "${activeSala.cancion.ruta}/${activeSala.cancion.fileBanner}"
+            BitmapFactory.decodeFile(bannerPath)?.let {
                 imgLoading.setImageBitmap(it)
             }
         }
@@ -1295,7 +1301,7 @@ class SelectSongOnline : AppCompatActivity() {
         loadingToGameTimer?.cancel()
         val intent = Intent(this, GameScreenActivity::class.java)
         isVertical = true
-        intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.isHalf)
+        intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.level.isHalf)
         startActivity(intent)
         initGameScreen = true
         ready = 0

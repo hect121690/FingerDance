@@ -100,7 +100,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
 
     private var timer = 0f
     private var showOverlay = false
-    private var intervalOverlay = 60000 / displayBPM
+    private var intervalOverlay = 0f
 
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width

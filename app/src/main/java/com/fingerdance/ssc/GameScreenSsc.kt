@@ -16,11 +16,9 @@ import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.fingerdance.GameScreenActivity
-import com.fingerdance.LuaTransform
 import com.fingerdance.aBatch
 import com.fingerdance.alphaPadB
 import com.fingerdance.bBatch
-import com.fingerdance.displayBPM
 import com.fingerdance.endingFadeAlpha
 import com.fingerdance.height
 import com.fingerdance.heightBtns
@@ -130,7 +128,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     private var timer = 0f
     private var showOverlay = false
-    private var intervalOverlay = 60000 / displayBPM
+    private var intervalOverlay = 0f
 
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
@@ -202,7 +200,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         camera.setToOrtho(true)
 
         player = PlayerSsc(this, batch, a)
-        rithymAnim = (60f / displayBPM)
+        rithymAnim = (60f / player.m_fCurBPM)
         targetTop = medidaFlechas
 
         if(showPadB == 0){

@@ -17,7 +17,6 @@ import com.fingerdance.GameScreenActivityHorizontal
 import com.fingerdance.aBatch
 import com.fingerdance.alphaPadB
 import com.fingerdance.bBatch
-import com.fingerdance.displayBPM
 import com.fingerdance.endingFadeAlpha
 import com.fingerdance.height
 import com.fingerdance.heightBtnsHorizontal
@@ -25,7 +24,6 @@ import com.fingerdance.hideImagesPadA
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
-import com.fingerdance.medidaFlechas
 import com.fingerdance.medidaFlechasHorizontal
 import com.fingerdance.padPositionsHorizontal
 import com.fingerdance.playerSong
@@ -123,7 +121,7 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
 
     private var timer = 0f
     private var showOverlay = false
-    private var intervalOverlay = 60000 / displayBPM
+    private var intervalOverlay = 0f
 
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
@@ -176,7 +174,7 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
         camera.setToOrtho(true, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
 
         player = PlayerSscHorizontal(this, batch, a)
-        rithymAnim = (60f / displayBPM)
+        rithymAnim = (60f / player.m_fCurBPM)
         targetTop = medidaFlechasHorizontal
 
         if(showPadB == 0){

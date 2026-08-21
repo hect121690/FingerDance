@@ -43,6 +43,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
+import com.fingerdance.ssc.Parser
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -133,9 +134,11 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private var roomSnapshotSeen = false
     private lateinit var btnCommandWindow: ImageView
 
+    private var pathSong: String = ""
+
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            val namePreview = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
+            val namePreview = File("$pathSong/${activeSala.cancion.nameSong}").name.replace(".mp3", "")
             saveFileToDestination(it, namePreview + "_p.mp4", false)
         }
 
@@ -143,7 +146,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
     private val pickBgaFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            val nameBGA = File(activeSala.cancion.rutaCancion).name.replace(".mp3", "")
+            val nameBGA = File("$pathSong/${activeSala.cancion.nameSong}").name.replace(".mp3", "")
             saveFileToDestination(it, nameBGA + ".mp4", true)
         }
     }
@@ -311,7 +314,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
         imgLvSelected = findViewById(R.id.imgLvSelected)
         val selected = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active.png")!!.absolutePath)
         val selectedHD = BitmapFactory.decodeFile(getExternalFilesDir("/FingerDance/Themes/$tema/GraphicsStatics/lv_active_hd.png")!!.absolutePath)
-        if(!activeSala.cancion.isHalf){
+        if(!activeSala.cancion.level.isHalf){
             imgLvSelected.setImageBitmap(selected)
         }else{
             imgLvSelected.setImageBitmap(selectedHD)
@@ -378,7 +381,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
         var textSize = width / 10
         lbLvActive.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
 
-        lbLvActive.text = activeSala.cancion.nivel
+        lbLvActive.text = activeSala.cancion.level.level
 
         textSize = width / 15
         txCurrentBpm.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
@@ -399,8 +402,8 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
 
         lbNameSong.text = activeSala.cancion.nameSong
-        lbArtist.text = activeSala.cancion.artists
-        lbBpm.text = activeSala.cancion.bpm
+        lbArtist.text = activeSala.cancion.artist
+        lbBpm.text = activeSala.cancion.bpmDisplay
 
         imgLvSelected.layoutParams.width = (width / 4.1).toInt()
 
@@ -428,16 +431,17 @@ class SelectSongOnlineWait : AppCompatActivity() {
 
         var isVideoOnline = true
 
-        if(isFileExists(File(activeSala.cancion.rutaPreview))){
-            if(activeSala.cancion.rutaPreview.endsWith(".png", ignoreCase = true)
-                || activeSala.cancion.rutaPreview.endsWith(".jpg", ignoreCase = true)
-                || activeSala.cancion.rutaPreview.endsWith(".bpm", ignoreCase = true)
-                || activeSala.cancion.rutaPreview.endsWith(".mpg")
-                || activeSala.cancion.rutaPreview == "") {
+        if(isFileExists(File("$pathSong/${activeSala.cancion.filePreview}"))){
+            if(activeSala.cancion.filePreview.endsWith(".png", ignoreCase = true)
+                || activeSala.cancion.filePreview.endsWith(".jpg", ignoreCase = true)
+                || activeSala.cancion.filePreview.endsWith(".bmp", ignoreCase = true)
+                || activeSala.cancion.filePreview.endsWith(".mpg")
+                || activeSala.cancion.filePreview.endsWith(".avi")
+                || activeSala.cancion.filePreview == "") {
                 isVideoOnline = false
             }
             if(isVideoOnline){
-                video_fondo.setVideoPath(activeSala.cancion.rutaPreview)
+                video_fondo.setVideoPath("$pathSong/${activeSala.cancion.filePreview}")
                 video_fondo.setOnPreparedListener { mediaPlayer ->
                     mediaPlayer.setVolume(0f, 0f)
                 }
@@ -457,7 +461,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(activeSala.cancion.rutaCancion)
+                        setDataSource("$pathSong/${activeSala.cancion.fileSong}")
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -470,14 +474,14 @@ class SelectSongOnlineWait : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(activeSala.cancion.rutaCancion)
+                        setDataSource("$pathSong/${activeSala.cancion.fileSong}")
                         prepare()
                         seekTo(startTimeMs)
                         start()
                     }
                 }
             }else{
-                val img = BitmapFactory.decodeFile(activeSala.cancion.rutaDisc)
+                val img = BitmapFactory.decodeFile("$pathSong/${activeSala.cancion.fileDisc}")
                 imgPrev.setImageBitmap(img)
                 video_fondo.visibility = View.GONE
                 imgPrev.visibility = View.VISIBLE
@@ -491,7 +495,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(activeSala.cancion.rutaCancion)
+                        setDataSource("$pathSong/${activeSala.cancion.fileSong}")
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -504,7 +508,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
-                        setDataSource(activeSala.cancion.rutaCancion)
+                        setDataSource("$pathSong/${activeSala.cancion.fileSong}")
                         prepare()
                         seekTo(startTimeMs)
                         start()
@@ -512,7 +516,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                 }
             }
         }else{
-            val img = BitmapFactory.decodeFile(activeSala.cancion.rutaDisc)
+            val img = BitmapFactory.decodeFile("$pathSong/${activeSala.cancion.fileDisc}")
             imgPrev.setImageBitmap(img)
             video_fondo.visibility = View.GONE
             imgPrev.visibility = View.VISIBLE
@@ -526,7 +530,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                             .build()
                     )
-                    setDataSource(activeSala.cancion.rutaCancion)
+                    setDataSource("$pathSong/${activeSala.cancion.fileSong}")
                     prepare()
                     seekTo(startTimeMs)
                     start()
@@ -539,7 +543,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                             .build()
                     )
-                    setDataSource(activeSala.cancion.rutaCancion)
+                    setDataSource("$pathSong/${activeSala.cancion.fileSong}")
                     prepare()
                     seekTo(startTimeMs)
                     start()
@@ -553,14 +557,14 @@ class SelectSongOnlineWait : AppCompatActivity() {
         }
         lbNameSong.startAnimation(animNameSong)
 
-        if(activeSala.cancion.artists == ""){
+        if(activeSala.cancion.artist == ""){
             lbArtist.text = "NO ARTIST"
         }else{
-            lbArtist.text = activeSala.cancion.artists
+            lbArtist.text = activeSala.cancion.artist
         }
 
-        lbBpm.text = "BPM:" + String.format("%.2f", activeSala.cancion.bpm.toDouble())
-        displayBPM = activeSala.cancion.bpm.replace("BPM ", "").toFloat()
+        lbBpm.text = "BPM:" + activeSala.cancion.bpmDisplay
+        displayBPM = activeSala.cancion.bpmDisplay.replace("BPM ", "").toFloat()
 
         nav_back_Izq.setOnLongClickListener {
             ready = 0
@@ -666,7 +670,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
                     soundPoolSelectSong.play(startKsf, 1.0f, 1.0f, 1, 0, 1.0f)
                     imgAceptar.isEnabled = false
 
-                    val bit = BitmapFactory.decodeFile(activeSala.cancion.rutaBanner)
+                    val bit = BitmapFactory.decodeFile("$pathSong/${activeSala.cancion.fileBanner}")
                     imgLoading.setImageBitmap(bit)
                     if(!linearLoading.isVisible){
                         linearLoading.isVisible = true
@@ -692,10 +696,59 @@ class SelectSongOnlineWait : AppCompatActivity() {
                             }
                         }
 
-                        playerSong.rutaBanner = activeSala.cancion.rutaBanner
-                        playerSong.rutaVideo = activeSala.cancion.rutaBGA
-                        playerSong.rutaCancion = activeSala.cancion.rutaCancion
-                        playerSong.rutaKsf = activeSala.cancion.rutaKsf
+                        playerSong.rutaBanner = "$pathSong/${activeSala.cancion.fileBanner}"
+                        playerSong.rutaVideo = "$pathSong/${activeSala.cancion.fileBga}"
+                        playerSong.rutaCancion = "$pathSong/${activeSala.cancion.fileSong}"
+
+                        val level = activeSala.cancion.level
+
+                        playerSong.level = level.level
+                        val isHalfDouble = level.isHalf
+                        playerSong.type = level.type
+                        playerSong.chartName = level.chartName
+                        playerSong.stepMaker = level.stepmaker
+                        playerSong.difficulty = level.difficulty
+
+                        val selectedSteps = level.steps
+
+                        if (selectedSteps < 0) {
+                            imgAceptar.isEnabled = true
+                            Toast.makeText(this, "No se recibió el nivel seleccionado", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+
+                        val ssc = readFileSsc("$pathSong/${activeSala.cancion.fileSsc}")
+                        val seccions = ssc.split("#NOTEDATA:;")
+
+                        if (selectedSteps !in seccions.indices) {
+                            imgAceptar.isEnabled = true
+                            Toast.makeText(this, "Índice de chart inválido", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+
+                        chart = Parser().parseSSC(
+                            "${seccions[0]}\n",
+                            seccions[selectedSteps],
+                            "$pathSong/${activeSala.cancion.fileSong}",
+                        )
+
+                        playerSong.isSSC = true
+
+                        if (playerSong.mirror) {
+                            chart.notes = if (!isHalfDouble) {
+                                Parser().makeMirror(chart.notes)
+                            } else {
+                                Parser().makeMirrorHD(chart.notes)
+                            }
+                        }
+
+                        if (playerSong.rs) {
+                            chart.notes = if (!isHalfDouble) {
+                                Parser().makeRandom(chart.notes)
+                            } else {
+                                Parser().makeRandomHD(chart.notes)
+                            }
+                        }
 
                         mediaPlayer = MediaPlayer().apply {
                             setAudioAttributes(
@@ -708,15 +761,12 @@ class SelectSongOnlineWait : AppCompatActivity() {
                             prepare()
                         }
 
-                        //mediaPlayer = MediaPlayer.create(this, Uri.fromFile(File(playerSong.rutaCancion!!)))
-                        //load(playerSong.rutaKsf)
-
                         if (!localReadySent) {
                             localReadySent = true
-                            readyPlay = true
                             val readyPath = if (isPlayer1) "jugador1/listo" else "jugador2/listo"
                             salaRef.child(readyPath).setValue(true)
                                 .addOnSuccessListener {
+                                    readyPlay = true
                                     if (isPlayer1) {
                                         activeSala.jugador1.listo = true
                                     } else {
@@ -726,6 +776,8 @@ class SelectSongOnlineWait : AppCompatActivity() {
                                 }
                                 .addOnFailureListener {
                                     localReadySent = false
+                                    readyPlay = false
+                                    imgAceptar.isEnabled = true
                                     Toast.makeText(this, "No se pudo confirmar que estás listo", Toast.LENGTH_SHORT).show()
                                 }
                         }
@@ -1241,8 +1293,8 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private fun showWaitingForOpponentReady() {
         linearLoading.isVisible = true
         imgLoading.isVisible = true
-        if (activeSala.cancion.rutaBanner.isNotBlank()) {
-            BitmapFactory.decodeFile(activeSala.cancion.rutaBanner)?.let {
+        if (activeSala.cancion.ruta.isNotBlank()) {
+            BitmapFactory.decodeFile("$pathSong/${activeSala.cancion.fileBanner}")?.let {
                 imgLoading.setImageBitmap(it)
             }
         }
@@ -1314,7 +1366,7 @@ class SelectSongOnlineWait : AppCompatActivity() {
         loadingToGameTimer?.cancel()
         val intent = Intent(this, GameScreenActivity::class.java)
         isVertical = true
-        intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.isHalf)
+        intent.putExtra("IS_HALF_DOUBLE", activeSala.cancion.level.isHalf)
         startActivity(intent)
         initGameScreen = true
         ready = 0

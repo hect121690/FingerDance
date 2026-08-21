@@ -530,9 +530,7 @@ class SelectChannelOnline : AppCompatActivity() {
 
     private fun hasSelectedSong(sala: Sala): Boolean {
         val cancion = sala.cancion
-        return cancion.nameSong.isNotBlank() &&
-                cancion.rutaCancion.isNotBlank() &&
-                cancion.rutaKsf.isNotBlank()
+        return cancion.ruta.isNotEmpty()
     }
 
     // ============================================================

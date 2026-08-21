@@ -85,6 +85,7 @@ import kotlin.math.sqrt
 import kotlin.system.exitProcess
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.text.HtmlCompat
+import com.google.common.collect.MapMaker
 import com.google.firebase.database.ChildEventListener
 
 private var descargando = true
@@ -2593,7 +2594,7 @@ data class LiveResult(
 )
 
 data class Sala(
-    var cancion: CancionOnline = CancionOnline(),
+    var cancion: CancionOnline = CancionOnline(ruta = ""),
     var jugador1: Jugador = Jugador(),
     var jugador2: Jugador = Jugador(),
     var turno: String = "",
@@ -2601,18 +2602,28 @@ data class Sala(
     var estado: String = RoomState.WAITING.name,
 )
 
-data class CancionOnline(
-    var rutaKsf: String = "",
-    var rutaCancion: String = "",
-    var rutaBGA: String = "",
-    var rutaPreview: String = "",
-    var rutaBanner: String = "",
-    var rutaDisc: String = "",
-    var nivel: String = "",
-    var artists: String = "",
-    var nameSong: String = "",
-    var bpm: String = "",
+data class LevelOnline(
+    var level: String = "",
+    var steps: Int = -1,
+    var type: String = "",
+    var chartName: String = "",
+    var stepmaker: String = "",
+    var difficulty: String = "",
     var isHalf: Boolean = false,
+)
+
+data class CancionOnline(
+    var ruta: String = "",
+    var fileSsc: String = "",
+    var fileSong: String = "",
+    var fileBga: String = "",
+    var filePreview: String = "",
+    var fileBanner: String = "",
+    var fileDisc: String = "",
+    var artist: String = "",
+    var nameSong: String = "",
+    var bpmDisplay: String = "",
+    var level: LevelOnline = LevelOnline(),
 )
 
 interface ItemClickListener {

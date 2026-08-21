@@ -14,8 +14,6 @@ import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.fingerdance.*
-import com.fingerdance.ssc.GameScreenSsc.OverlayMetrics
-import java.io.File
 import kotlin.math.abs
 
 open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
@@ -138,7 +136,7 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     private var timer = 0f
     private var showOverlay = false
-    private var intervalOverlay = 60000 / displayBPM
+    private var intervalOverlay = 0f
 
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
@@ -207,7 +205,7 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         camera.setToOrtho(true)
 
         player = PlayerSscHD(this, batch, a)
-        rithymAnim = (60f / displayBPM)
+        rithymAnim = (60f / player.m_fCurBPM)
         targetTop = medidaFlechas
 
         if (showPadB == 0) {

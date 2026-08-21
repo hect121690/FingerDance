@@ -194,7 +194,7 @@ class PlayerSscHorizontal(
     val barLifeCalculator = BarLifeCalculator(level = currentChartLevel)
     private var lifeLightningTime = 0f
 
-    var m_fCurBPM = 0F
+    var m_fCurBPM = 0f
     private var arrowFrame = 0
     private var m_iStepWidth = 5
     var curCombo = 0
