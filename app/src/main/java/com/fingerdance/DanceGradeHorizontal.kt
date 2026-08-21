@@ -858,7 +858,7 @@ class DanceGradeHorizontal : AppCompatActivity() {
             if (!isOnline) {
                 text = playerSong.level
             } else {
-                text = activeSala.cancion.nivel
+                text = activeSala.cancion.level.level
             }
         }
 

@@ -174,6 +174,8 @@ class SelectSongOnlineWait : AppCompatActivity() {
             txPlayer2.text = "Player 2 \n $userName"
         }
 
+        pathSong = activeSala.cancion.ruta
+
         mediaPlayer = MediaPlayer()
 
         playerSong = PlayerSong("","", "",0.0,"", 0.0, "","",false, false,"", "", "")
