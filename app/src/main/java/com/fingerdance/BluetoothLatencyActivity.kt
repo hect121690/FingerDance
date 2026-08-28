@@ -1,1067 +1,640 @@
 package com.fingerdance
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.content.SharedPreferences
 import android.media.AudioAttributes
-import android.media.SoundPool
+import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
-class BluetoothLatencyActivity :
-    AppCompatActivity() {
+class BluetoothLatencyActivity : AppCompatActivity() {
 
-    private lateinit var themes:
-            SharedPreferences
+    private lateinit var themes: SharedPreferences
 
-    private lateinit var txtStatus:
-            TextView
+    private lateinit var txtDeviceModel: TextView
+    private lateinit var txtSavedLatency: TextView
+    private lateinit var txtStatus: TextView
+    private lateinit var txtProgress: TextView
+    private lateinit var txtCountdown: TextView
+    private lateinit var txtLatency: TextView
 
-    private lateinit var txtCountdown:
-            TextView
+    private lateinit var btnTap: MaterialButton
+    private lateinit var btnSave: MaterialButton
+    private lateinit var calibrationView: BluetoothLatencyCalibrationView
 
-    private lateinit var txtProgress:
-            TextView
+    private var currentDevice: BluetoothLatencyProfileManager.BluetoothAudioDevice? = null
+    private var existingProfile: BluetoothLatencyProfileManager.BluetoothLatencyProfile? = null
 
-    private lateinit var txtTiming:
-            TextView
+    private var mediaPlayer: MediaPlayer? = null
+    private var audioPrepared = false
 
-    private lateinit var txtResult:
-            TextView
+    private val handler = Handler(Looper.getMainLooper())
 
-    private lateinit var txtDeviceModel:
-            TextView
+    /*
+     * Nuestro MP3 tiene beats en:
+     *
+     * 1s, 3s, 5s, 7s...
+     *
+     * Por ahora usamos siempre el primer beat:
+     * 1000 ms.
+     */
+    private val firstBeatMs = 1000L
 
-    private lateinit var txtSavedLatency:
-            TextView
+    /*
+     * La animación tarda exactamente lo mismo
+     * en llegar desde izquierda hasta el centro.
+     */
+    private val timeToCenterMs = 1000L
 
-    private lateinit var btnTap:
-            MaterialButton
+    private val totalSamples = 8
+    private val pauseBetweenTrialsMs = 900L
 
-    private lateinit var btnStart:
-            MaterialButton
+    /*
+     * No aplicamos el error completo para evitar
+     * que la calibración oscile demasiado.
+     */
+    private val correctionStrength = 0.65
 
-    private lateinit var ringView:
-            ClosingRingView
+    private var estimatedLatencyMs = 0.0
+    private var centerTimeNs = 0L
 
+    private var waitingForTap = false
+    private var calibrationFinished = false
+    private var calibrationStarted = false
 
-    // ========================================================================
-    // DISPOSITIVO / PERFIL
-    // ========================================================================
+    private val errors = mutableListOf<Double>()
 
-    private var currentDevice:
-            BluetoothLatencyProfileManager
-            .BluetoothAudioDevice? = null
+    private var startVisualRunnable: Runnable? = null
+    private var timeoutRunnable: Runnable? = null
+    private var nextTrialRunnable: Runnable? = null
 
-    private var existingProfile:
-            BluetoothLatencyProfileManager
-            .BluetoothLatencyProfile? = null
-
-
-    // ========================================================================
-    // AUDIO
-    // ========================================================================
-
-    private lateinit var soundPool:
-            SoundPool
-
-    private var drumSoundId =
-        0
-
-    private var soundLoaded =
-        false
-
-    private var lastSoundTimeNs =
-        0L
-
-    private var waitingForTap =
-        false
-
-
-    // ========================================================================
-    // TIMING
-    // ========================================================================
-
-    private val handler =
-        Handler(
-            Looper.getMainLooper()
-        )
-
-    private var calibrationRunning =
-        false
-
-    private val totalSamples =
-        12
-
-    private val samples =
-        mutableListOf<Double>()
-
-    private var estimatedOffsetMs =
-        0.0
-
-    private val cycleDurationMs =
-        2000L
-
-    private var visualCycleNumber =
-        0
-
-    private var scheduledSoundRunnable:
-            Runnable? = null
-
-
-    // ========================================================================
-    // CREATE
-    // ========================================================================
-
-    override fun onCreate(
-        savedInstanceState: Bundle?
-    ) {
-
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_bluetooth_latency)
 
-        setContentView(
-            R.layout.activity_bluetooth_latency
-        )
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        /*
-         * Usa la misma inicialización de themes
-         * que ya tienes en tu proyecto.
-         */
-        themes =
-            getSharedPreferences(
-                "themes",
-                MODE_PRIVATE
-            )
+        themes = getSharedPreferences("themes", MODE_PRIVATE)
 
         bindViews()
 
-        /*
-         * Tenemos que tener Bluetooth conectado.
-         */
-        currentDevice =
-            BluetoothLatencyProfileManager
-                .getConnectedBluetoothDevice(
-                    this
-                )
+        currentDevice = BluetoothLatencyProfileManager.getConnectedBluetoothDevice(this)
 
         if (currentDevice == null) {
-
-            /*
-             * Esta Activity nunca debería abrirse sin Bluetooth.
-             */
             finish()
-
             return
         }
 
-        loadExistingProfile()
-
-        initSoundPool()
-
+        loadProfile()
         setupListeners()
-
-        updateProgress()
+        initMediaPlayer()
     }
-
 
     private fun bindViews() {
+        txtDeviceModel = findViewById(R.id.txtDeviceModel)
+        txtSavedLatency = findViewById(R.id.txtSavedLatency)
+        txtStatus = findViewById(R.id.txtStatus)
+        txtProgress = findViewById(R.id.txtProgress)
+        txtCountdown = findViewById(R.id.txtCountdown)
+        txtLatency = findViewById(R.id.txtLatency)
 
-        txtStatus =
-            findViewById(
-                R.id.txtStatus
-            )
+        btnTap = findViewById(R.id.btnTap)
+        btnSave = findViewById(R.id.btnSave)
 
-        txtCountdown =
-            findViewById(
-                R.id.txtCountdown
-            )
-
-        txtProgress =
-            findViewById(
-                R.id.txtProgress
-            )
-
-        txtTiming =
-            findViewById(
-                R.id.txtTiming
-            )
-
-        txtResult =
-            findViewById(
-                R.id.txtResult
-            )
-
-        txtDeviceModel =
-            findViewById(
-                R.id.txtDeviceModel
-            )
-
-        txtSavedLatency =
-            findViewById(
-                R.id.txtSavedLatency
-            )
-
-        btnTap =
-            findViewById(
-                R.id.btnTap
-            )
-
-        btnStart =
-            findViewById(
-                R.id.btnStart
-            )
-
-        ringView =
-            findViewById(
-                R.id.ringView
-            )
+        calibrationView = findViewById(R.id.calibrationView)
     }
 
+    private fun loadProfile() {
+        val device = currentDevice ?: return
 
-    // ========================================================================
-    // PERFIL
-    // ========================================================================
+        existingProfile = BluetoothLatencyProfileManager.getProfile(
+            device.id
+        )
 
-    private fun loadExistingProfile() {
+        txtDeviceModel.text = device.model
 
-        val device =
-            currentDevice
-                ?: return
+        txtSavedLatency.text = existingProfile?.let {
+            "${it.latencyMs} ms"
+        } ?: "-- ms"
 
-        existingProfile =
-            BluetoothLatencyProfileManager
-                .getProfile(
-                    themes,
-                    device.id
+        txtLatency.text = "-- ms"
+        txtProgress.text = "0 / $totalSamples"
+        txtCountdown.visibility = View.INVISIBLE
+    }
+
+    // ============================================================
+    // AUDIO
+    // ============================================================
+
+    private fun initMediaPlayer() {
+        txtStatus.text = "Preparando audio..."
+
+        try {
+            val afd = assets.openFd("fingerdance_latency_16s.mp3")
+
+            mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
                 )
 
-        txtDeviceModel.text =
-            device.model
+                setDataSource(
+                    afd.fileDescriptor,
+                    afd.startOffset,
+                    afd.length
+                )
 
-        val profile =
-            existingProfile
+                setVolume(1f, 1f)
+                isLooping = false
 
-        if (profile != null) {
+                setOnPreparedListener {
+                    audioPrepared = true
+                    startCalibration()
+                }
 
-            txtSavedLatency.text =
-                "${profile.latencyMs} ms"
+                setOnErrorListener { _, what, extra ->
+                    txtStatus.text = "Error preparando audio ($what / $extra)"
+                    true
+                }
 
-            btnStart.text =
-                "VOLVER A CALIBRAR"
+                prepareAsync()
+            }
+
+            afd.close()
+
+        } catch (e: Exception) {
+            txtStatus.text = "No se pudo abrir el audio de calibración"
+            e.printStackTrace()
+        }
+    }
+
+    private fun restartAudio(onStarted: () -> Unit) {
+        val player = mediaPlayer ?: return
+
+        if (!audioPrepared || calibrationFinished) return
+
+        try {
+            if (player.isPlaying) {
+                player.pause()
+            }
 
             /*
-             * También mostramos inicialmente
-             * la calibración existente.
+             * Esperamos realmente a que MediaPlayer haya
+             * regresado al principio antes de iniciar.
              */
-            txtTiming.text =
-                "${profile.latencyMs} ms"
+            player.setOnSeekCompleteListener {
+                it.setOnSeekCompleteListener(null)
 
-        } else {
+                if (calibrationFinished) return@setOnSeekCompleteListener
 
-            txtSavedLatency.text =
-                "0 ms"
+                it.start()
 
-            btnStart.text =
-                "INICIAR CALIBRACIÓN"
-
-            txtTiming.text =
-                "-- ms"
-        }
-
-        txtStatus.text =
-            "Toca el botón cuando escuches el sonido"
-
-        btnTap.isEnabled =
-            false
-
-        txtCountdown.visibility =
-            View.INVISIBLE
-    }
-
-
-    // ========================================================================
-    // SOUNDPOOL
-    // ========================================================================
-
-    private fun initSoundPool() {
-
-        val attributes =
-            AudioAttributes.Builder()
-                .setUsage(
-                    AudioAttributes.USAGE_GAME
-                )
-                .setContentType(
-                    AudioAttributes.CONTENT_TYPE_SONIFICATION
-                )
-                .build()
-
-        soundPool =
-            SoundPool.Builder()
-                .setMaxStreams(1)
-                .setAudioAttributes(
-                    attributes
-                )
-                .build()
-
-        btnStart.isEnabled =
-            false
-
-        soundPool.setOnLoadCompleteListener {
-                _,
-                sampleId,
-                status ->
-
-            if (
-                status == 0 &&
-                sampleId == drumSoundId
-            ) {
-
-                soundLoaded =
-                    true
-
-                btnStart.isEnabled =
-                    true
+                /*
+                 * Este callback significa:
+                 * ya enviamos el comando START del audio.
+                 *
+                 * Desde aquí coordinamos el visual.
+                 */
+                onStarted()
             }
-        }
 
-        drumSoundId =
-            soundPool.load(
-                this,
-                R.raw.drum,
-                1
-            )
-    }
-
-
-    // ========================================================================
-    // LISTENERS
-    // ========================================================================
-
-    @Suppress("ClickableViewAccessibility")
-    private fun setupListeners() {
-
-        btnStart.setOnClickListener {
-
-            startCalibration()
-        }
-
-        btnTap.setOnTouchListener {
-                _,
-                event ->
-
-            if (
-                event.action ==
-                MotionEvent.ACTION_DOWN
-            ) {
-
-                animateTapButton()
-
-                registerTap()
-
-                true
-
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                player.seekTo(
+                    0L,
+                    MediaPlayer.SEEK_CLOSEST
+                )
             } else {
-
-                false
+                @Suppress("DEPRECATION")
+                player.seekTo(0)
             }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            txtStatus.text = "Error reiniciando audio"
         }
     }
 
-
-    // ========================================================================
-    // START
-    // ========================================================================
+    // ============================================================
+    // CALIBRACIÓN
+    // ============================================================
 
     private fun startCalibration() {
+        cancelCalibrationCallbacks()
 
-        if (!soundLoaded)
-            return
+        errors.clear()
 
-        /*
-         * Comprobamos nuevamente que sigan conectados.
-         */
-        val connected =
-            BluetoothLatencyProfileManager
-                .getConnectedBluetoothDevice(
-                    this
-                )
+        estimatedLatencyMs = 0.0
+        centerTimeNs = 0L
 
-        if (connected == null) {
+        waitingForTap = false
+        calibrationFinished = false
+        calibrationStarted = true
 
-            txtStatus.text =
-                "Audífonos Bluetooth desconectados"
+        btnTap.isEnabled = false
+        btnSave.isEnabled = false
 
-            return
-        }
+        txtLatency.text = "-- ms"
+        txtProgress.text = "0 / $totalSamples"
+        txtStatus.text = "Presiona TAP cuando escuches el sonido"
 
-        /*
-         * Si cambió el dispositivo entre que abrió
-         * la Activity y pulsó iniciar:
-         *
-         * trabajamos con el nuevo.
-         */
-        currentDevice =
-            connected
+        txtCountdown.animate().cancel()
+        txtCountdown.visibility = View.INVISIBLE
 
-        existingProfile =
-            BluetoothLatencyProfileManager
-                .getProfile(
-                    themes,
-                    connected.id
-                )
-
-        txtDeviceModel.text =
-            connected.model
-
-        cancelCalibrationJobs()
-
-        samples.clear()
-
-        estimatedOffsetMs =
-            0.0
-
-        visualCycleNumber =
-            0
-
-        waitingForTap =
-            false
-
-        calibrationRunning =
-            true
-
-        txtResult.text =
-            ""
-
-        txtTiming.text =
-            "-- ms"
-
-        btnStart.isEnabled =
-            false
-
-        btnTap.isEnabled =
-            false
-
-        ringView.reset()
-
-        updateProgress()
-
-        txtStatus.text =
-            "Toca el botón cuando escuches el sonido"
+        calibrationView.reset()
 
         startCountdown()
     }
 
-
-    // ========================================================================
+    // ============================================================
     // COUNTDOWN
-    // ========================================================================
+    // ============================================================
 
     private fun startCountdown() {
+        btnTap.isEnabled = false
+        waitingForTap = false
 
-        txtCountdown.visibility =
-            View.VISIBLE
+        txtStatus.text = "Presiona TAP cuando escuches el sonido"
+        txtCountdown.visibility = View.VISIBLE
 
         showCountdownNumber(3) {
-
             showCountdownNumber(2) {
-
                 showCountdownNumber(1) {
-
-                    finishCountdown()
+                    txtCountdown.visibility = View.INVISIBLE
+                    startCalibrationTrial()
                 }
             }
         }
     }
 
+    private fun showCountdownNumber(number: Int, finished: () -> Unit) {
+        txtCountdown.animate().cancel()
 
-    private fun showCountdownNumber(
-        number: Int,
-        finished: () -> Unit
-    ) {
-
-        txtCountdown.animate()
-            .cancel()
-
-        txtCountdown.text =
-            number.toString()
-
-        txtCountdown.visibility =
-            View.VISIBLE
-
-        txtCountdown.alpha =
-            0f
-
-        txtCountdown.scaleX =
-            0.75f
-
-        txtCountdown.scaleY =
-            0.75f
+        txtCountdown.text = number.toString()
+        txtCountdown.visibility = View.VISIBLE
+        txtCountdown.alpha = 0f
+        txtCountdown.scaleX = 0.70f
+        txtCountdown.scaleY = 0.70f
 
         txtCountdown.animate()
             .alpha(1f)
-            .scaleX(1.35f)
-            .scaleY(1.35f)
-            .setDuration(250L)
-            .setInterpolator(
-                DecelerateInterpolator()
-            )
-            .setListener(null)
+            .scaleX(1.30f)
+            .scaleY(1.30f)
+            .setDuration(220L)
+            .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-
                 handler.postDelayed({
-
-                    if (!calibrationRunning)
-                        return@postDelayed
-
                     txtCountdown.animate()
                         .alpha(0f)
                         .scaleX(1f)
                         .scaleY(1f)
-                        .setDuration(250L)
-                        .setListener(null)
+                        .setDuration(220L)
                         .withEndAction {
-
-                            if (
-                                calibrationRunning
-                            ) {
-
+                            if (!calibrationFinished) {
                                 finished()
                             }
                         }
                         .start()
-
-                }, 250L)
+                }, 350L)
             }
             .start()
     }
 
+    // ============================================================
+    // PRUEBA
+    // ============================================================
 
-    private fun finishCountdown() {
+    private fun startCalibrationTrial() {
+        if (!calibrationStarted || calibrationFinished) return
 
-        txtCountdown.visibility =
-            View.INVISIBLE
-
-        btnTap.isEnabled =
-            true
-
-        /*
-         * Primer sonido inmediatamente.
-         */
-        playCalibrationSound()
-
-        /*
-         * Y comienza el primer círculo.
-         */
-        startVisualCycle()
-    }
-
-
-    // ========================================================================
-    // CICLO
-    // ========================================================================
-
-    private fun startVisualCycle() {
-
-        if (!calibrationRunning)
-            return
-
-        if (
-            samples.size >=
-            totalSamples
-        ) {
-
+        if (errors.size >= totalSamples) {
             finishCalibration()
-
             return
         }
 
-        visualCycleNumber++
+        cancelTrialCallbacks()
 
-        ringView.reset()
+        waitingForTap = false
+        btnTap.isEnabled = false
+
+        calibrationView.reset()
+
+        txtProgress.text = "${errors.size} / $totalSamples"
+        txtStatus.text = "Prepárate..."
 
         /*
-         * El primer círculo queda sin compensación.
+         * Reiniciamos el MP3.
          *
-         * Después usamos el valor aprendido.
+         * Cuando MediaPlayer comienza:
+         *
+         * audioStart
+         *     |
+         *     |  estimatedLatencyMs
+         *     |
+         *     +------> arranca visual
+         *
+         * Después el visual tarda 1000 ms en llegar
+         * al centro.
+         *
+         * El MP3 también tiene su primer beat
+         * a los 1000 ms.
          */
-        val compensationMs =
-            if (
-                visualCycleNumber == 1
-            ) {
-
-                0.0
-
-            } else {
-
-                estimatedOffsetMs.coerceIn(
-                    0.0,
-                    800.0
-                )
-            }
-
-        val soundDelayMs =
-            (
-                    cycleDurationMs -
-                            compensationMs
-                    )
+        restartAudio {
+            val visualDelayMs = estimatedLatencyMs
                 .roundToInt()
+                .coerceIn(0, 800)
                 .toLong()
-                .coerceAtLeast(0L)
 
-        scheduledSoundRunnable
-            ?.let {
+            startVisualRunnable = Runnable {
+                if (calibrationFinished) return@Runnable
 
-                handler.removeCallbacks(
-                    it
-                )
+                centerTimeNs = calibrationView.startTrial(timeToCenterMs)
+
+                waitingForTap = true
+                btnTap.isEnabled = true
+
+                txtStatus.text = "Presiona TAP cuando escuches el beat"
+
+                startTrialTimeout()
             }
 
-        scheduledSoundRunnable =
-            Runnable {
-
-                if (!calibrationRunning)
-                    return@Runnable
-
-                /*
-                 * Evita asociar un TAP
-                 * al sonido incorrecto.
-                 */
-                if (!waitingForTap) {
-
-                    playCalibrationSound()
-                }
-            }
-
-        handler.postDelayed(
-            scheduledSoundRunnable!!,
-            soundDelayMs
-        )
-
-        ringView.startClosing(
-            cycleDurationMs
-        ) {
-
-            if (!calibrationRunning)
-                return@startClosing
-
-            ringView.pulseTarget()
-
-            startVisualCycle()
+            handler.postDelayed(
+                startVisualRunnable!!,
+                visualDelayMs
+            )
         }
     }
 
+    /*
+     * Si el usuario no toca cerca del primer beat,
+     * repetimos la prueba.
+     */
+    private fun startTrialTimeout() {
+        timeoutRunnable?.let {
+            handler.removeCallbacks(it)
+        }
 
-    // ========================================================================
-    // SOUND
-    // ========================================================================
+        timeoutRunnable = Runnable {
+            if (!waitingForTap || calibrationFinished) {
+                return@Runnable
+            }
 
-    private fun playCalibrationSound() {
+            waitingForTap = false
+            btnTap.isEnabled = false
 
-        if (!calibrationRunning)
-            return
+            txtStatus.text = "No se detectó toque, repetimos..."
 
-        lastSoundTimeNs =
-            SystemClock
-                .elapsedRealtimeNanos()
+            scheduleNextTrial()
+        }
 
-        soundPool.play(
-            drumSoundId,
-            1f,
-            1f,
-            1,
-            0,
-            1f
+        /*
+         * Centro = +1000 ms.
+         * Damos 900 ms extra para aceptar el toque.
+         */
+        handler.postDelayed(
+            timeoutRunnable!!,
+            timeToCenterMs + 900L
         )
-
-        waitingForTap =
-            true
-
-        txtStatus.text =
-            "¡Toca cuando escuches el sonido!"
     }
 
-
-    // ========================================================================
+    // ============================================================
     // TAP
-    // ========================================================================
+    // ============================================================
+
+    @Suppress("ClickableViewAccessibility")
+    private fun setupListeners() {
+        btnTap.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                registerTap()
+                animateTap()
+                true
+            } else {
+                false
+            }
+        }
+
+        btnSave.setOnClickListener {
+            saveCalibration()
+        }
+    }
 
     private fun registerTap() {
+        if (!waitingForTap || calibrationFinished) return
+        if (centerTimeNs == 0L) return
 
-        if (!calibrationRunning)
-            return
+        val tapTimeNs = System.nanoTime()
 
-        if (!waitingForTap)
-            return
+        waitingForTap = false
+        btnTap.isEnabled = false
 
-        val tapTimeNs =
-            SystemClock
-                .elapsedRealtimeNanos()
+        timeoutRunnable?.let {
+            handler.removeCallbacks(it)
+        }
 
-        waitingForTap =
-            false
-
-        val differenceMs =
-            (
-                    tapTimeNs -
-                            lastSoundTimeNs
-                    ) / 1_000_000.0
+        val errorMs = (
+                tapTimeNs - centerTimeNs
+                ) / 1_000_000.0
 
         /*
-         * Filtro básico.
+         * Ignoramos taps demasiado alejados del centro.
          */
-        if (
-            differenceMs < 40.0 ||
-            differenceMs > 1200.0
-        ) {
-
-            txtStatus.text =
-                "Toque descartado"
-
-            ringView.flashMiss()
-
+        if (errorMs < -700.0 || errorMs > 700.0) {
+            txtStatus.text = "Toque descartado"
+            scheduleNextTrial()
             return
         }
 
-        samples.add(
-            differenceMs
+        errors.add(errorMs)
+
+        estimatedLatencyMs += errorMs * correctionStrength
+        estimatedLatencyMs = estimatedLatencyMs.coerceIn(0.0, 800.0)
+
+        txtLatency.text = "${estimatedLatencyMs.roundToInt()} ms"
+        txtProgress.text = "${errors.size} / $totalSamples"
+
+        txtStatus.text = when {
+            errorMs > 80.0 -> "Tarde..."
+            errorMs > 30.0 -> "Un poco tarde..."
+            errorMs < -80.0 -> "Temprano..."
+            errorMs < -30.0 -> "Un poco temprano..."
+            else -> "¡Muy cerca!"
+        }
+
+        if (errors.size >= totalSamples) {
+            handler.postDelayed({
+                finishCalibration()
+            }, 650L)
+        } else {
+            scheduleNextTrial()
+        }
+    }
+
+    // ============================================================
+    // SIGUIENTE PRUEBA
+    // ============================================================
+
+    private fun scheduleNextTrial() {
+        nextTrialRunnable?.let {
+            handler.removeCallbacks(it)
+        }
+
+        nextTrialRunnable = Runnable {
+            startCalibrationTrial()
+        }
+
+        handler.postDelayed(
+            nextTrialRunnable!!,
+            pauseBetweenTrialsMs
         )
-
-        updateEstimatedOffset()
-
-        txtTiming.text =
-            "${differenceMs.roundToInt()} ms"
-
-        txtStatus.text =
-            "Sincronizando..."
-
-        updateProgress()
-
-        ringView.flashSuccess()
-
-        if (
-            samples.size >=
-            totalSamples
-        ) {
-
-            finishCalibration()
-        }
     }
 
-
-    // ========================================================================
-    // OFFSET ADAPTATIVO
-    // ========================================================================
-
-    private fun updateEstimatedOffset() {
-
-        if (samples.isEmpty()) {
-
-            estimatedOffsetMs =
-                0.0
-
-            return
-        }
-
-        var recent =
-            samples.takeLast(7)
-
-        if (
-            recent.size >= 5
-        ) {
-
-            val median =
-                calculateMedian(
-                    recent
-                )
-
-            recent =
-                recent.filter {
-
-                    abs(
-                        it - median
-                    ) <= 180.0
-                }
-        }
-
-        if (recent.isNotEmpty()) {
-
-            estimatedOffsetMs =
-                calculateMedian(
-                    recent
-                )
-        }
-    }
-
-
-    // ========================================================================
-    // FINISH
-    // ========================================================================
+    // ============================================================
+    // FIN
+    // ============================================================
 
     private fun finishCalibration() {
+        if (calibrationFinished) return
 
-        if (!calibrationRunning)
-            return
+        calibrationFinished = true
+        waitingForTap = false
 
-        calibrationRunning =
-            false
+        cancelCalibrationCallbacks()
 
-        waitingForTap =
-            false
+        btnTap.isEnabled = false
+        btnSave.isEnabled = true
 
-        scheduledSoundRunnable
-            ?.let {
+        calibrationView.stop()
 
-                handler.removeCallbacks(
-                    it
-                )
+        mediaPlayer?.let {
+            try {
+                if (it.isPlaying) {
+                    it.pause()
+                }
+            } catch (_: Exception) {
             }
-
-        ringView.stop()
-
-        btnTap.isEnabled =
-            false
-
-        btnStart.isEnabled =
-            true
-
-        txtStatus.text =
-            "Calibración terminada"
-
-        if (
-            samples.size < 3
-        ) {
-
-            txtResult.text =
-                "No hay suficientes mediciones"
-
-            return
         }
 
-        var validSamples =
-            if (
-                samples.size > 4
-            ) {
-
-                samples.drop(2)
-
-            } else {
-
-                samples.toList()
-            }
-
-        if (
-            validSamples.size >= 6
-        ) {
-
-            validSamples =
-                validSamples
-                    .sorted()
-                    .drop(1)
-                    .dropLast(1)
-        }
-
-        val median =
-            calculateMedian(
-                validSamples
-            )
-
-        val average =
-            validSamples.average()
-
-        val finalOffset =
-            median.roundToInt()
-
-        txtTiming.text =
-            "$finalOffset ms"
-
-        txtResult.text =
-            buildString {
-
-                append(
-                    "Calibración guardada"
-                )
-
-                append("\n")
-
-                append(
-                    "Mediana: %.1f ms"
-                        .format(median)
-                )
-
-                append("\n")
-
-                append(
-                    "Promedio: %.1f ms"
-                        .format(average)
-                )
-            }
-
-        /*
-         * ==========================================================
-         * GUARDAR EN themes
-         * ==========================================================
-         */
-
-        val device =
-            currentDevice
-
-        if (device != null) {
-
-            BluetoothLatencyProfileManager
-                .saveProfile(
-                    themes = themes,
-                    device = device,
-                    latencyMs = finalOffset
-                )
-
-            /*
-             * Refrescamos la sección superior.
-             */
-            existingProfile =
-                BluetoothLatencyProfileManager
-                    .getProfile(
-                        themes,
-                        device.id
-                    )
-
-            txtDeviceModel.text =
-                device.model
-
-            txtSavedLatency.text =
-                "$finalOffset ms"
-
-            btnStart.text =
-                "VOLVER A CALIBRAR"
-        }
+        txtProgress.text = "$totalSamples / $totalSamples"
+        txtLatency.text = "${estimatedLatencyMs.roundToInt()} ms"
+        txtStatus.text = "Calibración terminada"
     }
 
+    private fun saveCalibration() {
+        val device = currentDevice ?: return
+        if (!calibrationFinished) return
 
-    // ========================================================================
-    // MEDIANA
-    // ========================================================================
+        val finalLatency = estimatedLatencyMs
+            .roundToInt()
+            .coerceIn(0, 800)
 
-    private fun calculateMedian(
-        values: List<Double>
-    ): Double {
+        BluetoothLatencyProfileManager.saveProfile(
+            device = device,
+            latencyMs = finalLatency
+        )
 
-        if (values.isEmpty())
-            return 0.0
+        existingProfile = BluetoothLatencyProfileManager.getProfile(
+            device.id
+        )
 
-        val sorted =
-            values.sorted()
-
-        val middle =
-            sorted.size / 2
-
-        return if (
-            sorted.size % 2 == 0
-        ) {
-
-            (
-                    sorted[middle - 1] +
-                            sorted[middle]
-                    ) / 2.0
-
-        } else {
-
-            sorted[middle]
-        }
+        txtSavedLatency.text = "$finalLatency ms"
+        txtLatency.text = "$finalLatency ms"
+        txtStatus.text = "Calibración guardada"
     }
 
+    // ============================================================
+    // ANIMACIÓN TAP
+    // ============================================================
 
-    // ========================================================================
-    // UI
-    // ========================================================================
+    private fun animateTap() {
+        btnTap.animate().cancel()
 
-    private fun updateProgress() {
-
-        txtProgress.text =
-            "${samples.size} / $totalSamples"
-    }
-
-
-    private fun animateTapButton() {
-
-        btnTap.animate()
-            .cancel()
-
-        btnTap.scaleX =
-            1f
-
-        btnTap.scaleY =
-            1f
+        btnTap.scaleX = 1f
+        btnTap.scaleY = 1f
 
         btnTap.animate()
             .scaleX(0.90f)
             .scaleY(0.90f)
             .setDuration(60L)
-            .setListener(
-                object :
-                    AnimatorListenerAdapter() {
-
-                    override fun onAnimationEnd(
-                        animation: Animator
-                    ) {
-
-                        btnTap.animate()
-                            .scaleX(1f)
-                            .scaleY(1f)
-                            .setDuration(110L)
-                            .setListener(null)
-                            .start()
-                    }
-                }
-            )
+            .withEndAction {
+                btnTap.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(100L)
+                    .start()
+            }
             .start()
     }
 
+    // ============================================================
+    // CALLBACKS
+    // ============================================================
 
-    // ========================================================================
-    // CLEANUP
-    // ========================================================================
+    private fun cancelTrialCallbacks() {
+        startVisualRunnable?.let {
+            handler.removeCallbacks(it)
+        }
 
-    private fun cancelCalibrationJobs() {
+        timeoutRunnable?.let {
+            handler.removeCallbacks(it)
+        }
 
-        handler.removeCallbacksAndMessages(
-            null
-        )
-
-        scheduledSoundRunnable =
-            null
-
-        txtCountdown.animate()
-            .cancel()
-
-        btnTap.animate()
-            .cancel()
-
-        ringView.stop()
+        startVisualRunnable = null
+        timeoutRunnable = null
     }
 
+    private fun cancelCalibrationCallbacks() {
+        cancelTrialCallbacks()
+
+        nextTrialRunnable?.let {
+            handler.removeCallbacks(it)
+        }
+
+        nextTrialRunnable = null
+    }
+
+    // ============================================================
+    // LIFECYCLE
+    // ============================================================
+
+    override fun onPause() {
+        cancelCalibrationCallbacks()
+
+        txtCountdown.animate().cancel()
+        calibrationView.stop()
+
+        waitingForTap = false
+        btnTap.isEnabled = false
+
+        mediaPlayer?.let {
+            try {
+                if (it.isPlaying) {
+                    it.pause()
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        super.onPause()
+    }
 
     override fun onDestroy() {
+        cancelCalibrationCallbacks()
 
-        calibrationRunning =
-            false
+        txtCountdown.animate().cancel()
+        calibrationView.stop()
 
-        cancelCalibrationJobs()
-
-        if (
-            ::soundPool.isInitialized
-        ) {
-
-            soundPool.release()
-        }
+        mediaPlayer?.release()
+        mediaPlayer = null
 
         super.onDestroy()
     }

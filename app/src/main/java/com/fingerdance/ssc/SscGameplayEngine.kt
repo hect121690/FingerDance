@@ -2,12 +2,10 @@ package com.fingerdance.ssc
 
 import com.badlogic.gdx.Gdx
 import kotlin.math.abs
-import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
 
-private const val holdReleaseTolerance: Double = 0.15
 class SscGameplayEngine(
     notes: List<Parser.Note>,
     private val timingData: TimmingData,
@@ -38,7 +36,11 @@ class SscGameplayEngine(
         val lowSpeedMaxBeatsAhead: Double = 64.0,
         val lowSpeedThreshold: Double = 0.75,
         val tapSearchLimit: Int = 8,
-        val lateHoldSearchBeats: Double = 2.0
+        val lateHoldSearchBeats: Double = 2.0,
+
+        // StepMania 5.1 uses TW_Checkpoint = 0.1664 s for tick holds.
+        val tickHoldsEnabled: Boolean = true,
+        val checkpointWindowMs: Double = 166.4
     ) {
         init {
             require(columnCount > 0)
@@ -46,7 +48,7 @@ class SscGameplayEngine(
             require(stepSize > 0f)
             require(screenHeight > 0f)
             require(baseSpeed > 0f)
-            require(holdReleaseTolerance in 0.0..1.0)
+            require(checkpointWindowMs > 0.0)
         }
     }
 
@@ -94,14 +96,36 @@ class SscGameplayEngine(
         const val KEY_PRESS = 2
         const val KEY_UP = 3
         private const val ROW_KEY_SCALE = 1_000_000.0
+        private const val BEAT_EPSILON = 0.000001
+        // Dos notas cuyo tiempo musical difiere menos que esto se consideran
+        // co-temporales para una MISMA transición física de input.
+        // 0.01 ms es muchísimo menor que cualquier chart humano normal, pero
+        // cubre gimmicks como 100,000,000 BPM donde 0.25 beat = 0.00015 ms.
+        private const val SAME_INPUT_TIME_EPSILON_MS = 0.01
     }
 
     private data class LongNoteState(
+        // Activa lógicamente desde que se cacha/recacha hasta el tail.
         var pressed: Boolean = false,
-        var lastTickBeat: Double = 0.0,
-        var nextTickBeat: Double = 0.0,
         var note: Parser.Note? = null,
-        var timeStartedMs: Double = 0.0
+        var timeStartedMs: Double = 0.0,
+
+        // Beat hasta el que ya inspeccionamos checkpoints para esta HOLD.
+        // Así procesamos todas las subdivisiones cruzadas sin depender de FPS.
+        var lastTickBeat: Double = 0.0,
+
+        // StepMania/Pump checkpoint life. Mientras el panel está sostenido vuelve
+        // a 1.0; soltado drena durante checkpointWindowMs (166.4 ms por defecto).
+        var holdLife: Double = 1.0,
+        var checkpointsHit: Int = 0,
+        var checkpointsMissed: Int = 0,
+
+        // Regla Finger Dance/Pump: un solo MISS por cada periodo realmente caído.
+        // Al recatch se rearma para permitir un MISS en un drop posterior.
+        var bodyMissEmitted: Boolean = false,
+
+        // Blindaje: un checkpoint musical jamás se procesa dos veces.
+        val processedTickRows: MutableSet<Long> = mutableSetOf()
     )
 
     private data class RowState(
@@ -113,7 +137,12 @@ class SscGameplayEngine(
 
     private data class HoldRowEntry(
         val column: Int,
-        val note: Parser.Note
+        val note: Parser.Note,
+        val checkpointHit: Boolean = true,
+        // Para un checkpoint/tail fallado, indica si este fallo debe emitir MISS.
+        // Si la HOLD ya cobró su MISS por estar suelta, seguimos procesando
+        // internamente la fila pero no volvemos a emitir otro MISS.
+        val emitMiss: Boolean = true
     )
 
     private val allNotes = notes.sortedBy { it.beat }
@@ -182,6 +211,7 @@ class SscGameplayEngine(
             note.column in config.activeColumns &&
                     !note.isFake &&
                     !note.isMine &&
+                    timingData.isJudgableBeat(note.beat) &&
                     (note.type == Parser.NoteType.TAP || note.type == Parser.NoteType.HOLD)
         }
 
@@ -231,7 +261,9 @@ class SscGameplayEngine(
             "El input tiene ${input.size} columnas y el motor necesita ${config.columnCount}."
         }
 
-        for (column in 0 until config.columnCount) keyState[column] = input[column]
+        for (column in 0 until config.columnCount) {
+            keyState[column] = input[column]
+        }
 
         val previousSongTimeMs = lastStepSongTimeMs
         lastStepSongTimeMs = songTimeMs
@@ -249,43 +281,66 @@ class SscGameplayEngine(
                 }
                 KEY_PRESS -> {
                     listener.onColumnPressed(column)
-                    tryAutoStartHoldOnPress(column, songTimeMs)
+                    //tryAutoStartHoldOnPress(column, songTimeMs)
                 }
-                KEY_UP -> if (longNotes[column].pressed) {
-                    endLongNote(column, songTimeMs)
+                KEY_UP -> {
+                    markHoldReleasedForVisual(column, songTimeMs)
                 }
             }
         }
-        processLongNoteTicksByRow(songTimeMs)
 
+        // Activa pre-holds/recatches ANTES de recorrer checkpoints. Así, si un
+        // frame cruza la cabeza y varios ticks (BPM extremo), no perdemos ticks.
         for (column in config.activeColumns) {
             val notesInColumn = columnNotes[column]
-            if (!longNotes[column].pressed &&
+
+            if (
+                !longNotes[column].pressed &&
                 (keyState[column] == KEY_PRESS || keyState[column] == KEY_DOWN)
             ) {
                 for (index in columnIndex[column] until notesInColumn.size) {
                     val note = notesInColumn[index]
+
                     if (note.isFake) continue
                     if (note.type != Parser.NoteType.HOLD) continue
                     if (finishedHolds.contains(note)) continue
+                    if (!timingData.isJudgableBeat(note.beat)) continue
 
+                    val endBeat = note.endBeat ?: continue
                     val headBeat = note.beat
-                    val lateCatch = (keyState[column] == KEY_PRESS || keyState[column] == KEY_DOWN) && nowBeat > headBeat
-                    if (timingData.isBeatInWarp(note.beat) && note.endBeat == null) {
-                        continue
-                    }
-                    val crossedHead =
-                        (previousBeat <= headBeat && headBeat < nowBeat) ||
-                                (nowBeat <= headBeat && headBeat < previousBeat) ||
-                                abs(nowBeat - headBeat) < 0.001 ||
-                                lateCatch
+                    if (nowBeat > endBeat) continue
 
-                    if (crossedHead) {
+                    val crossedHead =
+                        (previousBeat <= headBeat && headBeat <= nowBeat) ||
+                                (nowBeat <= headBeat && headBeat <= previousBeat) ||
+                                abs(nowBeat - headBeat) < 0.001
+
+                    val lateCatch = nowBeat > headBeat && nowBeat <= endBeat
+
+                    if (crossedHead || lateCatch) {
                         listener.onNoteFlare(column)
-                        registerRowHit(column, note, JUDGE_PERFECT, isFromInput = true)
-                        startLongNote(column, note, songTimeMs)
-                        longNotes[column].lastTickBeat = nowBeat
-                        columnIndex[column] = index + 1
+
+                        val headResolved = isHoldHeadResolved(note)
+                        if (!headResolved) {
+                            registerRowHit(
+                                column = column,
+                                note = note,
+                                judge = JUDGE_PERFECT,
+                                isFromInput = true
+                            )
+                        }
+
+                        startLongNote(
+                            column = column,
+                            note = note,
+                            timeMs = songTimeMs,
+                            scanFromBeat = if (!headResolved && crossedHead) headBeat else nowBeat
+                        )
+
+                        // Nunca saltes por encima de una nota anterior pendiente
+                        // (por ejemplo un HIDE co-temporal). El cursor sólo avanza
+                        // sobre notas realmente resueltas/no juzgables.
+                        advanceColumnIndex(column)
                         break
                     }
 
@@ -294,13 +349,15 @@ class SscGameplayEngine(
             }
         }
 
+        updateHoldLife(songTimeMs, previousSongTimeMs)
+        processLongNoteTicksByRow(songTimeMs)
+
         updateReleasedHoldVisuals(songTimeMs)
         updateAutoMisses(songTimeMs)
     }
 
     private fun processLongNoteTicksByRow(timeMs: Double) {
         val nowBeat = timingData.timeToBeat(timeMs)
-
         val tickRows = sortedMapOf<Long, MutableList<HoldRowEntry>>()
         val bottomRows = sortedMapOf<Long, MutableList<HoldRowEntry>>()
 
@@ -310,84 +367,214 @@ class SscGameplayEngine(
 
             val note = longNote.note ?: continue
             val endBeat = note.endBeat ?: continue
+            val checkpointLimit = min(nowBeat, endBeat)
 
-            if (nowBeat >= endBeat) {
-                val rowKey = rowKeyForBeat(endBeat)
+            // IMPORTANTE: usamos el cursor propio de la HOLD, no el previousBeat
+            // global. Esto evita regalar ticks anteriores cuando se hace recatch.
+            val scanFromBeat = maxOf(longNote.lastTickBeat, note.beat)
 
-                bottomRows.getOrPut(rowKey) {
-                    mutableListOf()
-                }.add(
-                    HoldRowEntry(
-                        column = column,
-                        note = note
-                    )
+            if (checkpointLimit > scanFromBeat + BEAT_EPSILON) {
+                val checkpoints = getCrossedHoldCheckpoints(
+                    fromBeat = scanFromBeat,
+                    toBeat = checkpointLimit,
+                    holdStartBeat = note.beat,
+                    holdEndBeat = endBeat
                 )
 
-                continue
-            }
-
-            while (nowBeat >= longNote.nextTickBeat &&
-                longNote.nextTickBeat <= endBeat
-            ) {
-                val tickBeat = longNote.nextTickBeat
-
-                if (!timingData.isBeatInWarp(tickBeat)) {
+                for (tickBeat in checkpoints) {
                     val rowKey = rowKeyForBeat(tickBeat)
+                    if (!longNote.processedTickRows.add(rowKey)) continue
 
-                    tickRows.getOrPut(rowKey) {
-                        mutableListOf()
-                    }.add(
+                    // Igual que StepMania: el checkpoint se considera vivo por
+                    // HoldLife, no por una fotografía instantánea del input.
+                    val checkpointHit = longNote.holdLife > 0.0
+
+                    val emitMissForThisCheckpoint = if (checkpointHit) {
+                        longNote.checkpointsHit++
+                        true
+                    } else {
+                        longNote.checkpointsMissed++
+
+                        // Regla Finger Dance/Pump: sólo UN MISS por este drop.
+                        val shouldEmit = !longNote.bodyMissEmitted
+                        if (shouldEmit) longNote.bodyMissEmitted = true
+                        shouldEmit
+                    }
+
+                    tickRows.getOrPut(rowKey) { mutableListOf() }.add(
                         HoldRowEntry(
                             column = column,
-                            note = note
+                            note = note,
+                            checkpointHit = checkpointHit,
+                            emitMiss = emitMissForThisCheckpoint
                         )
                     )
                 }
 
-                longNote.lastTickBeat = tickBeat
+                // Ya inspeccionamos todo el intervalo aunque hubiera tick=0, fake
+                // o warp. Nunca volvemos a recorrerlo en otro frame.
+                longNote.lastTickBeat = checkpointLimit
+            }
 
-                val ticksPerBeat =
-                    findCurrentTick(tickBeat).coerceAtLeast(1.0)
+            // Tail: NO da PERFECT extra. Sólo cierra la HOLD.
+            // Si la HOLD ya cayó (life=0) pero no hubo checkpoint posterior que
+            // cobrara el MISS, el tail puede cobrar ese único MISS pendiente.
+            if (nowBeat >= endBeat) {
+                val tailAlive = longNote.holdLife > 0.0
+                val rowKey = rowKeyForBeat(endBeat)
 
-                longNote.nextTickBeat +=
-                    1.0 / ticksPerBeat
+                bottomRows.getOrPut(rowKey) { mutableListOf() }.add(
+                    HoldRowEntry(
+                        column = column,
+                        note = note,
+                        checkpointHit = tailAlive,
+                        emitMiss = !tailAlive && !longNote.bodyMissEmitted
+                    )
+                )
             }
         }
 
+        // Una sola sentencia por ROW, aunque haya 2, 3 o más HOLDs simultáneas.
         for (entries in tickRows.values) {
             val representative = entries.firstOrNull() ?: continue
-            for (entry in entries) {
-                listener.onNoteFlare(entry.column)
+            val rowHit = entries.all { it.checkpointHit }
+
+            if (rowHit) {
+                for (entry in entries) listener.onNoteFlare(entry.column)
+
+                emitJudge(
+                    column = representative.column,
+                    judge = JUDGE_PERFECT,
+                    isBodyLongNote = true,
+                    isFromInput = true,
+                    note = representative.note
+                )
+            } else {
+                val shouldEmitMiss = entries.any {
+                    !it.checkpointHit && it.emitMiss
+                }
+
+                if (shouldEmitMiss) {
+                    emitJudge(
+                        column = representative.column,
+                        judge = JUDGE_MISS,
+                        isBodyLongNote = true,
+                        isFromInput = false,
+                        note = representative.note
+                    )
+                }
             }
-            emitJudge(
-                column = representative.column,
-                judge = JUDGE_PERFECT,
-                isBodyLongNote = true,
-                isFromInput = true,
-                note = representative.note
-            )
         }
 
         for (entries in bottomRows.values) {
             val representative = entries.firstOrNull() ?: continue
-            for (entry in entries) {
-                listener.onNoteFlare(entry.column)
+            val rowAlive = entries.all { it.checkpointHit }
+
+            if (!rowAlive) {
+                val shouldEmitMiss = entries.any {
+                    !it.checkpointHit && it.emitMiss
+                }
+
+                if (shouldEmitMiss) {
+                    emitJudge(
+                        column = representative.column,
+                        judge = JUDGE_MISS,
+                        isBodyLongNote = true,
+                        isFromInput = false,
+                        note = representative.note
+                    )
+                }
             }
-            emitJudge(
-                column = representative.column,
-                judge = JUDGE_PERFECT,
-                isBodyLongNote = true,
-                isFromInput = true,
-                note = representative.note
-            )
 
             for (entry in entries) {
-                finishLongNoteWithoutJudge(
-                    column = entry.column,
-                    note = entry.note
-                )
+                finishLongNoteWithoutJudge(entry.column, entry.note)
             }
         }
+    }
+
+    /**
+     * Devuelve TODOS los checkpoints de HOLD cruzados entre (fromBeat, toBeat].
+     *
+     * Inspirado en Player::CrossedRows de StepMania: se revisa el TICKCOUNT
+     * vigente para cada región musical atravesada, no se limita a un tick/frame.
+     *
+     * A diferencia del ROWS_PER_BEAT=48 de StepMania, aquí usamos la fracción
+     * exacta 1/tickCount para no limitar charts que traigan 64, 128, etc.
+     */
+    private fun getCrossedHoldCheckpoints(
+        fromBeat: Double,
+        toBeat: Double,
+        holdStartBeat: Double,
+        holdEndBeat: Double
+    ): List<Double> {
+        if (toBeat <= fromBeat + BEAT_EPSILON) return emptyList()
+
+        val result = mutableListOf<Double>()
+        val effectiveTicks = if (ticks.isEmpty()) {
+            listOf(TickSegment(0.0, 4.0))
+        } else {
+            ticks
+        }
+
+        for (index in effectiveTicks.indices) {
+            val segment = effectiveTicks[index]
+            val tickCount = segment.tickCount
+            val segmentStart = segment.beat
+            val segmentEnd = effectiveTicks.getOrNull(index + 1)?.beat
+                ?: Double.POSITIVE_INFINITY
+
+            if (!tickCount.isFinite() || tickCount <= 0.0) continue
+            if (segmentEnd <= fromBeat + BEAT_EPSILON) continue
+            if (segmentStart > toBeat + BEAT_EPSILON) break
+
+            val lower = maxOf(fromBeat, holdStartBeat, segmentStart)
+            val upper = minOf(toBeat, holdEndBeat, segmentEnd)
+            if (upper <= lower + BEAT_EPSILON) continue
+
+            // Grid global: tick=16 => n/16 beat, tick=128 => n/128 beat.
+            // Esto coincide con la semántica musical y permite procesar varios
+            // checkpoints dentro del mismo frame.
+            var n = kotlin.math.floor(lower * tickCount + BEAT_EPSILON).toLong() + 1L
+            var candidate = n / tickCount
+            var guard = 0
+
+            // Si el inicio del segmento activo está después de fromBeat y cae
+            // exactamente en su grid, también es checkpoint (ej. 0 -> 16).
+            val segmentGrid = segmentStart * tickCount
+            val segmentOnGrid = kotlin.math.abs(segmentGrid - kotlin.math.round(segmentGrid)) <= 0.000001
+            if (
+                segmentStart > fromBeat + BEAT_EPSILON &&
+                segmentStart > holdStartBeat + BEAT_EPSILON &&
+                segmentStart <= upper + BEAT_EPSILON &&
+                segmentOnGrid
+            ) {
+                candidate = segmentStart
+                n = kotlin.math.round(segmentGrid).toLong()
+            }
+
+            while (guard++ < 1_000_000) {
+                if (candidate > upper + BEAT_EPSILON) break
+                if (candidate >= segmentEnd - BEAT_EPSILON) break
+                if (candidate >= holdEndBeat - BEAT_EPSILON) break
+
+                if (
+                    candidate > fromBeat + BEAT_EPSILON &&
+                    candidate > holdStartBeat + BEAT_EPSILON &&
+                    timingData.isJudgableBeat(candidate)
+                ) {
+                    result.add(candidate)
+                }
+
+                n++
+                candidate = n / tickCount
+            }
+        }
+
+        // Puede haber fronteras compartidas entre segmentos. La key discreta
+        // garantiza una sola entrada por checkpoint musical.
+        return result
+            .distinctBy(::rowKeyForBeat)
+            .sorted()
     }
 
     private fun finishLongNoteWithoutJudge(column: Int, note: Parser.Note) {
@@ -403,14 +590,49 @@ class SscGameplayEngine(
             longNote.pressed = false
             longNote.note = null
 
-            val endBeat =
-                note.endBeat ?: longNote.lastTickBeat
-
+            val endBeat = note.endBeat ?: longNote.lastTickBeat
             longNote.lastTickBeat = endBeat
-            longNote.nextTickBeat = endBeat
         }
 
         listener.onHoldFinished(column, note)
+    }
+
+    private fun updateHoldLife(songTimeMs: Double, previousSongTimeMs: Double) {
+        val deltaMs = (songTimeMs - previousSongTimeMs).coerceAtLeast(0.0)
+        if (deltaMs <= 0.0) return
+
+        for (column in config.activeColumns) {
+            val longNote = longNotes[column]
+            if (!longNote.pressed || longNote.note == null) continue
+
+            if (isColumnPhysicallyHeld(column)) {
+                val wasDropped = longNote.holdLife <= 0.0
+                longNote.holdLife = 1.0
+
+                // Recatch real: vuelve a habilitar un único MISS para un
+                // eventual drop posterior.
+                if (wasDropped) {
+                    longNote.bodyMissEmitted = false
+                }
+
+                releasedHoldBeat.remove(longNote.note!!)
+            } else {
+                val drain = deltaMs / config.checkpointWindowMs
+                longNote.holdLife =
+                    (longNote.holdLife - drain).coerceAtLeast(0.0)
+            }
+        }
+    }
+
+    private fun isColumnPhysicallyHeld(column: Int): Boolean {
+        return keyState[column] == KEY_DOWN || keyState[column] == KEY_PRESS
+    }
+
+    private fun markHoldReleasedForVisual(column: Int, timeMs: Double) {
+        val longNote = longNotes[column]
+        if (!longNote.pressed) return
+        val note = longNote.note ?: return
+        releasedHoldBeat[note] = timingData.timeToBeat(timeMs)
     }
 
     fun reset() {
@@ -574,7 +796,10 @@ class SscGameplayEngine(
 
         var headBeat = note.beat
         val releaseBeat = releasedHoldBeat[note]
-        val isPressedHold = longNotes[column].pressed && longNotes[column].note === note
+        val isPressedHold =
+            longNotes[column].pressed &&
+                    longNotes[column].note === note &&
+                    isColumnPhysicallyHeld(column)
 
         val hasReleasedVisual = releaseBeat != null
 
@@ -632,7 +857,7 @@ class SscGameplayEngine(
                     columnIndex[column] = index
                     continue
                 }
-                if (timingData.isBeatInWarp(note.beat) && note.endBeat == null) {
+                if (!timingData.isJudgableBeat(note.beat)) {
                     index++
                     columnIndex[column] = index
                     continue
@@ -655,9 +880,22 @@ class SscGameplayEngine(
         }
     }
 
+    /**
+     * Procesa una transición KEY_DOWN en una columna.
+     *
+     * Regla normal: encuentra la mejor nota dentro de la ventana de judgment.
+     *
+     * Regla para gimmicks de BPM extremo: una vez encontrada esa nota de referencia,
+     * también procesa otras TAP/HOLD de la MISMA columna cuyo beatToTime() cae
+     * prácticamente en el mismo instante físico. Esto NO usa un rango de 1 ms ni
+     * "todas las notas cruzadas en el frame"; sólo agrupa tiempos verdaderamente
+     * co-temporales (<= 0.01 ms), para no regalar notas en charts densos normales.
+     *
+     * WARP y FAKE siguen fuera del scoring mediante isJudgableBeat().
+     * HIDE se juzga igual que TAP normal; únicamente se omite en render().
+     */
     private fun processTapAndHeadOnColumn(column: Int, timeMs: Double) {
         val notesInColumn = columnNotes[column]
-        val nowBeat = timingData.timeToBeat(timeMs)
         val startIndex = columnIndex[column]
 
         var bestIndex = -1
@@ -665,19 +903,13 @@ class SscGameplayEngine(
         var minimumAbsoluteDelta = Long.MAX_VALUE
         val endExclusive = min(startIndex + config.tapSearchLimit, notesInColumn.size)
 
+        // 1) Encontrar la mejor nota principal para ESTA pulsación.
         for (index in startIndex until endExclusive) {
             val note = notesInColumn[index]
-            if (note.isFake) {
-                continue
-            }
 
-            if (hitNotes.contains(note)) {
-                continue
-            }
-
-            if (timingData.isBeatInWarp(note.beat) && note.endBeat == null) {
-                continue
-            }
+            if (note.isFake) continue
+            if (hitNotes.contains(note)) continue
+            if (!timingData.isJudgableBeat(note.beat)) continue
 
             val deltaMs = getDeltaMsForNote(note.beat, timeMs)
 
@@ -697,10 +929,8 @@ class SscGameplayEngine(
 
                     hitNotes.add(note)
                     listener.onMineHit(column, note)
-
                     advanceColumnIndex(column)
                 }
-
                 continue
             }
 
@@ -732,40 +962,91 @@ class SscGameplayEngine(
 
         if (bestIndex == -1) return
 
-        val note = notesInColumn[bestIndex]
+        val referenceNote = notesInColumn[bestIndex]
+        val referenceTimeMs = timingData.beatToTime(referenceNote.beat)
 
-        if (note.type == Parser.NoteType.HOLD) {
-            listener.onNoteFlare(column)
+        // 2) Crear el cluster co-temporal. Siempre contiene la mejor nota.
+        // Sólo recorremos el mismo límite corto usado para TAP search.
+        val cluster = mutableListOf<Pair<Parser.Note, Int>>()
 
-            // IMPORTANTE:
-            // HOLD conserva exactamente su regla original:
-            // head siempre PERFECT.
-            registerRowHit(
-                column = column,
-                note = note,
-                judge = JUDGE_PERFECT,
-                isFromInput = true
-            )
+        for (index in startIndex until endExclusive) {
+            val note = notesInColumn[index]
 
-            startLongNote(column, note, timeMs)
-            longNotes[column].lastTickBeat = nowBeat
+            if (note.isFake) continue
+            if (hitNotes.contains(note)) continue
+            if (!timingData.isJudgableBeat(note.beat)) continue
+            if (note.isMine) continue
 
-            advanceColumnIndex(column)
+            if (
+                note.type != Parser.NoteType.TAP &&
+                note.type != Parser.NoteType.HOLD
+            ) {
+                continue
+            }
 
-        } else {
-            listener.onNoteFlare(column)
+            val noteTimeMs = timingData.beatToTime(note.beat)
+            val samePhysicalInstant =
+                abs(noteTimeMs - referenceTimeMs) <= SAME_INPUT_TIME_EPSILON_MS
 
-            registerRowHit(
-                column = column,
-                note = note,
-                judge = bestJudge,
-                isFromInput = true
-            )
+            if (!samePhysicalInstant) continue
 
-            hitNotes.add(note)
+            val judge = getJudgeFromDelta(getDeltaMsForNote(note.beat, timeMs))
+            if (judge < 0) continue
 
-            advanceColumnIndex(column)
+            cluster.add(note to judge)
         }
+
+        if (cluster.isEmpty()) {
+            // Blindaje: por redondeos extremos, la referencia siempre debe entrar;
+            // si no ocurre, procesamos al menos la seleccionada originalmente.
+            cluster.add(referenceNote to bestJudge)
+        }
+
+        // 3) Procesar en orden musical. En tu caso: HIDE 40.00 -> HOLD 40.25.
+        for ((note, judge) in cluster.sortedBy { it.first.beat }) {
+            if (hitNotes.contains(note)) continue
+
+            when (note.type) {
+                Parser.NoteType.TAP -> {
+                    listener.onNoteFlare(column)
+
+                    registerRowHit(
+                        column = column,
+                        note = note,
+                        judge = judge,
+                        isFromInput = true
+                    )
+
+                    hitNotes.add(note)
+                }
+
+                Parser.NoteType.HOLD -> {
+                    if (longNotes[column].pressed) continue
+
+                    listener.onNoteFlare(column)
+
+                    val headResolved = isHoldHeadResolved(note)
+                    if (!headResolved) {
+                        registerRowHit(
+                            column = column,
+                            note = note,
+                            judge = JUDGE_PERFECT,
+                            isFromInput = true
+                        )
+                    }
+
+                    startLongNote(
+                        column = column,
+                        note = note,
+                        timeMs = timeMs,
+                        scanFromBeat = note.beat
+                    )
+                }
+            }
+        }
+
+        // El cursor avanza sólo sobre lo realmente resuelto.
+        advanceColumnIndex(column)
     }
 
     private fun registerRowHit(
@@ -860,9 +1141,10 @@ class SscGameplayEngine(
                 ?.containsKey(note) == true
 
             val resolved = note.isFake ||
-                        hitNotes.contains(note) ||
-                        finishedHolds.contains(note) ||
-                        rowHit
+                    !timingData.isJudgableBeat(note.beat) ||
+                    hitNotes.contains(note) ||
+                    finishedHolds.contains(note) ||
+                    rowHit
 
             if (!resolved) break
             index++
@@ -890,84 +1172,80 @@ class SscGameplayEngine(
         return round(beat * ROW_KEY_SCALE).toLong()
     }
 
-    private fun startLongNote(column: Int, note: Parser.Note, timeMs: Double) {
+    private fun startLongNote(
+        column: Int,
+        note: Parser.Note,
+        timeMs: Double,
+        scanFromBeat: Double = timingData.timeToBeat(timeMs)
+    ) {
         val longNote = longNotes[column]
-        val nowBeat = timingData.timeToBeat(timeMs)
+
         longNote.pressed = true
         longNote.note = note
         longNote.timeStartedMs = timeMs
-        val fromBeat = max(note.beat, nowBeat)
-        longNote.lastTickBeat = fromBeat
-        longNote.nextTickBeat = getNextHoldTickBeat(fromBeat)
+        longNote.holdLife = 1.0
+        longNote.checkpointsHit = 0
+        longNote.checkpointsMissed = 0
+        longNote.bodyMissEmitted = false
+        longNote.processedTickRows.clear()
+
+        releasedHoldBeat.remove(note)
+
+        // Si fue recatch después de una cabeza perdida, empezamos desde el beat
+        // del recatch y jamás regalamos checkpoints anteriores.
+        longNote.lastTickBeat = max(note.beat, scanFromBeat)
+
         listener.onHoldStarted(column, note)
     }
 
-    private fun getNextHoldTickBeat(fromBeat: Double): Double {
-        val ticksPerBeat = findCurrentTick(fromBeat).coerceAtLeast(1.0)
-        val separation = 1.0 / ticksPerBeat
-        return floor(fromBeat / separation) * separation + separation
-    }
+    private fun isHoldHeadResolved(note: Parser.Note): Boolean {
+        if (hitNotes.contains(note)) return true
+        if (finishedHolds.contains(note)) return true
 
-    private fun endLongNote(column: Int, timeMs: Double) {
-        val longNote = longNotes[column]
-        val note = longNote.note ?: return
-        val endBeat = note.endBeat ?: return
-        val releaseBeat = timingData.timeToBeat(timeMs)
-        val totalHoldBeats = endBeat - note.beat
-        val remainingBeats = endBeat - releaseBeat
-        val releaseToleranceBeats = totalHoldBeats * holdReleaseTolerance
-        val acceptedAsComplete = remainingBeats <= releaseToleranceBeats
-
-        if (acceptedAsComplete) {
-            emitJudge(
-                column, JUDGE_PERFECT,
-                isBodyLongNote = true,
-                isFromInput = true,
-                note = note
-            )
-            finishedHolds.add(note)
-            releasedHoldBeat.remove(note)
-        } else {
-            emitJudge(column, JUDGE_MISS, isFromInput = true, note = note)
-            releasedHoldBeat[note] = releaseBeat
-        }
-
-        listener.onHoldReleased(
-            column, note, releaseBeat, acceptedAsComplete
-        )
-        longNote.pressed = false
-        longNote.note = null
+        val rowState = noteRowKey[note]?.let(rowStates::get)
+        return rowState?.resolved == true ||
+                rowState?.hitJudgments?.containsKey(note) == true
     }
 
     private fun tryAutoStartHoldOnPress(column: Int, timeMs: Double) {
         if (longNotes[column].pressed) return
-        val nowBeat = timingData.timeToBeat(timeMs.toDouble())
+
+        val nowBeat = timingData.timeToBeat(timeMs)
         val notesInColumn = columnNotes[column]
 
         for (index in notesInColumn.indices) {
             val note = notesInColumn[index]
+
             if (note.isFake) continue
             if (note.type != Parser.NoteType.HOLD) continue
             if (finishedHolds.contains(note)) continue
-            if (timingData.isBeatInWarp(note.beat) && note.endBeat == null) {
-                continue
-            }
+            if (!timingData.isJudgableBeat(note.beat)) continue
+
             val endBeat = note.endBeat ?: continue
 
             if (nowBeat in note.beat..endBeat) {
                 listener.onNoteFlare(column)
-                emitJudge(
-                    column, JUDGE_PERFECT,
-                    isBodyLongNote = true,
-                    isFromInput = true,
-                    note = note
-                )
-                releasedHoldBeat.remove(note)
-                startLongNote(column, note, timeMs)
-                longNotes[column].lastTickBeat = nowBeat
-                if (columnIndex[column] <= index) {
-                    columnIndex[column] = index + 1
+
+                val headResolved = isHoldHeadResolved(note)
+                if (!headResolved) {
+                    registerRowHit(
+                        column = column,
+                        note = note,
+                        judge = JUDGE_PERFECT,
+                        isFromInput = true
+                    )
                 }
+
+                startLongNote(
+                    column = column,
+                    note = note,
+                    timeMs = timeMs,
+                    scanFromBeat = if (headResolved) nowBeat else note.beat
+                )
+
+                // Igual que arriba: nunca saltar una nota anterior pendiente.
+                advanceColumnIndex(column)
+
                 return
             }
 
@@ -981,6 +1259,9 @@ class SscGameplayEngine(
 
         while (iterator.hasNext()) {
             val note = iterator.next().key
+            if (longNotes.getOrNull(note.column)?.note === note) {
+                continue
+            }
             val endBeat = note.endBeat ?: continue
             val deltaMs = getDeltaMsForNote(endBeat, songTimeMs)
             if (deltaMs >= config.zoneBadMs) {
@@ -990,65 +1271,6 @@ class SscGameplayEngine(
         }
     }
 
-    /*
-    private fun processLongNoteTick(column: Int, timeMs: Double) {
-        val longNote = longNotes[column]
-        if (!longNote.pressed) return
-        val note = longNote.note ?: return
-        val nowBeat = timingData.timeToBeat(timeMs)
-        val endBeat = note.endBeat ?: return
-
-        if (nowBeat >= endBeat) {
-            completeLongNote(column, note)
-            return
-        }
-
-        while (nowBeat >= longNote.nextTickBeat &&
-            longNote.nextTickBeat <= endBeat
-        ) {
-            val tickBeat = longNote.nextTickBeat
-            if (!timingData.isBeatInWarp(tickBeat)) {
-                emitJudge(
-                    column = column,
-                    judge = JUDGE_PERFECT,
-                    isBodyLongNote = true,
-                    isFromInput = true,
-                    note = note
-                )
-            }
-
-            longNote.lastTickBeat = tickBeat
-            val ticksPerBeat = findCurrentTick(tickBeat).coerceAtLeast(1.0)
-            longNote.nextTickBeat += 1.0 / ticksPerBeat
-        }
-    }
-
-    private fun completeLongNote(column: Int, note: Parser.Note) {
-        if (finishedHolds.contains(note)) return
-
-        emitJudge(
-            column, JUDGE_PERFECT,
-            isBodyLongNote = true,
-            isFromInput = true,
-            note = note
-        )
-        finishedHolds.add(note)
-        releasedHoldBeat.remove(note)
-
-        val longNote = longNotes[column]
-        if (longNote.note === note) {
-            longNote.pressed = false
-            longNote.note = null
-            val endBeat = note.endBeat ?: longNote.lastTickBeat
-            longNote.lastTickBeat = endBeat
-            longNote.nextTickBeat = endBeat
-        }
-        listener.onHoldFinished(column, note)
-    }
-    */
-
-    private fun findCurrentTick(nowBeat: Double) =
-        ticks.lastOrNull { it.beat <= nowBeat }?.tickCount ?: 4.0
 
     private fun updateComboMultiplier(nowBeat: Double) {
         while (comboSegmentIndex < combos.size &&

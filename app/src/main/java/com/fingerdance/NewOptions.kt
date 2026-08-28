@@ -1,7 +1,5 @@
 package com.fingerdance
 
-import android.R.attr.fadingEdgeLength
-import android.animation.ObjectAnimator
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -18,6 +16,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
+import android.media.MediaMetadataRetriever
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
@@ -28,7 +27,6 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
-import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -49,6 +47,11 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import android.graphics.SurfaceTexture
+import android.graphics.drawable.ColorDrawable
+import android.media.MediaPlayer
+import android.view.Surface
+import android.view.TextureView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -89,6 +92,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import androidx.recyclerview.widget.GridLayoutManager
+import com.google.android.material.button.MaterialButton
+import java.util.Locale
+import androidx.core.graphics.toColorInt
 
 private var fileNameChannel = ""
 
@@ -957,7 +964,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
 
     private suspend fun copyZipToCache(
         uri: Uri,
-        progressCallback: (Int?) -> Unit
+        progressCallback: (Int?) -> Unit,
     ): File = withContext(Dispatchers.IO) {
 
         val fileName = getFileNameFromUri(uri)
@@ -2398,8 +2405,16 @@ class PadsFragment : Fragment(R.layout.options_pads) {
 }
 
 class AjustesFragment : Fragment(R.layout.options_settings) {
+    private var selectedBgaFile: File? = null
+    private val bgaThumbnailCache = mutableMapOf<String, Bitmap>()
+    private var bgaMediaPlayer: MediaPlayer? = null
+    private var bgaSurface: Surface? = null
+    private var pendingBgaFile: File? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        val pathBgas = requireContext().getExternalFilesDir("FingerDance/BgasOff")
 
         val thumbColor = ColorStateList(
             arrayOf(
@@ -2412,7 +2427,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
             intArrayOf(R.color.track_color_A, R.color.track_color_B)
         )
-
+        setupBgaGallery(view, pathBgas)
         setupOfflineSwitch(view, thumbColor, trackColor)
         setupMidLineSwitch(view, thumbColor, trackColor)
         setupCounterSwitch(view, thumbColor, trackColor)
@@ -2671,6 +2686,310 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
         }
     }
 
+    private fun playBgaPreview(file: File) {
+        stopBgaPreview()
+        val surface = bgaSurface ?: return
+        try {
+            bgaMediaPlayer = MediaPlayer().apply {
+                setDataSource(file.absolutePath)
+                setSurface(surface)
+                isLooping = true
+                setOnPreparedListener {
+                    start()
+                }
+
+                setOnErrorListener { _, what, extra ->
+                    Toast.makeText(requireContext(), "Error reproduciendo BGA", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(requireContext(), "No se pudo abrir el BGA", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun stopBgaPreview() {
+        try { bgaMediaPlayer?.stop() }
+        catch (_: Exception) { }
+
+        try { bgaMediaPlayer?.reset() }
+        catch (_: Exception) { }
+
+        try { bgaMediaPlayer?.release() }
+        catch (_: Exception) { }
+        bgaMediaPlayer = null
+    }
+
+    private fun setupBgaGallery(view: View, pathBgas: File?) {
+        val btnViewBgaOff = view.findViewById<Button>(R.id.btnViewBgaOff)
+        val overlay = view.findViewById<FrameLayout>(R.id.bgaGalleryOverlay)
+        val galleryContent = view.findViewById<View>(R.id.bgaGalleryContent)
+        val previewContent = view.findViewById<FrameLayout>(R.id.bgaPreviewContent)
+        val recycler = view.findViewById<RecyclerView>(R.id.recyclerBgas)
+        val btnClose = view.findViewById<Button>(R.id.btnCloseBgaGallery)
+        val btnBack = view.findViewById<Button>(R.id.btnBackBgaPreview)
+        val btnRandomBga = view.findViewById<Button>(R.id.btnRandomBga)
+        val btnSelect = view.findViewById<Button>(R.id.btnSelectBga)
+        val videoPreview = view.findViewById<TextureView>(R.id.videoBgaPreview)
+        recycler.layoutManager = GridLayoutManager(requireContext(), 2)
+
+        videoPreview.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+        override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
+            bgaSurface?.release()
+            bgaSurface = Surface(surfaceTexture)
+            pendingBgaFile?.let { file ->
+                playBgaPreview(file)
+                }
+            }
+
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+
+            }
+
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                stopBgaPreview()
+                bgaSurface?.release()
+                bgaSurface = null
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+
+            }
+        }
+
+        fun closePreview() {
+            stopBgaPreview()
+            pendingBgaFile = null
+            previewContent.visibility = View.GONE
+            galleryContent.visibility = View.VISIBLE
+            selectedBgaFile = null
+        }
+
+        fun closeGallery() {
+            stopBgaPreview()
+            pendingBgaFile = null
+            previewContent.visibility = View.GONE
+            galleryContent.visibility = View.VISIBLE
+            overlay.visibility = View.GONE
+            selectedBgaFile = null
+        }
+
+        fun openPreview(file: File) {
+            selectedBgaFile = file
+            pendingBgaFile = file
+            galleryContent.visibility = View.GONE
+            previewContent.visibility = View.VISIBLE
+            if (videoPreview.isAvailable) {
+                bgaSurface?.release()
+                bgaSurface = Surface(videoPreview.surfaceTexture)
+                playBgaPreview(file)
+            }
+        }
+
+        btnViewBgaOff.setOnClickListener {
+            val videos = getBgaVideos(pathBgas)
+            if (videos.isEmpty()) {
+                Toast.makeText(requireContext(), "No hay videos BGAOFF disponibles", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            recycler.adapter = BgaVideoAdapter(videos = videos, onClick = { file -> openPreview(file) })
+            overlay.visibility = View.VISIBLE
+            galleryContent.visibility = View.VISIBLE
+            previewContent.visibility = View.GONE
+        }
+        btnClose.setOnClickListener {
+            closeGallery()
+        }
+
+        btnBack.setOnClickListener {
+            closePreview()
+        }
+
+        btnRandomBga.setOnClickListener {
+
+            val dialog = Dialog(requireContext())
+
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+            dialog.setCancelable(false)
+
+            val container = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(24.dpToPx(), 24.dpToPx(), 24.dpToPx(), 20.dpToPx())
+                background = GradientDrawable().apply {
+                    setColor("#101425".toColorInt())
+                    cornerRadius = 12.dpToPx().toFloat()
+                    setStroke(2.dpToPx(), "#20DFFF".toColorInt())
+                }
+            }
+
+
+            // =========================================================
+            // TITULO
+            // =========================================================
+
+            val txTitle = TextView(requireContext()).apply {
+                text = "ALEATORIO"
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+
+                setTextColor(Color.WHITE)
+                setTypeface(typeface, Typeface.BOLD)
+
+                textSize = 20f
+            }
+
+            container.addView(
+                txTitle,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+
+
+            // =========================================================
+            // MENSAJE
+            // =========================================================
+
+            val txMessage = TextView(requireContext()).apply {
+                text = "Al activar esta opcion se usara un video aleatorio cuando BGAOFF este activo"
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                setTextColor(Color.WHITE)
+                textSize = 15f
+                setPadding(8.dpToPx(), 20.dpToPx(), 8.dpToPx(), 24.dpToPx())
+            }
+
+            container.addView(
+                txMessage,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+
+
+            // =========================================================
+            // BOTONES
+            // =========================================================
+
+            val buttonsLayout = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+
+
+            val btnCancel = MaterialButton(requireContext()).apply {
+                text = "CANCELAR"
+                setTextColor(Color.WHITE)
+                textSize = 13f
+                insetTop = 0
+                insetBottom = 0
+                cornerRadius = 8.dpToPx()
+                backgroundTintList = ColorStateList.valueOf("#101425".toColorInt())
+                strokeColor = ColorStateList.valueOf("#20DFFF".toColorInt())
+                strokeWidth = 2.dpToPx()
+                setOnClickListener {
+                    dialog.dismiss()
+                }
+            }
+
+
+            val btnAccept = MaterialButton(requireContext()).apply {
+                text = "ACEPTAR"
+                setTextColor(Color.WHITE)
+                textSize = 13f
+                insetTop = 0
+                insetBottom = 0
+                cornerRadius = 8.dpToPx()
+                backgroundTintList = ColorStateList.valueOf("#101425".toColorInt())
+                strokeColor = ColorStateList.valueOf("#20DFFF".toColorInt())
+                strokeWidth = 2.dpToPx()
+                setOnClickListener {
+                    bgaOffSelected = "aleatorio"
+                    themes.edit().putString("bgaOffSelected", bgaOffSelected).apply()
+                    bgaOff = bgaOffSelected
+                    Toast.makeText(requireContext(), "BGA seleccionado: Aleatorio", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                    closeGallery()
+                }
+            }
+
+
+            buttonsLayout.addView(
+                btnCancel,
+                LinearLayout.LayoutParams(0, 46.dpToPx(), 1f).apply { marginEnd = 6.dpToPx() }
+            )
+
+            buttonsLayout.addView(
+                btnAccept,
+                LinearLayout.LayoutParams(0, 46.dpToPx(), 1f).apply { marginStart = 6.dpToPx() }
+            )
+
+
+            container.addView(
+                buttonsLayout,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+
+            dialog.setContentView(container)
+            dialog.window?.apply {
+                setBackgroundDrawable(
+                    Color.TRANSPARENT.toDrawable()
+                )
+
+                setLayout(
+                    (resources.displayMetrics.widthPixels * 0.88f).toInt(),
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                )
+            }
+
+            dialog.show()
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.88f).toInt(),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        btnSelect.setOnClickListener {
+            val file = selectedBgaFile ?: return@setOnClickListener
+            bgaOffSelected = file.absolutePath
+            themes.edit().putString("bgaOffSelected", bgaOffSelected).apply()
+            bgaOff = bgaOffSelected
+            Toast.makeText(requireContext(), "BGA seleccionado: ${file.nameWithoutExtension}", Toast.LENGTH_SHORT).show()
+            closeGallery()
+        }
+    }
+
+    override fun onDestroyView() {
+        stopBgaPreview()
+        bgaSurface?.release()
+        bgaSurface = null
+        super.onDestroyView()
+    }
+
+    private fun getBgaVideos(pathBgas: File?): List<File> {
+
+        if (pathBgas == null || !pathBgas.exists() || !pathBgas.isDirectory) {
+            return emptyList()
+        }
+
+        return pathBgas.listFiles()?.filter { file ->
+                file.isFile && file.extension.lowercase(Locale.ROOT) == "mp4"
+            }
+            ?.sortedBy { file ->
+                file.name.lowercase(Locale.ROOT)
+            } ?: emptyList()
+    }
+
     private fun setupOfflineSwitch(view: View, thumbColor: ColorStateList, trackColor: ColorStateList) {
         val btnOffline = view.findViewById<SwitchCompat>(R.id.btnOffline)
         btnOffline.layoutParams.width = (width / 10) * 8
@@ -2827,9 +3146,68 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
     }
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
+
+    private fun loadBgaThumbnail(file: File, imageView: ImageView) {
+        val path = file.absolutePath
+        val cached = bgaThumbnailCache[path]
+
+        if (cached != null) {
+            imageView.setImageBitmap(cached)
+            return
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(path)
+                    retriever.getFrameAtTime(1_000_000L,MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                } catch (e: Exception) {
+                    null
+                } finally {
+                    try { retriever.release() }
+                    catch (_: Exception) { }
+                }
+            }
+
+            if (bitmap != null) {
+                bgaThumbnailCache[path] = bitmap
+                if (imageView.isAttachedToWindow) {
+                    imageView.setImageBitmap(bitmap)
+                }
+            }
+        }
+    }
+
+    private inner class BgaVideoAdapter(
+        private val videos: List<File>,
+        private val onClick: (File) -> Unit,
+    ) : RecyclerView.Adapter<BgaVideoAdapter.BgaViewHolder>() {
+        inner class BgaViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val thumbnail: ImageView = view.findViewById(R.id.imgBgaThumbnail)
+            val name: TextView = view.findViewById(R.id.txBgaName)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BgaViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_bga_video, parent, false)
+            return BgaViewHolder(view)
+        }
+
+        override fun getItemCount(): Int = videos.size
+
+        override fun onBindViewHolder(holder: BgaViewHolder, position: Int) {
+            val file = videos[position]
+            holder.name.text = file.nameWithoutExtension
+            holder.thumbnail.setImageDrawable(null)
+            loadBgaThumbnail(file = file, imageView = holder.thumbnail)
+            holder.itemView.setOnClickListener {
+                onClick(file)
+            }
+        }
+    }
 }
 
-class OptionsPagerAdapter(activity: FragmentActivity, private val fragments: List<Fragment>, ) : FragmentStateAdapter(activity) {
+class OptionsPagerAdapter(activity: FragmentActivity, private val fragments: List<Fragment>) : FragmentStateAdapter(activity) {
 
     override fun getItemCount() = fragments.size
 

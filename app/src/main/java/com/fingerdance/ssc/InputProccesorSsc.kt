@@ -76,24 +76,15 @@ class InputProcessorSsc : InputAdapter() {
         pointer: Int,
         button: Int
     ): Boolean {
-        val pads = getPadIndices(
-            screenX.toFloat(),
-            screenY.toFloat()
-        )
-
+        val pads = getPadIndices(screenX.toFloat(), screenY.toFloat())
         if (pads.isEmpty()) return false
 
-        // Por seguridad, limpia cualquier asociación anterior del mismo pointer.
         pointerToPadsMap[pointer]?.forEach { oldPad ->
             padPointers[oldPad].remove(pointer)
         }
 
         pointerToPadsMap[pointer] = pads
-
-        pads.forEach { pad ->
-            padPointers[pad].add(pointer)
-        }
-
+        pads.forEach { pad -> padPointers[pad].add(pointer) }
         return true
     }
 
@@ -112,32 +103,19 @@ class InputProcessorSsc : InputAdapter() {
         screenY: Int,
         pointer: Int
     ): Boolean {
-        val newPads = getPadIndices(
-            screenX.toFloat(),
-            screenY.toFloat()
-        )
-
+        val newPads = getPadIndices(screenX.toFloat(), screenY.toFloat())
         val oldPads = pointerToPadsMap[pointer].orEmpty()
 
         if (oldPads == newPads) return true
 
-        oldPads.forEach { oldPad ->
-            padPointers[oldPad].remove(pointer)
-        }
+        oldPads.forEach { oldPad -> padPointers[oldPad].remove(pointer) }
 
-        // IMPORTANTE:
-        // si el dedo salió de todos los pads, también debemos borrar
-        // la asociación anterior. De lo contrario el pad puede quedarse
-        // artificialmente en KEY_PRESS.
         if (newPads.isEmpty()) {
             pointerToPadsMap.remove(pointer)
             return true
         }
 
-        newPads.forEach { newPad ->
-            padPointers[newPad].add(pointer)
-        }
-
+        newPads.forEach { newPad -> padPointers[newPad].add(pointer) }
         pointerToPadsMap[pointer] = newPads
         return true
     }
@@ -160,7 +138,6 @@ class InputProcessorSsc : InputAdapter() {
 
         for (i in padPositions.indices) {
             val pad = padPositions[i]
-
             val left = pad[0].toFloat()
             val top = pad[1].toFloat()
             val right = left + widthBtns
@@ -168,14 +145,11 @@ class InputProcessorSsc : InputAdapter() {
 
             val closestX = x.coerceIn(left, right)
             val closestY = y.coerceIn(top, bottom)
-
             val dx = x - closestX
             val dy = y - closestY
             val distanceSq = dx * dx + dy * dy
 
-            if (distanceSq <= radiusSq) {
-                result.add(i)
-            }
+            if (distanceSq <= radiusSq) result.add(i)
         }
 
         return result
@@ -187,16 +161,21 @@ class InputProcessorSsc : InputAdapter() {
         val activePointers = mutableSetOf<Int>()
 
         for (pointer in 0 until 20) {
-            if (Gdx.input.isTouched(pointer)) {
-                activePointers.add(pointer)
-            }
+            if (Gdx.input.isTouched(pointer)) activePointers.add(pointer)
         }
 
-        // Limpieza defensiva: si Android/libGDX perdió un touchUp,
-        // eliminamos pointers físicos que ya no están realmente activos.
+        // Si Android/libGDX perdió touchUp, limpia pointers físicos ya inexistentes.
         pointerToPadsMap.keys.toList().forEach { pointer ->
             if (pointer >= 0 && pointer !in activePointers) {
                 removePointer(pointer)
+            }
+        }
+
+        // Defensa equivalente para teclado: si se perdió keyUp, no dejamos
+        // un ID negativo pegado eternamente en padPointers.
+        for ((keycode, pad) in keyToPadMap) {
+            if (!Gdx.input.isKeyPressed(keycode)) {
+                padPointers[pad].remove(-keycode)
             }
         }
 
@@ -220,23 +199,16 @@ class InputProcessorSsc : InputAdapter() {
         for (i in padPositions.indices) {
             val (x, y) = padPositions[i]
 
-            val texture =
-                if (
-                    getKeyBoard[i] == KEY_DOWN ||
-                    getKeyBoard[i] == KEY_PRESS
-                ) {
-                    btnOnPress
-                } else {
-                    btnOffPress
-                }
+            val texture = if (
+                getKeyBoard[i] == KEY_DOWN ||
+                getKeyBoard[i] == KEY_PRESS
+            ) {
+                btnOnPress
+            } else {
+                btnOffPress
+            }
 
-            batch.draw(
-                texture,
-                x,
-                y,
-                widthBtns,
-                heightBtns
-            )
+            batch.draw(texture, x, y, widthBtns, heightBtns)
         }
     }
 
@@ -256,13 +228,10 @@ class InputProcessorSsc : InputAdapter() {
         val pads = pointerToPadsMap.remove(pointer)
 
         if (pads != null) {
-            pads.forEach { pad ->
-                padPointers[pad].remove(pointer)
-            }
+            pads.forEach { pad -> padPointers[pad].remove(pointer) }
             return
         }
 
-        // Fallback defensivo por si el mapa perdió sincronía.
         for (i in padPointers.indices) {
             padPointers[i].remove(pointer)
         }

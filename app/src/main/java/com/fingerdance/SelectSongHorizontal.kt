@@ -2277,16 +2277,28 @@ class SelectSongHorizontal : AppCompatActivity() {
         soundPoolSelectSong.play(selectSong_movKsf, 0.5f, 0.5f, 1, 0, 1.0f)
     }
 
-    private fun moveLvs(){
-        val lv = AppResources.listSongsChannelKsf[oldValue].listKsf[positionActualLvs]
+    private fun moveLvs() {
+        val realPosition: Int = songCarouselSongs.getFocusedIndex()
+        val songs = AppResources.listSongsChannelKsf
+        if (songs.isEmpty()) return
+
+        val safeRealPosition = realPosition.coerceIn(0, songs.lastIndex)
+        val levels = songs[safeRealPosition].listKsf
+        if (levels.isEmpty()) {
+            resetIndicatorPosition()
+            return
+        }
+
+        positionActualLvs = positionActualLvs.coerceIn(0, levels.lastIndex)
+        selectedIndex = positionActualLvs
+
+        val lv = levels[positionActualLvs]
         imgLvSelected.setImageBitmap(if(lv.typePlayer == "A") difficultedSelected else difficultedSelectedHD)
 
         lbLvActive.text = lv.level
-
         currentLevel = lv.level
         lbBestScore.text = listSongScores.find { it.checkedValues == lv.checkedValues }?.puntaje ?: "0"
         currentScore = lbBestScore.text.toString()
-
         currentBestGrade = getBitMapGrade(lv.checkedValues)
         imgBestGrade.setImageBitmap(currentBestGrade)
 
@@ -2298,13 +2310,13 @@ class SelectSongHorizontal : AppCompatActivity() {
         imgWorldGrade.setImageBitmap(currentBestWorldGrade)
 
         if(listGlobalRanking.isNotEmpty()) {
-            val rank = listGlobalRanking[lv.checkedValues]
-            lbWorldName.text = if (rank!![0].nombre != "") rank[0].nombre else "---------"
-            lbWorldScore.text = if (rank[0].puntaje != "") rank[0].puntaje else "-"
+
+            lbWorldName.text = if (ranking[0].nombre != "") ranking[0].nombre else "---------"
+            lbWorldScore.text = if (ranking[0].puntaje != "") ranking[0].puntaje else "-"
             currentWorldScore = listOf(
-                rank[0].puntaje,
-                rank[1].puntaje,
-                rank[2].puntaje
+                ranking[0].puntaje,
+                ranking[1].puntaje,
+                ranking[2].puntaje
             )
         }else{
             lbWorldName.text = "---------"

@@ -128,10 +128,8 @@ class BluetoothLatencyProfilesActivity :
         profilesContainer.removeAllViews()
 
         val profiles =
-            BluetoothLatencyProfileManager
-                .getAllProfiles(
-                    themes
-                )
+            BluetoothLatencyProfileManager.getAllProfiles()
+
 
         txtEmpty.visibility =
             if (profiles.isEmpty()) {
@@ -286,7 +284,6 @@ class BluetoothLatencyProfilesActivity :
 
                 BluetoothLatencyProfileManager
                     .updateLatency(
-                        themes = themes,
                         profileId = profile.id,
                         latencyMs = latency
                     )

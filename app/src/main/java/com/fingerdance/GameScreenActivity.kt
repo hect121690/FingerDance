@@ -161,7 +161,7 @@ open class GameScreenActivity : AndroidApplication() {
                 }
             } else {
                 videoBgaOffPlayer.start()
-                if(playerSong.isBAGDark){
+                if(playerSong.isBAGDark || bgaOffSelected == "aleatorio"){
                     linearBGADark.visibility = View.VISIBLE
                 }else {
                     linearBGADark.visibility = View.GONE
@@ -361,7 +361,6 @@ open class GameScreenActivity : AndroidApplication() {
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
         }
 
-        // 🔥 Lógica unificada de visibilidad y carga
         val customVideo = playerSong.rutaVideo
         val hasCustom = !customVideo.isNullOrEmpty() && isFileExists(File(customVideo))
 
@@ -392,6 +391,9 @@ open class GameScreenActivity : AndroidApplication() {
             // VIDEO FULL SCREEN
             videoBgaOn.isVisible = false
             videoBgaOff.isVisible = true
+            if(bgaOffSelected == "aleatorio"){
+                bgaOff = listBgas.random()
+            }
             prepareVideo(videoBgaOffPlayer, bgaOff, isBgaOff = true)
             isVideo = false
         }
@@ -438,7 +440,6 @@ open class GameScreenActivity : AndroidApplication() {
                 scaleY = 0.008f
                 alpha = 0f
                 visibility = View.VISIBLE
-                // 🔥 FASE 1
                 // Línea horizontal brillante
                 animate()
                     .alpha(1f)

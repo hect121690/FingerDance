@@ -300,87 +300,19 @@ class SplashActivity : AppCompatActivity() {
                 ) {
                     try {
                         val config = RemoteConfig(
-                            flagActiveAllows =
-                                snapshot
-                                    .child("flagActiveAllows")
-                                    .getValue(Boolean::class.java)
-                                    ?: false,
-
-                            mpOn =
-                                snapshot
-                                    .child("mpOn")
-                                    .getValue(Boolean::class.java)
-                                    ?: false,
-
-                            numberUpdate =
-                                snapshot
-                                    .child("numberUpdate")
-                                    .value
-                                    ?.toString()
-                                    .orEmpty(),
-
-                            paypalOn =
-                                snapshot
-                                    .child("paypalOn")
-                                    .getValue(Boolean::class.java)
-                                    ?: false,
-
-                            rebootChannelsDrive =
-                                snapshot
-                                    .child("rebootChannelsDrive")
-                                    .getValue(Boolean::class.java)
-                                    ?: false,
-
-                            resetRegister =
-                                snapshot
-                                    .child("resetRegister")
-                                    .getValue(Boolean::class.java)
-                                    ?: false,
-
-                            startOnline =
-                                snapshot
-                                    .child("startOnline")
-                                    .getValue(Boolean::class.java)
-                                    ?: false,
-
-                            timeHalfDouble =
-                                snapshot
-                                    .child("timeHalfDouble")
-                                    .value
-                                    ?.toString()
-                                    ?.toLongOrNull()
-                                    ?: 0L,
-
-                            timeToPresiscion =
-                                snapshot
-                                    .child("timeToPresiscion")
-                                    .value
-                                    ?.toString()
-                                    ?.toLongOrNull()
-                                    ?: 0L,
-
-                            timeAdjust =
-                                snapshot
-                                    .child("time_adjust")
-                                    .value
-                                    ?.toString()
-                                    ?.toLongOrNull()
-                                    ?: 0L,
-
+                            flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false,
+                            mpOn = snapshot.child("mpOn").getValue(Boolean::class.java) ?: false,
+                            numberUpdate = snapshot.child("numberUpdate").value?.toString().orEmpty(),
+                            paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false,
+                            rebootChannelsDrive = snapshot.child("rebootChannelsDrive").getValue(Boolean::class.java) ?: false,
+                            resetRegister = snapshot.child("resetRegister").getValue(Boolean::class.java) ?: false,
+                            startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false,
+                            timeHalfDouble = snapshot.child("timeHalfDouble").value?.toString()?.toLongOrNull() ?: 0L,
+                            timeToPresiscion = snapshot.child("timeToPresiscion").value?.toString()?.toLongOrNull() ?: 0L,
+                            timeAdjust = snapshot.child("time_adjust").value?.toString()?.toLongOrNull() ?: 0L,
                             validFolders = emptyList(),
-
-                            version =
-                                snapshot
-                                    .child("value")
-                                    .value
-                                    ?.toString()
-                                    .orEmpty(),
-
-                            allowCheckValues =
-                                snapshot
-                                    .child("allowCheckValues")
-                                    .getValue(Boolean::class.java)
-                                    ?: false
+                            version = snapshot.child("value").value?.toString().orEmpty(),
+                            allowCheckValues = snapshot.child("allowCheckValues").getValue(Boolean::class.java) ?: false,
                         )
 
                         if (continuation.isActive) {
@@ -1068,16 +1000,11 @@ class SplashActivity : AppCompatActivity() {
             getExternalFilesDir(null)
 
         if (externalDirectory == null) {
-            Log.w(
-                TAG,
-                "getExternalFilesDir devolvió null"
-            )
-
+            Log.w(TAG, "getExternalFilesDir devolvió null")
             return
         }
 
-        val base =
-            externalDirectory.absolutePath
+        val base = externalDirectory.absolutePath
 
         rutaGrades =
             "$base/FingerDance/Themes/" +
@@ -1093,14 +1020,9 @@ class SplashActivity : AppCompatActivity() {
                     "$tema/GraphicsStatics/game_play/" +
                     "grade_description_abrev.png"
 
-        val gradesFile =
-            File(rutaGrades)
-
-        val descriptionFile =
-            File(gradeDescription)
-
-        val descriptionAbrevFile =
-            File(gradeDescriptionAbrev)
+        val gradesFile = File(rutaGrades)
+        val descriptionFile = File(gradeDescription)
+        val descriptionAbrevFile = File(gradeDescriptionAbrev)
 
         if (
             !gradesFile.exists() ||
@@ -1150,125 +1072,37 @@ class SplashActivity : AppCompatActivity() {
      * Lee la configuración persistida de la aplicación.
      */
     private fun getConfigToPreferences() {
+        val externalDirectory = getExternalFilesDir(null)
+        if (externalDirectory == null) {
+            Log.w(TAG, "getExternalFilesDir devolvió null")
+            return
+        }
         try {
-            tema =
-                themes.getString(
-                    "theme",
-                    "default"
-                ).orEmpty()
-
-            skinSelected =
-                themes.getString(
-                    "skin",
-                    ""
-                ).orEmpty()
-
-            speedSelected =
-                themes.getString(
-                    "speed",
-                    ""
-                ).orEmpty()
-
-            showPadB =
-                themes.getInt(
-                    "showPadB",
-                    0
-                )
-
-            hideImagesPadA =
-                themes.getBoolean(
-                    "hideImagesPadA",
-                    false
-                )
-
-            skinPad =
-                themes.getString(
-                    "skinPad",
-                    "default"
-                ).orEmpty()
-
-            alphaPadB =
-                themes.getFloat(
-                    "alphaPadB",
-                    1f
-                )
-
-            versionUpdate =
-                themes.getString(
-                    "versionUpdate",
-                    "0.0.0"
-                ).orEmpty()
-
-            valueOffset =
-                themes.getLong(
-                    "valueOffset",
-                    0L
-                )
-
-            userName =
-                themes.getString(
-                    "userName",
-                    ""
-                ).orEmpty()
-
-            isMidLine =
-                themes.getBoolean(
-                    "isMidLine",
-                    false
-                )
-
-            isCounter =
-                themes.getBoolean(
-                    "isCounter",
-                    false
-                )
-
-            breakSong =
-                themes.getBoolean(
-                    "breakSong",
-                    true
-                )
-
-            typePadD =
-                themes.getInt(
-                    "typePadD",
-                    0
-                )
-
-            numberUpdateLocal =
-                themes.getString(
-                    "numberUpdateLocal",
-                    "0.0.0"
-                ).orEmpty()
-
-            isHorizontalMode =
-                themes.getBoolean(
-                    "isHorizontalMode",
-                    false
-                )
-
-            playModeSingle =
-                themes.getInt(
-                    "playModeSingle",
-                    0
-                )
-
-            playModeHalf =
-                themes.getInt(
-                    "playModeHalf",
-                    0
-                )
+            tema = themes.getString("theme", "default").orEmpty()
+            skinSelected = themes.getString("skin", "").orEmpty()
+            speedSelected = themes.getString("speed", "").orEmpty()
+            showPadB = themes.getInt("showPadB", 0)
+            hideImagesPadA = themes.getBoolean("hideImagesPadA", false)
+            skinPad = themes.getString("skinPad", "default").orEmpty()
+            alphaPadB = themes.getFloat("alphaPadB", 1f)
+            versionUpdate = themes.getString("versionUpdate", "0.0.0").orEmpty()
+            valueOffset = themes.getLong("valueOffset", 0L)
+            userName = themes.getString("userName", "").orEmpty()
+            isMidLine = themes.getBoolean("isMidLine", false)
+            isCounter = themes.getBoolean("isCounter", false)
+            breakSong = themes.getBoolean("breakSong", true)
+            typePadD = themes.getInt("typePadD", 0)
+            numberUpdateLocal = themes.getString("numberUpdateLocal", "0.0.0").orEmpty()
+            isHorizontalMode = themes.getBoolean("isHorizontalMode", false)
+            playModeSingle = themes.getInt("playModeSingle", 0)
+            playModeHalf = themes.getInt("playModeHalf", 0)
+            bgaOffSelected = themes.getString("bgaOffSelected", "${externalDirectory.absolutePath}/FingerDance/BgasOff/BGA_OFF (0).mp4").orEmpty()
 
             if (tema.isBlank()) {
                 tema = "default"
             }
         } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "Error leyendo preferencias",
-                e
-            )
-
+            Log.e(TAG, "Error leyendo preferencias", e)
             if (tema.isBlank()) {
                 tema = "default"
             }

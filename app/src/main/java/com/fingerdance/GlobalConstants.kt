@@ -60,6 +60,9 @@ var readyPlay = false
 // ========== VARIABLES GLOBALES - USUARIO ==========
 var userName = ""
 lateinit var firebaseDatabase : FirebaseDatabase
+var versionRankingFirebase : Int = 0
+var versionRankingLocal : Int = 0
+var listGlobalRankingLocal = hashMapOf<String, ArrayList<FirstRank>>()
 var listGlobalRanking = hashMapOf<String, ArrayList<FirstRank>>()
 var listAllowDevices = arrayListOf<String>()
 var deviceIdFind = ""
@@ -167,7 +170,6 @@ var levelIndex = 0
 var oldValue: Int = 0
 var oldValueCommand: Int = 0
 var oldValueCommandValues: Int = 0
-
 var currentPathSong: String = ""
 
 var countMiss = 0
@@ -175,6 +177,8 @@ var halfDouble = false
 var isVertical = true
 
 lateinit var listSongScores: Array<ObjPuntaje>
+val listBgas = ArrayList<String>()
+
 
 // ========== VARIABLES GLOBALES - VERSION ==========
 var flagActiveAllows = false
@@ -207,6 +211,7 @@ var alphaPadB = 1f
 var numberUpdateLocal = ""
 var playModeSingle = 0
 var playModeHalf = 0
+var bgaOffSelected = ""
 
 var rutaGrades = ""
 var gradeDescription = ""

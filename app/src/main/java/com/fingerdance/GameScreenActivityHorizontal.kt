@@ -150,7 +150,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
                 }
             } else {
                 videoBgaOffPlayer.start()
-                if(playerSong.isBAGDark){
+                if(playerSong.isBAGDark || bgaOffSelected == "aleatorio"){
                     linearBGADark.visibility = View.VISIBLE
                 }else {
                     linearBGADark.visibility = View.GONE
@@ -270,6 +270,9 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             // VIDEO FULL SCREEN
             videoBgaOn.isVisible = false
             videoBgaOff.isVisible = true
+            if(bgaOffSelected == "aleatorio"){
+                bgaOff = listBgas.random()
+            }
             prepareVideo(videoBgaOffPlayer, bgaOff, isBgaOff = true)
             isVideo = false
         }

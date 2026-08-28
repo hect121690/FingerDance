@@ -117,11 +117,7 @@ class PlayerSscHorizontal(
         private lateinit var arrArrowsBottom: Array<Array<TextureRegion>>
 
         private lateinit var sprFlare: Texture
-
         private lateinit var flareArrowFrame: Array<TextureRegion>
-
-        private val LONGNOTE = Array(5) { LongNotePress() }
-
         private lateinit var whiteTex: Texture
 
         const val LIFE_LIGHTNING_FPS = 16f
@@ -149,6 +145,7 @@ class PlayerSscHorizontal(
         stops = stops,
         delays = delays,
         warps = warps,
+        fakes = chart.fakes,
         speeds = speeds,
         scrolls = scrolls,
         offsetMs = chart.offset * 1000.0,
@@ -239,9 +236,6 @@ class PlayerSscHorizontal(
 
         Gdx.input.inputProcessor = inputProcessor
 
-        for (x in 0 until 5) {
-            LONGNOTE[x].pressed = false
-        }
         if (isAp || isVanish) {
             noEffects = true
         }
@@ -314,14 +308,6 @@ class PlayerSscHorizontal(
         luaEngine = LuaEngine(playerSscHorizontal = this, widthNotes = medidaFlechasHorizontal * 5f)
         barLifeCalculator.reset()
     }
-
-    private data class LongNotePress(
-        var pressed: Boolean = false,
-        var lastTickBeat: Double = 0.0,
-        var nextTickBeat: Double = 0.0,
-        var note: Parser.Note? = null,
-        var timeStarted: Long = 0L,
-    )
 
     private fun initColumnNotes() {
         for (col in 0 until columnNotes.size) columnNotes[col].clear()

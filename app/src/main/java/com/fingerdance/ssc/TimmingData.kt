@@ -3,6 +3,7 @@ package com.fingerdance.ssc
 import com.badlogic.gdx.Gdx
 import com.fingerdance.ssc.Parser.BpmSegment
 import com.fingerdance.ssc.Parser.Delay
+import com.fingerdance.ssc.Parser.Fake
 import com.fingerdance.ssc.Parser.Scroll
 import com.fingerdance.ssc.Parser.Speed
 import com.fingerdance.ssc.Parser.Stop
@@ -14,6 +15,7 @@ class TimmingData(
     val stops: List<Stop>,
     val delays: List<Delay>,
     val warps: List<Warp>,
+    val fakes: List<Fake>,
     val speeds: List<Speed>,
     val scrolls: List<Scroll>,
     val offsetMs: Double,
@@ -54,6 +56,7 @@ class TimmingData(
     private val sortedStops = stops.sortedBy { it.beat }
     private val sortedDelays = delays.sortedBy { it.beat }
     private val sortedWarps = warps.sortedBy { it.beat }
+    private val sortedFakes = fakes.sortedBy { it.beat }
     private val sortedSpeeds = speeds.sortedBy { it.beat }
     private val sortedScrolls = scrolls.sortedBy { it.beat }
 
@@ -227,6 +230,22 @@ class TimmingData(
         return !hasStopHere && !hasDelayHere
     }
 
+    /**
+     * Sólo para SCORING/JUDGMENT.
+     * No usar esta función para decidir si una nota se dibuja: Finger Dance
+     * conserva sus reglas visuales actuales para notas/holds dentro de WARPS.
+     */
+    fun isBeatInFake(beat: Double): Boolean {
+        return sortedFakes.any { fake ->
+            beat >= fake.beat - EPS && beat < fake.beat + fake.duration - EPS
+        }
+    }
+
+    /** Equivalente conceptual a TimingData::IsJudgableAtRow de StepMania. */
+    fun isJudgableBeat(beat: Double): Boolean {
+        return !isBeatInWarp(beat) && !isBeatInFake(beat)
+    }
+
     fun isBeatInStop(nowMs: Double): Boolean {
         val seg = findSegmentByTime(nowMs)
         return seg.isStop && nowMs < seg.timeEndMs
@@ -367,11 +386,7 @@ class TimmingData(
         return displayed
     }
 
-    fun getDisplayedSpeedPercent(
-        rawBeat: Double,
-        rawTimeMs: Double,
-        isEW: Boolean = false
-    ): Double {
+    fun getDisplayedSpeedPercent(rawBeat: Double, rawTimeMs: Double, isEW: Boolean = false): Double {
         if (sortedSpeeds.isEmpty()) return 1.0
 
         val index = getSpeedIndexAtBeat(rawBeat)
@@ -389,35 +404,35 @@ class TimmingData(
         val startTimeMs = beatToTime(startBeat) - getDelayAtBeat(startBeat)
 
         val endTimeMs = if (segment.mode == 1) {
-                startTimeMs + segment.duration * 1000.0
-            } else {
-                val endBeat = startBeat + segment.duration
-                beatToTime(endBeat) - getDelayAtBeat(endBeat)
-            }
+            startTimeMs + segment.duration * 1000.0
+        } else {
+            val endBeat = startBeat + segment.duration
+            beatToTime(endBeat) - getDelayAtBeat(endBeat)
+        }
 
         var speed = when {
-                segment.duration <= EPS -> {
+            segment.duration <= EPS -> {
+                segment.ratio
+            }
+
+            rawTimeMs <= startTimeMs -> {
+                previousSpeed
+            }
+
+            rawTimeMs >= endTimeMs -> {
+                segment.ratio
+            }
+
+            else -> {
+                val durationMs = endTimeMs - startTimeMs
+                if (durationMs <= EPS) {
                     segment.ratio
-                }
-
-                rawTimeMs <= startTimeMs -> {
-                    previousSpeed
-                }
-
-                rawTimeMs >= endTimeMs -> {
-                    segment.ratio
-                }
-
-                else -> {
-                    val durationMs = endTimeMs - startTimeMs
-                    if (durationMs <= EPS) {
-                        segment.ratio
-                    } else {
-                        val progress = ((rawTimeMs - startTimeMs) / durationMs).coerceIn(0.0, 1.0)
-                        previousSpeed + (segment.ratio - previousSpeed) * progress
-                    }
+                } else {
+                    val progress = ((rawTimeMs - startTimeMs) / durationMs).coerceIn(0.0, 1.0)
+                    previousSpeed + (segment.ratio - previousSpeed) * progress
                 }
             }
+        }
 
         if (isEW) {
             val beatPhase = (rawBeat % 2.0) * 4.0 * Math.PI

@@ -1,146 +1,362 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-    <androidx.constraintlayout.widget.ConstraintLayout android:id="@+id/constraintBG" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
-        <LinearLayout
-            android:id="@+id/gameplaySettingsPanel"
-            android:layout_width="0dp"
+    <!-- ============================================================ -->
+    <!-- CONTENIDO NORMAL -->
+    <!-- ============================================================ -->
+
+    <ScrollView
+        android:id="@+id/settingsScroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/constraintBG"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/fd_panel_dark"
-            android:orientation="vertical"
-            android:padding="14dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/btnOffline"
-                style="@style/FingerDanceSwitch"
-                android:text="Jugar Offline" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/btnNoteMidLine"
-                style="@style/FingerDanceSwitch"
-                android:text="Notas a media pantalla" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/btnNoCounter"
-                style="@style/FingerDanceSwitch"
-                android:text="Contador SelectSong" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/btnBreakSong"
-                style="@style/FingerDanceSwitch"
-                android:text="Cortar canción" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/btnHorizontalMode"
-                style="@style/FingerDanceSwitch"
-                android:text="Interfaz Horizontal" />
-
-            <com.fingerdance.OptionStepperView
-                android:id="@+id/optionOrientationSingle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
-                app:optionTitle="Orientacion Single"
-                app:optionDefaultIndex="0"
-                app:optionTitleColor="#FFFFFF"
-                app:optionTitleSize="16dp"
-                app:optionTitleStyle="bold"
-                app:optionTextColor="#FFFFFF"
-                app:optionTextSize="11dp"
-                app:optionTextStyle="bold" />
-
-            <com.fingerdance.OptionStepperView
-                android:id="@+id/optionOrientationHalf"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
-                app:optionTitle="Orientacion HalfDouble"
-                app:optionDefaultIndex="0"
-                app:optionTitleColor="#FFFFFF"
-                app:optionTitleSize="16dp"
-                app:optionTitleStyle="bold"
-                app:optionTextColor="#FFFFFF"
-                app:optionTextSize="11dp"
-                app:optionTextStyle="bold" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/resourcesPanel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:background="@drawable/fd_panel_glass"
-            android:orientation="vertical"
-            android:padding="14dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/gameplaySettingsPanel">
+            android:padding="12dp">
 
             <LinearLayout
-                android:layout_width="match_parent"
+                android:id="@+id/gameplaySettingsPanel"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:background="@drawable/fd_panel_dark"
+                android:orientation="vertical"
+                android:padding="14dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
 
-                <TextView
-                    android:id="@+id/txResetChannels"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_weight="1"
+
+                <!-- ================================================= -->
+                <!-- SELECTOR BGA OFF -->
+                <!-- ================================================= -->
+
+                <LinearLayout
+                    android:id="@+id/layoutBgaOff"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:gravity="center_vertical"
-                    android:shadowColor="#000000"
-                    android:shadowDx="1.5"
-                    android:shadowDy="1.3"
-                    android:shadowRadius="1.6"
-                    android:text="Reiniciar Canales"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal">
 
-                <com.fingerdance.HoldProgressView
-                    android:id="@+id/holdProgress"
-                    android:layout_width="150dp"
-                    android:layout_height="44dp"
-                    android:layout_marginStart="10dp" />
+                    <TextView
+                        android:id="@+id/txBgaOff"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="Seleccionar BGAOFF"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnViewBgaOff"
+                        android:layout_width="96dp"
+                        android:layout_height="42dp"
+                        android:text="VER"
+                        android:textAllCaps="true"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        app:backgroundTint="#12102A"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="#21D9FF"
+                        app:strokeWidth="1.5dp" />
+
+                </LinearLayout>
+
+
+                <!-- TU SWITCH ORIGINAL -->
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/btnOffline"
+                    style="@style/FingerDanceSwitch"
+                    android:text="Jugar Offline" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/btnNoteMidLine"
+                    style="@style/FingerDanceSwitch"
+                    android:text="Notas a media pantalla" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/btnNoCounter"
+                    style="@style/FingerDanceSwitch"
+                    android:text="Contador SelectSong" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/btnBreakSong"
+                    style="@style/FingerDanceSwitch"
+                    android:text="Cortar canción" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/btnHorizontalMode"
+                    style="@style/FingerDanceSwitch"
+                    android:text="Interfaz Horizontal" />
+
+                <com.fingerdance.OptionStepperView
+                    android:id="@+id/optionOrientationSingle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    app:optionTitle="Orientacion Single"
+                    app:optionDefaultIndex="0"
+                    app:optionTitleColor="#FFFFFF"
+                    app:optionTitleSize="16dp"
+                    app:optionTitleStyle="bold"
+                    app:optionTextColor="#FFFFFF"
+                    app:optionTextSize="11dp"
+                    app:optionTextStyle="bold" />
+
+                <com.fingerdance.OptionStepperView
+                    android:id="@+id/optionOrientationHalf"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    app:optionTitle="Orientacion HalfDouble"
+                    app:optionDefaultIndex="0"
+                    app:optionTitleColor="#FFFFFF"
+                    app:optionTitleSize="16dp"
+                    app:optionTitleStyle="bold"
+                    app:optionTextColor="#FFFFFF"
+                    app:optionTextSize="11dp"
+                    app:optionTextStyle="bold" />
+
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/txVersionNoteSkin"
-                android:layout_width="match_parent"
+
+            <!-- AQUÍ DEJAS TU resourcesPanel EXACTAMENTE COMO YA LO TIENES -->
+
+            <LinearLayout
+                android:id="@+id/resourcesPanel"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="45dp"
-                android:gravity="center"
-                android:text="Ultima versión de NoteSkins:"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold" />
+                android:layout_marginTop="18dp"
+                android:background="@drawable/fd_panel_glass"
+                android:orientation="vertical"
+                android:padding="14dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/gameplaySettingsPanel">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/txResetChannels"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:shadowColor="#000000"
+                        android:shadowDx="1.5"
+                        android:shadowDy="1.3"
+                        android:shadowRadius="1.6"
+                        android:text="Reiniciar Canales"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <com.fingerdance.HoldProgressView
+                        android:id="@+id/holdProgress"
+                        android:layout_width="150dp"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="10dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/txVersionNoteSkin"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="45dp"
+                    android:gravity="center"
+                    android:text="Ultima versión de NoteSkins:"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txMyVersionNoteSkin"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:gravity="center"
+                    android:text="Tu versión de NoteSkins:"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnUptadeNoteSkin"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:text="ACTUALIZAR NOTESKINS"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </ScrollView>
+
+
+    <!-- ============================================================ -->
+    <!-- OVERLAY GALERÍA -->
+    <!-- ============================================================ -->
+
+    <FrameLayout
+        android:id="@+id/bgaGalleryOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+
+        <!-- ======================================================== -->
+        <!-- LISTADO -->
+        <!-- ======================================================== -->
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/bgaGalleryContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="22dp">
 
             <TextView
-                android:id="@+id/txMyVersionNoteSkin"
-                android:layout_width="match_parent"
+                android:id="@+id/txGalleryTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:gravity="center"
-                android:text="Tu versión de NoteSkins:"
+                android:text="SELECCIONAR BGAOFF"
                 android:textColor="#FFFFFF"
-                android:textStyle="bold" />
+                android:textSize="20sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-            <Button
-                android:id="@+id/btnUptadeNoteSkin"
-                android:layout_width="match_parent"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerBgas"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="16dp"
+                android:clipToPadding="false"
+                android:paddingBottom="120dp"
+                app:layout_constraintBottom_toTopOf="@+id/btnCloseBgaGallery"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/txGalleryTitle" />
+
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRandomBga"
+                android:layout_width="220dp"
                 android:layout_height="48dp"
-                android:layout_marginTop="10dp"
-                android:text="ACTUALIZAR NOTESKINS"
+                android:layout_marginBottom="10dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="ALEATORIO"
                 android:textColor="#FFFFFF"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView>
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:elevation="8dp"
+                app:backgroundTint="#101425"
+                app:cornerRadius="8dp"
+                app:strokeColor="#20DFFF"
+                app:strokeWidth="1.5dp"
+                app:layout_constraintBottom_toTopOf="@+id/btnCloseBgaGallery"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCloseBgaGallery"
+                android:layout_width="220dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="CERRAR"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:elevation="8dp"
+                app:backgroundTint="#101425"
+                app:cornerRadius="8dp"
+                app:strokeColor="#20DFFF"
+                app:strokeWidth="1.5dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+        <!-- ======================================================== -->
+        <!-- PREVIEW GRANDE -->
+        <!-- ======================================================== -->
+
+        <FrameLayout
+            android:id="@+id/bgaPreviewContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FF000000"
+            android:visibility="gone">
+
+            <TextureView
+                android:id="@+id/videoBgaPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBackBgaPreview"
+                android:layout_width="120dp"
+                android:layout_height="46dp"
+                android:layout_gravity="top|start"
+                android:layout_margin="20dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="VOLVER"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                app:backgroundTint="#101425"
+                app:cornerRadius="8dp"
+                app:strokeColor="#20DFFF"
+                app:strokeWidth="1.5dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSelectBga"
+                android:layout_width="220dp"
+                android:layout_height="52dp"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="26dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="SELECCIONAR"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:backgroundTint="#16102A"
+                app:cornerRadius="10dp"
+                app:strokeColor="#FF2BC2"
+                app:strokeWidth="2dp" />
+
+        </FrameLayout>
+
+    </FrameLayout>
+
+</FrameLayout>

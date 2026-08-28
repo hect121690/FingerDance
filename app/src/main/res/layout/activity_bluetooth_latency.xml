@@ -7,11 +7,6 @@
     android:layout_height="match_parent"
     android:background="#090D18">
 
-
-    <!-- =========================================================
-         TÍTULO
-         ========================================================= -->
-
     <TextView
         android:id="@+id/txtTitle"
         android:layout_width="wrap_content"
@@ -25,11 +20,6 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
-
-
-    <!-- =========================================================
-         PERFIL ACTUAL
-         ========================================================= -->
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardCurrentDevice"
@@ -63,11 +53,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
                     android:text="DISPOSITIVO ACTUAL"
                     android:textColor="#71809F"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08" />
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/txtDeviceModel"
@@ -76,13 +66,12 @@
                     android:layout_marginTop="3dp"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:text="Sony WH-1000XM5"
+                    android:text="Bluetooth"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
             </LinearLayout>
-
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -94,7 +83,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="LATENCIA"
+                    android:text="GUARDADO"
                     android:textColor="#71809F"
                     android:textSize="10sp"
                     android:textStyle="bold" />
@@ -104,7 +93,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="0 ms"
+                    android:text="-- ms"
                     android:textColor="#A69EFF"
                     android:textSize="20sp"
                     android:textStyle="bold" />
@@ -115,156 +104,135 @@
 
     </com.google.android.material.card.MaterialCardView>
 
-
-    <!-- =========================================================
-         ESTADO
-         ========================================================= -->
-
     <TextView
         android:id="@+id/txtStatus"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="24dp"
-        android:layout_marginTop="13dp"
+        android:layout_marginTop="16dp"
         android:layout_marginEnd="24dp"
         android:gravity="center"
-        android:text="Toca el botón cuando escuches el sonido"
+        android:text="Presiona TAP cuando escuches el sonido"
         android:textColor="#B7C0D8"
         android:textSize="15sp"
         app:layout_constraintTop_toBottomOf="@id/cardCurrentDevice"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-
-    <!-- =========================================================
-         COUNTDOWN
-         ========================================================= -->
-
-    <TextView
-        android:id="@+id/txtCountdown"
-        android:layout_width="90dp"
-        android:layout_height="58dp"
-        android:layout_marginTop="2dp"
-        android:gravity="center"
-        android:text="3"
-        android:textColor="#FFFFFF"
-        android:textSize="40sp"
-        android:textStyle="bold"
-        android:visibility="invisible"
-        app:layout_constraintTop_toBottomOf="@id/txtStatus"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-
-    <!-- =========================================================
-         PROGRESS
-         ========================================================= -->
-
     <TextView
         android:id="@+id/txtProgress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="0 / 12"
-        android:textColor="#7F8BA8"
-        android:textSize="13sp"
+        android:layout_marginTop="5dp"
+        android:text="0 / 8"
+        android:textColor="#71809F"
+        android:textSize="12sp"
+        app:layout_constraintTop_toBottomOf="@id/txtStatus"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/txtCountdown"
+        android:layout_width="100dp"
+        android:layout_height="64dp"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:text="3"
+        android:textColor="#FFFFFF"
+        android:textSize="42sp"
+        android:textStyle="bold"
+        android:visibility="invisible"
+        app:layout_constraintTop_toBottomOf="@id/txtProgress"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.fingerdance.BluetoothLatencyCalibrationView
+        android:id="@+id/calibrationView"
+        android:layout_width="0dp"
+        android:layout_height="190dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="24dp"
         app:layout_constraintTop_toBottomOf="@id/txtCountdown"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-
-    <!-- =========================================================
-         ÁREA CÍRCULO
-         ========================================================= -->
-
-    <FrameLayout
-        android:id="@+id/calibrationArea"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
-        android:layout_marginTop="1dp"
-        app:layout_constraintTop_toBottomOf="@id/txtProgress"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-
-        <com.fingerdance.ClosingRingView
-            android:id="@+id/ringView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnTap"
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:layout_gravity="center"
-            android:elevation="12dp"
-            android:enabled="false"
-            android:gravity="center"
-            android:stateListAnimator="@null"
-            android:text="TAP"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="31sp"
-            android:textStyle="bold"
-            app:backgroundTint="#6457E8"
-            app:cornerRadius="80dp"
-            app:rippleColor="#66FFFFFF"
-            app:strokeColor="#A69EFF"
-            app:strokeWidth="3dp" />
-
-    </FrameLayout>
-
-
-    <!-- =========================================================
-         TIMING ACTUAL
-         ========================================================= -->
-
     <TextView
-        android:id="@+id/txtTiming"
+        android:id="@+id/txtLatencyLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="-- ms"
-        android:textColor="#FFFFFF"
-        android:textSize="23sp"
+        android:layout_marginTop="8dp"
+        android:letterSpacing="0.08"
+        android:text="LATENCIA ESTIMADA"
+        android:textColor="#71809F"
+        android:textSize="11sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/calibrationArea"
+        app:layout_constraintTop_toBottomOf="@id/calibrationView"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
-
 
     <TextView
-        android:id="@+id/txtResult"
-        android:layout_width="0dp"
+        android:id="@+id/txtLatency"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="24dp"
-        android:gravity="center"
-        android:textColor="#AEB7CF"
-        android:textSize="13sp"
-        app:layout_constraintTop_toBottomOf="@id/txtTiming"
+        android:layout_marginTop="2dp"
+        android:text="-- ms"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/txtLatencyLabel"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-
-    <!-- =========================================================
-         START
-         ========================================================= -->
+    <TextView
+        android:id="@+id/txtTapInstruction"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Presiona cuando escuches el sonido"
+        android:textColor="#B7C0D8"
+        android:textSize="13sp"
+        app:layout_constraintTop_toBottomOf="@id/txtLatency"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnStart"
+        android:id="@+id/btnTap"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_marginTop="6dp"
+        android:enabled="false"
+        android:gravity="center"
+        android:stateListAnimator="@null"
+        android:text="TAP"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:backgroundTint="#6457E8"
+        app:cornerRadius="43dp"
+        app:rippleColor="#66FFFFFF"
+        app:strokeColor="#A69EFF"
+        app:strokeWidth="2dp"
+        app:layout_constraintTop_toBottomOf="@id/txtTapInstruction"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSave"
         android:layout_width="0dp"
-        android:layout_height="56dp"
+        android:layout_height="54dp"
         android:layout_marginStart="28dp"
         android:layout_marginEnd="28dp"
-        android:layout_marginBottom="20dp"
-        android:text="INICIAR CALIBRACIÓN"
+        android:layout_marginBottom="18dp"
+        android:enabled="false"
+        android:text="GUARDAR CALIBRACIÓN"
         android:textColor="#FFFFFF"
         android:textSize="14sp"
         android:textStyle="bold"
         app:backgroundTint="#252D45"
         app:cornerRadius="16dp"
-        app:strokeColor="#424F75"
+        app:strokeColor="#6457E8"
         app:strokeWidth="2dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"

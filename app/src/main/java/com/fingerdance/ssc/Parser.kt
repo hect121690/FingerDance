@@ -83,7 +83,11 @@ class Parser {
         val fgChanges = parseFGChanges(textHeader)
 
         val bpms = parsePairs(textChart, "BPMS").map { BpmSegment(it.first, it.second) }
-        val tickcounts = parsePairs(textChart, "TICKCOUNTS", true).map { TickCountSegment(it.first, it.second.toInt()) }
+        // IMPORTANTE: TICKCOUNT=0 debe conservarse como 0.
+        // 0 significa que ese segmento no genera checkpoints de HOLD.
+        val tickcounts = parsePairs(textChart, "TICKCOUNTS").map {
+            TickCountSegment(it.first, it.second.toInt())
+        }
         val stops = parsePairs(textChart, "STOPS").map { Stop(it.first, it.second * 1000) }
         val delays = parsePairs(textChart, "DELAYS").map { Delay(it.first, it.second * 1000) }
         val warps = parsePairs(textChart, "WARPS").map { Warp(it.first, it.second) }
@@ -450,9 +454,9 @@ class Parser {
 
                         val isFake =
                             fakeFlag && (
-                                        codeChar == '1'
-                                        || codeChar == '2'
-                                        || codeChar == '3')
+                                    codeChar == '1'
+                                            || codeChar == '2'
+                                            || codeChar == '3')
 
                         val isPressed =
                             modifier == "n" &&
@@ -589,28 +593,28 @@ class Parser {
             )
 
         val result = raw.replace(";", "").split(",").mapNotNull { entry ->
-                val clean = entry.trim()
+            val clean = entry.trim()
 
-                if (clean.isEmpty()) {
-                    return@mapNotNull null
-                }
-
-                val parts = clean.split("=")
-
-                if (parts.size < 2) {
-                    return@mapNotNull null
-                }
-
-                val beat = parts[0].trim().toDoubleOrNull() ?: return@mapNotNull null
-
-                val comboMultiplier = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
-                val comboMultiplierMiss = parts.getOrNull(2)?.trim()?.toIntOrNull() ?: 1
-                Combo(
-                    beat = beat,
-                    comboMultiplier = comboMultiplier.coerceAtLeast(1),
-                    comboMultiplierMiss = comboMultiplierMiss
-                )
+            if (clean.isEmpty()) {
+                return@mapNotNull null
             }
+
+            val parts = clean.split("=")
+
+            if (parts.size < 2) {
+                return@mapNotNull null
+            }
+
+            val beat = parts[0].trim().toDoubleOrNull() ?: return@mapNotNull null
+
+            val comboMultiplier = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
+            val comboMultiplierMiss = parts.getOrNull(2)?.trim()?.toIntOrNull() ?: 1
+            Combo(
+                beat = beat,
+                comboMultiplier = comboMultiplier.coerceAtLeast(1),
+                comboMultiplierMiss = comboMultiplierMiss
+            )
+        }
             .sortedBy { it.beat }
 
         return if (result.isEmpty()) {
@@ -628,8 +632,7 @@ class Parser {
 
     private fun parsePairs(
         text: String,
-        tag: String,
-        isTickcount: Boolean = false
+        tag: String
     ): List<Pair<Double, Double>> {
 
         val raw = extractTag(text, tag) ?: return emptyList()
@@ -642,14 +645,7 @@ class Parser {
 
                 p[0].toDoubleOrNull()?.let { b ->
 
-                    p[1].toDoubleOrNull()?.let { originalValue ->
-
-                        val value =
-                            if (isTickcount && originalValue == 0.0)
-                                1.0
-                            else
-                                originalValue
-
+                    p[1].toDoubleOrNull()?.let { value ->
                         b to value
                     }
                 }

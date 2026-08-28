@@ -400,11 +400,9 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         rutaBase = getExternalFilesDir(null)!!.absolutePath
-
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val json = assets.open("mockChannels.json")
-                    .bufferedReader().use { it.readText() }
+                val json = assets.open("mockChannels.json").bufferedReader().use { it.readText() }
 
                 val listChannelsJson: ArrayList<Nivel> = Gson().fromJson(
                     json,
@@ -586,7 +584,6 @@ class MainActivity : AppCompatActivity(), Serializable {
         touchAreasHorizontalHD = leftAreasHD + rightAreasHD
 
         val leftMapHD = listOf(
-
             0, // LD-LU
             1, // LU-CE left
             3, // CE-RU
@@ -667,24 +664,13 @@ class MainActivity : AppCompatActivity(), Serializable {
                 isIndeterminate = true
             }
 
-            /*
-            val text = TextView(this@MainActivity).apply {
-                text = ""
-                setTextColor(Color.WHITE)
-                textSize = 18f
-                gravity = Gravity.CENTER
-                setPadding(0, 30, 0, 0)
-            }
-            */
-
             addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-            //addView(text, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         }
 
         val folder = File(getExternalFilesDir(null), "FingerDance")
         if (folder.exists()) {
             lifecycleScope.launch {
-                startOnline = true
+                //startOnline = true
                 creaMain()
             }
         } else {
@@ -719,7 +705,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             startActivity(intent)
         }
     }
-
 
     private fun getEventListenerFirebase() {
         rankingsListener = object : ChildEventListener {
@@ -1029,11 +1014,15 @@ class MainActivity : AppCompatActivity(), Serializable {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionApp = packageInfo.versionName ?: ""
         showUpdateView = themes.getBoolean("showUpdateView", true)
-        //themes.edit().putString("efects", "").apply()
-        if(versionApp == "3.1.7"){
-            deleteOldNoteSkins()
+        if(versionApp == "3.1.9"){
+            //deleteOldNoteSkins()
+            showUpdateView = true
+            themes.edit().putBoolean("showUpdateView", showUpdateView).apply()
+            themes.edit().putString("theme", "default").apply()
+            themes.edit().putString("allTunes", "").apply()
+            themes.edit().putString("efects", "").apply()
         }
-        if(versionApp == "3.1.8" && showUpdateView){
+        if(versionApp == "3.2.0" && showUpdateView){
             showUpdateDialog(this)
         }
     }
@@ -1075,10 +1064,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
         val txUpdateMessage = dialog.findViewById<TextView>(R.id.txUpdateMessage)
 
-        txUpdateMessage.text = HtmlCompat.fromHtml(
-            context.getString(R.string.message_update),
-            HtmlCompat.FROM_HTML_MODE_LEGACY
-        )
+        txUpdateMessage.text = getString(R.string.message_update)
 
         txUpdateMessage.movementMethod = LinkMovementMethod.getInstance()
         txUpdateMessage.setLinkTextColor(Color.rgb(0, 191, 255))
@@ -1170,11 +1156,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         val downloadDialog = WebDownloadDialog(this)
         downloadDialog.show("FingerDance.apk")
 
-        val packageApp = iniciarDescargaDrive(
-            APK_ID_FILE,
-            "apk",
-            true
-        ) { progress ->
+        val packageApp = iniciarDescargaDrive(APK_ID_FILE, "apk", true) { progress ->
             runOnUiThread { downloadDialog.updateProgress(progress) }
         }
 
@@ -1322,7 +1304,24 @@ class MainActivity : AppCompatActivity(), Serializable {
 
         bmLogo = BitmapFactory.decodeFile("$rutaBase/FingerDance/Themes/$tema/GraphicsStatics/logo.png")
         animLogo.setImageBitmap(bmLogo)
-        bgaOff = "$rutaBase/FingerDance/Themes/$tema/Movies/BGA_OFF.mp4"
+        listBgas.clear()
+        val pathBgas = getExternalFilesDir("FingerDance/BgasOff")
+        if (pathBgas != null && pathBgas.exists()) {
+            pathBgas.listFiles()
+                ?.filter { file ->
+                    file.isFile &&
+                            file.extension.equals("mp4", ignoreCase = true)
+                }
+                ?.forEach { file ->
+                    listBgas.add(file.absolutePath)
+                }
+        }
+        if(bgaOffSelected == "aleatorio"){
+            bgaOff = listBgas.random()
+        }else{
+            bgaOff = bgaOffSelected
+        }
+        //bgaOff = bgaOffSelected
         mediaPlayerMain = MediaPlayer()
         configureMainBackground()
 
@@ -1380,23 +1379,49 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun configureMainBackground() {
-        val videoFile = File(
-            "$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.mp4"
-        )
-
-        val imageFile = File(
-            "$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.png"
-        )
+        val videoFile = File("$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.mp4")
+        val imageFile = File("$rutaBase/FingerDance/Themes/$tema/BGAs/fondo.png")
 
         when {
+            imageFile.exists() && imageFile.isFile -> {
+                usingVideoBackground = false
+
+                stopParallax()
+
+                try {
+                    video_fondo.stopPlayback()
+                } catch (_: Exception) {
+                }
+
+                mediaPlayerMain = MediaPlayer()
+                video_fondo.visibility = View.GONE
+
+                image_fondo.visibility = View.VISIBLE
+                image_fondo.setBackgroundColor("#020713".toColorInt())
+                image_fondo.scaleType = ImageView.ScaleType.CENTER_CROP
+                image_fondo.setImageDrawable(
+                    Drawable.createFromPath(imageFile.absolutePath)
+                )
+
+                image_fondo.translationX = 0f
+                image_fondo.translationY = 0f
+
+                resetParallaxCenter()
+                configureParallaxScale()
+                startParallax()
+            }
+
             videoFile.exists() && videoFile.isFile -> {
                 usingVideoBackground = true
+
                 stopParallax()
 
                 image_fondo.visibility = View.GONE
                 image_fondo.setImageDrawable(null)
                 image_fondo.translationX = 0f
                 image_fondo.translationY = 0f
+                image_fondo.scaleX = 1f
+                image_fondo.scaleY = 1f
 
                 video_fondo.visibility = View.VISIBLE
                 video_fondo.setVideoPath(videoFile.absolutePath)
@@ -1415,28 +1440,6 @@ class MainActivity : AppCompatActivity(), Serializable {
                 video_fondo.start()
             }
 
-            imageFile.exists() && imageFile.isFile -> {
-                usingVideoBackground = false
-
-                try {
-                    video_fondo.stopPlayback()
-                } catch (_: Exception) {
-                }
-
-                video_fondo.visibility = View.GONE
-
-                image_fondo.visibility = View.VISIBLE
-                image_fondo.setBackgroundColor("#020713".toColorInt())
-                image_fondo.scaleType = ImageView.ScaleType.CENTER_CROP
-                image_fondo.setImageDrawable(
-                    Drawable.createFromPath(imageFile.absolutePath)
-                )
-
-                resetParallaxCenter()
-                configureParallaxScale()
-                startParallax()
-            }
-
             else -> {
                 usingVideoBackground = false
                 stopParallax()
@@ -1446,6 +1449,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 } catch (_: Exception) {
                 }
 
+                mediaPlayerMain = MediaPlayer()
                 video_fondo.visibility = View.GONE
 
                 image_fondo.visibility = View.VISIBLE
@@ -1458,7 +1462,7 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                 Log.w(
                     "MainActivity",
-                    "No existe fondo.mp4 ni fondo.png para el tema $tema"
+                    "No existe fondo.png ni fondo.mp4 para el tema $tema"
                 )
             }
         }
@@ -2124,15 +2128,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 return
             }
 
-            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                androidx.core.content.FileProvider.getUriForFile(
-                    this,
-                    "$packageName.provider",
-                    file
-                )
-            } else {
-                Uri.fromFile(file)
-            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.provider", file)
 
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
@@ -2140,7 +2136,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
 
             startActivity(intent)
-
 
         } catch (e: Exception) {
             Toast.makeText(this, "Error al instalar APK: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2237,9 +2232,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sala = snapshot.getValue(Sala::class.java)
 
-                // Firebase puede entregar primero un snapshot local vacío.
-                // No lo tratamos como sala cerrada hasta haber visto la sala
-                // al menos una vez en este listener.
                 if (sala == null) {
                     if (!waitingPlayer2RoomSeen) {
                         txtWaitingMessage.text = "Sincronizando sala..."
@@ -2256,6 +2248,12 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                 waitingPlayer2RoomSeen = true
                 activeSala = sala
+
+                if (!sala.jugador1.conectado) {
+                    salaRef.child("jugador1/conectado").setValue(true)
+                    activeSala.jugador1.conectado = true
+                }
+
 
                 val player2Connected = sala.jugador2.id.isNotBlank() && sala.jugador2.conectado
 
@@ -2363,28 +2361,16 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     private fun isUsingWifi(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val network = connectivityManager.activeNetwork ?: return false
-            val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
-            return networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-        } else {
-            val activeNetworkInfo = connectivityManager.activeNetworkInfo
-            return activeNetworkInfo != null && activeNetworkInfo.type == ConnectivityManager.TYPE_WIFI
-        }
+        val network = connectivityManager.activeNetwork ?: return false
+        val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
+        return networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
     }
 
     private fun isUsingMobileData(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val network = connectivityManager.activeNetwork ?: return false
-            val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
-            return networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
-        } else {
-            val activeNetworkInfo = connectivityManager.activeNetworkInfo
-            return activeNetworkInfo != null && activeNetworkInfo.type == ConnectivityManager.TYPE_MOBILE
-        }
+        val network = connectivityManager.activeNetwork ?: return false
+        val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
+        return networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
     }
 
     override fun onPause() {
@@ -2427,6 +2413,10 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     override fun onResume() {
         super.onResume()
+
+        if (isOnline && isPlayer1 && ::salaRef.isInitialized && waitingPlayer2Listener != null) {
+            salaRef.child("jugador1/conectado").setValue(true)
+        }
 
         if (usingVideoBackground && ::mediaPlayerMain.isInitialized) {
             try {
