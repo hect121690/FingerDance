@@ -1339,6 +1339,12 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
 
+        btnPlay.setOnLongClickListener {
+            themes.edit().putString("allTunes", "").apply()
+            Toast.makeText(this@MainActivity, "Canales reindexeados", Toast.LENGTH_SHORT).show()
+            true
+        }
+
         btnPlayOnline.setOnClickListener {
             showOnlineMode(animation, goSound)
         }

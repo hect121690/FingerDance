@@ -308,19 +308,31 @@ class SscGameplayEngine(
 
                     val endBeat = note.endBeat ?: continue
                     val headBeat = note.beat
-                    if (nowBeat > endBeat) continue
 
                     val crossedHead =
                         (previousBeat <= headBeat && headBeat <= nowBeat) ||
                                 (nowBeat <= headBeat && headBeat <= previousBeat) ||
                                 abs(nowBeat - headBeat) < 0.001
 
-                    val lateCatch = nowBeat > headBeat && nowBeat <= endBeat
+                    val lateCatch =
+                        nowBeat > headBeat &&
+                                nowBeat <= endBeat
 
-                    if (crossedHead || lateCatch) {
+                    val crossedExpiredHoldWhileHeld =
+                        keyState[column] == KEY_PRESS &&
+                                previousBeat <= headBeat &&
+                                nowBeat > endBeat
+
+                    val shouldCatch =
+                        lateCatch ||
+                                crossedExpiredHoldWhileHeld ||
+                                (crossedHead && nowBeat <= endBeat)
+
+                    if (shouldCatch) {
                         listener.onNoteFlare(column)
 
                         val headResolved = isHoldHeadResolved(note)
+
                         if (!headResolved) {
                             registerRowHit(
                                 column = column,
@@ -334,13 +346,15 @@ class SscGameplayEngine(
                             column = column,
                             note = note,
                             timeMs = songTimeMs,
-                            scanFromBeat = if (!headResolved && crossedHead) headBeat else nowBeat
+                            scanFromBeat =
+                                if (!headResolved && crossedHead)
+                                    headBeat
+                                else
+                                    nowBeat
                         )
 
-                        // Nunca saltes por encima de una nota anterior pendiente
-                        // (por ejemplo un HIDE co-temporal). El cursor sólo avanza
-                        // sobre notas realmente resueltas/no juzgables.
                         advanceColumnIndex(column)
+
                         break
                     }
 
