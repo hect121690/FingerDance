@@ -14,8 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.fingerdance.*
-import com.fingerdance.ssc.GameScreenSsc.OverlayMetrics
-import java.io.File
+
 import kotlin.math.abs
 
 open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : Screen {
@@ -66,14 +65,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     private lateinit var padB : TextureRegion
     lateinit var spritePadB: Sprite
 
-    data class OverlayMetrics(
-        val widthRatio: Float = 1f,
-        val heightRatio: Float = 1f,
-        val offsetXRatio: Float = 0f,
-        val offsetYRatio: Float = 0f
-    )
-
-    private val receptorOverlayMetrics = Array(10) { OverlayMetrics() }
+    val receptorMetrics = Array(10) { GameScreenSsc.NoteCellMetrics() }
 
     private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor")
     private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor")
@@ -265,26 +257,33 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     // RECEPTS
     // ---------------------------------------------------
     val spaceInitHorizontalHD = spaceInitHorizontal + (medidaFlechasHorizontal * 0.5f)
+
+    private fun getReceptorFrame(column: Int, frame: Int): TextureRegion {
+        return when (column % 5) {
+            0 -> receptLD[frame]
+            1 -> receptLU[frame]
+            2 -> receptCE[frame]
+            3 -> receptRU[frame]
+            else -> receptRD[frame]
+        }
+    }
+
+    private fun getReceptorLogicalX(column: Int): Float = spaceInitHorizontalHD + medidaFlechasHorizontal * (column - 2)
+
+    private fun drawReceptor(frame: TextureRegion, column: Int, logicalX: Float) {
+        val metrics = receptorMetrics[column]
+        batch.draw(frame, metrics.drawX(logicalX, medidaFlechasHorizontal), metrics.drawY(targetTop, medidaFlechasHorizontal),
+            metrics.drawWidth(medidaFlechasHorizontal), metrics.drawHeight(medidaFlechasHorizontal))
+    }
+
     private fun drawRecepts() {
-        batch.draw(receptCE[1], luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptRU[1], (medidaFlechasHorizontal) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptRD[1], (medidaFlechasHorizontal * 2) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptLD[1], (medidaFlechasHorizontal * 3) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptLU[1], (medidaFlechasHorizontal * 4) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
-        batch.draw(receptCE[1], (medidaFlechasHorizontal * 5) + luaRecepts.screenX + spaceInitHorizontalHD, targetTop, medidaFlechasHorizontal, medidaFlechasHorizontal)
+        for (column in 2..7) drawReceptor(getReceptorFrame(column, 0), column, getReceptorLogicalX(column) + luaRecepts.screenX)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-
-            drawOverlay(receptCE[1], 0, luaRecepts.screenX + spaceInitHorizontalHD)
-            drawOverlay(receptRU[1], 1, (medidaFlechasHorizontal) + luaRecepts.screenX + spaceInitHorizontalHD)
-            drawOverlay(receptRD[1], 2, (medidaFlechasHorizontal * 2) + luaRecepts.screenX + spaceInitHorizontalHD)
-            drawOverlay(receptLD[1], 3, (medidaFlechasHorizontal * 3) + luaRecepts.screenX + spaceInitHorizontalHD)
-            drawOverlay(receptLU[1], 4, (medidaFlechasHorizontal * 4) + luaRecepts.screenX + spaceInitHorizontalHD)
-            drawOverlay(receptCE[1], 5, (medidaFlechasHorizontal * 5) + luaRecepts.screenX + spaceInitHorizontalHD)
-
+            for (column in 2..7) drawReceptor(getReceptorFrame(column, 1), column, getReceptorLogicalX(column) + luaRecepts.screenX)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
@@ -331,44 +330,25 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     }
 
     private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false, metricsColumn: Int? = null): Array<TextureRegion> {
+        arrow.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         val tmp = TextureRegion.split(arrow, arrow.width, arrow.height / 3)
         val textureData = arrow.textureData
         if (!textureData.isPrepared) textureData.prepare()
         val pixmap = textureData.consumePixmap()
 
         try {
-            if (metricsColumn != null) {
-                receptorOverlayMetrics[metricsColumn] = calculateOverlayMetrics(
-                    baseFrame = tmp[0][0],
-                    overlayFrame = tmp[1][0],
-                    pixmap = pixmap,
-                    isMirror = isMirror
-                )
+            if (metricsColumn != null && metricsColumn in 0..4) {
+                val metrics = calculateNoteCellMetrics(tmp[0][0], pixmap, isMirror)
+                receptorMetrics[metricsColumn] = metrics
+                receptorMetrics[metricsColumn + 5] = metrics
             }
 
-            val frames = arrayOf(
-                trimFrame(tmp[0][0], pixmap),
-                trimFrame(tmp[1][0], pixmap),
-                trimFrame(tmp[2][0], pixmap)
-            )
-
+            val frames = arrayOf(tmp[0][0], tmp[1][0], tmp[2][0])
             frames.forEach { it.flip(isMirror, true) }
             return frames
         } finally {
             if (textureData.disposePixmap()) pixmap.dispose()
         }
-    }
-
-    private fun drawOverlay(frame: TextureRegion, column: Int, baseX: Float) {
-        val metrics = receptorOverlayMetrics[column]
-
-        batch.draw(
-            frame,
-            baseX + medidaFlechasHorizontal * metrics.offsetXRatio,
-            targetTop + medidaFlechasHorizontal * metrics.offsetYRatio,
-            medidaFlechasHorizontal * metrics.widthRatio,
-            medidaFlechasHorizontal * metrics.heightRatio
-        )
     }
 
     private data class Bounds(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
@@ -381,7 +361,6 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
         val sourceY = region.regionY
         val sourceWidth = region.regionWidth
         val sourceHeight = region.regionHeight
-
         var minX = sourceWidth
         var minY = sourceHeight
         var maxX = -1
@@ -399,76 +378,21 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
             }
         }
 
-        return if (maxX < minX || maxY < minY) {
-            Bounds(0, 0, sourceWidth - 1, sourceHeight - 1)
-        } else {
-            Bounds(minX, minY, maxX, maxY)
-        }
+        return if (maxX < minX || maxY < minY) Bounds(0, 0, sourceWidth - 1, sourceHeight - 1) else Bounds(minX, minY, maxX, maxY)
     }
 
-    private fun calculateOverlayMetrics(baseFrame: TextureRegion, overlayFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): OverlayMetrics {
-        val base = getVisibleBounds(baseFrame, pixmap)
-        val overlay = getVisibleBounds(overlayFrame, pixmap)
-
-        val baseWidth = base.width.toFloat()
-        val baseHeight = base.height.toFloat()
-
-        val widthRatio = overlay.width / baseWidth
-        val heightRatio = overlay.height / baseHeight
-
-        val offsetX = if (!isMirror) {
-            (overlay.minX - base.minX) / baseWidth
-        } else {
-            val sourceWidth = baseFrame.regionWidth
-
-            val baseMirrorX = sourceWidth - base.maxX - 1
-            val overlayMirrorX = sourceWidth - overlay.maxX - 1
-
-            (overlayMirrorX - baseMirrorX) / baseWidth
-        }
-
-        val offsetY = (overlay.minY - base.minY) / baseHeight
-
-        return OverlayMetrics(
-            widthRatio = widthRatio,
-            heightRatio = heightRatio,
-            offsetXRatio = offsetX,
-            offsetYRatio = offsetY
+    private fun calculateNoteCellMetrics(baseFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): GameScreenSsc.NoteCellMetrics {
+        val bounds = getVisibleBounds(baseFrame, pixmap)
+        val cellWidth = baseFrame.regionWidth.toFloat()
+        val cellHeight = baseFrame.regionHeight.toFloat()
+        val offsetX = if (isMirror) (baseFrame.regionWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
+        return GameScreenSsc.NoteCellMetrics(
+            visibleWidthRatio = bounds.width / cellWidth,
+            visibleHeightRatio = bounds.height / cellHeight,
+            visibleOffsetXRatio = offsetX,
+            visibleOffsetYRatio = bounds.minY / cellHeight
         )
     }
-
-    private fun trimFrame(sourceRegion: TextureRegion, pixmap: Pixmap, alphaThreshold: Int = 1): TextureRegion {
-        val sourceX = sourceRegion.regionX
-        val sourceY = sourceRegion.regionY
-        val sourceWidth = sourceRegion.regionWidth
-        val sourceHeight = sourceRegion.regionHeight
-
-        var minX = sourceWidth
-        var minY = sourceHeight
-        var maxX = -1
-        var maxY = -1
-
-        for (y in 0 until sourceHeight) {
-            for (x in 0 until sourceWidth) {
-                val pixel = pixmap.getPixel(sourceX + x, sourceY + y)
-                val alpha = pixel and 0xFF
-                if (alpha >= alphaThreshold) {
-                    if (x < minX) minX = x
-                    if (y < minY) minY = y
-                    if (x > maxX) maxX = x
-                    if (y > maxY) maxY = y
-                }
-            }
-        }
-        if (maxX < minX || maxY < minY) {
-            return TextureRegion(sourceRegion, 0, 0, 1, 1)
-        }
-
-        val trimmedWidth = maxX - minX + 1
-        val trimmedHeight = maxY - minY + 1
-        return TextureRegion(sourceRegion, minX, minY, trimmedWidth, trimmedHeight)
-    }
-
 
     // ---------------------------------------------------
     // SCREEN

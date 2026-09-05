@@ -20,9 +20,9 @@
             android:padding="20dp">
 
             <TextView
+                android:id="@+id/txUpdateTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Actualización Finger Dance 3.0.8"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:textSize="24sp"

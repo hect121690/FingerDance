@@ -44,6 +44,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.ServerValue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -540,17 +541,51 @@ class DanceGradeHorizontal : AppCompatActivity() {
                 )
             )
 
-            val nuevosTop3 = rankList.sortedByDescending { it.puntaje.toInt() }.take(3)
-            val index = nuevosTop3.indexOfFirst { it.nombre == userName && it.puntaje == totalScore.toString() && it.grade == newGrade }
-            firebaseDatabase.getReference("rankings")
-                .child(playerSong.checkedValues)
-                .child("firstRank")
-                .setValue(nuevosTop3)
+            val nuevosTop3 = rankList
+                .sortedByDescending { it.puntaje.toInt() }
+                .take(3)
+
+            val index = nuevosTop3.indexOfFirst {
+                it.nombre == userName &&
+                        it.puntaje == totalScore.toString() &&
+                        it.grade == newGrade
+            }
+
+            val rankingId = playerSong.checkedValues
+
+            val changeRef = firebaseDatabase
+                .getReference("rankingChanges")
+                .push()
+
+            val changeKey = changeRef.key
+            if (changeKey.isNullOrBlank()) {
+                Log.e(
+                    "FATAL EXCEPTION",
+                    "No se pudo generar la key de rankingChanges"
+                )
+                getBtnAceptar()
+                return@postDelayed
+            }
+
+            val updates = hashMapOf<String, Any>(
+                "rankings/$rankingId/firstRank" to nuevosTop3,
+                "version/versionRankingFirebase" to ServerValue.increment(1),
+                "rankingChanges/$changeKey/rankingId" to rankingId,
+                "rankingChanges/$changeKey/updatedAt" to ServerValue.TIMESTAMP
+            )
+
+            firebaseDatabase.reference
+                .updateChildren(updates)
                 .addOnSuccessListener {
+                    listGlobalRanking[rankingId] = ArrayList(nuevosTop3)
+                    listGlobalRankingLocal[rankingId] = ArrayList(nuevosTop3)
+
+                    registerRankingChangeForCleanup()
+
                     showNewRecord(imgNewRecord, index)
                 }
                 .addOnFailureListener { e ->
-                    Log.e("Firebase", "Error al actualizar ranking: ", e)
+                    Log.e("FATAL EXCEPTION", "Error al actualizar ranking: ", e)
                     getBtnAceptar()
                 }
         }, 1500L)

@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -49,7 +50,8 @@ import android.widget.VideoView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
+import android.content.res.ColorStateList
+import android.graphics.Typeface
 import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
@@ -64,6 +66,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.Query
 import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -85,6 +88,7 @@ import kotlin.math.sqrt
 import kotlin.system.exitProcess
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.text.HtmlCompat
+import com.google.android.material.button.MaterialButton
 import com.google.common.collect.MapMaker
 import com.google.firebase.database.ChildEventListener
 
@@ -369,6 +373,16 @@ class MainActivity : AppCompatActivity(), Serializable {
     private var waitingPlayer2Listener: ValueEventListener? = null
     private var waitingPlayer2RoomSeen = false
 
+    // Rankings: el listener realtime ya NO cuelga del árbol grande /rankings.
+    // Sólo escucha señales pequeñas en /rankingChanges.
+    private var rankingChangesQuery: Query? = null
+    private var rankingChangesListener: ChildEventListener? = null
+    private var rankingCacheSaveGeneration = 0L
+
+    private val rankingsCacheFileName = "rankings_cache.json"
+    private val keyVersionRankingLocal = "versionRankingLocal"
+    private val keyLastRankingChange = "lastRankingChangeKey"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         if(isHorizontalMode){
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
@@ -625,7 +639,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         bg_download = findViewById(R.id.bg_download)
         loadingLayout = findViewById(R.id.loadingLayout)
 
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
 
         parallaxSensor =
             sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
@@ -676,10 +690,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         } else {
             creaDescarga()
         }
-        if(!isOnline || !isOffline) {
-            getEventListenerFirebase()
-            firebaseDatabase.getReference("rankings").addChildEventListener(rankingsListener)
-        }
+
 
         /*
         if (!canWritePublicStorage()) {
@@ -706,45 +717,265 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun getEventListenerFirebase() {
-        rankingsListener = object : ChildEventListener {
-            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
-                val rankingId = snapshot.key ?: return
-                val rankings = arrayListOf<FirstRank>()
-                for (rankSnapshot in snapshot.child("firstRank").children) {
-                    val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                    val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                    val grade = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
-                    rankings.add(FirstRank(nombre, puntaje, grade))
+    private fun startRankingChangesListener() {
+        if (isOnline || isOffline) return
+        if (rankingChangesListener != null) return
+
+        val rankingChangesRef = firebaseDatabase.getReference("rankingChanges")
+        val startKey = themes
+            .getString(keyLastRankingChange, "")
+            .orEmpty()
+
+        rankingChangesQuery = if (startKey.isBlank()) {
+            rankingChangesRef.orderByKey()
+        } else {
+            rankingChangesRef
+                .orderByKey()
+                .startAt(startKey)
+        }
+
+        rankingChangesListener = object : ChildEventListener {
+            override fun onChildAdded(
+                snapshot: DataSnapshot,
+                previousChildName: String?
+            ) {
+                // En 1vs1 y en modo offline no tocamos rankings.
+                if (isOnline || isOffline) return
+
+                val changeKey = snapshot.key ?: return
+
+                // startAt() incluye la key inicial; ésa ya estaba sincronizada.
+                if (startKey.isNotBlank() && changeKey == startKey) {
+                    return
                 }
 
-                listGlobalRanking[rankingId] = rankings
+                val rankingId = snapshot
+                    .child("rankingId")
+                    .getValue(String::class.java)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: return
+
+                downloadSingleRanking(
+                    rankingId = rankingId,
+                    changeKey = changeKey
+                )
             }
 
-            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
-                val rankingId = snapshot.key ?: return
-                val rankings = arrayListOf<FirstRank>()
-                for (rankSnapshot in snapshot.child("firstRank").children) {
-                    val nombre = rankSnapshot.child("nombre").getValue(String::class.java) ?: ""
-                    val puntaje = rankSnapshot.child("puntaje").getValue(String::class.java) ?: "0"
-                    val grade = rankSnapshot.child("grade").getValue(String::class.java) ?: ""
+            override fun onChildChanged(
+                snapshot: DataSnapshot,
+                previousChildName: String?
+            ) = Unit
 
-                    rankings.add(FirstRank(nombre, puntaje, grade))
-                }
-                listGlobalRanking[rankingId] = rankings
-                Log.d("FirebaseRanking", "Ranking actualizado: $rankingId")
-            }
+            override fun onChildRemoved(snapshot: DataSnapshot) = Unit
 
-            override fun onChildRemoved(snapshot: DataSnapshot) {
-                val rankingId = snapshot.key ?: return
-                listGlobalRanking.remove(rankingId)
-            }
+            override fun onChildMoved(
+                snapshot: DataSnapshot,
+                previousChildName: String?
+            ) = Unit
 
-            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
             override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al obtener datos: ${error.message}")
+                Log.e(
+                    "FirebaseRanking",
+                    "Error escuchando rankingChanges: ${error.message}"
+                )
             }
         }
+
+        rankingChangesQuery?.addChildEventListener(rankingChangesListener!!)
+
+        Log.d(
+            "FirebaseRanking",
+            "Listener de rankingChanges iniciado desde: ${startKey.ifBlank { "INICIO" }}"
+        )
+    }
+
+    private fun stopRankingChangesListener() {
+        val listener = rankingChangesListener
+        val query = rankingChangesQuery
+
+        if (listener != null && query != null) {
+            query.removeEventListener(listener)
+        }
+
+        rankingChangesListener = null
+        rankingChangesQuery = null
+    }
+
+    /**
+     * rankingChanges sólo dice QUÉ ranking cambió. Aquí descargamos exclusivamente
+     * ese firstRank, no el árbol completo de /rankings.
+     */
+    private fun downloadSingleRanking(
+        rankingId: String,
+        changeKey: String
+    ) {
+        firebaseDatabase
+            .getReference("rankings")
+            .child(rankingId)
+            .child("firstRank")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (isOnline || isOffline) {
+                    // Si el modo cambió mientras la lectura estaba en vuelo, no aplicamos nada.
+                    return@addOnSuccessListener
+                }
+
+                val ranking = arrayListOf<FirstRank>()
+
+                for (rankSnapshot in snapshot.children) {
+                    val nombre = rankSnapshot
+                        .child("nombre")
+                        .getValue(String::class.java)
+                        ?: ""
+
+                    val puntaje = rankSnapshot
+                        .child("puntaje")
+                        .getValue(String::class.java)
+                        ?: "0"
+
+                    val grade = rankSnapshot
+                        .child("grade")
+                        .getValue(String::class.java)
+                        ?: ""
+
+                    ranking.add(
+                        FirstRank(
+                            nombre = nombre,
+                            puntaje = puntaje,
+                            grade = grade
+                        )
+                    )
+                }
+
+                listGlobalRanking[rankingId] = ArrayList(ranking)
+                listGlobalRankingLocal[rankingId] = ArrayList(ranking)
+
+                Log.d(
+                    "FirebaseRanking",
+                    "Ranking realtime actualizado: $rankingId"
+                )
+
+                saveRankingCacheAfterRealtimeChange(changeKey)
+            }
+            .addOnFailureListener { error ->
+                Log.e(
+                    "FirebaseRanking",
+                    "Error descargando ranking individual $rankingId: ${error.message}"
+                )
+                // No avanzamos la key local. En el próximo arranque Splash detectará
+                // que falta sincronización y hará el fallback completo.
+            }
+    }
+
+    /**
+     * Persistimos el mapa completo local sólo después de haber aplicado el ranking.
+     * generation evita que una escritura vieja termine sobrescribiendo una más nueva
+     * si llegan varios récords casi al mismo tiempo.
+     */
+    private fun saveRankingCacheAfterRealtimeChange(changeKey: String) {
+        val generation = ++rankingCacheSaveGeneration
+
+        val snapshotForDisk = hashMapOf<String, ArrayList<FirstRank>>()
+        for ((rankingId, ranking) in listGlobalRankingLocal) {
+            snapshotForDisk[rankingId] = ArrayList(ranking)
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val json = try {
+                Gson().toJson(snapshotForDisk)
+            } catch (e: Exception) {
+                Log.e("FirebaseRanking", "Error serializando caché de rankings", e)
+                return@launch
+            }
+
+            // Si ya existe una generación más nueva, ésta no debe escribir.
+            if (generation != rankingCacheSaveGeneration) {
+                return@launch
+            }
+
+            val saved = try {
+                val cacheFile = File(filesDir, rankingsCacheFileName)
+                val tempFile = File(filesDir, "$rankingsCacheFileName.tmp")
+
+                tempFile.writeText(json)
+
+                if (generation != rankingCacheSaveGeneration) {
+                    tempFile.delete()
+                    return@launch
+                }
+
+                if (cacheFile.exists() && !cacheFile.delete()) {
+                    Log.w(
+                        "FirebaseRanking",
+                        "No se pudo eliminar la caché anterior de rankings"
+                    )
+                }
+
+                if (!tempFile.renameTo(cacheFile)) {
+                    cacheFile.writeText(json)
+                    tempFile.delete()
+                }
+
+                true
+            } catch (e: Exception) {
+                Log.e("FirebaseRanking", "Error guardando caché realtime", e)
+                false
+            }
+
+            if (!saved || generation != rankingCacheSaveGeneration) {
+                return@launch
+            }
+
+            withContext(Dispatchers.Main) {
+                persistProcessedRankingChange(changeKey)
+                refreshRankingVersionAfterRealtimeChange()
+            }
+        }
+    }
+
+    private fun persistProcessedRankingChange(changeKey: String) {
+        val currentKey = themes
+            .getString(keyLastRankingChange, "")
+            .orEmpty()
+
+        // Las push keys de Firebase son ordenables cronológicamente. Nunca retrocedemos.
+        if (currentKey.isBlank() || changeKey > currentKey) {
+            themes.edit()
+                .putString(keyLastRankingChange, changeKey)
+                .apply()
+        }
+    }
+
+    /**
+     * Esta lectura pesa unos bytes. Puede devolver una versión más nueva que la última
+     * key ya persistida si dos récords llegan a la vez; Splash compara TAMBIÉN la key,
+     * por lo que jamás tomará una caché incompleta como válida.
+     */
+    private fun refreshRankingVersionAfterRealtimeChange() {
+        firebaseDatabase
+            .getReference("version")
+            .child("versionRankingFirebase")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val remoteVersion = snapshot
+                    .value
+                    ?.toString()
+                    ?.toIntOrNull()
+                    ?: return@addOnSuccessListener
+
+                versionRankingFirebase = remoteVersion
+                versionRankingLocal = remoteVersion
+
+                themes.edit()
+                    .putInt(keyVersionRankingLocal, versionRankingLocal)
+                    .apply()
+            }
+            .addOnFailureListener { error ->
+                Log.e(
+                    "FirebaseRanking",
+                    "No se pudo refrescar versionRankingLocal: ${error.message}"
+                )
+            }
     }
 
     fun getVerticalGap(topPad: Array<Float>, bottomPad: Array<Float>, height: Float): Float {
@@ -1014,22 +1245,18 @@ class MainActivity : AppCompatActivity(), Serializable {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionApp = packageInfo.versionName ?: ""
         showUpdateView = themes.getBoolean("showUpdateView", true)
-        if(versionApp == "3.1.9"){
-            //deleteOldNoteSkins()
+        if(versionApp == "3.2.4"){
+            deleteOldNoteSkins()
             showUpdateView = true
             themes.edit().putBoolean("showUpdateView", showUpdateView).apply()
-            themes.edit().putString("theme", "default").apply()
-            themes.edit().putString("allTunes", "").apply()
-            themes.edit().putString("efects", "").apply()
         }
-        if(versionApp == "3.2.0" && showUpdateView){
-            showUpdateDialog(this)
+        if(versionApp == "3.2.5" && showUpdateView){
+            showUpdateDialog(this, versionApp)
         }
     }
 
     private fun deleteOldNoteSkins() {
         val baseDir = getExternalFilesDir(null)
-
         val pathChannels = "FingerDance/NoteSkins"
         val channels = listOf(
             pathChannels
@@ -1048,10 +1275,12 @@ class MainActivity : AppCompatActivity(), Serializable {
 
     }
 
-    private fun showUpdateDialog(context: Context) {
+    private fun showUpdateDialog(context: Context, versionApp: String) {
         val dialog = Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setContentView(R.layout.dialog_update_notes)
+        val txUpdateTitle = dialog.findViewById<TextView>(R.id.txUpdateTitle)
+        txUpdateTitle.text = getString(R.string.title_update_dialog, versionApp)
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
 
@@ -1063,7 +1292,6 @@ class MainActivity : AppCompatActivity(), Serializable {
             decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
         val txUpdateMessage = dialog.findViewById<TextView>(R.id.txUpdateMessage)
-
         txUpdateMessage.text = getString(R.string.message_update)
 
         txUpdateMessage.movementMethod = LinkMovementMethod.getInstance()
@@ -1340,13 +1568,18 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
 
         btnPlay.setOnLongClickListener {
-            themes.edit().putString("allTunes", "").apply()
+            themes.edit().putString("efects", "").apply()
             Toast.makeText(this@MainActivity, "Canales reindexeados", Toast.LENGTH_SHORT).show()
             true
         }
 
         btnPlayOnline.setOnClickListener {
-            showOnlineMode(animation, goSound)
+            val noChannelsIndex = themes.getString("allTunes", "") == ""
+            if(noChannelsIndex){
+                showChannelsNotIndexedDialog()
+            }else {
+                showOnlineMode(animation, goSound)
+            }
         }
 
         val goOptionMP = MediaPlayer.create(
@@ -1360,28 +1593,215 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
 
-        val builder = AlertDialog.Builder(this@MainActivity)
         btnExit.setOnClickListener {
-            builder.setTitle("Aviso")
-            builder.setMessage("Deseas salir del juego?")
-            builder.setPositiveButton(android.R.string.yes) { dialog, which ->
-                val intent = Intent(Intent.ACTION_MAIN)
-                intent.addCategory(Intent.CATEGORY_HOME)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(intent)
-                exitProcess(0)
-            }
-            builder.setNegativeButton(android.R.string.no) { dialog, which ->
 
+            val customTitle = TextView(this@MainActivity).apply {
+                text = "SALIR DEL JUEGO"
+                setTextColor(Color.WHITE)
+                textSize = 20f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setPadding(48, 36, 48, 18)
             }
-            builder.show()
+
+            val dialog = AlertDialog.Builder(this@MainActivity)
+                .setCustomTitle(customTitle)
+                .setMessage("¿Deseas cerrar Finger Dance?")
+                .setPositiveButton("SALIR") { _, _ ->
+                    val intent = Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_HOME)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+
+                    startActivity(intent)
+                    exitProcess(0)
+                }
+                .setNegativeButton("CANCELAR") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .create()
+
+            dialog.setOnShowListener {
+
+                val background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    setColor("#07111F".toColorInt())
+                    setStroke(
+                        2,
+                        "#00E5FF".toColorInt()
+                    )
+                    cornerRadius = 28f
+                }
+
+                dialog.window?.setBackgroundDrawable(background)
+
+                // MENSAJE
+                dialog.findViewById<TextView>(
+                    android.R.id.message
+                )?.apply {
+                    setTextColor("#9EB7C7".toColorInt())
+                    textSize = 16f
+                }
+
+                // SALIR
+                dialog.getButton(
+                    AlertDialog.BUTTON_POSITIVE
+                ).apply {
+                    setTextColor("#FF2D95".toColorInt())
+
+                    setTypeface(
+                        typeface,
+                        android.graphics.Typeface.BOLD
+                    )
+
+                    backgroundTintList =
+                        ColorStateList.valueOf(
+                            "#14283A".toColorInt()
+                        )
+                }
+
+                // CANCELAR
+                dialog.getButton(
+                    AlertDialog.BUTTON_NEGATIVE
+                ).apply {
+                    setTextColor("#00E5FF".toColorInt())
+
+                    setTypeface(
+                        typeface,
+                        android.graphics.Typeface.BOLD
+                    )
+
+                    backgroundTintList =
+                        ColorStateList.valueOf(
+                            "#14283A".toColorInt()
+                        )
+                }
+            }
+
+            dialog.show()
         }
+
 
         if(userName == ""){
             ingresaNameUser()
         }else{
             Toast.makeText(this@MainActivity, "Bienvenido $userName", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showChannelsNotIndexedDialog() {
+        val dialog = Dialog(this)
+
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setCancelable(false)
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(
+                24.dpToPx(),
+                22.dpToPx(),
+                24.dpToPx(),
+                20.dpToPx()
+            )
+
+            background = GradientDrawable().apply {
+                setColor("#101425".toColorInt())
+                cornerRadius = 14.dpToPx().toFloat()
+                setStroke(
+                    2.dpToPx(),
+                    "#20DFFF".toColorInt()
+                )
+            }
+        }
+
+        val txtTitle = TextView(this).apply {
+            text = "AVISO"
+            setTextColor("#20DFFF".toColorInt())
+            textSize = 21f
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.08f
+        }
+
+        val imgGirl = ImageView(this).apply {
+            setImageResource(R.drawable.img_girl_warning)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            adjustViewBounds = true
+        }
+
+        val girlParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            190.dpToPx()
+        ).apply {
+            topMargin = 8.dpToPx()
+            bottomMargin = 4.dpToPx()
+        }
+
+        val txtMessage = TextView(this).apply {
+            text = "Tus canales no están indexeados.\n\nPresiona el botón PLAY primero para sincronizarlos y ya podrás jugar Online 1vs1."
+            setTextColor("#F5F5F5".toColorInt())
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setLineSpacing(0f, 1.12f)
+            setPadding(
+                4.dpToPx(),
+                8.dpToPx(),
+                4.dpToPx(),
+                12.dpToPx()
+            )
+        }
+
+        val btnAccept = Button(this).apply {
+            text = "ACEPTAR"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            isAllCaps = true
+            stateListAnimator = null
+
+            background = GradientDrawable().apply {
+                setColor("#101425".toColorInt())
+                cornerRadius = 8.dpToPx().toFloat()
+                setStroke(
+                    2.dpToPx(),
+                    "#20DFFF".toColorInt()
+                )
+            }
+
+            setOnClickListener {
+                dialog.dismiss()
+            }
+        }
+
+        val buttonParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            48.dpToPx()
+        ).apply {
+            topMargin = 8.dpToPx()
+        }
+
+        container.addView(txtTitle)
+        container.addView(imgGirl, girlParams)
+        container.addView(txtMessage)
+        container.addView(btnAccept, buttonParams)
+
+        dialog.setContentView(container)
+
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+
+            attributes = attributes.apply {
+                dimAmount = 0.72f
+            }
+        }
+
+        dialog.show()
+
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.88f).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
     }
 
     private fun configureMainBackground() {
@@ -1856,7 +2276,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             val jugador1 = Jugador(
                 id = userName,
                 conectado = true,
-                listo = false
+                listo = false,
+                listChannelsLocal = getLocalChannelNames()
             )
 
             activeSala = Sala(
@@ -1953,7 +2374,8 @@ class MainActivity : AppCompatActivity(), Serializable {
             val jugador2 = Jugador(
                 id = userName,
                 conectado = true,
-                listo = false
+                listo = false,
+                listChannelsLocal = getLocalChannelNames()
             )
 
             attemptJoinRoom(
@@ -2010,6 +2432,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                     "jugador2/id" to jugador2.id,
                     "jugador2/conectado" to true,
                     "jugador2/listo" to false,
+                    "jugador2/listChannelsLocal" to jugador2.listChannelsLocal,
                     "estado" to RoomState.SELECTING.name
                 )
 
@@ -2020,6 +2443,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                         sala.jugador2.id = jugador2.id
                         sala.jugador2.conectado = true
                         sala.jugador2.listo = false
+                        sala.jugador2.listChannelsLocal = jugador2.listChannelsLocal
                         sala.estado = RoomState.SELECTING.name
 
                         isPlayer1 = false
@@ -2077,6 +2501,19 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
+    private fun buildMutualOnlineChannels(): ArrayList<Channels> {
+        val player1Channels = activeSala.jugador1.listChannelsLocal.toSet()
+        val player2Channels = activeSala.jugador2.listChannelsLocal.toSet()
+
+        return ArrayList(
+            listChannels.filter { channel ->
+                channel.nombre in player1Channels &&
+                channel.nombre in player2Channels &&
+                channel.nombre in validFolders
+            }
+        )
+    }
+
     private fun prepareOnlineAndOpenSelectChannel() {
         getSelectChannel = false
         showLoadingOverlay("Espere por favor...")
@@ -2086,7 +2523,7 @@ class MainActivity : AppCompatActivity(), Serializable {
                 jsonListChannels,
                 object : TypeToken<ArrayList<Channels>>() {}.type
             )
-            listChannelsOnline = listChannels.filter { it.nombre in validFolders } as ArrayList<Channels>
+            listChannelsOnline = buildMutualOnlineChannels()
 
             if (themes.getString("efects", "").orEmpty().isEmpty()) {
                 listCommands = getFilesCW(this@MainActivity)
@@ -2299,6 +2736,14 @@ class MainActivity : AppCompatActivity(), Serializable {
         waitingPlayer2RoomSeen = false
     }
 
+    private fun getLocalChannelNames(): ArrayList<String> {
+        return ArrayList(
+            listChannels
+                .map { it.nombre }
+                .distinct()
+        )
+    }
+
     private fun cancelCreatedRoom() {
         stopWaitingPlayer2Listener()
 
@@ -2457,6 +2902,13 @@ class MainActivity : AppCompatActivity(), Serializable {
             }
         }
         listEfectsDisplay.clear()
+
+        // Al volver del 1vs1/offline reanudamos desde la última push-key realmente
+        // persistida; así recuperamos cualquier récord ocurrido mientras ese modo estaba activo.
+        stopRankingChangesListener()
+        if (!isOnline && !isOffline) {
+            startRankingChangesListener()
+        }
     }
 
     override fun onDestroy() {
@@ -2521,7 +2973,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         } catch (e: Exception) {
             Log.e("MainActivity", "Error al limpiar listEfectsDisplay: ${e.message}")
         }
-        firebaseDatabase.getReference("rankings").removeEventListener(rankingsListener)
+        stopRankingChangesListener()
     }
 
     @Deprecated("Deprecated in Java")
@@ -2583,6 +3035,7 @@ data class Jugador(
     var listo: Boolean = false,
     var live: LiveResult = LiveResult(),
     var result: Resultado = Resultado(),
+    var listChannelsLocal: ArrayList<String> = arrayListOf()
 )
 
 data class LiveResult(

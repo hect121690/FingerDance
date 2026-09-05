@@ -93,13 +93,17 @@
     <string name="favorites_description">En este canal encontraras tus canciones favoritas.
     </string>
 
+    <string name="title_update_dialog">Actualización Finger Dance %1$s</string>
+
     <string name="message_update">
-    • ¡Nuevo tema disponible! Finger Dance tiene ahora su propio tema con un estilo más moderno y futurista.\n\n
-    • Ya está disponible el modo Online 1 vs 1, para jugar partidas contra otro jugador y comparar resultados al terminar la canción.\n\n
-    • Se mejoró el comportamiento de las notas largas (HOLD), especialmente al soltarlas y volver a tomarlas, para que los MISS se registren de una forma más justa y consistente.\n\n
-    • Ahora puedes personalizar el BGA del modo Offline. Desde Ajustes puedes ver una galería con los videos disponibles, previsualizarlos y elegir cuál quieres usar como fondo durante el juego.\n\n
-    • Se mejoró la precisión al detectar y calificar las pisadas, especialmente en canciones con patrones rápidos y muchas notas seguidas.\n\n
-    • Se realizaron mejoras generales de estabilidad, rendimiento y compatibilidad.
-</string>
+         • El modo Online 1vs1 ahora sincroniza los canales disponibles de ambos jugadores y sólo muestra aquellos que ambos tengan instalados y sean compatibles.\n\n
+        • Se mejoró el proceso de creación y unión a salas Online para sincronizar correctamente la información de ambos jugadores antes de comenzar la partida.\n\n
+        • Se mejoró la precisión y respuesta de las notas al presionar los paneles, especialmente en canciones rápidas y patrones muy densos.\n\n
+        • Se ajustaron las ventanas de juicio para ofrecer una respuesta más precisa y consistente durante la partida.\n\n
+        • Se mejoró el comportamiento de las notas HOLD en canciones con cambios extremos de BPM, efectos de velocidad y patrones que atraviesan varios tiempos en muy pocos milisegundos.\n\n
+        • Las notas HOLD ahora procesan correctamente todos sus puntos de puntuación incluso cuando varios de ellos ocurren entre dos fotogramas.\n\n
+        • Se corrigieron distintos casos especiales relacionados con notas invisibles, FAKE, WARP y efectos visuales complejos en charts avanzados.\n\n
+        • Se realizaron mejoras generales de estabilidad y precisión en el motor de juego.\n\n
+    </string>
 
 </resources>

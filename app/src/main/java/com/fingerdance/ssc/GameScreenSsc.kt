@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
+import com.badlogic.gdx.math.MathUtils
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
@@ -26,11 +27,13 @@ import com.fingerdance.hideImagesPadA
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
+import com.fingerdance.mediaPlayer
 import com.fingerdance.medidaFlechas
 import com.fingerdance.padPositions
 import com.fingerdance.playerSong
 import com.fingerdance.ruta
 import com.fingerdance.showPadB
+import com.fingerdance.showSongProgress
 import com.fingerdance.skinPad
 import com.fingerdance.tema
 import com.fingerdance.typePadD
@@ -95,14 +98,25 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     lateinit var arrPadsC : Array<Array<TextureRegion>>
 
-    data class OverlayMetrics(
-        val widthRatio: Float = 1f,
-        val heightRatio: Float = 1f,
-        val offsetXRatio: Float = 0f,
-        val offsetYRatio: Float = 0f
-    )
+    data class NoteCellMetrics(
+        val visibleWidthRatio: Float = 1f,
+        val visibleHeightRatio: Float = 1f,
+        val visibleOffsetXRatio: Float = 0f,
+        val visibleOffsetYRatio: Float = 0f
+    ) {
+        fun drawWidth(logicalSize: Float) = logicalSize / visibleWidthRatio.coerceAtLeast(0.0001f)
+        fun drawHeight(logicalSize: Float) = logicalSize / visibleHeightRatio.coerceAtLeast(0.0001f)
+        fun drawX(logicalX: Float, logicalSize: Float): Float {
+            val width = drawWidth(logicalSize)
+            return logicalX - width * visibleOffsetXRatio
+        }
+        fun drawY(logicalY: Float, logicalSize: Float): Float {
+            val height = drawHeight(logicalSize)
+            return logicalY - height * visibleOffsetYRatio
+        }
+    }
 
-    private val receptorOverlayMetrics = Array(5) { OverlayMetrics() }
+    val receptorMetrics = Array(5) { NoteCellMetrics() }
 
     private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor")
     private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor")
@@ -155,6 +169,62 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     )
 
     private lateinit var font: BitmapFont
+
+
+    // -------------------------------------------------------------------------
+    // SONG PROGRESS + BUBBLES
+    // -------------------------------------------------------------------------
+
+    /**
+     * bubble_music.png va en:
+     * app/src/main/assets/bubble_music.png
+     *
+     * 250x250 px está perfecto para este efecto.
+     */
+    private val bubbleMusicTexture = Texture(Gdx.files.internal("bubble_music.png"))
+
+    /**
+     * Pixel blanco de 1x1 para dibujar la barra sin cargar otra textura.
+     */
+    private val progressPixelTexture: Texture = createProgressPixelTexture()
+
+    /**
+     * Pool fijo: no creamos BubbleParticle durante gameplay.
+     */
+    private data class BubbleParticle(
+        var active: Boolean = false,
+        var x: Float = 0f,
+        var y: Float = 0f,
+        var size: Float = 0f,
+        var speedY: Float = 0f,
+        var driftX: Float = 0f,
+        var wobblePhase: Float = 0f,
+        var wobbleSpeed: Float = 0f,
+        var life: Float = 0f,
+        var maxLife: Float = 0f,
+        var baseAlpha: Float = 1f
+    )
+
+    private val musicBubbles =
+        Array(MAX_MUSIC_BUBBLES) {
+            BubbleParticle()
+        }
+
+    private var bubbleSpawnTimer = 0f
+    private var nextBubbleSpawnTime = 0.16f
+
+    /**
+     * Posición de la barra:
+     * cámara Y-down, por eso una Y cercana a gdxHeight queda abajo.
+     *
+     * La barra se dibuja DESPUÉS de player.render(), por lo que queda
+     * visualmente enfrente de los pads.
+     */
+    private val songProgressBarWidth get() = (medidaFlechas * 0.10f)
+    private val songProgressBarHeight get() = gdxHeight * 0.42f
+    private val songProgressBarX get() = medidaFlechas * 0.08f
+    private val songProgressBarY get() = padPositions[1][1] - songProgressBarHeight
+
 
     init {
         if(showPadB == 1){
@@ -238,7 +308,11 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             }
 
             player.render(songTimeMs)
-            font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
+            if(showSongProgress){
+                drawSongProgress(songTimeMs = songTimeMs, delta = delta)
+            }
+
+            //font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
 
             barBlack.setSize(maxWidth, maxlHeight)
             barBlack.setPosition(medidaFlechas, 0f)
@@ -266,10 +340,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     override fun resize(width: Int, height: Int) {
         camera.setToOrtho(true, width.toFloat(), height.toFloat())
         camera.update()
-    }
-
-    fun timeGetTime(): Long{
-        return SystemClock.uptimeMillis()
     }
 
     private fun getLifeLightningFrames(texture: Texture): Array<TextureRegion> {
@@ -349,25 +419,29 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
     private fun drawRecepts() {
-        batch.draw(recept0Frames[0], (medidaFlechas) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept1Frames[0], (medidaFlechas * 2) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept2Frames[0], (medidaFlechas * 3) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept3Frames[0], (medidaFlechas * 4) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
-        batch.draw(recept4Frames[0], (medidaFlechas * 5) + luaRecepts.screenX, targetTop, medidaFlechas, medidaFlechas)
+        drawReceptor(recept0Frames[0], 0)
+        drawReceptor(recept1Frames[0], 1)
+        drawReceptor(recept2Frames[0], 2)
+        drawReceptor(recept3Frames[0], 3)
+        drawReceptor(recept4Frames[0], 4)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-
-            drawOverlay(recept0Frames[1], 0, medidaFlechas + luaRecepts.screenX)
-            drawOverlay(recept1Frames[1], 1, medidaFlechas * 2 + luaRecepts.screenX)
-            drawOverlay(recept2Frames[1], 2, medidaFlechas * 3 + luaRecepts.screenX)
-            drawOverlay(recept3Frames[1], 3, medidaFlechas * 4 + luaRecepts.screenX)
-            drawOverlay(recept4Frames[1], 4, medidaFlechas * 5 + luaRecepts.screenX)
-
+            drawReceptor(recept0Frames[1], 0)
+            drawReceptor(recept1Frames[1], 1)
+            drawReceptor(recept2Frames[1], 2)
+            drawReceptor(recept3Frames[1], 3)
+            drawReceptor(recept4Frames[1], 4)
             batch.setBlendFunction(aBatch, bBatch)
         }
+    }
+
+    private fun drawReceptor(frame: TextureRegion, column: Int) {
+        val logicalX = medidaFlechas * (column + 1) + luaRecepts.screenX
+        val metrics = receptorMetrics[column]
+        batch.draw(frame, metrics.drawX(logicalX, medidaFlechas), metrics.drawY(targetTop, medidaFlechas), metrics.drawWidth(medidaFlechas), metrics.drawHeight(medidaFlechas))
     }
 
     private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false, metricsColumn: Int? = null): Array<TextureRegion> {
@@ -377,38 +451,13 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         val pixmap = textureData.consumePixmap()
 
         try {
-            if (metricsColumn != null) {
-                receptorOverlayMetrics[metricsColumn] = calculateOverlayMetrics(
-                    baseFrame = tmp[0][0],
-                    overlayFrame = tmp[1][0],
-                    pixmap = pixmap,
-                    isMirror = isMirror
-                )
-            }
-
-            val frames = arrayOf(
-                trimFrame(tmp[0][0], pixmap),
-                trimFrame(tmp[1][0], pixmap),
-                trimFrame(tmp[2][0], pixmap)
-            )
-
+            if (metricsColumn != null) receptorMetrics[metricsColumn] = calculateNoteCellMetrics(tmp[0][0], pixmap, isMirror)
+            val frames = arrayOf(tmp[0][0], tmp[1][0], tmp[2][0])
             frames.forEach { it.flip(isMirror, true) }
             return frames
         } finally {
             if (textureData.disposePixmap()) pixmap.dispose()
         }
-    }
-
-    private fun drawOverlay(frame: TextureRegion, column: Int, baseX: Float) {
-        val metrics = receptorOverlayMetrics[column]
-
-        batch.draw(
-            frame,
-            baseX + medidaFlechas * metrics.offsetXRatio,
-            targetTop + medidaFlechas * metrics.offsetYRatio,
-            medidaFlechas * metrics.widthRatio,
-            medidaFlechas * metrics.heightRatio
-        )
     }
 
     private data class Bounds(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
@@ -421,7 +470,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         val sourceY = region.regionY
         val sourceWidth = region.regionWidth
         val sourceHeight = region.regionHeight
-
         var minX = sourceWidth
         var minY = sourceHeight
         var maxX = -1
@@ -439,74 +487,20 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             }
         }
 
-        return if (maxX < minX || maxY < minY) {
-            Bounds(0, 0, sourceWidth - 1, sourceHeight - 1)
-        } else {
-            Bounds(minX, minY, maxX, maxY)
-        }
+        return if (maxX < minX || maxY < minY) Bounds(0, 0, sourceWidth - 1, sourceHeight - 1) else Bounds(minX, minY, maxX, maxY)
     }
 
-    private fun calculateOverlayMetrics(baseFrame: TextureRegion, overlayFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): OverlayMetrics {
-        val base = getVisibleBounds(baseFrame, pixmap)
-        val overlay = getVisibleBounds(overlayFrame, pixmap)
-
-        val baseWidth = base.width.toFloat()
-        val baseHeight = base.height.toFloat()
-
-        val widthRatio = overlay.width / baseWidth
-        val heightRatio = overlay.height / baseHeight
-
-        val offsetX = if (!isMirror) {
-            (overlay.minX - base.minX) / baseWidth
-        } else {
-            val sourceWidth = baseFrame.regionWidth
-
-            val baseMirrorX = sourceWidth - base.maxX - 1
-            val overlayMirrorX = sourceWidth - overlay.maxX - 1
-
-            (overlayMirrorX - baseMirrorX) / baseWidth
-        }
-
-        val offsetY = (overlay.minY - base.minY) / baseHeight
-
-        return OverlayMetrics(
-            widthRatio = widthRatio,
-            heightRatio = heightRatio,
-            offsetXRatio = offsetX,
-            offsetYRatio = offsetY
+    private fun calculateNoteCellMetrics(baseFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): NoteCellMetrics {
+        val bounds = getVisibleBounds(baseFrame, pixmap)
+        val cellWidth = baseFrame.regionWidth.toFloat()
+        val cellHeight = baseFrame.regionHeight.toFloat()
+        val offsetX = if (isMirror) (baseFrame.regionWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
+        return NoteCellMetrics(
+            visibleWidthRatio = bounds.width / cellWidth,
+            visibleHeightRatio = bounds.height / cellHeight,
+            visibleOffsetXRatio = offsetX,
+            visibleOffsetYRatio = bounds.minY / cellHeight
         )
-    }
-
-    private fun trimFrame(sourceRegion: TextureRegion, pixmap: Pixmap, alphaThreshold: Int = 1): TextureRegion {
-        val sourceX = sourceRegion.regionX
-        val sourceY = sourceRegion.regionY
-        val sourceWidth = sourceRegion.regionWidth
-        val sourceHeight = sourceRegion.regionHeight
-
-        var minX = sourceWidth
-        var minY = sourceHeight
-        var maxX = -1
-        var maxY = -1
-
-        for (y in 0 until sourceHeight) {
-            for (x in 0 until sourceWidth) {
-                val pixel = pixmap.getPixel(sourceX + x, sourceY + y)
-                val alpha = pixel and 0xFF
-                if (alpha >= alphaThreshold) {
-                    if (x < minX) minX = x
-                    if (y < minY) minY = y
-                    if (x > maxX) maxX = x
-                    if (y > maxY) maxY = y
-                }
-            }
-        }
-        if (maxX < minX || maxY < minY) {
-            return TextureRegion(sourceRegion, 0, 0, 1, 1)
-        }
-
-        val trimmedWidth = maxX - minX + 1
-        val trimmedHeight = maxY - minY + 1
-        return TextureRegion(sourceRegion, minX, minY, trimmedWidth, trimmedHeight)
     }
 
     private fun getListNumbers(arrow: Texture) : Array<TextureRegion> {
@@ -535,6 +529,171 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         frames[9].flip(false, true)
 
         return frames
+    }
+
+
+    // -------------------------------------------------------------------------
+    // SONG PROGRESS
+    // -------------------------------------------------------------------------
+
+    private fun drawSongProgress(songTimeMs: Double, delta: Float) {
+        val durationMs = mediaPlayer.duration.toDouble()
+        if (durationMs <= 0.0) return
+
+        val rawProgress = (songTimeMs / durationMs).toFloat()
+        val progress = if (rawProgress >= 0.985f) 1f else rawProgress.coerceIn(0f, 1f)
+
+        updateMusicBubbles(progress, delta)
+        drawProgressBar(progress)
+        drawMusicBubbles()
+    }
+
+    private fun drawProgressBar(progress: Float) {
+        val x = songProgressBarX
+        val y = songProgressBarY
+        val widthBar = songProgressBarWidth
+        val heightBar = songProgressBarHeight
+
+        val glow = widthBar * 0.55f
+        val border = (widthBar * 0.18f).coerceAtLeast(1f)
+
+        batch.setColor(0f, 0.85f, 1f, 0.10f)
+        batch.draw(progressPixelTexture, x - glow, y - glow, widthBar + glow * 2f, heightBar + glow * 2f)
+
+        batch.setColor(0.10f, 0.30f, 0.42f, 0.90f)
+        batch.draw(progressPixelTexture, x, y, widthBar, heightBar)
+
+        batch.setColor(0.25f, 0.95f, 1f, 0.95f)
+        batch.draw(progressPixelTexture, x, y, widthBar, border)
+        batch.draw(progressPixelTexture, x, y + heightBar - border, widthBar, border)
+        batch.draw(progressPixelTexture, x, y, border, heightBar)
+        batch.draw(progressPixelTexture, x + widthBar - border, y, border, heightBar)
+
+        val innerX = x + border
+        val innerY = y + border
+        val innerWidth = widthBar - border * 2f
+        val innerHeight = heightBar - border * 2f
+
+        batch.setColor(0.01f, 0.03f, 0.07f, 0.90f)
+        batch.draw(progressPixelTexture, innerX, innerY, innerWidth, innerHeight)
+
+        val fillHeight = innerHeight * progress
+
+        if (fillHeight > 0f) {
+            val fillY = innerY + innerHeight - fillHeight
+
+            batch.setColor(0f, 0.72f, 1f, 0.95f)
+            batch.draw(progressPixelTexture, innerX, fillY, innerWidth, fillHeight)
+
+            val highlightWidth = (innerWidth * 0.28f).coerceAtLeast(1f)
+
+            batch.setColor(0.55f, 1f, 1f, 0.75f)
+            batch.draw(progressPixelTexture, innerX, fillY, highlightWidth, fillHeight)
+
+            val tipHeight = (medidaFlechas * 0.04f).coerceAtLeast(2f)
+            val tipY = fillY - tipHeight * 0.5f
+
+            batch.setColor(0f, 0.90f, 1f, 0.18f)
+            batch.draw(progressPixelTexture, x - widthBar * 0.8f, tipY - tipHeight, widthBar * 2.6f, tipHeight * 3f)
+
+            batch.setColor(0.55f, 1f, 1f, 1f)
+            batch.draw(progressPixelTexture, x - border, tipY, widthBar + border * 2f, tipHeight)
+        }
+
+        resetProgressColor()
+    }
+    // -------------------------------------------------------------------------
+    // BUBBLES
+    // -------------------------------------------------------------------------
+
+    private fun updateMusicBubbles(progress: Float, delta: Float) {
+        bubbleSpawnTimer += delta
+        if (progress > 0.001f && progress < 0.999f && bubbleSpawnTimer >= nextBubbleSpawnTime) {
+            bubbleSpawnTimer -= nextBubbleSpawnTime
+            spawnMusicBubble(progress)
+            if (MathUtils.randomBoolean(0.20f)) spawnMusicBubble(progress)
+            nextBubbleSpawnTime = MathUtils.random(0.13f, 0.22f)
+        }
+
+        for (bubble in musicBubbles) {
+            if (!bubble.active) continue
+            bubble.life += delta
+            if (bubble.life >= bubble.maxLife) {
+                bubble.active = false
+                continue
+            }
+            bubble.y -= bubble.speedY * delta
+            bubble.x += bubble.driftX * delta
+            bubble.wobblePhase += bubble.wobbleSpeed * delta
+            bubble.x += MathUtils.sin(bubble.wobblePhase) * medidaFlechas * 0.0025f
+        }
+    }
+
+    private fun spawnMusicBubble(progress: Float) {
+        var bubble: BubbleParticle? = null
+        for (candidate in musicBubbles) {
+            if (!candidate.active) {
+                bubble = candidate
+                break
+            }
+        }
+        val b = bubble ?: return
+        val border = (songProgressBarWidth * 0.20f).coerceAtLeast(1f)
+        val innerY = songProgressBarY + border
+        val innerHeight = (songProgressBarHeight - border * 2f).coerceAtLeast(0f)
+        val fillHeight = innerHeight * progress
+        val tipY = innerY + innerHeight - fillHeight
+        val size = MathUtils.random(medidaFlechas * 0.07f, medidaFlechas * 0.24f)
+        b.x = songProgressBarX + songProgressBarWidth * 0.5f - size * 0.5f + MathUtils.random(-medidaFlechas * 0.06f, medidaFlechas * 0.12f)
+        b.y = tipY - size * MathUtils.random(0.45f, 0.85f)
+        b.size = size
+        b.speedY = MathUtils.random(medidaFlechas * 0.45f, medidaFlechas * 0.95f)
+        b.driftX = MathUtils.random(0f, medidaFlechas * 0.12f)
+        b.wobblePhase = MathUtils.random(0f, MathUtils.PI2)
+        b.wobbleSpeed = MathUtils.random(2.2f, 5.0f)
+        b.life = 0f
+        b.maxLife = MathUtils.random(0.85f, 1.65f)
+        b.baseAlpha = MathUtils.random(0.50f, 0.90f)
+        b.active = true
+    }
+
+    private fun drawMusicBubbles() {
+        val previousSrc = batch.blendSrcFunc
+        val previousDst = batch.blendDstFunc
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+        for (bubble in musicBubbles) {
+            if (!bubble.active) continue
+            val lifeProgress = (bubble.life / bubble.maxLife).coerceIn(0f, 1f)
+            val lifeAlpha = when {
+                lifeProgress < 0.12f -> lifeProgress / 0.12f
+                lifeProgress > 0.68f -> 1f - ((lifeProgress - 0.68f) / 0.32f)
+                else -> 1f
+            }.coerceIn(0f, 1f)
+            val drawSize = bubble.size * (0.88f + lifeProgress * 0.18f)
+            val centerAdjust = (drawSize - bubble.size) * 0.5f
+            batch.setColor(1f, 1f, 1f, bubble.baseAlpha * lifeAlpha)
+            batch.draw(bubbleMusicTexture, bubble.x - centerAdjust, bubble.y - centerAdjust, drawSize, drawSize)
+        }
+        batch.setBlendFunction(previousSrc, previousDst)
+        resetProgressColor()
+    }
+
+    private fun createProgressPixelTexture(): Texture {
+        val pixmap = Pixmap(1, 1, Pixmap.Format.RGBA8888)
+        pixmap.setColor(
+            Color.WHITE
+        )
+
+        pixmap.fill()
+        val texture = Texture(pixmap)
+
+        pixmap.dispose()
+
+        return texture
+    }
+
+    private fun resetProgressColor() {
+        batch.setColor(1f, 1f, 1f, 1f)
     }
 
     override fun pause() {
@@ -594,7 +753,16 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             arrayPad4[0].texture.dispose()
         }
         lifeLightningTexture.dispose()
+
+        bubbleMusicTexture.dispose()
+        progressPixelTexture.dispose()
+
         player.disposePlayer()
+    }
+
+
+    companion object {
+        private const val MAX_MUSIC_BUBBLES = 14
     }
 
 }

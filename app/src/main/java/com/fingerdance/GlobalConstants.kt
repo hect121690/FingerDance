@@ -33,6 +33,11 @@ const val FOLDER_ID_CHANNELS_BGA = "1YAAWzSJw6o2h8G4cj80fle6G45wf937p"
 const val KEY_CHANNELS_CACHE = "channels_cache"
 const val APK_ID_FILE = "199Y0lsIdAHmLdRWb3ZQJmUPLMl8GjqYM"
 
+const val MAX_RANKING_CHANGES = 500
+const val CLEANUP_BATCH_MARGIN = 50
+const val CLEANUP_EVERY_N_WRITES = 25
+const val PREF_RANKING_CLEANUP_COUNT = "rankingCleanupWriteCount"
+
 // ========== VARIABLES GLOBALES - DRIVE ==========
 var listFilesDrive = arrayListOf<Pair<String, String>>()
 var listThemesDrive = arrayListOf<Pair<String, String>>()
@@ -53,6 +58,8 @@ var chart = Chart(
     notes = emptyList(),
     fgChanges = mutableListOf()
 )
+
+const val TIME_TO_PLAY = 2000L
 
 var aBatch = 0
 var bBatch = 0
@@ -100,16 +107,18 @@ var positionCurrentChannel = 0
 var isVideo = false
 
 // NORMAL
-var nPerfect = 65L
-var nGreat   = 105L
-var nGood    = 145L
-var nBad     = 185L
+var nPerfect = 60L
+var nGreat   = 90L
+var nGood    = 120L
+var nBad     = 150L
 
-// HARD
-var hjPerfect = 40L
-var hjGreat   = 70L
-var hjGood    = 100L
-var hjBad     = 130L
+// HARD / HJ
+var hjPerfect = 35L
+var hjGreat   = 60L
+var hjGood    = 85L
+var hjBad     = 110L
+
+const val MULTIPLER_TOUCH_RADIUS = 0.05f
 
 lateinit var soundPoolSelectSong: SoundPool
 var selectSong_movKsf : Int = 0
@@ -212,6 +221,7 @@ var numberUpdateLocal = ""
 var playModeSingle = 0
 var playModeHalf = 0
 var bgaOffSelected = ""
+var showSongProgress = false
 
 var rutaGrades = ""
 var gradeDescription = ""
@@ -227,9 +237,89 @@ var luaJudge = LuaTransform()
 var isEndingFade = false
 var endingFadeAlpha = 0f
 
-const val MULTIPLER_TOUCH_RADIUS = 0.10f
-
 // ========== FUNCIONES HELPER ==========
+
+fun calculateAlphaAndZoom(elapsedTime: Long): Pair<Float, Float> {
+    val progress = (elapsedTime.toFloat() / 300.toFloat()).coerceIn(0f, 1f)
+
+    val zoom = if (progress < 0.5f) {
+        1f + (0.10f * (progress / 0.5f))
+    } else {
+        1.10f - (0.10f * ((progress - 0.5f) / 0.5f))
+    }
+
+    val alpha = 1f - progress
+    return alpha to zoom
+}
+
+fun registerRankingChangeForCleanup() {
+    val currentCount = themes.getInt(PREF_RANKING_CLEANUP_COUNT, 0) + 1
+    if (currentCount >= CLEANUP_EVERY_N_WRITES) {
+        themes.edit().putInt(PREF_RANKING_CLEANUP_COUNT, 0).apply()
+        cleanupOldRankingChanges()
+    } else {
+        themes.edit().putInt(PREF_RANKING_CLEANUP_COUNT, currentCount).apply()
+    }
+}
+
+private fun cleanupOldRankingChanges() {
+    val rankingChangesRef = firebaseDatabase.getReference("rankingChanges")
+    rankingChangesRef
+        .orderByKey()
+        .limitToFirst(
+            MAX_RANKING_CHANGES + CLEANUP_BATCH_MARGIN
+        )
+        .get()
+        .addOnSuccessListener { snapshot ->
+
+            val total = snapshot.childrenCount.toInt()
+
+            if (total <= MAX_RANKING_CHANGES) {
+                return@addOnSuccessListener
+            }
+
+            val numberToDelete =
+                total - MAX_RANKING_CHANGES
+
+            val updates = hashMapOf<String, Any?>()
+
+            snapshot.children
+                .take(numberToDelete)
+                .forEach { child ->
+
+                    child.key?.let { key ->
+                        updates[key] = null
+                    }
+                }
+
+            if (updates.isEmpty()) {
+                return@addOnSuccessListener
+            }
+
+            rankingChangesRef
+                .updateChildren(updates)
+                .addOnSuccessListener {
+                    Log.d(
+                        "RankingCleanup",
+                        "Se eliminaron ${updates.size} rankingChanges antiguos"
+                    )
+                }
+                .addOnFailureListener { error ->
+                    Log.e(
+                        "RankingCleanup",
+                        "Error limpiando rankingChanges",
+                        error
+                    )
+                }
+        }
+        .addOnFailureListener { error ->
+            Log.e(
+                "RankingCleanup",
+                "Error consultando rankingChanges",
+                error
+            )
+        }
+}
 
 fun generateCheckedValuesKsf(file: File): String {
     var inStepBlock = false

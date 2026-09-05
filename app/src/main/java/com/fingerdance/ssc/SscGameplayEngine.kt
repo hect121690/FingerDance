@@ -281,7 +281,6 @@ class SscGameplayEngine(
                 }
                 KEY_PRESS -> {
                     listener.onColumnPressed(column)
-                    //tryAutoStartHoldOnPress(column, songTimeMs)
                 }
                 KEY_UP -> {
                     markHoldReleasedForVisual(column, songTimeMs)
@@ -738,10 +737,7 @@ class SscGameplayEngine(
         if (renderNoteBeats.isEmpty()) return 0
         val lowBeat = minOf(fromBeat, toBeat)
         val highBeat = maxOf(fromBeat, toBeat)
-        return (
-                upperBound(renderNoteBeats, highBeat) -
-                        lowerBound(renderNoteBeats, lowBeat)
-                ).coerceAtLeast(0)
+        return (upperBound(renderNoteBeats, highBeat) - lowerBound(renderNoteBeats, lowBeat)).coerceAtLeast(0)
     }
 
     private fun renderHoldsCrossingFirstBeat(
@@ -948,26 +944,17 @@ class SscGameplayEngine(
                 continue
             }
 
-            if (
-                note.type != Parser.NoteType.TAP &&
-                note.type != Parser.NoteType.HOLD
-            ) {
+            if (note.type != Parser.NoteType.TAP && note.type != Parser.NoteType.HOLD) {
                 continue
             }
 
-            if (
-                note.type == Parser.NoteType.HOLD &&
-                longNotes[column].pressed
-            ) {
+            if (note.type == Parser.NoteType.HOLD && longNotes[column].pressed) {
                 continue
             }
 
             val judge = getJudgeFromDelta(deltaMs)
 
-            if (
-                judge >= 0 &&
-                abs(deltaMs) < minimumAbsoluteDelta
-            ) {
+            if (judge >= 0 && abs(deltaMs) < minimumAbsoluteDelta) {
                 bestIndex = index
                 bestJudge = judge
                 minimumAbsoluteDelta = abs(deltaMs)
@@ -991,16 +978,12 @@ class SscGameplayEngine(
             if (!timingData.isJudgableBeat(note.beat)) continue
             if (note.isMine) continue
 
-            if (
-                note.type != Parser.NoteType.TAP &&
-                note.type != Parser.NoteType.HOLD
-            ) {
+            if (note.type != Parser.NoteType.TAP && note.type != Parser.NoteType.HOLD) {
                 continue
             }
 
             val noteTimeMs = timingData.beatToTime(note.beat)
-            val samePhysicalInstant =
-                abs(noteTimeMs - referenceTimeMs) <= SAME_INPUT_TIME_EPSILON_MS
+            val samePhysicalInstant = abs(noteTimeMs - referenceTimeMs) <= SAME_INPUT_TIME_EPSILON_MS
 
             if (!samePhysicalInstant) continue
 

@@ -44,8 +44,6 @@ import java.io.File
 
 private val thisHandler = Handler(Looper.getMainLooper())
 
-private const val timeToPlay = 1000L
-
 open class GameScreenActivity : AndroidApplication() {
 
     private lateinit var gdxContainer : RelativeLayout
@@ -171,7 +169,7 @@ open class GameScreenActivity : AndroidApplication() {
             if(mediPlayer.isPlaying){
                 mediPlayer.stop()
             }
-        }, timeToPlay)
+        }, TIME_TO_PLAY)
     }
 
     private fun resetMyOnlineLive() {

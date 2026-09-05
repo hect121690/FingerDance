@@ -226,9 +226,9 @@ class SelectChannel : AppCompatActivity() {
 
                 val rankings = linkedMapOf<String, Any>()
                 for (i in 0 until listChannels.size) {
-                    if (listChannels[i].nombre !in validFolders) {
-                        continue
-                    }
+                    //if (listChannels[i].nombre !in validFolders) {
+                    //    continue
+                    //}
                     for (a in 0 until listChannels[i].listCanciones.size) {
 
                         for (b in 0 until listChannels[i].listCanciones[a].listKsf.size) {
@@ -239,9 +239,10 @@ class SelectChannel : AppCompatActivity() {
                         }
                     }
                 }
-                val json = gson.toJson(rankings.keys.toList())
+                val json = gson.toJson(rankings)
                 Log.d("JSON", json)
                 */
+
                 navigateToSelectSong()
             } else {
 

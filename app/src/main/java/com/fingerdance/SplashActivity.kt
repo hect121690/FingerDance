@@ -52,6 +52,11 @@ class SplashActivity : AppCompatActivity() {
          * de memoria y recolecciones de basura constantes.
          */
         private const val MAX_DRIVE_REQUESTS = 4
+
+        // Caché local de rankings. El JSON grande vive en archivo, no en SharedPreferences.
+        private const val RANKINGS_CACHE_FILE = "rankings_cache.json"
+        private const val KEY_VERSION_RANKING_LOCAL = "versionRankingLocal"
+        private const val KEY_LAST_RANKING_CHANGE = "lastRankingChangeKey"
     }
 
     data class RemoteConfig(
@@ -67,7 +72,8 @@ class SplashActivity : AppCompatActivity() {
         val timeAdjust: Long,
         val validFolders: List<String> = emptyList(),
         val version: String,
-        val allowCheckValues: Boolean
+        val allowCheckValues: Boolean,
+        val versionRankingFirebase: Int
     )
 
     private val driveSemaphore = Semaphore(MAX_DRIVE_REQUESTS)
@@ -157,6 +163,15 @@ class SplashActivity : AppCompatActivity() {
 
             getConfigToPreferences()
 
+            // Primero cargamos la caché local. Así listGlobalRanking queda disponible
+            // incluso antes de tocar el árbol grande de Firebase.
+            val rankingCacheLoaded = loadRankingCacheSuspend()
+
+            // IMPORTANTE: capturamos la última señal ANTES de leer la versión remota.
+            // Si un récord ocurre después de esta key, MainActivity lo recibirá por
+            // rankingChanges aunque haya ocurrido durante el Splash.
+            val rankingBaselineKey = getLatestRankingChangeKeySuspend()
+
             Log.d(FLOW_TAG, "5. Consultando configuración Firebase")
 
             val config = fetchRemoteConfigSuspend()
@@ -175,6 +190,12 @@ class SplashActivity : AppCompatActivity() {
                             "Se utilizarán valores locales."
                 )
             }
+
+            synchronizeRankingsSuspend(
+                cacheLoaded = rankingCacheLoaded,
+                baselineChangeKey = rankingBaselineKey,
+                remoteVersionAvailable = config != null
+            )
 
             Log.d(FLOW_TAG, "7. Consultando validFolders")
 
@@ -223,6 +244,7 @@ class SplashActivity : AppCompatActivity() {
         timeToPresiscionHD = config.timeHalfDouble
         versionUpdate = config.version
         allowCheckValues = config.allowCheckValues
+        versionRankingFirebase = config.versionRankingFirebase
     }
 
     /**
@@ -313,6 +335,7 @@ class SplashActivity : AppCompatActivity() {
                             validFolders = emptyList(),
                             version = snapshot.child("value").value?.toString().orEmpty(),
                             allowCheckValues = snapshot.child("allowCheckValues").getValue(Boolean::class.java) ?: false,
+                            versionRankingFirebase = snapshot.child("versionRankingFirebase").value?.toString()?.toIntOrNull() ?: 0,
                         )
 
                         if (continuation.isActive) {
@@ -993,6 +1016,284 @@ class SplashActivity : AppCompatActivity() {
     }
 
     /**
+     * Carga rankings_cache.json y deja listGlobalRanking listo para que el resto
+     * de la app siga leyendo exactamente el mismo mapa de siempre.
+     */
+    private suspend fun loadRankingCacheSuspend(): Boolean =
+        withContext(Dispatchers.IO) {
+            val cacheFile = File(filesDir, RANKINGS_CACHE_FILE)
+
+            if (!cacheFile.exists() || cacheFile.length() <= 0L) {
+                listGlobalRankingLocal.clear()
+                listGlobalRanking.clear()
+                return@withContext false
+            }
+
+            try {
+                val type = object :
+                    TypeToken<HashMap<String, ArrayList<FirstRank>>>() {}.type
+
+                val cached: HashMap<String, ArrayList<FirstRank>> =
+                    Gson().fromJson(cacheFile.readText(), type)
+                        ?: hashMapOf()
+
+                listGlobalRankingLocal.clear()
+                listGlobalRankingLocal.putAll(cached)
+
+                listGlobalRanking.clear()
+                for ((rankingId, ranking) in cached) {
+                    listGlobalRanking[rankingId] = ArrayList(ranking)
+                }
+
+                Log.d(
+                    FLOW_TAG,
+                    "Rankings: caché local cargada (${cached.size} rankings)"
+                )
+
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Error leyendo caché local de rankings", e)
+
+                // Si el archivo quedó corrupto, forzamos una sincronización completa.
+                runCatching { cacheFile.delete() }
+                listGlobalRankingLocal.clear()
+                listGlobalRanking.clear()
+                false
+            }
+        }
+
+    /**
+     * Obtiene solamente la última push-key de rankingChanges.
+     * Es una lectura minúscula y nos sirve como punto de arranque del listener realtime.
+     */
+    private suspend fun getLatestRankingChangeKeySuspend(): String =
+        suspendCancellableCoroutine { continuation ->
+            val query = firebaseDatabase
+                .getReference("rankingChanges")
+                .orderByKey()
+                .limitToLast(1)
+
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val key = snapshot.children.firstOrNull()?.key.orEmpty()
+                    if (continuation.isActive) {
+                        continuation.resume(key)
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e(
+                        TAG,
+                        "Error leyendo última señal de rankingChanges",
+                        error.toException()
+                    )
+
+                    // Conservamos la key local si Firebase no respondió.
+                    val localKey = themes
+                        .getString(KEY_LAST_RANKING_CHANGE, "")
+                        .orEmpty()
+
+                    if (continuation.isActive) {
+                        continuation.resume(localKey)
+                    }
+                }
+            }
+
+            query.addListenerForSingleValueEvent(listener)
+
+            continuation.invokeOnCancellation {
+                query.removeEventListener(listener)
+            }
+        }
+
+    /**
+     * Decide si los ~5 MB de /rankings realmente deben descargarse.
+     *
+     * La versión numérica detecta cambios y la push-key evita considerar válida una
+     * caché cuya versión haya quedado adelantada por una actualización realtime que
+     * todavía no terminó de persistirse.
+     */
+    private suspend fun synchronizeRankingsSuspend(
+        cacheLoaded: Boolean,
+        baselineChangeKey: String,
+        remoteVersionAvailable: Boolean
+    ) {
+        val localChangeKey = themes
+            .getString(KEY_LAST_RANKING_CHANGE, "")
+            .orEmpty()
+
+        if (!remoteVersionAvailable) {
+            if (cacheLoaded) {
+                Log.w(
+                    FLOW_TAG,
+                    "Rankings: sin versión remota; se conserva la caché local"
+                )
+                return
+            }
+
+            // Sin caché intentamos al menos una lectura completa como fallback.
+            val fallback = fetchAllRankingsSuspend() ?: return
+            applyRankingsToMemory(fallback)
+            saveRankingCacheSuspend()
+            return
+        }
+
+        val cacheIsCurrent =
+            cacheLoaded &&
+                    versionRankingLocal == versionRankingFirebase &&
+                    localChangeKey == baselineChangeKey
+
+        if (cacheIsCurrent) {
+            Log.d(
+                FLOW_TAG,
+                "Rankings: caché vigente v$versionRankingLocal; no se descarga /rankings"
+            )
+            return
+        }
+
+        Log.d(
+            FLOW_TAG,
+            "Rankings: sincronización completa. local=$versionRankingLocal, " +
+                    "firebase=$versionRankingFirebase, " +
+                    "localKey=$localChangeKey, remoteKey=$baselineChangeKey"
+        )
+
+        val remoteRankings = fetchAllRankingsSuspend() ?: run {
+            Log.w(
+                FLOW_TAG,
+                "Rankings: falló la descarga completa; se conserva lo disponible en caché"
+            )
+            return
+        }
+
+        applyRankingsToMemory(remoteRankings)
+        saveRankingCacheSuspend()
+
+        versionRankingLocal = versionRankingFirebase
+
+        themes.edit()
+            .putInt(KEY_VERSION_RANKING_LOCAL, versionRankingLocal)
+            // Usamos la key capturada ANTES de la sincronización. Cualquier cambio
+            // posterior será recogido por MainActivity y puede descargarse otra vez
+            // sin riesgo; duplicar un Top 3 es barato, saltarse uno no.
+            .putString(KEY_LAST_RANKING_CHANGE, baselineChangeKey)
+            .apply()
+
+        Log.d(
+            FLOW_TAG,
+            "Rankings: caché actualizada a v$versionRankingLocal"
+        )
+    }
+
+    private suspend fun fetchAllRankingsSuspend():
+            HashMap<String, ArrayList<FirstRank>>? =
+        suspendCancellableCoroutine { continuation ->
+            val rankingsRef = firebaseDatabase.getReference("rankings")
+
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    try {
+                        val result = hashMapOf<String, ArrayList<FirstRank>>()
+
+                        for (rankingSnapshot in snapshot.children) {
+                            val rankingId = rankingSnapshot.key ?: continue
+                            val ranking = arrayListOf<FirstRank>()
+
+                            for (rankSnapshot in rankingSnapshot.child("firstRank").children) {
+                                val nombre = rankSnapshot
+                                    .child("nombre")
+                                    .getValue(String::class.java)
+                                    ?: ""
+
+                                val puntaje = rankSnapshot
+                                    .child("puntaje")
+                                    .getValue(String::class.java)
+                                    ?: "0"
+
+                                val grade = rankSnapshot
+                                    .child("grade")
+                                    .getValue(String::class.java)
+                                    ?: ""
+
+                                ranking.add(
+                                    FirstRank(
+                                        nombre = nombre,
+                                        puntaje = puntaje,
+                                        grade = grade
+                                    )
+                                )
+                            }
+
+                            result[rankingId] = ranking
+                        }
+
+                        if (continuation.isActive) {
+                            continuation.resume(result)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error interpretando /rankings", e)
+                        if (continuation.isActive) {
+                            continuation.resume(null)
+                        }
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e(
+                        TAG,
+                        "Firebase canceló la descarga de /rankings",
+                        error.toException()
+                    )
+
+                    if (continuation.isActive) {
+                        continuation.resume(null)
+                    }
+                }
+            }
+
+            rankingsRef.addListenerForSingleValueEvent(listener)
+
+            continuation.invokeOnCancellation {
+                rankingsRef.removeEventListener(listener)
+            }
+        }
+
+    private fun applyRankingsToMemory(
+        rankings: HashMap<String, ArrayList<FirstRank>>
+    ) {
+        listGlobalRankingLocal.clear()
+        listGlobalRankingLocal.putAll(rankings)
+
+        listGlobalRanking.clear()
+        for ((rankingId, ranking) in rankings) {
+            listGlobalRanking[rankingId] = ArrayList(ranking)
+        }
+    }
+
+    private suspend fun saveRankingCacheSuspend() {
+        withContext(Dispatchers.IO) {
+            try {
+                val cacheFile = File(filesDir, RANKINGS_CACHE_FILE)
+                val tempFile = File(filesDir, "$RANKINGS_CACHE_FILE.tmp")
+
+                tempFile.writeText(Gson().toJson(listGlobalRankingLocal))
+
+                if (cacheFile.exists() && !cacheFile.delete()) {
+                    Log.w(TAG, "No se pudo eliminar la caché anterior de rankings")
+                }
+
+                if (!tempFile.renameTo(cacheFile)) {
+                    // Fallback para sistemas donde renameTo falla entre reemplazos.
+                    cacheFile.writeText(tempFile.readText())
+                    tempFile.delete()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error guardando caché local de rankings", e)
+            }
+        }
+    }
+
+    /**
      * Carga los recursos utilizados en la pantalla DanceGrade.
      */
     private suspend fun loadGradeResources() {
@@ -1086,6 +1387,7 @@ class SplashActivity : AppCompatActivity() {
             skinPad = themes.getString("skinPad", "default").orEmpty()
             alphaPadB = themes.getFloat("alphaPadB", 1f)
             versionUpdate = themes.getString("versionUpdate", "0.0.0").orEmpty()
+            versionRankingLocal = themes.getInt(KEY_VERSION_RANKING_LOCAL, 0)
             valueOffset = themes.getLong("valueOffset", 0L)
             userName = themes.getString("userName", "").orEmpty()
             isMidLine = themes.getBoolean("isMidLine", false)

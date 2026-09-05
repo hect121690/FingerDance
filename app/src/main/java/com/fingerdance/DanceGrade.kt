@@ -40,6 +40,7 @@ import androidx.core.view.isVisible
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.ServerValue
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -575,11 +576,45 @@ class DanceGrade : AppCompatActivity() {
 
             val nuevosTop3 = rankList.sortedByDescending { it.puntaje.toInt() }.take(3)
             val index = nuevosTop3.indexOfFirst { it.nombre == userName && it.puntaje == totalScore.toString() && it.grade == newGrade }
-            firebaseDatabase.getReference("rankings")
-                .child(playerSong.checkedValues)
-                .child("firstRank")
-                .setValue(nuevosTop3)
+            val rankingId = playerSong.checkedValues
+
+            // Cada récord genera una push-key única. Los demás dispositivos escuchan
+            // únicamente este nodo pequeño y después descargan sólo rankingId.
+            val changeRef = firebaseDatabase
+                .getReference("rankingChanges")
+                .push()
+
+            val changeKey = changeRef.key
+            if (changeKey.isNullOrBlank()) {
+                Log.e(
+                    "FATAL EXCEPTION",
+                    "No se pudo generar la key de rankingChanges"
+                )
+                getBtnAceptar()
+                return@postDelayed
+            }
+
+            // Una sola escritura multipath: Top 3 + versión + señal realtime.
+            // ServerValue.increment(1) evita perder incrementos si dos dispositivos
+            // rompen récords casi al mismo tiempo.
+            val updates = hashMapOf<String, Any>(
+                "rankings/$rankingId/firstRank" to nuevosTop3,
+                "version/versionRankingFirebase" to ServerValue.increment(1),
+                "rankingChanges/$changeKey/rankingId" to rankingId,
+                "rankingChanges/$changeKey/updatedAt" to ServerValue.TIMESTAMP
+            )
+
+            firebaseDatabase.reference
+                .updateChildren(updates)
                 .addOnSuccessListener {
+                    // Reflejamos inmediatamente el nuevo Top 3 en la memoria de este
+                    // dispositivo. MainActivity recibirá también su propia señal y será
+                    // quien persista caché + versión local.
+                    listGlobalRanking[rankingId] = ArrayList(nuevosTop3)
+                    listGlobalRankingLocal[rankingId] = ArrayList(nuevosTop3)
+
+                    registerRankingChangeForCleanup()
+
                     showNewRecord(imgNewRecord, index)
                 }
                 .addOnFailureListener { e ->

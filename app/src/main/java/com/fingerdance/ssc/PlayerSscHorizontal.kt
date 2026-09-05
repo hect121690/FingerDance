@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.MathUtils.sin
 import com.fingerdance.GameScreenActivityHorizontal
 import com.fingerdance.breakSong
+import com.fingerdance.calculateAlphaAndZoom
 import com.fingerdance.chart
 import com.fingerdance.height
 import com.fingerdance.heightBtnsHorizontal
@@ -131,12 +132,7 @@ class PlayerSscHorizontal(
         val y: Float = Gdx.graphics.height / 2f
     )
 
-    data class HoldMetrics(
-        val widthRatio: Float,
-        val offsetRatio: Float
-    )
-
-    private val holdMetrics = Array(5) { Array(6) { HoldMetrics(1f, 0f) } }
+    private lateinit var cellMetrics: Array<GameScreenSsc.NoteCellMetrics>
 
     private val baseSpeed = playerSong.speed.replace("X", "").toFloat()
 
@@ -226,6 +222,7 @@ class PlayerSscHorizontal(
 
     private var isVanish = playerSong.vanish
     private var isAp = playerSong.ap
+    private var noteRenderer: SscNoteRenderer? = null
 
     private var luaFlashStartTime = 0L
     private var luaFlashDuration = 0L
@@ -262,6 +259,8 @@ class PlayerSscHorizontal(
         upRightBottom = upLeftBottom
         downRightBottom = downLeftBottom
 
+        cellMetrics = buildCellMetrics()
+
         val ldArrowFrame = getArrows3x2(downLeftTap)
         val luArrowFrame = getArrows3x2(upLeftTap)
         val ceArrowFrame = getArrows3x2(centerTap)
@@ -284,11 +283,11 @@ class PlayerSscHorizontal(
             rdBodyArrowFrame
         )
 
-        val ldBottomArrowFrame = getArrows6x1(downLeftBottom, metricsColumn = 0)
-        val luBottomArrowFrame = getArrows6x1(upLeftBottom, metricsColumn = 1)
-        val ceBottomArrowFrame = getArrows6x1(centerBottom, metricsColumn = 2)
-        val ruBottomArrowFrame = getArrows6x1(upLeftBottom, true, metricsColumn = 3)
-        val rdBottomArrowFrame = getArrows6x1(downLeftBottom, true, metricsColumn = 4)
+        val ldBottomArrowFrame = getArrows6x1(downLeftBottom)
+        val luBottomArrowFrame = getArrows6x1(upLeftBottom)
+        val ceBottomArrowFrame = getArrows6x1(centerBottom)
+        val ruBottomArrowFrame = getArrows6x1(upLeftBottom, true)
+        val rdBottomArrowFrame = getArrows6x1(downLeftBottom, true)
 
         arrArrowsBottom = arrayOf(
             ldBottomArrowFrame,
@@ -307,6 +306,33 @@ class PlayerSscHorizontal(
         inputProcessor.resetState()
         luaEngine = LuaEngine(playerSscHorizontal = this, widthNotes = medidaFlechasHorizontal * 5f)
         barLifeCalculator.reset()
+    }
+
+    private fun getNoteRenderer(): SscNoteRenderer {
+        noteRenderer?.let { return it }
+
+        return SscNoteRenderer(
+            batch = batch,
+            arrowSize = medidaFlechasHorizontal,
+            arrows = arrArrows,
+            bodies = arrArrowsBody,
+            bottoms = arrArrowsBottom,
+            mines = arrMines,
+            initArrow = null,
+            measure = MEASURE,
+            measureVanish = MEASUREVANISH.toDouble(),
+            rangeAlpha = rangeAlpha.toFloat(),
+            middleSize = middleSizeFlechas,
+            heightBodyHead = heightBodyHead,
+            normalUsesMidLine = false,
+            vanishUsesMidLine = false,
+            clipVanishBodyAtInitArrow = false,
+            mineUsesMidLine = false,
+            computeLeft = { x, y -> computeLeft(x, y) },
+            cellMetrics = cellMetrics
+        ).also {
+            noteRenderer = it
+        }
     }
 
     private fun initColumnNotes() {
@@ -494,7 +520,6 @@ class PlayerSscHorizontal(
     val MEASURE = height * 0.25
     val MEASUREVANISH = medidaFlechasHorizontal * 3
     private var rangeAlpha = (screen.gdxHeight * 0.1)
-    private val segmentHeight = screen.gdxHeight * 0.001f
     private val heightBodyHead = medidaFlechasHorizontal * 0.3f
     private var middleSizeFlechas = medidaFlechasHorizontal * 0.5f
     private val amplitude = medidaFlechasHorizontal / 3f
@@ -503,183 +528,37 @@ class PlayerSscHorizontal(
     private var offsetX = 0f
 
     private fun drawLongNote(x: Int, y: Int, y2: Int, note: Parser.Note) {
-        when {
-            isAp -> drawLongNoteAp(x, y, y2)
-            isVanish || note.isVanish -> drawLongNoteVanish(x, y, y2)
-            else -> drawLongNoteNormal(x, y, y2)
-        }
-
+        getNoteRenderer().drawHold(
+            note = note,
+            column = x,
+            y = y,
+            y2 = y2,
+            frame = arrowFrame,
+            isAp = isAp,
+            isVanish = isVanish
+        )
     }
 
     private fun drawMines(x: Int, y: Int, note: Parser.Note) {
-        when {
-            isAp -> drawNoteMineAp(x, y)
-            isVanish || note.isVanish -> drawNoteMineVanish(x, y)
-            else -> drawNoteMine(x, y)
-        }
+        getNoteRenderer().drawMine(
+            note = note,
+            column = x,
+            y = y,
+            frame = arrowFrame,
+            isAp = isAp,
+            isVanish = isVanish
+        )
     }
 
     private fun drawNote(x: Int, y: Int, note: Parser.Note) {
-        when {
-            isAp -> drawNoteAp(x, y)
-            isVanish || note.isVanish -> drawNoteVanish(x, y)
-            else -> drawNoteNormal(x, y)
-        }
-    }
-
-    private fun drawLongNoteNormal(x: Int, y: Int, y2: Int) {
-        val left = computeLeft(x, y)
-        val posY = y.toFloat() + middleSizeFlechas
-        val remainingLength = (y2 - y).toFloat()
-        val heightBody = remainingLength - middleSizeFlechas
-
-        val metric = holdMetrics[x][arrowFrame.coerceIn(0, 5)]
-        val widthBody = medidaFlechasHorizontal * metric.widthRatio
-        val leftBody = left + medidaFlechasHorizontal * metric.offsetRatio
-
-        if (heightBody > 0f) {
-            batch.draw(arrArrowsBody[x][arrowFrame], leftBody, posY, widthBody, heightBody)
-        }
-
-        if (remainingLength > heightBodyHead) {
-            batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-        }
-
-        if (y > 0) {
-            batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-        }
-    }
-
-    private fun drawLongNoteVanish(x: Int, y: Int, y2: Int){
-        val left = computeLeft(x, y)
-        val posY = y.toFloat() + middleSizeFlechas
-        var heightBody = (y2 - y).toFloat() - middleSizeFlechas
-        val metric = holdMetrics[x][arrowFrame.coerceIn(0, 5)]
-        val widthBody = medidaFlechasHorizontal * metric.widthRatio
-        val leftBody = left + medidaFlechasHorizontal * metric.offsetRatio
-        var currentY = posY
-        while (currentY < posY + heightBody) {
-            val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
-
-            val alphaSegment = when {
-                currentY > MEASUREVANISH + (medidaFlechasHorizontal * 2) -> 1f
-                currentY >= MEASUREVANISH + (medidaFlechasHorizontal * 2) - rangeAlpha -> {
-                    ((currentY - (MEASUREVANISH + (medidaFlechasHorizontal * 2) - rangeAlpha)) / rangeAlpha)
-                        .toFloat()
-                        .coerceIn(0f, 1f)
-                }
-                else -> 0f
-            }
-
-            if (alphaSegment > 0f) {
-                batch.setColor(1f, 1f, 1f, alphaSegment)
-                batch.draw(arrArrowsBody[x][arrowFrame], leftBody, currentY, widthBody, drawHeight)
-            }
-
-            currentY += drawHeight
-        }
-        batch.setColor(1f, 1f, 1f, 1f)
-
-        if (posY + heightBody > MEASUREVANISH) {
-            batch.setColor(1f, 1f, 1f, getVanishAlpha(y2.toFloat()))
-
-            val shouldDrawBottom = (y2 - y) > (heightBodyHead)
-            if (shouldDrawBottom) {
-                batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            }
-        }
-        if (posY > MEASUREVANISH) {
-            if (y > 0) {
-                batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
-                batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            }
-
-            batch.setColor(1f, 1f, 1f, 1f)
-        }
-    }
-
-    private fun drawLongNoteAp(x: Int, y: Int, y2: Int){
-        val left = computeLeft(x, y)
-        val posY = y.toFloat() + middleSizeFlechas
-        var heightBody = (y2 - y).toFloat() - middleSizeFlechas
-        val metric = holdMetrics[x][arrowFrame.coerceIn(0, 5)]
-        val widthBody = medidaFlechasHorizontal * metric.widthRatio
-        val leftBody = left + medidaFlechasHorizontal * metric.offsetRatio
-        if (posY < MEASURE) {
-            if (posY + heightBody > MEASURE) {
-                heightBody = (MEASURE - posY).toFloat()
-            }
-            var currentY = posY
-            while (currentY < posY + heightBody) {
-                val alphaSegment = getAlpha(currentY, MEASURE)
-                val drawHeight = minOf(segmentHeight, posY + heightBody - currentY)
-                batch.setColor(1f, 1f, 1f, alphaSegment)
-                batch.draw(arrArrowsBody[x][arrowFrame], leftBody, currentY, widthBody, drawHeight)
-                currentY += drawHeight
-            }
-
-            if (y2 < MEASURE) {
-                batch.setColor(1f, 1f, 1f, getAlpha(y2.toFloat(), MEASURE))
-                val shouldDrawBottom = (y2 - y) > (heightBodyHead)
-                if (shouldDrawBottom) {
-                    batch.draw(arrArrowsBottom[x][arrowFrame], left, y2.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-                }
-            }
-
-            if (y > 0) {
-                batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
-                batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            }
-            batch.setColor(1f, 1f, 1f, 1f)
-        }
-    }
-
-    private fun drawNoteNormal(x: Int, y: Int){
-        val left = computeLeft(x, y)
-        batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-    }
-
-    private fun drawNoteVanish(x: Int, y: Int){
-        val left = computeLeft(x, y)
-        if (y > MEASUREVANISH) {
-            batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
-            batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.setColor(1f, 1f, 1f, 1f)
-        }
-
-    }
-
-    private fun drawNoteAp(x: Int, y: Int){
-        val left = computeLeft(x, y)
-        if (y < MEASURE) {
-            batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
-            batch.draw(arrArrows[x][arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.setColor(1f, 1f, 1f, 1f)
-        }
-    }
-
-    private fun drawNoteMine(x: Int, y: Int){
-        val left = computeLeft(x, y)
-        batch.draw(arrMines[arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-
-    }
-
-    private fun drawNoteMineVanish(x: Int, y: Int){
-        val left = computeLeft(x, y)
-        if (y > MEASUREVANISH) {
-            batch.setColor(1f, 1f, 1f, getVanishAlpha(y.toFloat()))
-            batch.draw(arrMines[arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.setColor(1f, 1f, 1f, 1f)
-        }
-    }
-
-    private fun drawNoteMineAp(x: Int, y: Int){
-        val left = computeLeft(x, y)
-        if (y < MEASURE) {
-            batch.setColor(1f, 1f, 1f, getAlpha(y.toFloat(), MEASURE))
-            batch.draw(arrMines[arrowFrame], left, y.toFloat(), medidaFlechasHorizontal, medidaFlechasHorizontal)
-            batch.setColor(1f, 1f, 1f, 1f)
-        }
+        getNoteRenderer().drawTap(
+            note = note,
+            column = x,
+            y = y,
+            frame = arrowFrame,
+            isAp = isAp,
+            isVanish = isVanish
+        )
     }
 
     private fun computeLeft(x: Int, y: Int): Float {
@@ -693,14 +572,6 @@ class PlayerSscHorizontal(
         }
 
         return baseX + offsetX + luaNotes.screenX
-    }
-
-    private fun getAlpha(y: Float, init: Double): Float {
-        return ((init - y) / rangeAlpha).toFloat().coerceIn(0f, 1f)
-    }
-
-    private fun getVanishAlpha(y: Float): Float {
-        return ((y - MEASUREVANISH) / rangeAlpha).toFloat().coerceIn(0f, 1f)
     }
 
     private fun drawFlare(x: Int, frame: Int) {
@@ -742,24 +613,6 @@ class PlayerSscHorizontal(
 
     private val flareSprites = Array(flareArrowFrame.size) { i ->
         Sprite(flareArrowFrame[i])
-    }
-
-    private fun calculateAlphaAndZoom(elapsedTime: Long): Pair<Float, Float> {
-        val phaseDuration = 360 / 3
-        return when {
-            elapsedTime < phaseDuration -> {
-                val progress = elapsedTime / phaseDuration.toFloat()
-                1.0f - 0.4f * progress to 1.0f - 0.2f * progress
-            }
-            elapsedTime < 2 * phaseDuration -> {
-                val progress = (elapsedTime - phaseDuration) / phaseDuration.toFloat()
-                0.6f - 0.3f * progress to 0.8f + 0.2f * progress
-            }
-            else -> {
-                val progress = (elapsedTime - 2 * phaseDuration) / phaseDuration.toFloat()
-                0.3f - 0.3f * progress to 1.0f - 0.2f * progress
-            }
-        }
     }
 
     private val expandDuration = 0.18f
@@ -1025,167 +878,82 @@ class PlayerSscHorizontal(
 
     private fun getArrows3x2(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
         val tmp = TextureRegion.split(arrow, arrow.width / 3, arrow.height / 2)
-        val textureData = arrow.textureData
-
-        if (!textureData.isPrepared) textureData.prepare()
-        val pixmap = textureData.consumePixmap()
-
-        try {
-            val frames = arrayOf(
-                trimFrame(tmp[0][0], pixmap), trimFrame(tmp[0][1], pixmap), trimFrame(tmp[0][2], pixmap),
-                trimFrame(tmp[1][0], pixmap), trimFrame(tmp[1][1], pixmap), trimFrame(tmp[1][2], pixmap)
-            )
-            frames.forEach { it.flip(isMirror, true) }
-            return frames
-        } finally {
-            if (textureData.disposePixmap()) pixmap.dispose()
-        }
+        val frames = arrayOf(tmp[0][0], tmp[0][1], tmp[0][2], tmp[1][0], tmp[1][1], tmp[1][2])
+        frames.forEach { it.flip(isMirror, true) }
+        return frames
     }
 
     private fun getArrows6x1Flare(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
-        arrow.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         val tmp = TextureRegion.split(arrow, arrow.width / 6, arrow.height)
-        return if (!isMirror) {
-            val frames = arrayOf(
-                tmp[0][0], tmp[0][1], tmp[0][2],
-                tmp[0][3], tmp[0][4], tmp[0][5]
-            )
-            frames.forEach { it.flip(false, true) }
-            frames
-        } else {
-            val frames = arrayOf(
-                tmp[0][0], tmp[0][1], tmp[0][2],
-                tmp[0][3], tmp[0][4], tmp[0][5]
-            )
-            frames.forEach { it.flip(true, true) }
-            frames
-        }
+        val frames = arrayOf(tmp[0][0], tmp[0][1], tmp[0][2], tmp[0][3], tmp[0][4], tmp[0][5])
+        frames.forEach { it.flip(isMirror, true) }
+        return frames
     }
 
-    private fun getArrows6x1(
-        arrow: Texture,
-        isMirror: Boolean = false,
-        metricsColumn: Int? = null
-    ): Array<TextureRegion> {
-        arrow.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+    private fun getArrows6x1(arrow: Texture, isMirror: Boolean = false): Array<TextureRegion> {
         val tmp = TextureRegion.split(arrow, arrow.width / 6, arrow.height)
-        val textureData = arrow.textureData
+        val frames = arrayOf(tmp[0][0], tmp[0][1], tmp[0][2], tmp[0][3], tmp[0][4], tmp[0][5])
+        frames.forEach { it.flip(isMirror, true) }
+        return frames
+    }
 
+    private fun buildCellMetrics(): Array<GameScreenSsc.NoteCellMetrics> {
+        val ld = calculateReceptorCellMetrics(screen.recept0Frames[0].texture, false)
+        val lu = calculateReceptorCellMetrics(screen.recept1Frames[0].texture, false)
+        val ce = calculateReceptorCellMetrics(screen.recept2Frames[0].texture, false)
+        val ru = calculateReceptorCellMetrics(screen.recept3Frames[0].texture, true)
+        val rd = calculateReceptorCellMetrics(screen.recept4Frames[0].texture, true)
+        return arrayOf(ld, lu, ce, ru, rd)
+    }
+
+    private data class ReceptorBounds(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
+        val width get() = maxX - minX + 1
+        val height get() = maxY - minY + 1
+    }
+
+    private fun calculateReceptorCellMetrics(texture: Texture, isMirror: Boolean, alphaThreshold: Int = 1): GameScreenSsc.NoteCellMetrics {
+        val frame = TextureRegion(texture, 0, 0, texture.width, texture.height / 3)
+        val textureData = texture.textureData
         if (!textureData.isPrepared) textureData.prepare()
         val pixmap = textureData.consumePixmap()
 
         try {
-            val sourceFrames = arrayOf(
-                tmp[0][0], tmp[0][1], tmp[0][2],
-                tmp[0][3], tmp[0][4], tmp[0][5]
-            )
+            val sourceX = frame.regionX
+            val sourceY = frame.regionY
+            val sourceWidth = frame.regionWidth
+            val sourceHeight = frame.regionHeight
+            var minX = sourceWidth
+            var minY = sourceHeight
+            var maxX = -1
+            var maxY = -1
 
-            if (metricsColumn != null && metricsColumn in 0..4) {
-                for (i in sourceFrames.indices) {
-                    val metric = calculateHoldMetrics(sourceFrames[i], pixmap)
-                    holdMetrics[metricsColumn][i] = if (isMirror) {
-                        HoldMetrics(
-                            widthRatio = metric.widthRatio,
-                            offsetRatio = (1f - metric.offsetRatio - metric.widthRatio).coerceIn(0f, 1f)
-                        )
-                    } else {
-                        metric
+            for (py in 0 until sourceHeight) {
+                for (px in 0 until sourceWidth) {
+                    val alpha = pixmap.getPixel(sourceX + px, sourceY + py) and 0xFF
+                    if (alpha >= alphaThreshold) {
+                        if (px < minX) minX = px
+                        if (py < minY) minY = py
+                        if (px > maxX) maxX = px
+                        if (py > maxY) maxY = py
                     }
                 }
             }
 
-            val frames = Array(6) { i -> trimFrame(sourceFrames[i], pixmap) }
-            frames.forEach { it.flip(isMirror, true) }
-            return frames
+            val bounds = if (maxX < minX || maxY < minY) ReceptorBounds(0, 0, sourceWidth - 1, sourceHeight - 1)
+            else ReceptorBounds(minX, minY, maxX, maxY)
+            val cellWidth = sourceWidth.toFloat()
+            val cellHeight = sourceHeight.toFloat()
+            val offsetX = if (isMirror) (sourceWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
+
+            return GameScreenSsc.NoteCellMetrics(
+                visibleWidthRatio = bounds.width / cellWidth,
+                visibleHeightRatio = bounds.height / cellHeight,
+                visibleOffsetXRatio = offsetX,
+                visibleOffsetYRatio = bounds.minY / cellHeight
+            )
         } finally {
             if (textureData.disposePixmap()) pixmap.dispose()
         }
-    }
-
-    private fun calculateHoldMetrics(
-        sourceRegion: TextureRegion,
-        pixmap: Pixmap,
-        alphaThreshold: Int = 1
-    ): HoldMetrics {
-        val sourceX = sourceRegion.regionX
-        val sourceY = sourceRegion.regionY
-        val sourceWidth = sourceRegion.regionWidth
-        val sourceHeight = sourceRegion.regionHeight
-
-        var trimMinX = sourceWidth
-        var trimMinY = sourceHeight
-        var trimMaxX = -1
-        var trimMaxY = -1
-
-        for (y in 0 until sourceHeight) {
-            for (x in 0 until sourceWidth) {
-                val alpha = pixmap.getPixel(sourceX + x, sourceY + y) and 0xFF
-                if (alpha >= alphaThreshold) {
-                    if (x < trimMinX) trimMinX = x
-                    if (y < trimMinY) trimMinY = y
-                    if (x > trimMaxX) trimMaxX = x
-                    if (y > trimMaxY) trimMaxY = y
-                }
-            }
-        }
-
-        if (trimMaxX < trimMinX || trimMaxY < trimMinY) return HoldMetrics(1f, 0f)
-
-        val firstRow = trimMinY
-        var lineMinX = sourceWidth
-        var lineMaxX = -1
-
-        for (x in trimMinX..trimMaxX) {
-            val alpha = pixmap.getPixel(sourceX + x, sourceY + firstRow) and 0xFF
-            if (alpha >= alphaThreshold) {
-                if (x < lineMinX) lineMinX = x
-                if (x > lineMaxX) lineMaxX = x
-            }
-        }
-
-        if (lineMaxX < lineMinX) return HoldMetrics(1f, 0f)
-
-        val trimmedWidth = trimMaxX - trimMinX + 1
-        val lineWidth = lineMaxX - lineMinX + 1
-
-        return HoldMetrics(
-            widthRatio = (lineWidth.toFloat() / trimmedWidth).coerceIn(0f, 1f),
-            offsetRatio = ((lineMinX - trimMinX).toFloat() / trimmedWidth).coerceIn(0f, 1f)
-        )
-    }
-
-    private fun trimFrame(
-        sourceRegion: TextureRegion,
-        pixmap: Pixmap,
-        alphaThreshold: Int = 1
-    ): TextureRegion {
-        val sourceX = sourceRegion.regionX
-        val sourceY = sourceRegion.regionY
-        val sourceWidth = sourceRegion.regionWidth
-        val sourceHeight = sourceRegion.regionHeight
-
-        var minX = sourceWidth
-        var minY = sourceHeight
-        var maxX = -1
-        var maxY = -1
-
-        for (y in 0 until sourceHeight) {
-            for (x in 0 until sourceWidth) {
-                val alpha = pixmap.getPixel(sourceX + x, sourceY + y) and 0xFF
-                if (alpha >= alphaThreshold) {
-                    if (x < minX) minX = x
-                    if (y < minY) minY = y
-                    if (x > maxX) maxX = x
-                    if (y > maxY) maxY = y
-                }
-            }
-        }
-
-        if (maxX < minX || maxY < minY) return TextureRegion(sourceRegion, 0, 0, 1, 1)
-
-        val trimmedWidth = maxX - minX + 1
-        val trimmedHeight = maxY - minY + 1
-        return TextureRegion(sourceRegion, minX, minY, trimmedWidth, trimmedHeight)
     }
 
     fun disposePlayer() {
@@ -1221,6 +989,8 @@ class PlayerSscHorizontal(
         }
         sprFlare.dispose()
         curCombo = 0
+        noteRenderer?.dispose()
+        noteRenderer = null
         inputProcessor.dispose()
 
     }
