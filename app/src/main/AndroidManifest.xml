@@ -13,33 +13,39 @@
 
     <application
         android:name=".FingerDanceApp"
-        android:allowBackup="true"
         android:allowAudioPlaybackCapture="true"
+        android:allowBackup="true"
         android:appCategory="game"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.FingerDance"
-        android:requestLegacyExternalStorage="true"
         tools:targetApi="36">
+        <activity
+            android:name=".HelpTutorialActivity"
+            android:exported="false" />
+        <activity
+            android:name=".HelpActivity"
+            android:exported="false" />
         <activity
             android:name=".BluetoothLatencyProfilesActivity"
             android:exported="false"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait" />
         <activity
             android:name=".BluetoothLatencyActivity"
             android:exported="false"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait" />
         <activity
             android:name=".LoadResourcesActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="sensor" />
         <activity
             android:name=".SelectSongHorizontal"
-            android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
             android:launchMode="singleTop"
             android:screenOrientation="landscape" />
         <activity
@@ -59,8 +65,8 @@
             android:exported="false" />
         <activity
             android:name=".DanceGradeHorizontal"
-            android:screenOrientation="landscape"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".BreakDance"
             android:exported="false" />
@@ -76,10 +82,10 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
         <activity
             android:name=".SelectSong"
-            android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait" />
         <activity
             android:name=".SelectSongOnline"
             android:exported="false" />

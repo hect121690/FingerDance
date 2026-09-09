@@ -96,7 +96,7 @@
     <string name="title_update_dialog">Actualización Finger Dance %1$s</string>
 
     <string name="message_update">
-         • El modo Online 1vs1 ahora sincroniza los canales disponibles de ambos jugadores y sólo muestra aquellos que ambos tengan instalados y sean compatibles.\n\n
+        • El modo Online 1vs1 ahora sincroniza los canales disponibles de ambos jugadores y sólo muestra aquellos que ambos tengan instalados y sean compatibles.\n\n
         • Se mejoró el proceso de creación y unión a salas Online para sincronizar correctamente la información de ambos jugadores antes de comenzar la partida.\n\n
         • Se mejoró la precisión y respuesta de las notas al presionar los paneles, especialmente en canciones rápidas y patrones muy densos.\n\n
         • Se ajustaron las ventanas de juicio para ofrecer una respuesta más precisa y consistente durante la partida.\n\n

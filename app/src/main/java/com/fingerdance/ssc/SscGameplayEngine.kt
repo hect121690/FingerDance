@@ -124,6 +124,10 @@ class SscGameplayEngine(
         // Al recatch se rearma para permitir un MISS en un drop posterior.
         var bodyMissEmitted: Boolean = false,
 
+        // Estado físico del panel en el frame anterior.
+        // Nos permite distinguir un RECATCH real de simplemente seguir sostenido.
+        var physicallyHeldLastFrame: Boolean = false,
+        var tailProcessed: Boolean = false,
         // Blindaje: un checkpoint musical jamás se procesa dos veces.
         val processedTickRows: MutableSet<Long> = mutableSetOf()
     )
@@ -432,16 +436,23 @@ class SscGameplayEngine(
             // Tail: NO da PERFECT extra. Sólo cierra la HOLD.
             // Si la HOLD ya cayó (life=0) pero no hubo checkpoint posterior que
             // cobrara el MISS, el tail puede cobrar ese único MISS pendiente.
-            if (nowBeat >= endBeat) {
+            if (nowBeat >= endBeat && !longNote.tailProcessed) {
+                longNote.tailProcessed = true
+
                 val tailAlive = longNote.holdLife > 0.0
                 val rowKey = rowKeyForBeat(endBeat)
+                val emitMiss = !tailAlive && !longNote.bodyMissEmitted
+
+                if (emitMiss) {
+                    longNote.bodyMissEmitted = true
+                }
 
                 bottomRows.getOrPut(rowKey) { mutableListOf() }.add(
                     HoldRowEntry(
                         column = column,
                         note = note,
                         checkpointHit = tailAlive,
-                        emitMiss = !tailAlive && !longNote.bodyMissEmitted
+                        emitMiss = emitMiss
                     )
                 )
             }
@@ -504,6 +515,8 @@ class SscGameplayEngine(
             }
         }
     }
+
+
 
     /**
      * Devuelve TODOS los checkpoints de HOLD cruzados entre (fromBeat, toBeat].
@@ -591,21 +604,33 @@ class SscGameplayEngine(
     }
 
     private fun finishLongNoteWithoutJudge(column: Int, note: Parser.Note) {
-        if (finishedHolds.contains(note)) return
-
-        finishedHolds.add(note)
-        releasedHoldBeat.remove(note)
-        holdCompletedThisFrame.add(note)
-
         val longNote = longNotes[column]
 
+        /*
+         * MUY IMPORTANTE:
+         * limpiamos siempre el estado activo aunque finishedHolds
+         * ya contenga esta nota.
+         */
         if (longNote.note === note) {
             longNote.pressed = false
             longNote.note = null
 
-            val endBeat = note.endBeat ?: longNote.lastTickBeat
+            val endBeat =
+                note.endBeat ?: longNote.lastTickBeat
+
             longNote.lastTickBeat = endBeat
+            longNote.holdLife = 0.0
+            longNote.tailProcessed = true
         }
+
+        releasedHoldBeat.remove(note)
+
+        // A partir de aquí sí evitamos notificar dos veces.
+        if (!finishedHolds.add(note)) {
+            return
+        }
+
+        holdCompletedThisFrame.add(note)
 
         listener.onHoldFinished(column, note)
     }
@@ -618,13 +643,18 @@ class SscGameplayEngine(
             val longNote = longNotes[column]
             if (!longNote.pressed || longNote.note == null) continue
 
-            if (isColumnPhysicallyHeld(column)) {
+            val physicallyHeld = isColumnPhysicallyHeld(column)
+
+            if (physicallyHeld) {
                 val wasDropped = longNote.holdLife <= 0.0
+
+                // TRUE únicamente cuando pasamos realmente de suelto -> pisado.
+                val isRealRecatch = !longNote.physicallyHeldLastFrame
+
                 longNote.holdLife = 1.0
 
-                // Recatch real: vuelve a habilitar un único MISS para un
-                // eventual drop posterior.
-                if (wasDropped) {
+                // Sólo una transición física nueva rearma el MISS.
+                if (wasDropped && isRealRecatch) {
                     longNote.bodyMissEmitted = false
                 }
 
@@ -634,6 +664,8 @@ class SscGameplayEngine(
                 longNote.holdLife =
                     (longNote.holdLife - drain).coerceAtLeast(0.0)
             }
+
+            longNote.physicallyHeldLastFrame = physicallyHeld
         }
     }
 
@@ -1184,14 +1216,13 @@ class SscGameplayEngine(
         longNote.checkpointsHit = 0
         longNote.checkpointsMissed = 0
         longNote.bodyMissEmitted = false
+
+        longNote.physicallyHeldLastFrame = isColumnPhysicallyHeld(column)
+        longNote.tailProcessed = false
         longNote.processedTickRows.clear()
 
         releasedHoldBeat.remove(note)
-
-        // Si fue recatch después de una cabeza perdida, empezamos desde el beat
-        // del recatch y jamás regalamos checkpoints anteriores.
         longNote.lastTickBeat = max(note.beat, scanFromBeat)
-
         listener.onHoldStarted(column, note)
     }
 

@@ -9,7 +9,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PorterDuff
-import android.graphics.SurfaceTexture
 import android.graphics.Typeface
 import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.BitmapDrawable
@@ -24,7 +23,6 @@ import android.os.CountDownTimer
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -117,9 +115,6 @@ private val sequencePattern = listOf(false, true, false, true, false, true)
 private var contador = 0
 
 private val handler = Handler(Looper.getMainLooper())
-private val handlerContador = Handler(Looper.getMainLooper())
-
-private var reductor = 100
 
 private val startTimeMs = 30000
 private var timer: CountDownTimer? = null
@@ -215,7 +210,6 @@ class SelectSong : AppCompatActivity() {
 
     private lateinit var bgaSelectSong: VideoView
     private lateinit var overlayBG: View
-    private lateinit var imgContador: ImageView
     private lateinit var imgFavorite : ImageView
     private lateinit var bitIsFavorite : Bitmap
     private lateinit var bitNotFavorite: Bitmap
@@ -414,11 +408,6 @@ class SelectSong : AppCompatActivity() {
 
         linearLvs.layoutParams.width = (commandWindow.layoutParams.width / 10) * 11
         sizeLvs = linearLvs.layoutParams.width / 9
-
-        imgContador = findViewById(R.id.imgContador)
-        imgContador.layoutParams.height = (sizeLvs * .45).toInt()
-
-        iniciarContador()
 
         indicatorLayout = findViewById(R.id.indicatorImageView)
         indicatorLayout.setImageBitmap(AppResources.bmIndicator)
@@ -2324,69 +2313,7 @@ class SelectSong : AppCompatActivity() {
 
     }
 
-    private fun iniciarContador() {
-        handlerContador.postDelayed(runnableContador, 0)
-    }
-    private val runnableContador: Runnable = object : Runnable {
-        override fun run() {
-            actualizarImagenNumero(reductor)
-            reductor--
-            if(isCounter){
-                handlerContador.postDelayed(this, 1000)
-                if(reductor < 0){
-                    detenerContador()
-                    if(ready == 1){
-                        if(commandWindow.isVisible){
-                            showCommandWindow(false)
-                        }
-                        imgAceptar.performClick()
-                    }
-                    if(ready == 0){
-                        if(commandWindow.isVisible){
-                            showCommandWindow(false)
-                        }
-                        imgAceptar.performClick()
-                        imgAceptar.performClick()
-                    }
 
-                }
-            }else{
-                detenerContador()
-            }
-        }
-    }
-
-    private fun actualizarImagenNumero(numero: Int) {
-        val unidad = numero % 10
-        val decena = numero / 10
-        val bitmapUnidad = dividirPNG(unidad)
-        val bitmapDecena = dividirPNG(decena)
-        val bitmapNumeroCompleto = combinarBitmaps(bitmapDecena, bitmapUnidad)
-
-        imgContador.setImageBitmap(bitmapNumeroCompleto)
-    }
-
-    private fun dividirPNG(digito: Int): Bitmap {
-        val anchoTotal = AppResources.bitmapNumber.width
-        val anchoDigito = anchoTotal / 10
-        val x = anchoDigito * digito
-        return Bitmap.createBitmap(AppResources.bitmapNumber, x, 0, anchoDigito, AppResources.bitmapNumber.height)
-    }
-
-    private fun combinarBitmaps(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
-        val anchoTotal = bitmap1.width + bitmap2.width
-        val bitmapCombinado = Bitmap.createBitmap(anchoTotal, bitmap1.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmapCombinado)
-        canvas.drawBitmap(bitmap1, 0f, 0f, null)
-        canvas.drawBitmap(bitmap2, bitmap1.width.toFloat(), 0f, null)
-        return bitmapCombinado
-    }
-
-    private fun detenerContador() {
-        handlerContador.removeCallbacks(runnableContador)
-        handlerContador.postDelayed(runnableContador, 1000)
-        reductor = 99
-    }
 
     private val runnable: Runnable = object : Runnable {
         override fun run() {
@@ -2777,11 +2704,11 @@ class SelectSong : AppCompatActivity() {
             if(mediaPlayerVideo.isPlaying) mediaPlayerVideo.stop()
             mediaPlayerVideo.release()
         }
-        handlerContador.removeCallbacksAndMessages(null)
+
         handler.removeCallbacksAndMessages(null)
         timer?.cancel()
         resetRunnable()
-        detenerContador()
+
         finish()
         overridePendingTransition(0,R.anim.anim_command_window_off)
     }
@@ -3169,7 +3096,6 @@ class SelectSong : AppCompatActivity() {
         activityResumed = false
         songSelectionJob?.cancel()
         handler.removeCallbacks(runnable)
-        handlerContador.removeCallbacks(runnableContador)
         isRunning = false
         if (::audioController.isInitialized) audioController.onPause()
         if (::previewController.isInitialized) previewController.onPause()
@@ -3182,7 +3108,6 @@ class SelectSong : AppCompatActivity() {
         super.onResume()
         activityResumed = true
         resetRunnable()
-        detenerContador()
         if (::audioController.isInitialized) audioController.onResume()
         if (::previewController.isInitialized) previewController.onResume()
         if (::carouselController.isInitialized) {
@@ -3205,7 +3130,6 @@ class SelectSong : AppCompatActivity() {
         songSelectionJob?.cancel()
         downloadJob?.cancel()
         handler.removeCallbacksAndMessages(null)
-        handlerContador.removeCallbacksAndMessages(null)
         timer?.cancel()
         if (::transitionController.isInitialized) transitionController.release()
         if (::previewController.isInitialized) previewController.release()

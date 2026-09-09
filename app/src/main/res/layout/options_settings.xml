@@ -88,11 +88,6 @@
                     android:text="Notas a media pantalla" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/btnNoCounter"
-                    style="@style/FingerDanceSwitch"
-                    android:text="Contador SelectSong" />
-
-                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/btnBreakSong"
                     style="@style/FingerDanceSwitch"
                     android:text="Cortar canción" />
@@ -131,6 +126,26 @@
                     app:optionTextColor="#FFFFFF"
                     app:optionTextSize="11dp"
                     app:optionTextStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btnHelp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:gravity="center"
+                    android:layout_gravity="center"
+                    android:text="APRENDER MÁS"
+                    android:textAllCaps="true"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="#F5F5F5"
+                    android:letterSpacing="0.08"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/bg_button_help"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="18dp"
+                    android:paddingEnd="18dp"
+                    android:layout_marginTop="24dp"/>
 
             </LinearLayout>
 
@@ -183,7 +198,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="45dp"
                     android:gravity="center"
-                    android:text="Ultima versión de NoteSkins:"
+                    android:text="Aplicacion creada por y para fans"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold" />
 
@@ -193,7 +208,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:gravity="center"
-                    android:text="Tu versión de NoteSkins:"
+                    android:text="Version 1.0"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold" />
 

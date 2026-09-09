@@ -26,7 +26,8 @@
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:textSize="24sp"
-                android:fontFamily="sans-serif-black" />
+                android:fontFamily="sans-serif-black"
+                android:text="@string/title_update_dialog"/>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -64,7 +65,8 @@
                         android:textColorLink="#00BFFF"
                         android:textSize="15sp"
                         android:lineSpacingExtra="4dp"
-                        android:linksClickable="true" />
+                        android:linksClickable="true"
+                        android:text="@string/message_update"/>
                 </LinearLayout>
 
             </ScrollView>

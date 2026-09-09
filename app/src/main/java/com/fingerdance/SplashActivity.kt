@@ -1391,7 +1391,6 @@ class SplashActivity : AppCompatActivity() {
             valueOffset = themes.getLong("valueOffset", 0L)
             userName = themes.getString("userName", "").orEmpty()
             isMidLine = themes.getBoolean("isMidLine", false)
-            isCounter = themes.getBoolean("isCounter", false)
             breakSong = themes.getBoolean("breakSong", true)
             typePadD = themes.getInt("typePadD", 0)
             numberUpdateLocal = themes.getString("numberUpdateLocal", "0.0.0").orEmpty()

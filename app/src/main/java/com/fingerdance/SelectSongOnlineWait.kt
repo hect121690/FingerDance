@@ -117,7 +117,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
     private lateinit var video_fondo : VideoView
     private lateinit var imgPrev: ImageView
     private lateinit var imageCircle : ImageView
-    private lateinit var imgContador: ImageView
 
     private lateinit var overlayBG: View
     private lateinit var btnAddPreview: Button
@@ -269,9 +268,6 @@ class SelectSongOnlineWait : AppCompatActivity() {
         linearTop.layoutParams.width = ancho
         linearMenus.layoutParams.width = ancho
         linearBottom.layoutParams.width = ancho
-
-        imgContador = findViewById(R.id.imgContador)
-        imgContador.layoutParams.height = (sizeLvs * .45).toInt()
 
         val anchoRecyclerCommands = linearMenus.layoutParams.width / 3
         recyclerCommands.layoutParams.width = anchoRecyclerCommands - (anchoRecyclerCommands / 20)

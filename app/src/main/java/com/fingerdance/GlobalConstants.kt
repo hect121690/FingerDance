@@ -206,7 +206,6 @@ lateinit var validFolders : List<String>
 // ========== VARIABLES GLOBALES - SETTINGS ==========
 lateinit var themes : SharedPreferences
 var isMidLine = false
-var isCounter = false
 var breakSong = true
 var isHorizontalMode = false
 var skinSelected : String = ""

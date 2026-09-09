@@ -193,7 +193,6 @@ class SelectSongOnline : AppCompatActivity() {
 
     private lateinit var bgaSelectSong: VideoView
     private lateinit var overlayBG: View
-    private lateinit var imgContador: ImageView
 
     private lateinit var tipsArray : Array<String>
     private lateinit var txTip : TextView
@@ -397,9 +396,6 @@ class SelectSongOnline : AppCompatActivity() {
 
         linearLvs.layoutParams.width = (commandWindow.layoutParams.width / 10) * 11
         sizeLvs = linearLvs.layoutParams.width / 9
-
-        imgContador = findViewById(R.id.imgContador)
-        imgContador.layoutParams.height = (sizeLvs * .45).toInt()
 
         indicatorLayout = findViewById(R.id.indicatorImageView)
         indicatorLayout.setImageBitmap(AppResources.bmIndicator)

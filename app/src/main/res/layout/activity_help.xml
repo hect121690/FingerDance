@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#02070D">
+
+    <!-- Fondo -->
+    <ImageView
+        android:id="@+id/imgBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.30"
+        android:background="#02070D" />
+
+    <!-- Oscurecimiento -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#55000000" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- CABECERA -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="82dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp">
+
+            <ImageView
+                android:id="@+id/btnBack"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:padding="10dp"
+                android:src="@drawable/ic_help_back"
+                android:background="@drawable/bg_help_back"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CENTRO DE AYUDA"
+                    android:textColor="#F5F5F5"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="¿Qué quieres aprender?"
+                    android:textColor="#16DDF3"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+
+        </RelativeLayout>
+
+        <!-- línea neon -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="28dp"
+            android:layout_marginEnd="28dp"
+            android:background="#16DDF3" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:clipToPadding="false">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="18dp"
+                android:paddingTop="20dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="28dp">
+
+                <!-- FILA 1 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/cardOnline"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_online" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="MODO ONLINE" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Como jugar Online 1 vs 1" />
+
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="12dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:id="@+id/cardPreviewBga"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_video" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="PREVIEWS Y BGAs" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Descarga, reemplaza o elimina videos" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- FILA 2 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/cardRanking"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_ranking" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="RANKING GLOBAL" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Consulta los mejores puntajes" />
+
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="12dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:id="@+id/cardSettings"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_settings" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="AJUSTES" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Personaliza Finger Dance" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- FILA 3 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/cardCommandWindow"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_command" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="COMMAND WINDOW" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Conoce el Command Window" />
+
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="12dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:id="@+id/cardLoadZip"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_zip" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="CARGAR ZIP SONGS" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Instala canciones desde archivos ZIP" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- FILA 4 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/cardCreateChannels"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_channel" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="CREAR CANALES" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Crear tus propios canales" />
+
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="12dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:id="@+id/cardDownloadContent"
+                        style="@style/HelpCard"
+                        android:layout_width="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:src="@drawable/ic_help_download" />
+
+                        <TextView
+                            style="@style/HelpCardTitle"
+                            android:text="DESCARGAR CONTENIDO" />
+
+                        <TextView
+                            style="@style/HelpCardDescription"
+                            android:text="Canciones y temas" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </ScrollView>
+
+    </LinearLayout>
+
+    <!-- BIENVENIDA HELP -->
+    <FrameLayout
+        android:id="@+id/welcomeOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#B8000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="20dp">
+
+        <LinearLayout
+            android:id="@+id/welcomeContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="28dp">
+
+            <TextView
+                android:id="@+id/txtWelcomeHelp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:paddingStart="22dp"
+                android:paddingEnd="22dp"
+                android:paddingTop="18dp"
+                android:paddingBottom="18dp"
+                android:gravity="center"
+                android:text="Hola, soy tu guía en Finger Dance. Te enseñaré algunos trucos para que aproveches todas las funciones del juego. ¿Listo? ¡Vamos!"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:lineSpacingExtra="3dp"
+                android:background="@drawable/bg_help_welcome_dialog" />
+
+            <ImageView
+                android:id="@+id/imgWelcomeGirl"
+                android:layout_width="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginTop="8dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/chica_welcome_help"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/btnAcceptHelp"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:gravity="center"
+                android:layout_gravity="center"
+                android:text="ACEPTAR"
+                android:textAllCaps="true"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#F5F5F5"
+                android:letterSpacing="0.08"
+                android:fontFamily="sans-serif-medium"
+                android:background="@drawable/bg_button_help"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:layout_marginBottom="24dp"/>
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</FrameLayout>

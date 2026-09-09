@@ -1330,10 +1330,10 @@ class MainActivity : AppCompatActivity(), Serializable {
                 unzipContent()
             } else {
                 Toast.makeText(this, "Error en la descarga", Toast.LENGTH_LONG).show()
-                createMain(startOnline)
+                createMain()
             }
         } else {
-            createMain(startOnline)
+            createMain()
         }
     }
 
@@ -1346,7 +1346,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             numberUpdateLocal = numberUpdateFirebase
         }
 
-        createMain(startOnline)
+        createMain()
     }
 
     private fun showForceUpdateDialog() {
@@ -1445,7 +1445,7 @@ class MainActivity : AppCompatActivity(), Serializable {
         }
     }
 
-    private fun createMain(startOnline: Boolean){
+    private fun createMain(){
         linearDownload.isVisible = false
         lbDescargando.isVisible = false
         progressBar.isVisible = false
@@ -1495,7 +1495,7 @@ class MainActivity : AppCompatActivity(), Serializable {
             lpExit.verticalBias = 0.85f
         }
 
-        if (!startOnline) {
+        if (isOffline) {
             btnPlayOnline.visibility = View.GONE
             if (isHorizontalMode) {
                 lpPlay.verticalBias = 0.25f

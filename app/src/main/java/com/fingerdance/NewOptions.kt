@@ -1,5 +1,6 @@
 package com.fingerdance
 
+import android.R.attr.singleLine
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -622,17 +623,107 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
 
     private fun setupInstallChannels(view: View) {
         val btnInstallChannel = view.findViewById<Button>(R.id.installChannel)
+
         btnInstallChannel.setOnClickListener {
-            AlertDialog.Builder(requireContext())
-                .setTitle("Instalar canal")
-                .setMessage("Seleccione el archivo ZIP del canal que desea instalar.")
-                .setPositiveButton("Continuar") { _, _ ->
-                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            val colorCyan = Color.rgb(0, 229, 255)
+            val colorText = Color.rgb(225, 225, 235)
+            val colorCard = Color.argb(90, 8, 12, 32)
+            val colorBorder = Color.argb(130, 0, 229, 255)
+
+            val container = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(28, 18, 28, 14)
+            }
+
+            val title = TextView(requireContext()).apply {
+                text = "CARGAR CANAL ZIP"
+                setTextColor(Color.WHITE)
+                textSize = 21f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
+                setPadding(0, 4, 0, 18)
+            }
+
+            val card = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(22, 18, 22, 18)
+                background = neonCardDrawable(colorCard, colorBorder, 1)
+            }
+
+            val description = TextView(requireContext()).apply {
+                text = "Selecciona el archivo ZIP del canal que deseas instalar."
+                setTextColor(colorText)
+                textSize = 15f
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, 12)
+            }
+
+            val detail = TextView(requireContext()).apply {
+                text = "Finger Dance copiará y descomprimirá automáticamente su contenido."
+                setTextColor(Color.WHITE)
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, 12)
+            }
+
+            val requirement = TextView(requireContext()).apply {
+                text = "El archivo debe estar en formato .ZIP y debe contener una carpeta info con su archivo text.ini y su banner.png para canciones SSC.\n\n" +
+                        "Para Canciones KSF, la carpeta debe ser info_ksf y el banner debe ser banner_ksf"
+                setTextColor(colorCyan)
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setShadowLayer(3f, 0f, 0f, Color.argb(160, 0, 229, 255))
+            }
+
+            card.addView(description)
+            card.addView(detail)
+            card.addView(requirement)
+
+            container.addView(title)
+            container.addView(card)
+
+            val dialog = AlertDialog.Builder(
+                requireContext(),
+                R.style.TransparentDialog
+            )
+                .setView(container)
+                .setCancelable(true)
+                .setPositiveButton("SELECCIONAR ZIP", null)
+                .setNegativeButton("CANCELAR", null)
+                .create()
+
+            dialog.setOnShowListener {
+                val positive =
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+
+                val negative =
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+
+                positive.setTextColor(colorCyan)
+                positive.typeface = Typeface.DEFAULT_BOLD
+
+                negative.setTextColor(Color.WHITE)
+                negative.typeface = Typeface.DEFAULT_BOLD
+
+                positive.setOnClickListener {
+                    dialog.dismiss()
+
+                    val intent = Intent(
+                        Intent.ACTION_OPEN_DOCUMENT
+                    ).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "application/zip"
+
                         putExtra(
                             DocumentsContract.EXTRA_INITIAL_URI,
-                            Uri.fromFile(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS))
+                            Uri.fromFile(
+                                Environment.getExternalStoragePublicDirectory(
+                                    Environment.DIRECTORY_DOWNLOADS
+                                )
+                            )
                         )
                     }
 
@@ -641,28 +732,113 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
                         1001
                     )
                 }
+            }
 
-                .setNegativeButton("Cancelar", null)
-                .show()
+            dialog.show()
         }
     }
 
     private fun showCreateChannelDialog() {
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
 
-        val options = arrayOf("Canal KSF", "Canal SSC", "Cancelar")
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 18, 28, 14)
+        }
 
-        AlertDialog.Builder(requireContext())
-            .setTitle("Crear Canal")
-            .setItems(options) { dialog, which ->
+        val title = TextView(requireContext()).apply {
+            text = "CREAR CANAL"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
+            setPadding(0, 4, 0, 8)
+        }
 
-                when (which) {
-                    0 -> createChannelKSF()
-                    1 -> createChannelSSC()
-                    2 -> dialog.dismiss()
-                }
+        val description = TextView(requireContext()).apply {
+            text = "Selecciona el tipo de canal que deseas crear."
+            setTextColor(Color.rgb(220, 220, 230))
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(4, 0, 4, 20)
+        }
+
+        val btnKsf = TextView(requireContext()).apply {
+            text = "CANAL KSF\nFormato clásico"
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(20, 16, 20, 16)
+            setShadowLayer(3f, 0f, 0f, Color.argb(150, 0, 229, 255))
+            background = neonCardDrawable(colorCard, colorBorder, 1)
+
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, 12)
             }
+        }
+
+        val btnSsc = TextView(requireContext()).apply {
+            text = "CANAL SSC\nFormato StepMania / SSC"
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(20, 16, 20, 16)
+
+            setShadowLayer(
+                3f,
+                0f,
+                0f,
+                Color.argb(150, 0, 229, 255)
+            )
+
+            background = neonCardDrawable(
+                colorCard,
+                colorBorder,
+                1
+            )
+        }
+
+        container.addView(title)
+        container.addView(description)
+        container.addView(btnKsf)
+        container.addView(btnSsc)
+
+        val dialog = AlertDialog.Builder(
+            requireContext(),
+            R.style.TransparentDialog
+        )
+            .setView(container)
             .setCancelable(true)
-            .show()
+            .setNegativeButton("CANCELAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(
+                AlertDialog.BUTTON_NEGATIVE
+            ).apply {
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
+            btnKsf.setOnClickListener {
+                dialog.dismiss()
+                createChannelKSF()
+            }
+
+            btnSsc.setOnClickListener {
+                dialog.dismiss()
+                createChannelSSC()
+            }
+        }
+
+        dialog.show()
     }
 
     private fun setupDownloadChannel() {
@@ -1048,49 +1224,178 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun showInputNameChannel() {
+        val colorCyan = Color.rgb(0, 229, 255)
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
+        val colorText = Color.rgb(225, 225, 235)
+
         val layout = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(50, 40, 50, 10)
+            setPadding(28, 18, 28, 14)
+        }
+
+        val title = TextView(requireContext()).apply {
+            text = "DATOS DEL CANAL"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+
+            setShadowLayer(
+                4f,
+                0f,
+                0f,
+                Color.argb(180, 0, 229, 255)
+            )
+
+            setPadding(0, 4, 0, 8)
+        }
+
+        val description = TextView(requireContext()).apply {
+            text = "Ingresa el nombre y una descripción para tu nuevo canal."
+            setTextColor(colorText)
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(4, 0, 4, 20)
         }
 
         val editTextChannel = EditText(requireContext()).apply {
             hint = "Nombre del canal"
+            setHintTextColor(Color.rgb(135, 145, 155))
+            setTextColor(Color.WHITE)
+            textSize = 16f
+
+            setPadding(
+                20,
+                16,
+                20,
+                16
+            )
+
+            background = neonCardDrawable(
+                colorCard,
+                colorBorder,
+                1
+            )
+
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, 12)
+            }
         }
 
         val editTextDescription = EditText(requireContext()).apply {
             hint = "Descripción del canal"
+            setHintTextColor(Color.rgb(135, 145, 155))
+            setTextColor(Color.WHITE)
+            textSize = 16f
+
+            minLines = 2
+            maxLines = 3
+            gravity = Gravity.TOP
+
+            setPadding(
+                20,
+                16,
+                20,
+                16
+            )
+
+            background = neonCardDrawable(
+                colorCard,
+                colorBorder,
+                1
+            )
         }
 
+        layout.addView(title)
+        layout.addView(description)
         layout.addView(editTextChannel)
         layout.addView(editTextDescription)
 
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Crear canal")
-            .setMessage("Por favor, ingresa el nombre y la descripción del canal")
+        val dialog = AlertDialog.Builder(
+            requireContext(),
+            R.style.TransparentDialog
+        )
             .setView(layout)
-            .setPositiveButton("Aceptar") { _, _ ->
-                if (editTextChannel.text.toString().isNotEmpty() && editTextDescription.text.toString().isNotEmpty()) {
-                    nameNewChannel = idNewChannel.toString() + " - " + editTextChannel.text.toString().uppercase()
-                    descriptionNewChannel = editTextDescription.text.toString()
-                    if (getChannelExist()) {
-                        deleteChannelFolder(nameNewChannel)
-                    }
-                    if (createPathNewChannel(requireContext(), nameNewChannel)) {
-                        createTextIni(requireContext())
-                        showSelectIconChannel()
-                    } else {
-                        Toast.makeText(requireContext(), "Ocurrio un error al crear el canal, verifica los permisos de almacenamiento de la aplicación", Toast.LENGTH_SHORT).show()
-                        showInputNameChannel()
-                    }
+            .setCancelable(false)
+            .setPositiveButton("CONTINUAR", null)
+            .setNegativeButton("CANCELAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positive =
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+
+            val negative =
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+
+            positive.setTextColor(colorCyan)
+            positive.typeface = Typeface.DEFAULT_BOLD
+
+            negative.setTextColor(Color.WHITE)
+            negative.typeface = Typeface.DEFAULT_BOLD
+
+            positive.setOnClickListener {
+                val channelName =
+                    editTextChannel.text.toString().trim()
+
+                val channelDescription =
+                    editTextDescription.text.toString().trim()
+
+                if (
+                    channelName.isEmpty() ||
+                    channelDescription.isEmpty()
+                ) {
+                    Toast.makeText(
+                        requireContext(),
+                        "Ingresa el nombre y la descripción del canal",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return@setOnClickListener
+                }
+
+                nameNewChannel =
+                    "$idNewChannel - ${channelName.uppercase()}"
+
+                descriptionNewChannel =
+                    channelDescription
+
+                if (getChannelExist()) {
+                    deleteChannelFolder(
+                        nameNewChannel
+                    )
+                }
+
+                if (
+                    createPathNewChannel(
+                        requireContext(),
+                        nameNewChannel
+                    )
+                ) {
+                    createTextIni(
+                        requireContext()
+                    )
+
+                    dialog.dismiss()
+
+                    showSelectIconChannel()
                 } else {
-                    Toast.makeText(requireContext(), "Por favor, ingresa el nombre y la descripción del canal", Toast.LENGTH_SHORT).show()
-                    showInputNameChannel()
+                    Toast.makeText(
+                        requireContext(),
+                        "Ocurrió un error al crear el canal. Verifica los permisos de almacenamiento.",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-            .setNegativeButton("Cancelar") { dialog, _ ->
+
+            negative.setOnClickListener {
                 dialog.dismiss()
             }
-            .create()
+        }
 
         dialog.show()
     }
@@ -1101,17 +1406,119 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun showSelectIconChannel() {
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Crear canal")
-            .setMessage("A continuación debera seleccionar el icono del canal, debe ser en formato PNG y medir 512x512 ó 1024x1024 px")
-            .setPositiveButton("Aceptar") { _, _ ->
-                pickPreviewFile.launch(arrayOf("image/png"))
+        val colorCyan = Color.rgb(0, 229, 255)
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
+
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 18, 28, 14)
+        }
+
+        val title = TextView(requireContext()).apply {
+            text = "ICONO DEL CANAL"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+
+            setShadowLayer(
+                4f,
+                0f,
+                0f,
+                Color.argb(180, 0, 229, 255)
+            )
+
+            setPadding(0, 4, 0, 18)
+        }
+
+        val card = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+
+            setPadding(
+                22,
+                18,
+                22,
+                18
+            )
+
+            background = neonCardDrawable(
+                colorCard,
+                colorBorder,
+                1
+            )
+        }
+
+        val description = TextView(requireContext()).apply {
+            text = "Selecciona la imagen que se usará como icono del canal."
+            setTextColor(Color.rgb(225, 225, 235))
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 12)
+        }
+
+        val requirement = TextView(requireContext()).apply {
+            text = "PNG · 512x512 o 1024x1024 px"
+            setTextColor(colorCyan)
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+
+            setShadowLayer(
+                3f,
+                0f,
+                0f,
+                Color.argb(150, 0, 229, 255)
+            )
+        }
+
+        card.addView(description)
+        card.addView(requirement)
+
+        container.addView(title)
+        container.addView(card)
+
+        val dialog = AlertDialog.Builder(
+            requireContext(),
+            R.style.TransparentDialog
+        )
+            .setView(container)
+            .setCancelable(false)
+            .setPositiveButton("SELECCIONAR PNG", null)
+            .setNegativeButton("CANCELAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positive =
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+
+            val negative =
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+
+            positive.setTextColor(colorCyan)
+            positive.typeface = Typeface.DEFAULT_BOLD
+
+            negative.setTextColor(Color.WHITE)
+            negative.typeface = Typeface.DEFAULT_BOLD
+
+            positive.setOnClickListener {
+                dialog.dismiss()
+
+                pickPreviewFile.launch(
+                    arrayOf("image/png")
+                )
             }
-            .setNegativeButton("Cancelar") { dialog, _ ->
-                deleteChannelFolder(nameNewChannel)
+
+            negative.setOnClickListener {
+                deleteChannelFolder(
+                    nameNewChannel
+                )
+
                 dialog.dismiss()
             }
-            .create()
+        }
+
         dialog.show()
     }
 
@@ -1157,17 +1564,153 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     }
 
     private fun getSongsToCopy() {
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Crear canal")
-            .setMessage("A continuación selecciona las carpeta donde se encuentras las canciones que quieres agregar al canal")
-            .setPositiveButton("Aceptar") { _, _ ->
+        val colorCyan = Color.rgb(0, 229, 255)
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
+
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 18, 28, 14)
+        }
+
+        val title = TextView(requireContext()).apply {
+            text = "AGREGAR CANCIONES"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+
+            setShadowLayer(
+                4f,
+                0f,
+                0f,
+                Color.argb(180, 0, 229, 255)
+            )
+
+            setPadding(0, 4, 0, 18)
+        }
+
+        val card = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+
+            setPadding(
+                22,
+                18,
+                22,
+                18
+            )
+
+            background = neonCardDrawable(
+                colorCard,
+                colorBorder,
+                1
+            )
+        }
+
+        val description = TextView(requireContext()).apply {
+            text =
+                "Selecciona la carpeta donde se encuentran las canciones que deseas agregar al canal."
+
+            setTextColor(
+                Color.rgb(
+                    225,
+                    225,
+                    235
+                )
+            )
+
+            textSize = 15f
+            gravity = Gravity.CENTER
+
+            setPadding(
+                0,
+                0,
+                0,
+                12
+            )
+        }
+
+        val info = TextView(requireContext()).apply {
+            text =
+                "Finger Dance copiará las carpetas de canciones dentro del nuevo canal."
+
+            setTextColor(colorCyan)
+
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+
+            setShadowLayer(
+                3f,
+                0f,
+                0f,
+                Color.argb(150, 0, 229, 255)
+            )
+        }
+
+        card.addView(description)
+        card.addView(info)
+
+        container.addView(title)
+        container.addView(card)
+
+        val dialog = AlertDialog.Builder(
+            requireContext(),
+            R.style.TransparentDialog
+        )
+            .setView(container)
+            .setCancelable(false)
+            .setPositiveButton(
+                "SELECCIONAR CARPETA",
+                null
+            )
+            .setNegativeButton(
+                "CANCELAR",
+                null
+            )
+            .create()
+
+        dialog.setOnShowListener {
+            val positive =
+                dialog.getButton(
+                    AlertDialog.BUTTON_POSITIVE
+                )
+
+            val negative =
+                dialog.getButton(
+                    AlertDialog.BUTTON_NEGATIVE
+                )
+
+            positive.setTextColor(
+                colorCyan
+            )
+
+            positive.typeface =
+                Typeface.DEFAULT_BOLD
+
+            negative.setTextColor(
+                Color.WHITE
+            )
+
+            negative.typeface =
+                Typeface.DEFAULT_BOLD
+
+            positive.setOnClickListener {
+                dialog.dismiss()
+
                 openFolderPicker()
             }
-            .setNegativeButton("Cancelar") { dialog, _ ->
-                deleteChannelFolder(nameNewChannel)
+
+            negative.setOnClickListener {
+                deleteChannelFolder(
+                    nameNewChannel
+                )
+
                 dialog.dismiss()
             }
-            .create()
+        }
+
         dialog.show()
     }
 
@@ -2430,17 +2973,25 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
         setupBgaGallery(view, pathBgas)
         setupOfflineSwitch(view, thumbColor, trackColor)
         setupMidLineSwitch(view, thumbColor, trackColor)
-        setupCounterSwitch(view, thumbColor, trackColor)
         setupBreakSongSwitch(view, thumbColor, trackColor)
         setupHorizontalMode(view, thumbColor, trackColor)
         setupPlayOrientationSingle(view)
         setupPleyOrientationHalf(view)
+        setupHelpButton(view)
         val holdProgress = view.findViewById<HoldProgressView>(R.id.holdProgress)
         holdProgress.layoutParams.width = (width * 0.5).toInt()
         holdProgress.onHoldComplete = {
             themes.edit().putString("allTunes", "").apply()
         }
         setupUpdateNoteSkins(view)
+    }
+
+    private fun setupHelpButton(view: View) {
+        val btnHelp = view.findViewById<TextView>(R.id.btnHelp)
+        btnHelp.setOnClickListener {
+            val intent = Intent(requireContext(), HelpActivity::class.java)
+            startActivity(intent)
+        }
     }
 
     private fun setupPleyOrientationHalf(view: View) {
@@ -2588,51 +3139,6 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
                     btnBreakSong.isChecked = false
                     breakSong = btnBreakSong.isChecked
                     themes.edit().putBoolean("breakSong", breakSong).apply()
-                    d.dismiss()
-                }
-            }
-            dialog.show()
-        }
-    }
-
-    private fun setupCounterSwitch(view: View, thumbColor: ColorStateList, trackColor: ColorStateList) {
-        val btnNoCounter = view.findViewById<SwitchCompat>(R.id.btnNoCounter)
-        btnNoCounter.layoutParams.width = (width / 10) * 8
-        btnNoCounter.isChecked = isCounter
-        btnNoCounter.thumbTintList = thumbColor
-        btnNoCounter.trackTintList = trackColor
-
-        btnNoCounter.setOnClickListener {
-            val dialog = AlertDialog.Builder(requireContext(), R.style.TransparentDialog).apply {
-                setTitle("Contador Select Song")
-                setCancelable(false)
-            }
-            if (!isCounter) {
-                dialog.setMessage(R.string.MessageCounterOn)
-                dialog.setNegativeButton("Cancelar") { d, _ ->
-                    btnNoCounter.isChecked = false
-                    isCounter = btnNoCounter.isChecked
-                    themes.edit().putBoolean("isCounter", isCounter).apply()
-                    d.dismiss()
-                }
-                dialog.setPositiveButton("Aceptar") { d, _ ->
-                    btnNoCounter.isChecked = true
-                    isCounter = btnNoCounter.isChecked
-                    themes.edit().putBoolean("isCounter", isCounter).apply()
-                    d.dismiss()
-                }
-            } else {
-                dialog.setMessage(R.string.MessageCounterOff)
-                dialog.setNegativeButton("Cancelar") { d, _ ->
-                    btnNoCounter.isChecked = true
-                    isCounter = btnNoCounter.isChecked
-                    themes.edit().putBoolean("isCounter", isCounter).apply()
-                    d.dismiss()
-                }
-                dialog.setPositiveButton("Aceptar") { d, _ ->
-                    btnNoCounter.isChecked = false
-                    isCounter = btnNoCounter.isChecked
-                    themes.edit().putBoolean("isCounter", isCounter).apply()
                     d.dismiss()
                 }
             }
@@ -3179,10 +3685,7 @@ class AjustesFragment : Fragment(R.layout.options_settings) {
         }
     }
 
-    private inner class BgaVideoAdapter(
-        private val videos: List<File>,
-        private val onClick: (File) -> Unit,
-    ) : RecyclerView.Adapter<BgaVideoAdapter.BgaViewHolder>() {
+    private inner class BgaVideoAdapter(private val videos: List<File>, private val onClick: (File) -> Unit, ) : RecyclerView.Adapter<BgaVideoAdapter.BgaViewHolder>() {
         inner class BgaViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val thumbnail: ImageView = view.findViewById(R.id.imgBgaThumbnail)
             val name: TextView = view.findViewById(R.id.txBgaName)
