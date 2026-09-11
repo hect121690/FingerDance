@@ -220,7 +220,6 @@ var numberUpdateLocal = ""
 var playModeSingle = 0
 var playModeHalf = 0
 var bgaOffSelected = ""
-var showSongProgress = false
 
 var rutaGrades = ""
 var gradeDescription = ""

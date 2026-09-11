@@ -29,7 +29,7 @@ class HelpTutorialActivity : AppCompatActivity() {
 
     data class TutorialStep(
         val backgroundRes: Int,
-        val characterRes: Int,
+        val characterRes: Int = -1,
         val pauseAtMs: ArrayList<Int> = arrayListOf()
     )
 
@@ -65,7 +65,7 @@ class HelpTutorialActivity : AppCompatActivity() {
 
         tutorial = createTutorial(helpType)
 
-        applyDynamicSizes()
+        applyDynamicButtonSizes()
         setupListeners()
         startTutorial()
     }
@@ -152,6 +152,91 @@ class HelpTutorialActivity : AppCompatActivity() {
                 )
             }
 
+            HelpActivity.HelpType.COMMAND_WINDOW -> {
+                TutorialConfig(
+                    audioRes = R.raw.dialog_command_window,
+                    steps = listOf(
+                        TutorialStep(
+                            backgroundRes = R.drawable.chica_show_command_window
+                        )
+                    )
+                )
+            }
+
+            HelpActivity.HelpType.LOAD_ZIP -> {
+                TutorialConfig(
+                    audioRes = R.raw.dialog_cargar_zip,
+                    steps = listOf(
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_cargar_zip_1,
+                            characterRes = R.drawable.chica_cargar_zip_1,
+                            pauseAtMs = arrayListOf(6000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_cargar_zip_2,
+                            characterRes = R.drawable.chica_cargar_zip_2,
+                            pauseAtMs = arrayListOf(16000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_cargar_zip_3,
+                            characterRes = R.drawable.chica_cargar_zip_3,
+                            pauseAtMs = arrayListOf(25000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_cargar_zip_4,
+                            characterRes = R.drawable.chica_cargar_zip_4
+                        )
+                    )
+                )
+            }
+
+            HelpActivity.HelpType.CREATE_CHANNELS -> {
+                TutorialConfig(
+                    audioRes = R.raw.dialog_crear_canal,
+                    steps = listOf(
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_1,
+                            characterRes = R.drawable.chica_crear_canal_1,
+                            pauseAtMs = arrayListOf(5000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_2,
+                            characterRes = R.drawable.chica_crear_canal_2,
+                            pauseAtMs = arrayListOf(13000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_3,
+                            characterRes = R.drawable.chica_crear_canal_3,
+                            pauseAtMs = arrayListOf(17500)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_4,
+                            characterRes = R.drawable.chica_crear_canal_4,
+                            pauseAtMs = arrayListOf(29000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_5,
+                            characterRes = R.drawable.chica_crear_canal_5,
+                            pauseAtMs = arrayListOf(35000)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_6,
+                            characterRes = R.drawable.chica_crear_canal_6,
+                            pauseAtMs = arrayListOf(39500)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_7,
+                            characterRes = R.drawable.chica_crear_canal_7,
+                            pauseAtMs = arrayListOf(42500)
+                        ),
+                        TutorialStep(
+                            backgroundRes = R.drawable.bg_show_crear_canal_1,
+                            characterRes = R.drawable.chica_crear_canal_8
+                        )
+                    )
+                )
+            }
+
             else -> {
                 finish()
                 throw IllegalArgumentException(
@@ -193,11 +278,7 @@ class HelpTutorialActivity : AppCompatActivity() {
                 val pauses = tutorial.steps[currentStep].pauseAtMs
                 val pauseAt = pauses.getOrNull(currentPauseIndex)
 
-                if (
-                    pauseAt != null &&
-                    mp.isPlaying &&
-                    mp.currentPosition >= pauseAt
-                ) {
+                if (pauseAt != null && mp.isPlaying && mp.currentPosition >= pauseAt) {
                     checkpointReached = true
                     mp.pause()
                     musicHelp?.setVolume(0.5f, 0.5f)
@@ -259,7 +340,9 @@ class HelpTutorialActivity : AppCompatActivity() {
     private fun showStep(step: Int) {
         val data = tutorial.steps[step]
         imgBackground.setImageResource(data.backgroundRes)
-        imgCharacter.setImageResource(data.characterRes)
+        if(data.characterRes != -1) {
+            imgCharacter.setImageResource(data.characterRes)
+        }
 
         when (helpType) {
 
@@ -280,15 +363,15 @@ class HelpTutorialActivity : AppCompatActivity() {
             }
 
             HelpActivity.HelpType.COMMAND_WINDOW -> {
-
+                // No se necesita cambiar el tamaño del personaje para este tipo de ayuda
             }
 
             HelpActivity.HelpType.LOAD_ZIP -> {
-
+                applyCharacterLoadZipSize(step)
             }
 
             HelpActivity.HelpType.CREATE_CHANNELS -> {
-
+                applyCharacterCreateChannelSize(step)
             }
 
             HelpActivity.HelpType.DOWNLOAD_CONTENT -> {
@@ -297,33 +380,10 @@ class HelpTutorialActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyCharacterSettingsSize() {
+    private fun applyCharacterPreviewBgaSize(step: Int) {
         val params = imgCharacter.layoutParams as FrameLayout.LayoutParams
-
-        val targetHeight = (height * 0.40f).toInt()
-
         val drawable = imgCharacter.drawable
         val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
-        params.height = targetHeight
-        params.width = (targetHeight * ratio).toInt()
-        params.gravity = Gravity.BOTTOM or Gravity.START
-        params.leftMargin = 0
-        params.rightMargin = 0
-        params.topMargin = 0
-        params.bottomMargin = 0
-        imgCharacter.layoutParams = params
-    }
-
-    private fun applyCharacterPreviewBgaSize(step: Int) {
-        val params =
-            imgCharacter.layoutParams as FrameLayout.LayoutParams
-
-        val drawable = imgCharacter.drawable
-
-        val ratio =
-            drawable.intrinsicWidth.toFloat() /
-                    drawable.intrinsicHeight.toFloat()
-
         when (step) {
 
             // Mantén presionada la imagen de la canción
@@ -368,7 +428,202 @@ class HelpTutorialActivity : AppCompatActivity() {
         imgCharacter.layoutParams = params
     }
 
-    private fun applyDynamicSizes() {
+    private fun applyCharacterSettingsSize() {
+        val params = imgCharacter.layoutParams as FrameLayout.LayoutParams
+        val targetHeight = (height * 0.40f).toInt()
+        val drawable = imgCharacter.drawable
+        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
+        params.height = targetHeight
+        params.width = (targetHeight * ratio).toInt()
+        params.gravity = Gravity.BOTTOM or Gravity.START
+        params.leftMargin = 0
+        params.rightMargin = 0
+        params.topMargin = 0
+        params.bottomMargin = 0
+        imgCharacter.layoutParams = params
+    }
+
+    private fun applyCharacterLoadZipSize(step: Int) {
+        val params = imgCharacter.layoutParams as FrameLayout.LayoutParams
+        val drawable = imgCharacter.drawable
+        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
+
+        when (step) {
+            0 -> {
+                val targetHeight = (height * 0.57f).toInt()
+
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.END
+
+                params.leftMargin = 0
+                params.rightMargin = (width * 0.12f).toInt()
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+            1 -> {
+                val targetHeight = (height * 0.52f).toInt()
+
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+
+                params.leftMargin = -(width * 0.025f).toInt()
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+            2 -> {
+                val targetHeight = (height * 0.54f).toInt()
+
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.END
+
+                params.leftMargin = 0
+                params.rightMargin = -(width * 0.02f).toInt()
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+            3 -> {
+                val targetHeight = (height * 0.50f).toInt()
+
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+
+                params.leftMargin = -(width * 0.015f).toInt()
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+        }
+
+        imgCharacter.layoutParams = params
+    }
+
+    private fun applyCharacterCreateChannelSize(step: Int) {
+        val params = imgCharacter.layoutParams as FrameLayout.LayoutParams
+        val drawable = imgCharacter.drawable ?: return
+        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
+
+        when (step) {
+
+            // Crear canal
+            0 -> {
+                val targetHeight = (height * 0.43f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.END
+                params.leftMargin = 0
+                params.rightMargin = (width * 0.45f).toInt()
+                params.topMargin = 0
+                params.bottomMargin = - (height * 0.045f).toInt()
+            }
+
+            // Elegir KSF / SSC
+            1 -> {
+                val targetHeight = (height * 0.40f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+
+            // Nombre y descripción
+            2 -> {
+                val targetHeight = (height * 0.45f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+
+                // La apoyamos justo arriba del teclado.
+                params.bottomMargin = 0
+            }
+
+            // Icono del canal
+            3 -> {
+                val targetHeight = (height * 0.39f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+
+            // Buscar PNG
+            4 -> {
+                val targetHeight = (height * 0.45f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+
+            // Agregar canciones
+            5 -> {
+                val targetHeight = (height * 0.37f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+
+            // Usar esta carpeta
+            6 -> {
+                val targetHeight = (height * 0.42f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = (height * 0.07f).toInt()
+            }
+            //Finalizar
+            7 -> {
+                val targetHeight = (height * 0.42f).toInt()
+                params.height = targetHeight
+                params.width = (targetHeight * ratio).toInt()
+
+                params.gravity = Gravity.BOTTOM or Gravity.START
+                params.leftMargin = 0
+                params.rightMargin = 0
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+
+        }
+
+        imgCharacter.layoutParams = params
+    }
+
+    private fun applyDynamicButtonSizes() {
         val nextWidth = (width * 0.40f).toInt()
         val nextParams = imgNext.layoutParams as FrameLayout.LayoutParams
         nextParams.width = nextWidth

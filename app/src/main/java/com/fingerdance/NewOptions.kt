@@ -364,7 +364,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             checkBox.text = channel.first
             checkBox.id = View.generateViewId()
             checkBox.setTextColor(Color.WHITE)
-            checkBox.textSize = 16f //pxToSp((height / 55).toFloat(), requireContext())
+            checkBox.textSize = 16f
             checkBox.typeface = Typeface.DEFAULT_BOLD
             checkBox.setShadowLayer(6f, 0f, 0f, Color.rgb(0, 229, 255))
             checkBox.setPadding(28, 22, 28, 22)
@@ -526,7 +526,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             mainContainer.addView(scrollView)
 
             val scrollIndicator = TextView(requireContext()).apply {
-                text = "↓  Desliza para ver más canales"
+                text = "Desliza para ver más canales"
                 setTextColor(Color.rgb(255, 120, 140))
                 textSize = 13f
                 typeface = Typeface.DEFAULT_BOLD
@@ -669,7 +669,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             }
 
             val requirement = TextView(requireContext()).apply {
-                text = "El archivo debe estar en formato .ZIP y debe contener una carpeta info con su archivo text.ini y su banner.png para canciones SSC.\n\n" +
+                text = "El .ZIP debe contener una carpeta info con su archivo text.ini y su banner.png para canciones SSC.\n\n" +
                         "Para Canciones KSF, la carpeta debe ser info_ksf y el banner debe ser banner_ksf"
                 setTextColor(colorCyan)
                 textSize = 13f
@@ -766,7 +766,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
 
         val btnKsf = TextView(requireContext()).apply {
-            text = "CANAL KSF\nFormato clásico"
+            text = "CANAL KSF\nFormato DirectMove"
             setTextColor(Color.WHITE)
             textSize = 16f
             typeface = Typeface.DEFAULT_BOLD
@@ -784,7 +784,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
 
         val btnSsc = TextView(requireContext()).apply {
-            text = "CANAL SSC\nFormato StepMania / SSC"
+            text = "CANAL SSC\nFormato StepMania"
             setTextColor(Color.WHITE)
             textSize = 16f
             typeface = Typeface.DEFAULT_BOLD
@@ -1240,14 +1240,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             textSize = 21f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-
-            setShadowLayer(
-                4f,
-                0f,
-                0f,
-                Color.argb(180, 0, 229, 255)
-            )
-
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
             setPadding(0, 4, 0, 8)
         }
 
@@ -1264,19 +1257,8 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             setHintTextColor(Color.rgb(135, 145, 155))
             setTextColor(Color.WHITE)
             textSize = 16f
-
-            setPadding(
-                20,
-                16,
-                20,
-                16
-            )
-
-            background = neonCardDrawable(
-                colorCard,
-                colorBorder,
-                1
-            )
+            setPadding(20, 16, 20, 16)
+            background = neonCardDrawable(colorCard, colorBorder, 1)
 
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1291,23 +1273,11 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             setHintTextColor(Color.rgb(135, 145, 155))
             setTextColor(Color.WHITE)
             textSize = 16f
-
             minLines = 2
             maxLines = 3
             gravity = Gravity.TOP
-
-            setPadding(
-                20,
-                16,
-                20,
-                16
-            )
-
-            background = neonCardDrawable(
-                colorCard,
-                colorBorder,
-                1
-            )
+            setPadding(20, 16, 20, 16)
+            background = neonCardDrawable(colorCard, colorBorder, 1)
         }
 
         layout.addView(title)
@@ -1339,16 +1309,10 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             negative.typeface = Typeface.DEFAULT_BOLD
 
             positive.setOnClickListener {
-                val channelName =
-                    editTextChannel.text.toString().trim()
+                val channelName = editTextChannel.text.toString().trim()
+                val channelDescription = editTextDescription.text.toString().trim()
 
-                val channelDescription =
-                    editTextDescription.text.toString().trim()
-
-                if (
-                    channelName.isEmpty() ||
-                    channelDescription.isEmpty()
-                ) {
+                if (channelName.isEmpty() || channelDescription.isEmpty()) {
                     Toast.makeText(
                         requireContext(),
                         "Ingresa el nombre y la descripción del canal",
@@ -1358,30 +1322,15 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
                     return@setOnClickListener
                 }
 
-                nameNewChannel =
-                    "$idNewChannel - ${channelName.uppercase()}"
-
-                descriptionNewChannel =
-                    channelDescription
-
+                nameNewChannel = "$idNewChannel - ${channelName.uppercase()}"
+                descriptionNewChannel = channelDescription
                 if (getChannelExist()) {
-                    deleteChannelFolder(
-                        nameNewChannel
-                    )
+                    deleteChannelFolder(nameNewChannel)
                 }
 
-                if (
-                    createPathNewChannel(
-                        requireContext(),
-                        nameNewChannel
-                    )
-                ) {
-                    createTextIni(
-                        requireContext()
-                    )
-
+                if (createPathNewChannel(requireContext(), nameNewChannel)) {
+                    createTextIni(requireContext())
                     dialog.dismiss()
-
                     showSelectIconChannel()
                 } else {
                     Toast.makeText(
@@ -1421,33 +1370,15 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             textSize = 21f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-
-            setShadowLayer(
-                4f,
-                0f,
-                0f,
-                Color.argb(180, 0, 229, 255)
-            )
-
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
             setPadding(0, 4, 0, 18)
         }
 
         val card = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-
-            setPadding(
-                22,
-                18,
-                22,
-                18
-            )
-
-            background = neonCardDrawable(
-                colorCard,
-                colorBorder,
-                1
-            )
+            setPadding(22, 18, 22, 18)
+            background = neonCardDrawable(colorCard, colorBorder, 1)
         }
 
         val description = TextView(requireContext()).apply {
@@ -1464,18 +1395,11 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-
-            setShadowLayer(
-                3f,
-                0f,
-                0f,
-                Color.argb(150, 0, 229, 255)
-            )
+            setShadowLayer(3f, 0f, 0f, Color.argb(150, 0, 229, 255))
         }
 
         card.addView(description)
         card.addView(requirement)
-
         container.addView(title)
         container.addView(card)
 
@@ -1490,24 +1414,15 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             .create()
 
         dialog.setOnShowListener {
-            val positive =
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-
-            val negative =
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-
+            val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val negative = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
             positive.setTextColor(colorCyan)
             positive.typeface = Typeface.DEFAULT_BOLD
-
             negative.setTextColor(Color.WHITE)
             negative.typeface = Typeface.DEFAULT_BOLD
-
             positive.setOnClickListener {
                 dialog.dismiss()
-
-                pickPreviewFile.launch(
-                    arrayOf("image/png")
-                )
+                pickPreviewFile.launch(arrayOf("image/png"))
             }
 
             negative.setOnClickListener {
@@ -1579,74 +1494,32 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             textSize = 21f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-
-            setShadowLayer(
-                4f,
-                0f,
-                0f,
-                Color.argb(180, 0, 229, 255)
-            )
-
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
             setPadding(0, 4, 0, 18)
         }
 
         val card = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-
-            setPadding(
-                22,
-                18,
-                22,
-                18
-            )
-
-            background = neonCardDrawable(
-                colorCard,
-                colorBorder,
-                1
-            )
+            setPadding(22, 18, 22, 18)
+            background = neonCardDrawable(colorCard, colorBorder, 1)
         }
 
         val description = TextView(requireContext()).apply {
-            text =
-                "Selecciona la carpeta donde se encuentran las canciones que deseas agregar al canal."
-
-            setTextColor(
-                Color.rgb(
-                    225,
-                    225,
-                    235
-                )
-            )
-
+            text = "Selecciona la carpeta donde se encuentran las canciones que deseas agregar al canal."
+            setTextColor(Color.rgb(225, 225, 235))
             textSize = 15f
             gravity = Gravity.CENTER
-
-            setPadding(
-                0,
-                0,
-                0,
-                12
-            )
+            setPadding(0, 0, 0, 12)
         }
 
         val info = TextView(requireContext()).apply {
-            text =
-                "Finger Dance copiará las carpetas de canciones dentro del nuevo canal."
-
+            text = "Finger Dance copiará las carpetas de canciones dentro del nuevo canal."
             setTextColor(colorCyan)
-
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-
-            setShadowLayer(
-                3f,
-                0f,
-                0f,
-                Color.argb(150, 0, 229, 255)
-            )
+            setShadowLayer(3f, 0f, 0f, Color.argb(150, 0, 229, 255))
         }
 
         card.addView(description)
@@ -1672,29 +1545,12 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             .create()
 
         dialog.setOnShowListener {
-            val positive =
-                dialog.getButton(
-                    AlertDialog.BUTTON_POSITIVE
-                )
-
-            val negative =
-                dialog.getButton(
-                    AlertDialog.BUTTON_NEGATIVE
-                )
-
-            positive.setTextColor(
-                colorCyan
-            )
-
-            positive.typeface =
-                Typeface.DEFAULT_BOLD
-
-            negative.setTextColor(
-                Color.WHITE
-            )
-
-            negative.typeface =
-                Typeface.DEFAULT_BOLD
+            val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val negative = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            positive.setTextColor(colorCyan)
+            positive.typeface = Typeface.DEFAULT_BOLD
+            negative.setTextColor(Color.WHITE)
+            negative.typeface = Typeface.DEFAULT_BOLD
 
             positive.setOnClickListener {
                 dialog.dismiss()
@@ -1703,10 +1559,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
             }
 
             negative.setOnClickListener {
-                deleteChannelFolder(
-                    nameNewChannel
-                )
-
+                deleteChannelFolder(nameNewChannel)
                 dialog.dismiss()
             }
         }

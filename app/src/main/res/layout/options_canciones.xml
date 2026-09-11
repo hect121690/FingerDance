@@ -82,18 +82,18 @@
                 android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
-                android:text="Cargar ZIP"
+                android:background="@drawable/fd_panel_glass"
+                android:backgroundTint="@null"
+                android:includeFontPadding="false"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:stateListAnimator="@null"
+                android:text="Cargar canal"
+                android:textAllCaps="false"
                 android:textColor="#FFFFFF"
                 android:textSize="11dp"
                 android:textStyle="bold"
-                android:background="@drawable/fd_panel_glass"
-                android:backgroundTint="@null"
-                app:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:includeFontPadding="false"
-                android:textAllCaps="false" />
+                app:backgroundTint="@null" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/createChannel"
@@ -119,18 +119,18 @@
                 android:layout_width="0dp"
                 android:layout_height="44dp"
                 android:layout_weight="1"
-                android:text="Borrar"
+                android:background="@drawable/fd_panel_glass"
+                android:backgroundTint="@null"
+                android:includeFontPadding="false"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:stateListAnimator="@null"
+                android:text="Borrar canal"
+                android:textAllCaps="false"
                 android:textColor="#FFFFFF"
                 android:textSize="11dp"
                 android:textStyle="bold"
-                android:background="@drawable/fd_panel_glass"
-                android:backgroundTint="@null"
-                app:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:includeFontPadding="false"
-                android:textAllCaps="false" />
+                app:backgroundTint="@null" />
         </LinearLayout>
     </LinearLayout>
 

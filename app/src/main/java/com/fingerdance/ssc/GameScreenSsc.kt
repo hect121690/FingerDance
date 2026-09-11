@@ -33,13 +33,11 @@ import com.fingerdance.padPositions
 import com.fingerdance.playerSong
 import com.fingerdance.ruta
 import com.fingerdance.showPadB
-import com.fingerdance.showSongProgress
 import com.fingerdance.skinPad
 import com.fingerdance.tema
 import com.fingerdance.typePadD
 import com.fingerdance.width
 import com.fingerdance.widthBtns
-import java.io.File
 import kotlin.math.abs
 
 open class GameScreenSsc(activity: GameScreenActivity) : Screen {
@@ -149,9 +147,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
 
-    val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
-    val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
-
     private val lifeLightningTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barlife_electric 4x6.png"))
     val lifeLightningFrames: Array<TextureRegion> = getLifeLightningFrames(lifeLightningTexture)
     private val fadeTexture = Texture(Gdx.files.internal("black.png"))
@@ -169,62 +164,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     )
 
     private lateinit var font: BitmapFont
-
-
-    // -------------------------------------------------------------------------
-    // SONG PROGRESS + BUBBLES
-    // -------------------------------------------------------------------------
-
-    /**
-     * bubble_music.png va en:
-     * app/src/main/assets/bubble_music.png
-     *
-     * 250x250 px está perfecto para este efecto.
-     */
-    private val bubbleMusicTexture = Texture(Gdx.files.internal("bubble_music.png"))
-
-    /**
-     * Pixel blanco de 1x1 para dibujar la barra sin cargar otra textura.
-     */
-    private val progressPixelTexture: Texture = createProgressPixelTexture()
-
-    /**
-     * Pool fijo: no creamos BubbleParticle durante gameplay.
-     */
-    private data class BubbleParticle(
-        var active: Boolean = false,
-        var x: Float = 0f,
-        var y: Float = 0f,
-        var size: Float = 0f,
-        var speedY: Float = 0f,
-        var driftX: Float = 0f,
-        var wobblePhase: Float = 0f,
-        var wobbleSpeed: Float = 0f,
-        var life: Float = 0f,
-        var maxLife: Float = 0f,
-        var baseAlpha: Float = 1f
-    )
-
-    private val musicBubbles =
-        Array(MAX_MUSIC_BUBBLES) {
-            BubbleParticle()
-        }
-
-    private var bubbleSpawnTimer = 0f
-    private var nextBubbleSpawnTime = 0.16f
-
-    /**
-     * Posición de la barra:
-     * cámara Y-down, por eso una Y cercana a gdxHeight queda abajo.
-     *
-     * La barra se dibuja DESPUÉS de player.render(), por lo que queda
-     * visualmente enfrente de los pads.
-     */
-    private val songProgressBarWidth get() = (medidaFlechas * 0.10f)
-    private val songProgressBarHeight get() = gdxHeight * 0.42f
-    private val songProgressBarX get() = medidaFlechas * 0.08f
-    private val songProgressBarY get() = padPositions[1][1] - songProgressBarHeight
-
 
     init {
         if(showPadB == 1){
@@ -308,9 +247,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             }
 
             player.render(songTimeMs)
-            if(showSongProgress){
-                drawSongProgress(songTimeMs = songTimeMs, delta = delta)
-            }
 
             //font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
 
@@ -531,171 +467,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         return frames
     }
 
-
-    // -------------------------------------------------------------------------
-    // SONG PROGRESS
-    // -------------------------------------------------------------------------
-
-    private fun drawSongProgress(songTimeMs: Double, delta: Float) {
-        val durationMs = mediaPlayer.duration.toDouble()
-        if (durationMs <= 0.0) return
-
-        val rawProgress = (songTimeMs / durationMs).toFloat()
-        val progress = if (rawProgress >= 0.985f) 1f else rawProgress.coerceIn(0f, 1f)
-
-        updateMusicBubbles(progress, delta)
-        drawProgressBar(progress)
-        drawMusicBubbles()
-    }
-
-    private fun drawProgressBar(progress: Float) {
-        val x = songProgressBarX
-        val y = songProgressBarY
-        val widthBar = songProgressBarWidth
-        val heightBar = songProgressBarHeight
-
-        val glow = widthBar * 0.55f
-        val border = (widthBar * 0.18f).coerceAtLeast(1f)
-
-        batch.setColor(0f, 0.85f, 1f, 0.10f)
-        batch.draw(progressPixelTexture, x - glow, y - glow, widthBar + glow * 2f, heightBar + glow * 2f)
-
-        batch.setColor(0.10f, 0.30f, 0.42f, 0.90f)
-        batch.draw(progressPixelTexture, x, y, widthBar, heightBar)
-
-        batch.setColor(0.25f, 0.95f, 1f, 0.95f)
-        batch.draw(progressPixelTexture, x, y, widthBar, border)
-        batch.draw(progressPixelTexture, x, y + heightBar - border, widthBar, border)
-        batch.draw(progressPixelTexture, x, y, border, heightBar)
-        batch.draw(progressPixelTexture, x + widthBar - border, y, border, heightBar)
-
-        val innerX = x + border
-        val innerY = y + border
-        val innerWidth = widthBar - border * 2f
-        val innerHeight = heightBar - border * 2f
-
-        batch.setColor(0.01f, 0.03f, 0.07f, 0.90f)
-        batch.draw(progressPixelTexture, innerX, innerY, innerWidth, innerHeight)
-
-        val fillHeight = innerHeight * progress
-
-        if (fillHeight > 0f) {
-            val fillY = innerY + innerHeight - fillHeight
-
-            batch.setColor(0f, 0.72f, 1f, 0.95f)
-            batch.draw(progressPixelTexture, innerX, fillY, innerWidth, fillHeight)
-
-            val highlightWidth = (innerWidth * 0.28f).coerceAtLeast(1f)
-
-            batch.setColor(0.55f, 1f, 1f, 0.75f)
-            batch.draw(progressPixelTexture, innerX, fillY, highlightWidth, fillHeight)
-
-            val tipHeight = (medidaFlechas * 0.04f).coerceAtLeast(2f)
-            val tipY = fillY - tipHeight * 0.5f
-
-            batch.setColor(0f, 0.90f, 1f, 0.18f)
-            batch.draw(progressPixelTexture, x - widthBar * 0.8f, tipY - tipHeight, widthBar * 2.6f, tipHeight * 3f)
-
-            batch.setColor(0.55f, 1f, 1f, 1f)
-            batch.draw(progressPixelTexture, x - border, tipY, widthBar + border * 2f, tipHeight)
-        }
-
-        resetProgressColor()
-    }
-    // -------------------------------------------------------------------------
-    // BUBBLES
-    // -------------------------------------------------------------------------
-
-    private fun updateMusicBubbles(progress: Float, delta: Float) {
-        bubbleSpawnTimer += delta
-        if (progress > 0.001f && progress < 0.999f && bubbleSpawnTimer >= nextBubbleSpawnTime) {
-            bubbleSpawnTimer -= nextBubbleSpawnTime
-            spawnMusicBubble(progress)
-            if (MathUtils.randomBoolean(0.20f)) spawnMusicBubble(progress)
-            nextBubbleSpawnTime = MathUtils.random(0.13f, 0.22f)
-        }
-
-        for (bubble in musicBubbles) {
-            if (!bubble.active) continue
-            bubble.life += delta
-            if (bubble.life >= bubble.maxLife) {
-                bubble.active = false
-                continue
-            }
-            bubble.y -= bubble.speedY * delta
-            bubble.x += bubble.driftX * delta
-            bubble.wobblePhase += bubble.wobbleSpeed * delta
-            bubble.x += MathUtils.sin(bubble.wobblePhase) * medidaFlechas * 0.0025f
-        }
-    }
-
-    private fun spawnMusicBubble(progress: Float) {
-        var bubble: BubbleParticle? = null
-        for (candidate in musicBubbles) {
-            if (!candidate.active) {
-                bubble = candidate
-                break
-            }
-        }
-        val b = bubble ?: return
-        val border = (songProgressBarWidth * 0.20f).coerceAtLeast(1f)
-        val innerY = songProgressBarY + border
-        val innerHeight = (songProgressBarHeight - border * 2f).coerceAtLeast(0f)
-        val fillHeight = innerHeight * progress
-        val tipY = innerY + innerHeight - fillHeight
-        val size = MathUtils.random(medidaFlechas * 0.07f, medidaFlechas * 0.24f)
-        b.x = songProgressBarX + songProgressBarWidth * 0.5f - size * 0.5f + MathUtils.random(-medidaFlechas * 0.06f, medidaFlechas * 0.12f)
-        b.y = tipY - size * MathUtils.random(0.45f, 0.85f)
-        b.size = size
-        b.speedY = MathUtils.random(medidaFlechas * 0.45f, medidaFlechas * 0.95f)
-        b.driftX = MathUtils.random(0f, medidaFlechas * 0.12f)
-        b.wobblePhase = MathUtils.random(0f, MathUtils.PI2)
-        b.wobbleSpeed = MathUtils.random(2.2f, 5.0f)
-        b.life = 0f
-        b.maxLife = MathUtils.random(0.85f, 1.65f)
-        b.baseAlpha = MathUtils.random(0.50f, 0.90f)
-        b.active = true
-    }
-
-    private fun drawMusicBubbles() {
-        val previousSrc = batch.blendSrcFunc
-        val previousDst = batch.blendDstFunc
-        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-        for (bubble in musicBubbles) {
-            if (!bubble.active) continue
-            val lifeProgress = (bubble.life / bubble.maxLife).coerceIn(0f, 1f)
-            val lifeAlpha = when {
-                lifeProgress < 0.12f -> lifeProgress / 0.12f
-                lifeProgress > 0.68f -> 1f - ((lifeProgress - 0.68f) / 0.32f)
-                else -> 1f
-            }.coerceIn(0f, 1f)
-            val drawSize = bubble.size * (0.88f + lifeProgress * 0.18f)
-            val centerAdjust = (drawSize - bubble.size) * 0.5f
-            batch.setColor(1f, 1f, 1f, bubble.baseAlpha * lifeAlpha)
-            batch.draw(bubbleMusicTexture, bubble.x - centerAdjust, bubble.y - centerAdjust, drawSize, drawSize)
-        }
-        batch.setBlendFunction(previousSrc, previousDst)
-        resetProgressColor()
-    }
-
-    private fun createProgressPixelTexture(): Texture {
-        val pixmap = Pixmap(1, 1, Pixmap.Format.RGBA8888)
-        pixmap.setColor(
-            Color.WHITE
-        )
-
-        pixmap.fill()
-        val texture = Texture(pixmap)
-
-        pixmap.dispose()
-
-        return texture
-    }
-
-    private fun resetProgressColor() {
-        batch.setColor(1f, 1f, 1f, 1f)
-    }
-
     override fun pause() {
         isPaused = true
     }
@@ -753,16 +524,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             arrayPad4[0].texture.dispose()
         }
         lifeLightningTexture.dispose()
-
-        bubbleMusicTexture.dispose()
-        progressPixelTexture.dispose()
-
         player.disposePlayer()
     }
-
-
-    companion object {
-        private const val MAX_MUSIC_BUBBLES = 14
-    }
-
 }
