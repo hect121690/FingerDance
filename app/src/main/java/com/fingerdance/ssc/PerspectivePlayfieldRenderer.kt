@@ -12,31 +12,54 @@ import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.Matrix4
 import kotlin.math.pow
 
-/**
- * Renderiza el playfield primero a un FrameBuffer transparente y después
- * deforma ese resultado mediante un Mesh subdividido verticalmente.
- *
- * No modifica posiciones lógicas, timing ni judgments.
- */
 class PerspectivePlayfieldRenderer(
     width: Int,
     height: Int,
     pivotX: Float,
-    private val segments: Int = 24
+    private val segments: Int = 32
 ) {
 
-    /**
-     * Valores iniciales para la prueba tipo "playfield inclinado".
-     * Se pueden ajustar en runtime sin tocar PlayerSsc.
+    /*
+     * 1.0 = tamaño normal.
+     * Menor valor = playfield más angosto al llegar al receptor.
      */
-    var bottomScaleX = 0.72f
-        set(value) { field = value; updateMesh() }
+    var topScaleX = 0.58f
+        set(value) {
+            field = value
+            updateMesh()
+        }
 
-    var bottomShiftXPercent = -0.14f
-        set(value) { field = value; updateMesh() }
+    /*
+     * Desplaza el punto lejano horizontalmente.
+     *
+     * negativo = hacia izquierda
+     * positivo = hacia derecha
+     */
+    var topShiftXPercent = -0.08f
+        set(value) {
+            field = value
+            updateMesh()
+        }
 
-    var curvePower = 1.15f
-        set(value) { field = value; updateMesh() }
+    /*
+     * Controla cómo se va cerrando horizontalmente.
+     */
+    var horizontalPower = 1.15f
+        set(value) {
+            field = value
+            updateMesh()
+        }
+
+    /*
+     * ESTA es la que da mucha más sensación de profundidad.
+     *
+     * > 1 comprime el espacio vertical cerca del receptor.
+     */
+    var verticalPower = 1.45f
+        set(value) {
+            field = value
+            updateMesh()
+        }
 
     private var width = width
     private var height = height
@@ -53,8 +76,17 @@ class PerspectivePlayfieldRenderer(
 
     fun begin() {
         frameBuffer.begin()
-        Gdx.gl.glClearColor(0f, 0f, 0f, 0f)
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+
+        Gdx.gl.glClearColor(
+            0f,
+            0f,
+            0f,
+            0f
+        )
+
+        Gdx.gl.glClear(
+            GL20.GL_COLOR_BUFFER_BIT
+        )
     }
 
     fun end() {
@@ -62,54 +94,110 @@ class PerspectivePlayfieldRenderer(
     }
 
     fun draw(projectionMatrix: Matrix4) {
-        val texture = frameBuffer.colorBufferTexture
+        val texture =
+            frameBuffer.colorBufferTexture
 
-        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST)
-        Gdx.gl.glEnable(GL20.GL_BLEND)
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
+        Gdx.gl.glDisable(
+            GL20.GL_DEPTH_TEST
+        )
+
+        Gdx.gl.glEnable(
+            GL20.GL_BLEND
+        )
+
+        Gdx.gl.glBlendFunc(
+            GL20.GL_SRC_ALPHA,
+            GL20.GL_ONE_MINUS_SRC_ALPHA
+        )
 
         texture.bind(0)
-        shader.bind()
-        shader.setUniformMatrix("u_projTrans", projectionMatrix)
-        shader.setUniformi("u_texture", 0)
 
-        mesh.render(shader, GL20.GL_TRIANGLES)
+        shader.bind()
+
+        shader.setUniformMatrix(
+            "u_projTrans",
+            projectionMatrix
+        )
+
+        shader.setUniformi(
+            "u_texture",
+            0
+        )
+
+        mesh.render(
+            shader,
+            GL20.GL_TRIANGLES
+        )
     }
 
-    fun resize(width: Int, height: Int, pivotX: Float = this.pivotX) {
-        if (width <= 0 || height <= 0) return
+    fun resize(
+        width: Int,
+        height: Int,
+        pivotX: Float = this.pivotX
+    ) {
+        if (
+            width <= 0 ||
+            height <= 0
+        ) {
+            return
+        }
 
         this.width = width
         this.height = height
         this.pivotX = pivotX
 
         frameBuffer.dispose()
-        frameBuffer = createFrameBuffer(width, height)
+
+        frameBuffer =
+            createFrameBuffer(
+                width,
+                height
+            )
 
         mesh.dispose()
+
         mesh = createMesh()
+
         updateMesh()
     }
 
-    private fun createFrameBuffer(width: Int, height: Int): FrameBuffer {
-        return FrameBuffer(Pixmap.Format.RGBA8888, width, height, false).also {
-            it.colorBufferTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+    private fun createFrameBuffer(
+        width: Int,
+        height: Int
+    ): FrameBuffer {
+
+        return FrameBuffer(
+            Pixmap.Format.RGBA8888,
+            width,
+            height,
+            false
+        ).also {
+
+            it.colorBufferTexture.setFilter(
+                Texture.TextureFilter.Linear,
+                Texture.TextureFilter.Linear
+            )
         }
     }
 
     private fun createMesh(): Mesh {
-        val vertexCount = (segments + 1) * 2
-        val indexCount = segments * 6
+        val vertexCount =
+            (segments + 1) * 2
+
+        val indexCount =
+            segments * 6
 
         val result = Mesh(
             true,
             vertexCount,
             indexCount,
+
             VertexAttribute(
                 VertexAttributes.Usage.Position,
                 3,
                 ShaderProgram.POSITION_ATTRIBUTE
             ),
+
             VertexAttribute(
                 VertexAttributes.Usage.TextureCoordinates,
                 2,
@@ -117,14 +205,24 @@ class PerspectivePlayfieldRenderer(
             )
         )
 
-        val indices = ShortArray(indexCount)
+        val indices =
+            ShortArray(indexCount)
+
         var p = 0
 
         for (i in 0 until segments) {
-            val topLeft = (i * 2).toShort()
-            val topRight = (i * 2 + 1).toShort()
-            val bottomLeft = ((i + 1) * 2).toShort()
-            val bottomRight = ((i + 1) * 2 + 1).toShort()
+
+            val topLeft =
+                (i * 2).toShort()
+
+            val topRight =
+                (i * 2 + 1).toShort()
+
+            val bottomLeft =
+                ((i + 1) * 2).toShort()
+
+            val bottomRight =
+                ((i + 1) * 2 + 1).toShort()
 
             indices[p++] = topLeft
             indices[p++] = bottomLeft
@@ -136,40 +234,134 @@ class PerspectivePlayfieldRenderer(
         }
 
         result.setIndices(indices)
+
         return result
     }
 
     private fun updateMesh() {
-        if (width <= 0 || height <= 0) return
+        if (
+            width <= 0 ||
+            height <= 0
+        ) {
+            return
+        }
 
-        // x, y, z, u, v
-        val vertices = FloatArray((segments + 1) * 2 * 5)
-        val bottomShiftPx = width * bottomShiftXPercent
+        /*
+         * Cada vértice:
+         *
+         * x
+         * y
+         * z
+         * u
+         * v
+         */
+        val vertices =
+            FloatArray(
+                (segments + 1) * 2 * 5
+            )
+
+        val topShiftPx =
+            width * topShiftXPercent
 
         var p = 0
 
         for (row in 0..segments) {
-            val t = row.toFloat() / segments.toFloat()
-            val effect = t.pow(curvePower.coerceAtLeast(0.01f))
 
-            val scaleX = 1f + (bottomScaleX - 1f) * effect
-            val shiftX = bottomShiftPx * effect
+            /*
+             * IMPORTANTE:
+             *
+             * Nuestra cámara usa Y-DOWN.
+             *
+             * t = 0 -> arriba / receptor
+             * t = 1 -> abajo / jugador
+             */
+            val t =
+                row.toFloat() /
+                        segments.toFloat()
 
-            val leftX = pivotX + (0f - pivotX) * scaleX + shiftX
-            val rightX = pivotX + (width.toFloat() - pivotX) * scaleX + shiftX
-            val y = height * t
+            /*
+             * Profundidad:
+             *
+             * 1 arriba
+             * 0 abajo
+             */
+            val depth =
+                1f - t
 
-            // El colorBufferTexture de FrameBuffer viene invertido verticalmente.
-            val v = 1f - t
+            val horizontalEffect =
+                depth.pow(
+                    horizontalPower
+                        .coerceAtLeast(0.01f)
+                )
 
-            // Vértice izquierdo
+            /*
+             * Arriba:
+             * scaleX ~= topScaleX
+             *
+             * Abajo:
+             * scaleX = 1
+             */
+            val scaleX =
+                1f -
+                        ((1f - topScaleX) *
+                                horizontalEffect)
+
+            /*
+             * El desplazamiento también desaparece
+             * gradualmente hacia abajo.
+             */
+            val shiftX =
+                topShiftPx *
+                        horizontalEffect
+
+            val leftX =
+                pivotX +
+                        (0f - pivotX) *
+                        scaleX +
+                        shiftX
+
+            val rightX =
+                pivotX +
+                        (width.toFloat() - pivotX) *
+                        scaleX +
+                        shiftX
+
+            /*
+             * PERSPECTIVA VERTICAL.
+             *
+             * Como Y=0 está arriba:
+             *
+             * t^1.45 comprime las distancias verticales
+             * cerca del receptor.
+             *
+             * Esto hace que las notas también parezcan
+             * reducir su ALTURA cuando llegan al fondo.
+             */
+            val perspectiveT =
+                t.pow(
+                    verticalPower
+                        .coerceAtLeast(0.01f)
+                )
+
+            val y =
+                height *
+                        perspectiveT
+
+            /*
+             * FrameBuffer de LibGDX viene invertido
+             * verticalmente.
+             */
+            val v =
+                1f - t
+
+            // LEFT
             vertices[p++] = leftX
             vertices[p++] = y
             vertices[p++] = 0f
             vertices[p++] = 0f
             vertices[p++] = v
 
-            // Vértice derecho
+            // RIGHT
             vertices[p++] = rightX
             vertices[p++] = y
             vertices[p++] = 0f
@@ -206,11 +398,19 @@ class PerspectivePlayfieldRenderer(
             uniform sampler2D u_texture;
 
             void main() {
-                gl_FragColor = texture2D(u_texture, v_texCoords);
+                gl_FragColor =
+                    texture2D(
+                        u_texture,
+                        v_texCoords
+                    );
             }
         """.trimIndent()
 
-        return ShaderProgram(vertexShader, fragmentShader).also { shader ->
+        return ShaderProgram(
+            vertexShader,
+            fragmentShader
+        ).also { shader ->
+
             if (!shader.isCompiled) {
                 throw IllegalStateException(
                     "No se pudo compilar PerspectivePlayfieldRenderer: ${shader.log}"
