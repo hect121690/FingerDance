@@ -32,6 +32,7 @@ class LuaEngine(
     }
 
     private val globals = JsePlatform.standardGlobals()
+    private var fgContext = LuaFgContext()
 
     init {
         globals.set("DESCRIPTION", LuaValue.valueOf(playerSong.type))
@@ -46,6 +47,24 @@ class LuaEngine(
         registerFlare()
         registerJudge()
         registerFlash()
+        registerNX()
+    }
+
+    private fun registerNX() {
+        globals.set("setNX", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                val active = arg.toboolean()
+
+                when (player) {
+                    is PlayerSsc -> player.setNXFromLua(active, fgContext)
+                    //is PlayerSscHorizontal -> player.setNXFromLua(active, fgContext)
+                    //is PlayerSscHD -> player.setNXFromLua(active, fgContext)
+                    //is PlayerSscHorizontalHD -> player.setNXFromLua(active, fgContext)
+                }
+
+                return LuaValue.NIL
+            }
+        })
     }
 
     private fun triggerLuaFlash(duration: Long) {
@@ -107,6 +126,7 @@ class LuaEngine(
                 return LuaValue.NIL
             }
         })
+
 
         globals.set("Notes", table)
     }
@@ -291,11 +311,21 @@ class LuaEngine(
     // EXECUTE
     // =========================================================
 
-    fun executeLua(path: String) {
+    fun executeLua(path: String, context: LuaFgContext = LuaFgContext()) {
         try {
+            fgContext = context
             globals.load(FileReader(path), path).call()
         } catch (e: Exception) {
             Log.d("LUA_DEBUG", "Error ejecutando lua: $path\n${e.message}", e)
+        } finally {
+            fgContext = LuaFgContext()
         }
     }
 }
+
+data class LuaFgContext(
+    val beat: Double = 0.0,
+    val transitionBeats: Double = 0.0,
+    val effectDuration: Double = 0.0,
+    val durationUnit: Int = 0
+)

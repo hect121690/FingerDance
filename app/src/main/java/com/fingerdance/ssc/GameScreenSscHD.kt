@@ -138,6 +138,9 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     private var showOverlay = false
     private var intervalOverlay = 0f
 
+    var applyMesh = playerSong.nx
+    private lateinit var perspectiveRenderer: PerspectivePlayfieldRenderer
+
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
 
@@ -204,6 +207,18 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
+        perspectiveRenderer = PerspectivePlayfieldRenderer(
+            width = Gdx.graphics.width,
+            height = Gdx.graphics.height,
+            pivotX = arrowsSize * 4f
+        ).apply {
+            topScaleX = 0.42f
+            topShiftXPercent = 0.00f
+            horizontalPower = 1.30f
+            verticalPower = 1.80f
+            meshOffsetY = Gdx.graphics.height * 0.08f
+        }
+
         player = PlayerSscHD(this, batch, a)
         rithymAnim = (60f / player.m_fCurBPM)
         targetTop = medidaFlechas
@@ -227,44 +242,84 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         if (!isPaused) {
             val songTimeMs = a.getSongTimeMs()
             elapsedTime += delta
-            batch.begin()
-            showBgPads()
-            player.updateStepData(songTimeMs)
 
-            if (!playerSong.fd) {
-                intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
-                timer += delta
-                if (timer >= intervalOverlay) {
-                    timer -= intervalOverlay
-                    showOverlay = !showOverlay
+            if (!applyMesh) {
+                batch.begin()
+                showBgPads()
+                player.updateStepData(songTimeMs)
+
+                if (!playerSong.fd) {
+                    intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                    timer += delta
+                    if (timer >= intervalOverlay) {
+                        timer -= intervalOverlay
+                        showOverlay = !showOverlay
+                    }
+                    drawRecepts()
                 }
 
-                drawRecepts()
-            }
+                player.render(songTimeMs)
 
-            player.render(songTimeMs)
+                barBlack.setSize(maxWidth, maxlHeight)
+                barBlack.setPosition(medidaFlechas, 0f)
+                barRed.setSize(maxWidth, maxlHeight)
+                barRed.setPosition(medidaFlechas, 0f)
 
-            barBlack.setSize(maxWidth, maxlHeight)
-            barBlack.setPosition(medidaFlechas, 0f)
+                drawEndingFade(delta)
+                batch.end()
+            } else {
+                batch.begin()
+                showBgPads()
+                player.updateStepData(songTimeMs)
+                player.renderMeshInput()
+                batch.end()
 
-            barRed.setSize(maxWidth, maxlHeight)
-            barRed.setPosition(medidaFlechas, 0f)
-
-            if (isEndingFade) {
-                endingFadeAlpha += delta * 1.8f
-                if (endingFadeAlpha > 1f) {
-                    endingFadeAlpha = 1f
+                if (!playerSong.fd) {
+                    intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                    timer += delta
+                    if (timer >= intervalOverlay) {
+                        timer -= intervalOverlay
+                        showOverlay = !showOverlay
+                    }
                 }
-                batch.setColor(0f, 0f, 0f, endingFadeAlpha)
-                batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-                batch.setColor(1f, 1f, 1f, 1f)
+
+                perspectiveRenderer.begin()
+                batch.projectionMatrix = camera.combined
+                batch.begin()
+
+                if (!playerSong.fd) drawRecepts()
+                player.renderMeshPlayfield(songTimeMs)
+
+                batch.end()
+                perspectiveRenderer.end()
+                perspectiveRenderer.draw(camera.combined)
+
+                batch.projectionMatrix = camera.combined
+                batch.begin()
+                player.renderMeshHud()
+
+                barBlack.setSize(maxWidth, maxlHeight)
+                barBlack.setPosition(medidaFlechas, 0f)
+                barRed.setSize(maxWidth, maxlHeight)
+                barRed.setPosition(medidaFlechas, 0f)
+
+                drawEndingFade(delta)
+                batch.end()
             }
 
-            batch.end()
             stage.act(delta)
         }
 
         stage.draw()
+    }
+
+    private fun drawEndingFade(delta: Float) {
+        if (!isEndingFade) return
+        endingFadeAlpha += delta * 1.8f
+        if (endingFadeAlpha > 1f) endingFadeAlpha = 1f
+        batch.setColor(0f, 0f, 0f, endingFadeAlpha)
+        batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+        batch.setColor(1f, 1f, 1f, 1f)
     }
 
     // ---------------------------------------------------
@@ -643,6 +698,9 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     override fun resize(width: Int, height: Int) {
         camera.setToOrtho(true, width.toFloat(), height.toFloat())
         camera.update()
+        if (::perspectiveRenderer.isInitialized) {
+            perspectiveRenderer.resize(width, height, arrowsSize * 4f)
+        }
     }
 
     override fun pause() {
@@ -706,6 +764,7 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
             arrayPad4[0].texture.dispose()
         }
 
+        if (::perspectiveRenderer.isInitialized) perspectiveRenderer.dispose()
         player.disposePlayer()
     }
 

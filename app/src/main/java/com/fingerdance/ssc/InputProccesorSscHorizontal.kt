@@ -12,8 +12,6 @@ private const val KEY_DOWN = 1
 private const val KEY_PRESS = 2
 private const val KEY_UP = 3
 
-private val TOUCH_RADIUS = widthBtnsHorizontal * MULTIPLER_TOUCH_RADIUS
-
 class InputProcessorSscHorizontal : InputAdapter() {
 
     private val btnOffPress = Texture(Gdx.files.external("/FingerDance/Themes/$tema/GraphicsStatics/game_play/btn_off.png"))
@@ -22,9 +20,41 @@ class InputProcessorSscHorizontal : InputAdapter() {
     val getKeyBoard = IntArray(padPositionsHorizontal.size) { KEY_NONE }
     val logicalState = IntArray(5) { KEY_NONE }
 
-    private val pointerToPadsMap = mutableMapOf<Int, Set<Int>>()
+    /*
+     * Qué pointer pertenece actualmente a qué pad.
+     * Un pointer sólo puede estar asociado a UN pad físico.
+     */
+    private val pointerToPadMap = mutableMapOf<Int, Int>()
+
+    /*
+     * Fuentes que mantienen cada pad pulsado.
+     *
+     * Touch:
+     *   0, 1, 2...
+     *
+     * Teclado:
+     *   valores negativos.
+     */
     private val padPointers = Array(padPositionsHorizontal.size) { mutableSetOf<Int>() }
-    private val wasPressed = BooleanArray(padPositionsHorizontal.size)
+
+    /*
+     * Eventos recibidos entre frames.
+     *
+     * Esto evita perder taps rápidos:
+     *
+     * touchDown()
+     * touchUp()
+     *
+     * pueden ocurrir antes del siguiente update().
+     */
+    private val pendingDown = BooleanArray(padPositionsHorizontal.size)
+    private val pendingUp = BooleanArray(padPositionsHorizontal.size)
+
+    /*
+     * Si DOWN y UP ocurrieron entre el mismo par de frames,
+     * entregamos DOWN primero y UP en el siguiente.
+     */
+    private val deferredUp = BooleanArray(padPositionsHorizontal.size)
 
     private val keyToPadMap = mapOf(
         Keys.NUMPAD_1 to 0,
@@ -32,6 +62,7 @@ class InputProcessorSscHorizontal : InputAdapter() {
         Keys.NUMPAD_5 to 2,
         Keys.NUMPAD_9 to 3,
         Keys.NUMPAD_3 to 4,
+
         Keys.Z to 5,
         Keys.Q to 6,
         Keys.S to 7,
@@ -39,89 +70,202 @@ class InputProcessorSscHorizontal : InputAdapter() {
         Keys.C to 9
     )
 
-    private fun getLogicalPad(pad: Int) = pad % 5
+    private val touchRadius: Float
+        get() = widthBtnsHorizontal * MULTIPLER_TOUCH_RADIUS
+
+    private fun getLogicalPad(physicalPad: Int): Int {
+        return physicalPad % 5
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * INPUT INTERNO
+     * ---------------------------------------------------------
+     */
+
+    private fun pressPad(pad: Int, source: Int) {
+        if (pad !in padPointers.indices) return
+
+        val pointers = padPointers[pad]
+
+        /*
+         * Ya estaba registrada esta misma fuente.
+         */
+        if (!pointers.add(source)) return
+
+        /*
+         * Sólo generamos un DOWN cuando pasamos realmente
+         * de cero fuentes a una fuente.
+         */
+        if (pointers.size == 1) {
+            pendingDown[pad] = true
+
+            /*
+             * Si había un UP pendiente pero ya volvimos a tocar
+             * antes del update, el estado final es PRESIONADO.
+             */
+            if (pendingUp[pad]) {
+                pendingUp[pad] = false
+            }
+        }
+    }
+
+    private fun releasePad(pad: Int, source: Int) {
+        if (pad !in padPointers.indices) return
+
+        val pointers = padPointers[pad]
+
+        if (!pointers.remove(source)) return
+
+        /*
+         * Sólo es UP cuando ya no queda ninguna fuente
+         * sosteniendo ese pad.
+         */
+        if (pointers.isEmpty()) {
+            pendingUp[pad] = true
+        }
+    }
+
+    private fun clearPointer(pointer: Int) {
+        val oldPad = pointerToPadMap.remove(pointer) ?: return
+        releasePad(oldPad, pointer)
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * TECLADO
+     * ---------------------------------------------------------
+     */
 
     override fun keyDown(keycode: Int): Boolean {
-        keyToPadMap[keycode]?.let { pad ->
-            padPointers[pad].add(-keycode)
-        }
-        return keyToPadMap.containsKey(keycode)
+        val pad = keyToPadMap[keycode] ?: return false
+
+        /*
+         * Negativo para no colisionar con pointers táctiles.
+         */
+        pressPad(pad, -keycode)
+
+        return true
     }
 
     override fun keyUp(keycode: Int): Boolean {
-        keyToPadMap[keycode]?.let { pad ->
-            padPointers[pad].remove(-keycode)
-        }
-        return keyToPadMap.containsKey(keycode)
+        val pad = keyToPadMap[keycode] ?: return false
+
+        releasePad(pad, -keycode)
+
+        return true
     }
 
-    override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        val pads = getPadIndices(screenX.toFloat(), screenY.toFloat())
-        if (pads.isEmpty()) return false
+    /*
+     * ---------------------------------------------------------
+     * TOUCH
+     * ---------------------------------------------------------
+     */
 
-        pointerToPadsMap[pointer] = pads
-        pads.forEach { pad ->
-            padPointers[pad].add(pointer)
-        }
+    override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
+        /*
+         * Seguridad por reutilización de pointer.
+         *
+         * Android normalmente entrega touchUp correctamente,
+         * pero si el ID se reutilizó y quedó algo viejo,
+         * aquí lo eliminamos primero.
+         */
+        clearPointer(pointer)
+
+        val pad = getPadIndex(screenX.toFloat(), screenY.toFloat())
+
+        if (pad == -1) return false
+
+        pointerToPadMap[pointer] = pad
+        pressPad(pad, pointer)
 
         return true
     }
 
     override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        pointerToPadsMap.remove(pointer)
-
-        for (i in padPointers.indices) {
-            padPointers[i].remove(pointer)
-        }
-
-        return true
-    }
-
-    override fun touchDragged(
-        screenX: Int,
-        screenY: Int,
-        pointer: Int
-    ): Boolean {
-        val newPads = getPadIndices(
-            screenX.toFloat(),
-            screenY.toFloat()
-        )
-
-        val oldPads = pointerToPadsMap[pointer].orEmpty()
-
-        if (oldPads == newPads) return true
-
-        oldPads.forEach { oldPad ->
-            padPointers[oldPad].remove(pointer)
-        }
-
-        if (newPads.isEmpty()) {
-            pointerToPadsMap.remove(pointer)
-            return true
-        }
-
-        newPads.forEach { newPad ->
-            padPointers[newPad].add(pointer)
-        }
-
-        pointerToPadsMap[pointer] = newPads
-
+        clearPointer(pointer)
         return true
     }
 
     override fun touchCancelled(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-        return touchUp(screenX, screenY, pointer, button)
+        clearPointer(pointer)
+        return true
     }
 
-    private fun getPadIndices(x: Float, y: Float): Set<Int> {
-        val result = mutableSetOf<Int>()
-        val radiusSq = TOUCH_RADIUS * TOUCH_RADIUS
+    override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
+        val newPad = getPadIndex(screenX.toFloat(), screenY.toFloat())
+        val oldPad = pointerToPadMap[pointer]
+
+        /*
+         * Sigue dentro del mismo pad.
+         */
+        if (newPad == oldPad) return true
+
+        /*
+         * Salió del pad anterior.
+         */
+        if (oldPad != null) {
+            releasePad(oldPad, pointer)
+            pointerToPadMap.remove(pointer)
+        }
+
+        /*
+         * Entró a un nuevo pad.
+         */
+        if (newPad != -1) {
+            pointerToPadMap[pointer] = newPad
+            pressPad(newPad, pointer)
+        }
+
+        return true
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * HIT TEST
+     * ---------------------------------------------------------
+     *
+     * Siempre devuelve UN SOLO pad.
+     *
+     * Primero tiene prioridad absoluta el rectángulo real.
+     * Si estamos ligeramente fuera, toma únicamente
+     * el pad más cercano dentro del radio.
+     */
+
+    private fun getPadIndex(x: Float, y: Float): Int {
+
+        /*
+         * 1. Rectángulo real.
+         */
+        for (i in padPositionsHorizontal.indices) {
+            val pad = padPositionsHorizontal[i]
+
+            val left = pad[0]
+            val top = pad[1]
+            val right = left + widthBtnsHorizontal
+            val bottom = top + heightBtnsHorizontal
+
+            if (x >= left && x <= right && y >= top && y <= bottom) {
+                return i
+            }
+        }
+
+        /*
+         * 2. Tolerancia alrededor del pad.
+         *
+         * Nunca devuelve varios pads.
+         */
+        var closestPad = -1
+        var closestDistanceSq = Float.MAX_VALUE
+
+        val radius = touchRadius
+        val radiusSq = radius * radius
 
         for (i in padPositionsHorizontal.indices) {
             val pad = padPositionsHorizontal[i]
 
-            val left = pad[0].toFloat()
-            val top = pad[1].toFloat()
+            val left = pad[0]
+            val top = pad[1]
             val right = left + widthBtnsHorizontal
             val bottom = top + heightBtnsHorizontal
 
@@ -130,107 +274,200 @@ class InputProcessorSscHorizontal : InputAdapter() {
 
             val dx = x - closestX
             val dy = y - closestY
+
             val distanceSq = dx * dx + dy * dy
 
-            if (distanceSq <= radiusSq) {
-                result.add(i)
+            if (distanceSq <= radiusSq && distanceSq < closestDistanceSq) {
+                closestDistanceSq = distanceSq
+                closestPad = i
             }
         }
 
-        return result
+        return closestPad
     }
 
+    /*
+     * ---------------------------------------------------------
+     * UPDATE
+     * ---------------------------------------------------------
+     */
+
     fun update() {
-        val activePointers = mutableSetOf<Int>()
 
-        for (i in 0 until 20) {
-            if (Gdx.input.isTouched(i)) {
-                activePointers.add(i)
-            }
-        }
+        /*
+         * Primero calculamos los estados físicos.
+         */
+        for (physical in getKeyBoard.indices) {
 
-        pointerToPadsMap.keys.toList().forEach { pointer ->
-            if (pointer >= 0 && pointer !in activePointers) {
-                pointerToPadsMap.remove(pointer)
+            val pressedNow = padPointers[physical].isNotEmpty()
 
-                for (i in padPointers.indices) {
-                    padPointers[i].remove(pointer)
-                }
-            }
-        }
-
-        for (i in logicalState.indices) {
-            logicalState[i] = KEY_NONE
-        }
-
-        for (i in padPositionsHorizontal.indices) {
-            val pressedNow = padPointers[i].isNotEmpty()
+            val hadDown = pendingDown[physical]
+            val hadUp = pendingUp[physical]
 
             val state = when {
-                pressedNow && !wasPressed[i] -> KEY_DOWN
-                pressedNow && wasPressed[i] -> KEY_PRESS
-                !pressedNow && wasPressed[i] -> KEY_UP
+
+                /*
+                 * Un evento DOWN real siempre tiene prioridad.
+                 */
+                hadDown -> KEY_DOWN
+
+                /*
+                 * UP diferido por un tap demasiado rápido
+                 * para caber entre dos frames.
+                 */
+                deferredUp[physical] -> KEY_UP
+
+                /*
+                 * UP recibido normalmente.
+                 */
+                hadUp -> KEY_UP
+
+                /*
+                 * Sigue sostenido.
+                 */
+                pressedNow -> KEY_PRESS
+
                 else -> KEY_NONE
             }
 
-            getKeyBoard[i] = state
+            getKeyBoard[physical] = state
 
-            val logical = getLogicalPad(i)
-
-            when (state) {
-                KEY_DOWN -> logicalState[logical] = KEY_DOWN
-                KEY_PRESS -> if (logicalState[logical] != KEY_DOWN) {
-                    logicalState[logical] = KEY_PRESS
-                }
-                KEY_UP -> if (logicalState[logical] == KEY_NONE) {
-                    logicalState[logical] = KEY_UP
-                }
+            /*
+             * DOWN + UP ocurridos antes del mismo update().
+             *
+             * Ejemplo:
+             *
+             * frame
+             * ↓
+             * DOWN
+             * UP
+             * ↓
+             * frame
+             *
+             * Este frame entregamos DOWN.
+             * El siguiente entregamos UP.
+             */
+            if (hadDown && hadUp && !pressedNow) {
+                deferredUp[physical] = true
+            } else if (state == KEY_UP) {
+                deferredUp[physical] = false
+            } else if (hadDown && pressedNow) {
+                deferredUp[physical] = false
             }
 
-            wasPressed[i] = pressedNow
+            pendingDown[physical] = false
+            pendingUp[physical] = false
+        }
+
+        /*
+         * -----------------------------------------------------
+         * 10 pads físicos -> 5 columnas lógicas.
+         * -----------------------------------------------------
+         */
+
+        logicalState.fill(KEY_NONE)
+
+        for (physical in getKeyBoard.indices) {
+            val logical = getLogicalPad(physical)
+            val physicalState = getKeyBoard[physical]
+
+            /*
+             * Prioridad:
+             *
+             * DOWN > PRESS > UP > NONE
+             *
+             * Ejemplo:
+             *
+             * pad 0 está PRESS
+             * pad 5 acaba de hacer DOWN
+             *
+             * logical 0 debe ser DOWN.
+             */
+            when (physicalState) {
+
+                KEY_DOWN -> {
+                    logicalState[logical] = KEY_DOWN
+                }
+
+                KEY_PRESS -> {
+                    if (logicalState[logical] != KEY_DOWN) {
+                        logicalState[logical] = KEY_PRESS
+                    }
+                }
+
+                KEY_UP -> {
+                    if (logicalState[logical] == KEY_NONE) {
+                        logicalState[logical] = KEY_UP
+                    }
+                }
+            }
         }
     }
 
+    /*
+     * Player usa esto solamente para saber
+     * cuál pad físico debe dibujar presionado.
+     */
     fun getPhysicalPadsForLogical(logical: Int): List<Int> {
         val result = mutableListOf<Int>()
 
-        for (i in getKeyBoard.indices) {
-            if ((getKeyBoard[i] == KEY_DOWN || getKeyBoard[i] == KEY_PRESS) &&
-                i % 5 == logical
+        for (physical in getKeyBoard.indices) {
+            if (
+                physical % 5 == logical &&
+                (getKeyBoard[physical] == KEY_DOWN || getKeyBoard[physical] == KEY_PRESS)
             ) {
-                result.add(i)
+                result.add(physical)
             }
         }
 
         return result
     }
 
+    /*
+     * ---------------------------------------------------------
+     * RENDER
+     * ---------------------------------------------------------
+     */
+
     fun render(batch: SpriteBatch) {
         for (i in padPositionsHorizontal.indices) {
-            val (x, y) = padPositionsHorizontal[i]
+            val x = padPositionsHorizontal[i][0]
+            val y = padPositionsHorizontal[i][1]
 
-            val texture = if (getKeyBoard[i] == KEY_DOWN || getKeyBoard[i] == KEY_PRESS) {
-                btnOnPress
-            } else {
-                btnOffPress
-            }
+            val pressed =
+                getKeyBoard[i] == KEY_DOWN ||
+                        getKeyBoard[i] == KEY_PRESS
 
-            batch.draw(texture, x, y, widthBtnsHorizontal, heightBtnsHorizontal)
+            batch.draw(
+                if (pressed) btnOnPress else btnOffPress,
+                x,
+                y,
+                widthBtnsHorizontal,
+                heightBtnsHorizontal
+            )
         }
     }
 
+    /*
+     * ---------------------------------------------------------
+     * RESET
+     * ---------------------------------------------------------
+     */
+
     fun resetState() {
+        pointerToPadMap.clear()
+
         for (i in padPointers.indices) {
             padPointers[i].clear()
-            wasPressed[i] = false
+
+            pendingDown[i] = false
+            pendingUp[i] = false
+            deferredUp[i] = false
+
             getKeyBoard[i] = KEY_NONE
         }
 
-        for (i in logicalState.indices) {
-            logicalState[i] = KEY_NONE
-        }
-
-        pointerToPadsMap.clear()
+        logicalState.fill(KEY_NONE)
     }
 
     fun dispose() {

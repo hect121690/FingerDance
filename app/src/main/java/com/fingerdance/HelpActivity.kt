@@ -5,6 +5,7 @@ import android.media.MediaPlayer
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 var musicHelp: MediaPlayer? = null
@@ -144,6 +145,10 @@ class HelpActivity : AppCompatActivity() {
     }
 
     private fun openHelp(type: Int) {
+        if (type == HelpType.ONLINE || type == HelpType.DOWNLOAD_CONTENT) {
+            Toast.makeText(this, "Esta funcionalidad está en desarrollo", Toast.LENGTH_SHORT).show()
+            return
+        }
         val intent = Intent(this, HelpTutorialActivity::class.java)
         intent.putExtra(EXTRA_HELP_TYPE, type)
         startActivity(intent)

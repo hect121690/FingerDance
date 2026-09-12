@@ -16,48 +16,44 @@ class PerspectivePlayfieldRenderer(
     width: Int,
     height: Int,
     pivotX: Float,
-    private val segments: Int = 32
+    private val segments: Int = 96
 ) {
 
-    /*
-     * 1.0 = tamaño normal.
-     * Menor valor = playfield más angosto al llegar al receptor.
-     */
-    var topScaleX = 0.58f
+    var topScaleX = 0.42f
         set(value) {
             field = value
             updateMesh()
         }
 
-    /*
-     * Desplaza el punto lejano horizontalmente.
-     *
-     * negativo = hacia izquierda
-     * positivo = hacia derecha
-     */
-    var topShiftXPercent = -0.08f
+    var topShiftXPercent = 0.00f
         set(value) {
             field = value
             updateMesh()
         }
 
-    /*
-     * Controla cómo se va cerrando horizontalmente.
-     */
-    var horizontalPower = 1.15f
+    var horizontalPower = 1.30f
         set(value) {
             field = value
             updateMesh()
         }
 
-    /*
-     * ESTA es la que da mucha más sensación de profundidad.
-     *
-     * > 1 comprime el espacio vertical cerca del receptor.
-     */
-    var verticalPower = 1.45f
+    var verticalPower = 1.80f
         set(value) {
             field = value
+            updateMesh()
+        }
+
+    var meshOffsetY = height * 0.08f
+        set(value) {
+            field = value
+            updateMesh()
+        }
+
+    var progress = 1f
+        set(value) {
+            val newValue = value.coerceIn(0f, 1f)
+            if (field == newValue) return
+            field = newValue
             updateMesh()
         }
 
@@ -65,7 +61,12 @@ class PerspectivePlayfieldRenderer(
     private var height = height
     private var pivotX = pivotX
 
-    private var frameBuffer = createFrameBuffer(width, height)
+    private var frameBuffer =
+        createFrameBuffer(
+            width,
+            height
+        )
+
     private val shader = createShader()
     private var mesh = createMesh()
 
@@ -74,105 +75,71 @@ class PerspectivePlayfieldRenderer(
         updateMesh()
     }
 
+    /*
+     * ------------------------------------------------------------
+     * FRAMEBUFFER
+     * ------------------------------------------------------------
+     */
+
     fun begin() {
         frameBuffer.begin()
-
-        Gdx.gl.glClearColor(
-            0f,
-            0f,
-            0f,
-            0f
-        )
-
-        Gdx.gl.glClear(
-            GL20.GL_COLOR_BUFFER_BIT
-        )
+        Gdx.gl.glClearColor(0f, 0f, 0f, 0f)
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
     }
 
     fun end() {
         frameBuffer.end()
     }
 
+    /*
+     * ------------------------------------------------------------
+     * RENDER DEL MESH
+     * ------------------------------------------------------------
+     */
+
     fun draw(projectionMatrix: Matrix4) {
-        val texture =
-            frameBuffer.colorBufferTexture
-
-        Gdx.gl.glDisable(
-            GL20.GL_DEPTH_TEST
-        )
-
-        Gdx.gl.glEnable(
-            GL20.GL_BLEND
-        )
-
-        Gdx.gl.glBlendFunc(
-            GL20.GL_SRC_ALPHA,
-            GL20.GL_ONE_MINUS_SRC_ALPHA
-        )
-
+        val texture = frameBuffer.colorBufferTexture
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST)
+        Gdx.gl.glEnable(GL20.GL_BLEND)
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
         texture.bind(0)
 
         shader.bind()
-
-        shader.setUniformMatrix(
-            "u_projTrans",
-            projectionMatrix
-        )
-
-        shader.setUniformi(
-            "u_texture",
-            0
-        )
-
-        mesh.render(
-            shader,
-            GL20.GL_TRIANGLES
-        )
+        shader.setUniformMatrix("u_projTrans", projectionMatrix)
+        shader.setUniformi("u_texture", 0)
+        mesh.render(shader, GL20.GL_TRIANGLES)
     }
 
-    fun resize(
-        width: Int,
-        height: Int,
-        pivotX: Float = this.pivotX
-    ) {
-        if (
-            width <= 0 ||
-            height <= 0
-        ) {
+    /*
+     * ------------------------------------------------------------
+     * RESIZE
+     * ------------------------------------------------------------
+     */
+
+    fun resize(width: Int, height: Int, pivotX: Float = this.pivotX) {
+        if (width <= 0 || height <= 0) {
             return
         }
 
         this.width = width
         this.height = height
         this.pivotX = pivotX
-
         frameBuffer.dispose()
-
-        frameBuffer =
-            createFrameBuffer(
-                width,
-                height
-            )
-
+        frameBuffer = createFrameBuffer(width, height)
         mesh.dispose()
-
         mesh = createMesh()
 
         updateMesh()
     }
 
-    private fun createFrameBuffer(
-        width: Int,
-        height: Int
-    ): FrameBuffer {
+    /*
+     * ------------------------------------------------------------
+     * FRAMEBUFFER CREATION
+     * ------------------------------------------------------------
+     */
 
-        return FrameBuffer(
-            Pixmap.Format.RGBA8888,
-            width,
-            height,
-            false
-        ).also {
-
+    private fun createFrameBuffer(width: Int, height: Int): FrameBuffer {
+        return FrameBuffer(Pixmap.Format.RGBA8888, width, height, false).also {
             it.colorBufferTexture.setFilter(
                 Texture.TextureFilter.Linear,
                 Texture.TextureFilter.Linear
@@ -180,50 +147,36 @@ class PerspectivePlayfieldRenderer(
         }
     }
 
+    /*
+     * ------------------------------------------------------------
+     * MESH CREATION
+     * ------------------------------------------------------------
+     */
+
     private fun createMesh(): Mesh {
-        val vertexCount =
-            (segments + 1) * 2
+        val vertexCount = (segments + 1) * 2
+        val indexCount = segments * 6
 
-        val indexCount =
-            segments * 6
-
-        val result = Mesh(
-            true,
-            vertexCount,
-            indexCount,
-
-            VertexAttribute(
-                VertexAttributes.Usage.Position,
-                3,
-                ShaderProgram.POSITION_ATTRIBUTE
-            ),
-
-            VertexAttribute(
-                VertexAttributes.Usage.TextureCoordinates,
-                2,
-                ShaderProgram.TEXCOORD_ATTRIBUTE + "0"
+        val result = Mesh(true, vertexCount, indexCount,
+                VertexAttribute(
+                    VertexAttributes.Usage.Position,
+                    3,
+                    ShaderProgram.POSITION_ATTRIBUTE
+                ),
+                VertexAttribute(
+                    VertexAttributes.Usage.TextureCoordinates,
+                    2,
+                    ShaderProgram.TEXCOORD_ATTRIBUTE + "0"
+                )
             )
-        )
 
-        val indices =
-            ShortArray(indexCount)
-
+        val indices = ShortArray(indexCount)
         var p = 0
-
         for (i in 0 until segments) {
-
-            val topLeft =
-                (i * 2).toShort()
-
-            val topRight =
-                (i * 2 + 1).toShort()
-
-            val bottomLeft =
-                ((i + 1) * 2).toShort()
-
-            val bottomRight =
-                ((i + 1) * 2 + 1).toShort()
-
+            val topLeft = (i * 2).toShort()
+            val topRight = (i * 2 + 1).toShort()
+            val bottomLeft = ((i + 1) * 2).toShort()
+            val bottomRight = ((i + 1) * 2 + 1).toShort()
             indices[p++] = topLeft
             indices[p++] = bottomLeft
             indices[p++] = topRight
@@ -238,130 +191,37 @@ class PerspectivePlayfieldRenderer(
         return result
     }
 
+    /*
+     * ------------------------------------------------------------
+     * ACTUALIZACION DE LA PERSPECTIVA
+     * ------------------------------------------------------------
+     */
+
     private fun updateMesh() {
-        if (
-            width <= 0 ||
-            height <= 0
-        ) {
+        if (width <= 0 || height <= 0) {
             return
         }
-
-        /*
-         * Cada vértice:
-         *
-         * x
-         * y
-         * z
-         * u
-         * v
-         */
-        val vertices =
-            FloatArray(
-                (segments + 1) * 2 * 5
-            )
-
-        val topShiftPx =
-            width * topShiftXPercent
-
+        val vertices = FloatArray((segments + 1) * 2 * 5)
+        val topShiftPx = width * topShiftXPercent
         var p = 0
-
         for (row in 0..segments) {
-
-            /*
-             * IMPORTANTE:
-             *
-             * Nuestra cámara usa Y-DOWN.
-             *
-             * t = 0 -> arriba / receptor
-             * t = 1 -> abajo / jugador
-             */
-            val t =
-                row.toFloat() /
-                        segments.toFloat()
-
-            /*
-             * Profundidad:
-             *
-             * 1 arriba
-             * 0 abajo
-             */
-            val depth =
-                1f - t
-
-            val horizontalEffect =
-                depth.pow(
-                    horizontalPower
-                        .coerceAtLeast(0.01f)
-                )
-
-            /*
-             * Arriba:
-             * scaleX ~= topScaleX
-             *
-             * Abajo:
-             * scaleX = 1
-             */
-            val scaleX =
-                1f -
-                        ((1f - topScaleX) *
-                                horizontalEffect)
-
-            /*
-             * El desplazamiento también desaparece
-             * gradualmente hacia abajo.
-             */
-            val shiftX =
-                topShiftPx *
-                        horizontalEffect
-
-            val leftX =
-                pivotX +
-                        (0f - pivotX) *
-                        scaleX +
-                        shiftX
-
-            val rightX =
-                pivotX +
-                        (width.toFloat() - pivotX) *
-                        scaleX +
-                        shiftX
-
-            /*
-             * PERSPECTIVA VERTICAL.
-             *
-             * Como Y=0 está arriba:
-             *
-             * t^1.45 comprime las distancias verticales
-             * cerca del receptor.
-             *
-             * Esto hace que las notas también parezcan
-             * reducir su ALTURA cuando llegan al fondo.
-             */
-            val perspectiveT =
-                t.pow(
-                    verticalPower
-                        .coerceAtLeast(0.01f)
-                )
-
-            val y =
-                height *
-                        perspectiveT
-
-            /*
-             * FrameBuffer de LibGDX viene invertido
-             * verticalmente.
-             */
-            val v =
-                1f - t
-
-            // LEFT
+            val t = row.toFloat() / segments.toFloat()
+            val depth = 1f - t
+            val horizontalEffect = depth.pow(horizontalPower.coerceAtLeast(0.01f))
+            val perspectiveScaleX = 1f - ((1f - topScaleX) * horizontalEffect)
+            val scaleX = 1f + (perspectiveScaleX - 1f) * progress
+            val shiftX = topShiftPx * horizontalEffect * progress
+            val leftX = pivotX + (0f - pivotX) * scaleX + shiftX
+            val rightX = pivotX + (width.toFloat() - pivotX) * scaleX + shiftX
+            val fullPerspectiveT = t.pow(verticalPower.coerceAtLeast(0.01f))
+            val perspectiveT = t + (fullPerspectiveT - t) * progress
+            val y = (height * perspectiveT) + (meshOffsetY * progress)
+            val v = 1f - t
             vertices[p++] = leftX
             vertices[p++] = y
             vertices[p++] = 0f
             vertices[p++] = 0f
             vertices[p++] = v
-
-            // RIGHT
             vertices[p++] = rightX
             vertices[p++] = y
             vertices[p++] = 0f
@@ -372,10 +232,17 @@ class PerspectivePlayfieldRenderer(
         mesh.setVertices(vertices)
     }
 
+    /*
+     * ------------------------------------------------------------
+     * SHADER
+     * ------------------------------------------------------------
+     */
+
     private fun createShader(): ShaderProgram {
         ShaderProgram.pedantic = false
 
-        val vertexShader = """
+        val vertexShader =
+            """
             attribute vec4 a_position;
             attribute vec2 a_texCoord0;
 
@@ -387,14 +254,16 @@ class PerspectivePlayfieldRenderer(
                 v_texCoords = a_texCoord0;
                 gl_Position = u_projTrans * a_position;
             }
-        """.trimIndent()
+            """.trimIndent()
 
-        val fragmentShader = """
+        val fragmentShader =
+            """
             #ifdef GL_ES
             precision mediump float;
             #endif
 
             varying vec2 v_texCoords;
+
             uniform sampler2D u_texture;
 
             void main() {
@@ -404,13 +273,9 @@ class PerspectivePlayfieldRenderer(
                         v_texCoords
                     );
             }
-        """.trimIndent()
+            """.trimIndent()
 
-        return ShaderProgram(
-            vertexShader,
-            fragmentShader
-        ).also { shader ->
-
+        return ShaderProgram(vertexShader, fragmentShader).also { shader ->
             if (!shader.isCompiled) {
                 throw IllegalStateException(
                     "No se pudo compilar PerspectivePlayfieldRenderer: ${shader.log}"
@@ -418,6 +283,12 @@ class PerspectivePlayfieldRenderer(
             }
         }
     }
+
+    /*
+     * ------------------------------------------------------------
+     * DISPOSE
+     * ------------------------------------------------------------
+     */
 
     fun dispose() {
         frameBuffer.dispose()

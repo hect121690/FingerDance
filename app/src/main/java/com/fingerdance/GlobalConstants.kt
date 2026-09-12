@@ -898,7 +898,8 @@ data class LuaTransform(
     var screenZ: Float = 0f,
     var zoom: Float = 1f,
     var alpha: Float = 1f,
-    var rotation: Float = 0f
+    var rotation: Float = 0f,
+    var flipX: Boolean = false
 )
 
 data class SscChart(

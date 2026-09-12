@@ -697,6 +697,7 @@ class SelectSong : AppCompatActivity() {
                     "RS" -> playerSong.rs = true
                     "M" -> playerSong.mirror = true
                     "SN" -> playerSong.snake = true
+                    "NX" -> playerSong.nx = true
                 }
             }
         }
@@ -975,6 +976,7 @@ class SelectSong : AppCompatActivity() {
                             "V" -> playerSong.vanish = false
                             "AP" -> playerSong.ap = false
                             "SN" -> playerSong.snake =  false
+                            "NX" -> playerSong.nx = false
                         }
                     } else {
                         when (itemValues.value) {
@@ -1013,6 +1015,11 @@ class SelectSong : AppCompatActivity() {
                                     listEfectsDisplay.remove(isSnake)
                                     playerSong.snake = false
                                 }
+                                val isNx = listEfectsDisplay.find { it.value == "NX" }
+                                if (isNx != null) {
+                                    listEfectsDisplay.remove(isNx)
+                                    playerSong.nx = false
+                                }
                             }
                             "AP" -> {
                                 listEfectsDisplay.add(itemValues)
@@ -1026,6 +1033,11 @@ class SelectSong : AppCompatActivity() {
                                 if (isSnake != null) {
                                     listEfectsDisplay.remove(isSnake)
                                     playerSong.snake = false
+                                }
+                                val isNx = listEfectsDisplay.find { it.value == "NX" }
+                                if (isNx != null) {
+                                    listEfectsDisplay.remove(isNx)
+                                    playerSong.nx = false
                                 }
                             }
                         }
@@ -1080,10 +1092,28 @@ class SelectSong : AppCompatActivity() {
                         listEfectsDisplay.remove(existEffect)
                         when (existEffect.value) {
                             "SN" -> playerSong.snake = false
+                            "NX" -> playerSong.nx = false
                         }
                     } else {
                         listEfectsDisplay.add(itemValues)
-                        playerSong.snake = true
+                        when (itemValues.value) {
+                            "SN" -> {
+                                playerSong.snake = true
+                                val isNx = listEfectsDisplay.find { it.value == "NX" }
+                                if (isNx != null) {
+                                    listEfectsDisplay.remove(isNx)
+                                    playerSong.nx = false
+                                }
+                            }
+                            "NX" -> {
+                                playerSong.nx = true
+                                val isSnake = listEfectsDisplay.find { it.value == "SN" }
+                                if (isSnake != null) {
+                                    listEfectsDisplay.remove(isSnake)
+                                    playerSong.snake = false
+                                }
+                            }
+                        }
                         val isAP = listEfectsDisplay.find { it.value == "AP" }
                         if (isAP != null) {
                             listEfectsDisplay.remove(isAP)

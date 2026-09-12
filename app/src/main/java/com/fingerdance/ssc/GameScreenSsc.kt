@@ -1,6 +1,5 @@
 package com.fingerdance.ssc
 
-import android.os.SystemClock
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.Color
@@ -12,7 +11,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
-import com.badlogic.gdx.math.MathUtils
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
@@ -27,7 +25,6 @@ import com.fingerdance.hideImagesPadA
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
-import com.fingerdance.mediaPlayer
 import com.fingerdance.medidaFlechas
 import com.fingerdance.padPositions
 import com.fingerdance.playerSong
@@ -38,6 +35,7 @@ import com.fingerdance.tema
 import com.fingerdance.typePadD
 import com.fingerdance.width
 import com.fingerdance.widthBtns
+import java.io.File
 import kotlin.math.abs
 
 open class GameScreenSsc(activity: GameScreenActivity) : Screen {
@@ -142,10 +140,43 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     private var showOverlay = false
     private var intervalOverlay = 0f
 
+    // Actívala para probar el playfield deformado con FrameBuffer + Mesh.
+    val applyMesh: Boolean
+        get() = nxProgress > 0f
+
+
+    private val baseNX = playerSong.nx
+
+    var nxProgress = if (baseNX) 1f else 0f
+        private set
+
+    private var nxStartProgress = nxProgress
+    private var nxTargetProgress = nxProgress
+
+    private var nxTransitionStartBeat = 0.0
+    private var nxTransitionBeats = 0.0
+
+    private var nxTransitioning = false
+
+    private var nxEffectDuration = 0.0
+    private var nxDurationUnit = 0
+
+    private var nxEffectStartBeat = 0.0
+    private var nxEffectStartMs = 0.0
+
+    private var nxWaitingReturn = false
+    private var nxReturningToBase = false
+    private var currentSongTimeMs = 0.0
+
+    private lateinit var perspectiveRenderer: PerspectivePlayfieldRenderer
+
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
     val maxWidth = medidaFlechas * 5f
     val maxlHeight = medidaFlechas / 2f
+
+    val gaugeIncNormal = floatArrayOf(0.03f, 0.015f, 0.01f, -0.02f, -0.1f, 0.002f)
+    val gaugeIncHJ = floatArrayOf(0.015f, 0.007f, 0.005f, -0.04f, -0.15f, 0.001f)
 
     private val lifeLightningTexture = Texture(Gdx.files.external("FingerDance/Themes/$tema/GraphicsStatics/game_play/barlife_electric 4x6.png"))
     val lifeLightningFrames: Array<TextureRegion> = getLifeLightningFrames(lifeLightningTexture)
@@ -164,6 +195,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     )
 
     private lateinit var font: BitmapFont
+
 
     init {
         if(showPadB == 1){
@@ -208,6 +240,25 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
 
+        perspectiveRenderer =
+            PerspectivePlayfieldRenderer(
+                width = Gdx.graphics.width,
+                height = Gdx.graphics.height,
+                pivotX = medidaFlechas * 3.5f
+            ).apply {
+
+                topScaleX = 0.42f
+
+                topShiftXPercent = 0.00f
+
+                horizontalPower = 1.30f
+
+                verticalPower = 1.80f
+
+                meshOffsetY =
+                    Gdx.graphics.height * 0.08f
+            }
+
         player = PlayerSsc(this, batch, a)
         rithymAnim = (60f / player.m_fCurBPM)
         targetTop = medidaFlechas
@@ -228,54 +279,220 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
         if (!isPaused) {
             val songTimeMs = a.getSongTimeMs()
+            currentSongTimeMs = songTimeMs
             elapsedTime += delta
 
-            batch.begin()
-            showBgPads()
-            player.updateStepData(songTimeMs)
-            //batch.color = Color(0f, 0f, 0f, 0f)
+            if (!applyMesh) {
+                // Render original: se conserva igual, solamente sin la barra de progreso/burbujas.
+                batch.begin()
+                showBgPads()
+                player.updateStepData(songTimeMs)
 
-            if(!playerSong.fd){
-
-                intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
-                timer += delta
-                if (timer >= intervalOverlay) {
-                    timer -= intervalOverlay
-                    showOverlay = !showOverlay
+                if (!playerSong.fd) {
+                    intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                    timer += delta
+                    if (timer >= intervalOverlay) {
+                        timer -= intervalOverlay
+                        showOverlay = !showOverlay
+                    }
+                    drawRecepts()
                 }
-                drawRecepts()
+
+                player.render(songTimeMs)
+
+                barBlack.setSize(maxWidth, maxlHeight)
+                barBlack.setPosition(medidaFlechas, 0f)
+                barRed.setSize(maxWidth, maxlHeight)
+                barRed.setPosition(medidaFlechas, 0f)
+
+                drawEndingFade(delta)
+                batch.end()
+            } else {
+                /*
+                 * 1) Todo lo que NO queremos deformar se dibuja normalmente.
+                 *    Aquí permanecen fondo/pads y el feedback táctil.
+                 */
+                batch.begin()
+                showBgPads()
+                player.updateStepData(songTimeMs)
+                player.renderMeshInput()
+                batch.end()
+
+                if (!playerSong.fd) {
+                    intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                    timer += delta
+                    if (timer >= intervalOverlay) {
+                        timer -= intervalOverlay
+                        showOverlay = !showOverlay
+                    }
+                }
+
+                /*
+                 * 2) Sólo playfield -> FrameBuffer.
+                 *    Receptores + TAP/MINE/HOLD + expand + flares.
+                 */
+                perspectiveRenderer.begin()
+                batch.projectionMatrix = camera.combined
+                batch.begin()
+
+                if (!playerSong.fd) {
+                    drawRecepts()
+                }
+
+                player.renderMeshPlayfield(songTimeMs)
+
+                batch.end()
+                perspectiveRenderer.end()
+
+                /* 3) Deformamos el FrameBuffer completo con el Mesh. */
+                perspectiveRenderer.progress = nxProgress
+                perspectiveRenderer.draw(camera.combined)
+
+                /*
+                 * 4) HUD normal, sin Mesh: life bar, flashes, chibis, judge y combo.
+                 */
+                batch.projectionMatrix = camera.combined
+                batch.begin()
+                player.renderMeshHud()
+
+                barBlack.setSize(maxWidth, maxlHeight)
+                barBlack.setPosition(medidaFlechas, 0f)
+                barRed.setSize(maxWidth, maxlHeight)
+                barRed.setPosition(medidaFlechas, 0f)
+
+                drawEndingFade(delta)
+                batch.end()
             }
 
-            player.render(songTimeMs)
-
-            //font.draw(batch, "Beat: %.3f".format(player.beatToShow), 20f, 40f)
-
-            barBlack.setSize(maxWidth, maxlHeight)
-            barBlack.setPosition(medidaFlechas, 0f)
-
-            barRed.setSize(maxWidth, maxlHeight)
-            barRed.setPosition(medidaFlechas, 0f)
-
-            if (isEndingFade) {
-                endingFadeAlpha += delta * 1.8f
-                if (endingFadeAlpha > 1f) {
-                    endingFadeAlpha = 1f
-                }
-                batch.setColor(0f, 0f, 0f, endingFadeAlpha)
-                batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-                batch.setColor(1f, 1f, 1f, 1f)
-            }
-
-            batch.end()
             stage.act(delta)
         }
 
         stage.draw()
     }
 
+    fun setNXFromLua(
+        active: Boolean,
+        transitionBeats: Double,
+        effectDuration: Double,
+        durationUnit: Int,
+        startBeat: Double
+    ) {
+        nxStartProgress = nxProgress
+        nxTargetProgress = if (active) 1f else 0f
+
+        nxTransitionStartBeat = startBeat
+        nxTransitionBeats = transitionBeats.coerceAtLeast(0.0)
+
+        nxEffectDuration = effectDuration.coerceAtLeast(0.0)
+        nxDurationUnit = durationUnit.coerceIn(0, 1)
+
+        nxWaitingReturn = false
+        nxReturningToBase = false
+
+        if (nxTransitionBeats <= 0.0) {
+            nxProgress = nxTargetProgress
+            nxTransitioning = false
+            beginNxHold(startBeat, currentSongTimeMs)
+        } else {
+            nxTransitioning = true
+        }
+    }
+
+    fun updateNXEffect(currentBeat: Double, songTimeMs: Double) {
+        if (nxTransitioning) {
+            val elapsedBeats = currentBeat - nxTransitionStartBeat
+
+            val t = if (nxTransitionBeats <= 0.0) {
+                1f
+            } else {
+                (elapsedBeats / nxTransitionBeats)
+                    .toFloat()
+                    .coerceIn(0f, 1f)
+            }
+
+            nxProgress =
+                nxStartProgress +
+                        (nxTargetProgress - nxStartProgress) * t
+
+            if (t >= 1f) {
+                nxProgress = nxTargetProgress
+                nxTransitioning = false
+
+                if (nxReturningToBase) {
+                    nxReturningToBase = false
+                    nxWaitingReturn = false
+                } else {
+                    beginNxHold(
+                        currentBeat = currentBeat,
+                        songTimeMs = songTimeMs
+                    )
+                }
+            }
+        }
+
+        if (nxWaitingReturn && !nxTransitioning) {
+            val finished = when (nxDurationUnit) {
+                1 -> songTimeMs - nxEffectStartMs >= nxEffectDuration
+                else -> currentBeat - nxEffectStartBeat >= nxEffectDuration
+            }
+
+            if (finished) {
+                returnNxToBase(currentBeat)
+            }
+        }
+    }
+
+    private fun beginNxHold(
+        currentBeat: Double,
+        songTimeMs: Double = 0.0
+    ) {
+        if (nxEffectDuration <= 0.0) {
+            nxWaitingReturn = false
+            return
+        }
+
+        nxEffectStartBeat = currentBeat
+        nxEffectStartMs = songTimeMs
+        nxWaitingReturn = true
+    }
+
+    private fun returnNxToBase(currentBeat: Double) {
+        nxWaitingReturn = false
+        nxReturningToBase = true
+
+        nxStartProgress = nxProgress
+        nxTargetProgress = if (baseNX) 1f else 0f
+
+        nxTransitionStartBeat = currentBeat
+
+        if (nxTransitionBeats <= 0.0) {
+            nxProgress = nxTargetProgress
+            nxTransitioning = false
+            nxReturningToBase = false
+        } else {
+            nxTransitioning = true
+        }
+    }
+
+    private fun drawEndingFade(delta: Float) {
+        if (!isEndingFade) return
+
+        endingFadeAlpha += delta * 1.8f
+        if (endingFadeAlpha > 1f) {
+            endingFadeAlpha = 1f
+        }
+
+        batch.setColor(0f, 0f, 0f, endingFadeAlpha)
+        batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+        batch.setColor(1f, 1f, 1f, 1f)
+    }
+
     override fun resize(width: Int, height: Int) {
         camera.setToOrtho(true, width.toFloat(), height.toFloat())
         camera.update()
+        if (::perspectiveRenderer.isInitialized) {
+            perspectiveRenderer.resize(width, height, medidaFlechas * 3.5f)
+        }
     }
 
     private fun getLifeLightningFrames(texture: Texture): Array<TextureRegion> {
@@ -467,6 +684,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         return frames
     }
 
+
     override fun pause() {
         isPaused = true
     }
@@ -524,6 +742,10 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             arrayPad4[0].texture.dispose()
         }
         lifeLightningTexture.dispose()
+        if (::perspectiveRenderer.isInitialized) perspectiveRenderer.dispose()
+
+
         player.disposePlayer()
     }
+
 }

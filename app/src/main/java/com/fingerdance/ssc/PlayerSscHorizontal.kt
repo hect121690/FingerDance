@@ -350,6 +350,10 @@ class PlayerSscHorizontal(
 
 
     private val iLongTop = LongArray(5)
+
+    private var meshTimeCom = 0L
+    private var meshCurrentBeat = 0.0
+    private var meshDelta = 0f
     fun render(songTimeMs: Double) {
         val timeCom = screen.timeGetTime()
         val delta = Gdx.graphics.deltaTime
@@ -410,6 +414,57 @@ class PlayerSscHorizontal(
         }
         drawJudge(timeCom - m_judge.startTime)
     }
+
+    fun renderMeshInput() {
+        if (showPadB == 0) inputProcessor.render(batch)
+    }
+
+    fun renderMeshPlayfield(songTimeMs: Double) {
+        meshTimeCom = screen.timeGetTime()
+        meshDelta = Gdx.graphics.deltaTime
+        meshCurrentBeat = timeToBeat(songTimeMs)
+
+        val currentBpm = bpms.lastOrNull { it.beat <= meshCurrentBeat }?.bpm ?: bpms.firstOrNull()?.bpm ?: 120.0
+        m_fCurBPM = currentBpm.toFloat()
+
+        val msPorBeat = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
+        val msPorFrame = msPorBeat / 5f
+        arrowFrame = ((meshTimeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
+
+        updateFGChanges(meshCurrentBeat)
+        gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
+
+        updateExpandAnimations(meshDelta)
+        drawExpandEffects()
+
+        for (iStepNo in 0 until m_iStepWidth) {
+            if (flare[iStepNo].startTime == 0L) continue
+            iLongTop[iStepNo] = ((meshTimeCom - flare[iStepNo].startTime) shr 6)
+            if (iLongTop[iStepNo] >= 6) {
+                flare[iStepNo].startTime = 0
+                continue
+            }
+            drawFlare(iStepNo, iLongTop[iStepNo].toInt())
+        }
+    }
+
+    fun renderMeshHud() {
+        val beatPhase = (meshCurrentBeat - kotlin.math.floor(meshCurrentBeat)).toFloat()
+        val stretchProgress = beatPhase.coerceIn(0f, 1f)
+
+        drawGauge(gauge = barLifeCalculator.visibleProgress, stretchProgress = stretchProgress)
+        drawOverflowLightning(delta = meshDelta)
+        drawMineFlash(meshTimeCom)
+        drawLuaFlash(meshTimeCom)
+
+        if (m_judge.startTime == 0L) return
+        if (m_judge.startTime + 2500 < meshTimeCom) {
+            m_judge.startTime = 0
+            return
+        }
+        drawJudge(meshTimeCom - m_judge.startTime)
+    }
+
 
     fun updateStepData(songTimeMs: Double) {
         inputProcessor.update()

@@ -470,23 +470,26 @@ class MainActivity : AppCompatActivity(), Serializable {
         )
 
         medidaFlechasHorizontal = width / 8f
-        //height = 2436 width = 1080
         heightBtnsHorizontal = width / 3.35f               //323
         widthBtnsHorizontal = height * 0.115f               //248
+
+        val offsetHorizontal = medidaFlechasHorizontal * 0.5f
+        val offsetVertical = medidaFlechasHorizontal * 0.5f
+
         val initPadB = height - (widthBtnsHorizontal * 3f)
 
         padPositionsHorizontal = listOf(
-            arrayOf(0f, width - heightBtnsHorizontal), // leftDown
-            arrayOf(0f, (medidaFlechasHorizontal * 2)), // leftUp
-            arrayOf(widthBtnsHorizontal, width - (heightBtnsHorizontal * 1.75f)), // center
-            arrayOf((widthBtnsHorizontal * 2f), (medidaFlechasHorizontal * 2)), // rightUp
-            arrayOf((widthBtnsHorizontal * 2f), width - heightBtnsHorizontal),  // rightDown
+            arrayOf(0f + offsetHorizontal, (width - heightBtnsHorizontal) - offsetVertical), // leftDown
+            arrayOf(0f + offsetHorizontal, (medidaFlechasHorizontal * 2f) - offsetVertical), // leftUp
+            arrayOf(widthBtnsHorizontal + offsetHorizontal, (width - (heightBtnsHorizontal * 1.75f)) - offsetVertical), // center
+            arrayOf((widthBtnsHorizontal * 2f) + offsetHorizontal, (medidaFlechasHorizontal * 2f) - offsetVertical), // rightUp
+            arrayOf((widthBtnsHorizontal * 2f) + offsetHorizontal, (width - heightBtnsHorizontal) - offsetVertical), // rightDown
 
-            arrayOf(initPadB, width - heightBtnsHorizontal), // leftDown
-            arrayOf(initPadB, (medidaFlechasHorizontal * 2)), // leftUp
-            arrayOf(initPadB + widthBtnsHorizontal, width - (heightBtnsHorizontal * 1.75f)), // center
-            arrayOf(initPadB + (widthBtnsHorizontal * 2f), (medidaFlechasHorizontal * 2)), // rightUp
-            arrayOf(initPadB + (widthBtnsHorizontal * 2f), width - heightBtnsHorizontal)  // rightDown
+            arrayOf(initPadB - offsetHorizontal, (width - heightBtnsHorizontal) - offsetVertical), // leftDown
+            arrayOf(initPadB - offsetHorizontal, (medidaFlechasHorizontal * 2f) - offsetVertical), // leftUp
+            arrayOf((initPadB + widthBtnsHorizontal) - offsetHorizontal, (width - (heightBtnsHorizontal * 1.75f)) - offsetVertical), // center
+            arrayOf((initPadB + (widthBtnsHorizontal * 2f)) - offsetHorizontal, (medidaFlechasHorizontal * 2f) - offsetVertical), // rightUp
+            arrayOf((initPadB + (widthBtnsHorizontal * 2f)) - offsetHorizontal, (width - heightBtnsHorizontal) - offsetVertical) // rightDown
         )
 
         val verticalSpace = getVerticalGap(
@@ -1069,30 +1072,53 @@ class MainActivity : AppCompatActivity(), Serializable {
     }
 
     private fun iniciarDescarga() {
-        val downloadDialog = WebDownloadDialog(this@MainActivity)
+
+        val downloadDialog =
+            WebDownloadDialog(this@MainActivity)
+
         downloadDialog.show("FingerDance.zip")
 
         CoroutineScope(Dispatchers.Main).launch {
-            val downloadedFile = iniciarDescargaDrive("1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI", "zip") { progress ->
-                runOnUiThread {
-                    downloadDialog.updateProgress(progress)
-                }
+
+            val downloadedFile = iniciarDescargaDrive(
+                "1WZ3rL20JGEKcPtoQi0dHrZ8qs8z8-7kI",
+                "zip"
+            ) { progress ->
+
+                downloadDialog.updateProgress(progress)
             }
 
             if (downloadedFile != null) {
+
                 downloadDialog.dismiss()
+
                 lifecycleScope.launch {
-                    val unzip = Unzip(this@MainActivity)
-                    val rutaZip = getExternalFilesDir("FingerDance.zip").toString()
-                    unzip.performUnzip(rutaZip, "FingerDance.zip", true)
+
+                    val unzip =
+                        Unzip(this@MainActivity)
+
+                    val rutaZip =
+                        getExternalFilesDir("FingerDance.zip").toString()
+
+                    unzip.performUnzip(
+                        rutaZip,
+                        "FingerDance.zip",
+                        true
+                    )
                 }
+
             } else {
+
                 downloadDialog.dismiss()
-                Toast.makeText(this@MainActivity, "Error en la descarga", Toast.LENGTH_LONG).show()
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error en la descarga",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
-
     private suspend fun iniciarDescargaDrive(idDownload: String, typeFile: String, isUpdate: Boolean = false, progressCallback: (Int) -> Unit): File? {
 
         descargando = false
@@ -1245,12 +1271,12 @@ class MainActivity : AppCompatActivity(), Serializable {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionApp = packageInfo.versionName ?: ""
         showUpdateView = themes.getBoolean("showUpdateView", true)
-        if(versionApp == "3.2.4"){
+        if(versionApp == "3.2.5"){
             deleteOldNoteSkins()
             showUpdateView = true
             themes.edit().putBoolean("showUpdateView", showUpdateView).apply()
         }
-        if(versionApp == "3.2.5" && showUpdateView){
+        if(versionApp == "3.2.6" && showUpdateView){
             showUpdateDialog(this, versionApp)
         }
     }

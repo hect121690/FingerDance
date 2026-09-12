@@ -1,6 +1,7 @@
 package com.fingerdance.ssc
 
 import LuaEngine
+import LuaFgContext
 import android.os.SystemClock
 import android.util.Log
 import com.badlogic.gdx.Gdx
@@ -360,6 +361,11 @@ class PlayerSsc(
     var beatToShow = 0.0
     private val iLongTop = LongArray(5)
 
+    // Datos del frame usados únicamente cuando GameScreenSsc activa applyMesh.
+    private var meshTimeCom = 0L
+    private var meshCurrentBeat = 0.0
+    private var meshDelta = 0f
+
     fun render(songTimeMs: Double) {
         val timeCom = timeGetTime()
         val delta = Gdx.graphics.deltaTime
@@ -379,6 +385,7 @@ class PlayerSsc(
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
 
         updateFGChanges(currentBeat)
+        screen.updateNXEffect(currentBeat, songTimeMs)
 
         gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
 
@@ -423,6 +430,91 @@ class PlayerSsc(
             return
         }
         drawJudge(timeCom - m_judge.startTime)
+    }
+
+    /**
+     * En modo Mesh el Input se conserva fuera del FrameBuffer para no deformar
+     * los pads/feedback táctil. El render normal sigue usando render() intacto.
+     */
+    fun renderMeshInput() {
+        if (showPadB == 0) {
+            inputProcessor.render(batch)
+        }
+    }
+
+    /**
+     * Parte que SÍ se dibuja dentro del FrameBuffer:
+     * notas, mines, holds, expand de receptores y flares.
+     */
+    fun renderMeshPlayfield(songTimeMs: Double) {
+        meshTimeCom = timeGetTime()
+        meshDelta = Gdx.graphics.deltaTime
+        meshCurrentBeat = timeToBeat(songTimeMs)
+        beatToShow = meshCurrentBeat
+
+        val currentBpm =
+            bpms.lastOrNull { it.beat <= meshCurrentBeat }?.bpm
+                ?: bpms.firstOrNull()?.bpm
+                ?: 120.0
+
+        m_fCurBPM = currentBpm.toFloat()
+
+        val msPorBeat = MINUTE / m_fCurBPM.coerceIn(1f, 999f)
+        val msPorFrame = msPorBeat / 5f
+        arrowFrame = ((meshTimeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
+
+        updateFGChanges(meshCurrentBeat)
+        screen.updateNXEffect(meshCurrentBeat, songTimeMs)
+        gameplayEngine.render(
+            songTimeMs = songTimeMs,
+            renderer = this
+        )
+
+        updateExpandAnimations(meshDelta)
+        drawExpandEffects()
+
+        for (iStepNo in 0 until m_iStepWidth) {
+            if (flare[iStepNo].startTime == 0L) continue
+
+            iLongTop[iStepNo] = ((meshTimeCom - flare[iStepNo].startTime) shr 6)
+            if (iLongTop[iStepNo] >= 6) {
+                flare[iStepNo].startTime = 0
+                continue
+            }
+
+            drawFlare(iStepNo, iLongTop[iStepNo].toInt())
+        }
+    }
+
+    /**
+     * Parte que NO se deforma. Se dibuja después de componer el Mesh.
+     */
+    fun renderMeshHud() {
+        val beatPhase =
+            (meshCurrentBeat - kotlin.math.floor(meshCurrentBeat)).toFloat()
+        val stretchProgress = beatPhase.coerceIn(0f, 1f)
+
+        drawGauge(
+            gauge = barLifeCalculator.visibleProgress,
+            stretchProgress = stretchProgress
+        )
+
+        drawOverflowLightning(delta = meshDelta)
+        drawMineFlash(meshTimeCom)
+        drawLuaFlash(meshTimeCom)
+
+        if (isOnline) {
+            drawChibis()
+        }
+
+        if (m_judge.startTime == 0L) return
+
+        if (m_judge.startTime + 2500 < meshTimeCom) {
+            m_judge.startTime = 0
+            return
+        }
+
+        drawJudge(meshTimeCom - m_judge.startTime)
     }
 
     private fun drawChibis() {
@@ -560,12 +652,30 @@ class PlayerSsc(
                     target
                 }
                 if (luaFile != null && luaFile.exists()) {
-                    luaEngine.executeLua(luaFile.absolutePath)
+                    luaEngine.executeLua(
+                        path = luaFile.absolutePath,
+                        context = LuaFgContext(
+                            beat = event.beat,
+                            transitionBeats = event.transitionBeats,
+                            effectDuration = event.effectDuration,
+                            durationUnit = event.durationUnit
+                        )
+                    )
                 } else {
                     Log.d("LUA_DEBUG", "Lua no encontrado: $target")
                 }
             }
         }
+    }
+
+    fun setNXFromLua(active: Boolean, context: LuaFgContext) {
+        screen.setNXFromLua(
+            active = active,
+            transitionBeats = context.transitionBeats,
+            effectDuration = context.effectDuration,
+            durationUnit = context.durationUnit,
+            startBeat = context.beat
+        )
     }
 
     private fun applyJudge(

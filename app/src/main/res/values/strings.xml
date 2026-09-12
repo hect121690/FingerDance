@@ -96,13 +96,9 @@
     <string name="title_update_dialog">Actualización Finger Dance %1$s</string>
 
     <string name="message_update">
-        • El modo Online 1vs1 ahora sincroniza los canales disponibles de ambos jugadores y sólo muestra aquellos que ambos tengan instalados y sean compatibles.\n\n
-        • Se mejoró el proceso de creación y unión a salas Online para sincronizar correctamente la información de ambos jugadores antes de comenzar la partida.\n\n
-        • Se mejoró la precisión y respuesta de las notas al presionar los paneles, especialmente en canciones rápidas y patrones muy densos.\n\n
-        • Se ajustaron las ventanas de juicio para ofrecer una respuesta más precisa y consistente durante la partida.\n\n
-        • Se mejoró el comportamiento de las notas HOLD en canciones con cambios extremos de BPM, efectos de velocidad y patrones que atraviesan varios tiempos en muy pocos milisegundos.\n\n
-        • Las notas HOLD ahora procesan correctamente todos sus puntos de puntuación incluso cuando varios de ellos ocurren entre dos fotogramas.\n\n
-        • Se corrigieron distintos casos especiales relacionados con notas invisibles, FAKE, WARP y efectos visuales complejos en charts avanzados.\n\n
+        • Se agrego el efecto NX al Command Window/Path \n\n
+        • Se agrego la seccion "Conocer Mas" en Options/Ajustes para que los jugadores puedan conocer mas sobre la aplicacion y sus funciones.\n\n
+        • Se corrigio el error de MISS inifinitos en canciones de niveles altos.\n\n
         • Se realizaron mejoras generales de estabilidad y precisión en el motor de juego.\n\n
     </string>
 

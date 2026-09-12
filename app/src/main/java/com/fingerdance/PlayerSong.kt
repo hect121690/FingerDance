@@ -33,4 +33,5 @@ class PlayerSong(
     var isSSC: Boolean = false,
     var isEw: Boolean = false,
     var nameSong: String = "",
+    var nx: Boolean = false,
 ) : Serializable

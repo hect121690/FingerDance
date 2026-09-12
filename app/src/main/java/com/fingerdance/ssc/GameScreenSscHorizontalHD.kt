@@ -94,6 +94,9 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     private var showOverlay = false
     private var intervalOverlay = 0f
 
+    var applyMesh = playerSong.nx
+    private lateinit var perspectiveRenderer: PerspectivePlayfieldRenderer
+
     val gdxHeight = Gdx.graphics.height
     val gdxWidth = Gdx.graphics.width
     val maxWidth = medidaFlechasHorizontal * 7f
@@ -159,6 +162,18 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
             Gdx.graphics.height.toFloat()
         )
 
+        perspectiveRenderer = PerspectivePlayfieldRenderer(
+            width = Gdx.graphics.width,
+            height = Gdx.graphics.height,
+            pivotX = spaceInitHorizontalHD + (medidaFlechasHorizontal * 3f)
+        ).apply {
+            topScaleX = 0.42f
+            topShiftXPercent = 0.00f
+            horizontalPower = 1.30f
+            verticalPower = 1.80f
+            meshOffsetY = Gdx.graphics.height * 0.08f
+        }
+
         player = PlayerSscHorizontalHD(this, batch, a)
 
         targetTop = medidaFlechasHorizontal
@@ -183,40 +198,74 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
         batch.projectionMatrix = camera.combined
 
         if (!isPaused) {
-
             val songTimeMs = a.getSongTimeMs()
             elapsedTime += delta
-            batch.begin()
-            showBgPads()
-            player.updateStepData(songTimeMs)
 
-            if (!playerSong.fd) {
-                intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
-                timer += delta
-                if (timer >= intervalOverlay) {
-                    timer -= intervalOverlay
-                    showOverlay = !showOverlay
+            if (!applyMesh) {
+                batch.begin()
+                showBgPads()
+                player.updateStepData(songTimeMs)
+
+                if (!playerSong.fd) {
+                    intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                    timer += delta
+                    if (timer >= intervalOverlay) {
+                        timer -= intervalOverlay
+                        showOverlay = !showOverlay
+                    }
+                    drawRecepts()
                 }
-                drawRecepts()
+
+                player.render(songTimeMs)
+                drawEndingFade(delta)
+                batch.end()
+            } else {
+                batch.begin()
+                showBgPads()
+                player.updateStepData(songTimeMs)
+                player.renderMeshInput()
+                batch.end()
+
+                if (!playerSong.fd) {
+                    intervalOverlay = (60 / abs(player.m_fCurBPM)) / 2f
+                    timer += delta
+                    if (timer >= intervalOverlay) {
+                        timer -= intervalOverlay
+                        showOverlay = !showOverlay
+                    }
+                }
+
+                perspectiveRenderer.begin()
+                batch.projectionMatrix = camera.combined
+                batch.begin()
+
+                if (!playerSong.fd) drawRecepts()
+                player.renderMeshPlayfield(songTimeMs)
+
+                batch.end()
+                perspectiveRenderer.end()
+                perspectiveRenderer.draw(camera.combined)
+
+                batch.projectionMatrix = camera.combined
+                batch.begin()
+                player.renderMeshHud()
+                drawEndingFade(delta)
+                batch.end()
             }
 
-            player.render(songTimeMs)
-
-            if (isEndingFade) {
-                endingFadeAlpha += delta * 1.8f
-                if (endingFadeAlpha > 1f) {
-                    endingFadeAlpha = 1f
-                }
-                batch.setColor(0f, 0f, 0f, endingFadeAlpha)
-                batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-                batch.setColor(1f, 1f, 1f, 1f)
-            }
-
-            batch.end()
             stage.act(delta)
         }
 
         stage.draw()
+    }
+
+    private fun drawEndingFade(delta: Float) {
+        if (!isEndingFade) return
+        endingFadeAlpha += delta * 1.8f
+        if (endingFadeAlpha > 1f) endingFadeAlpha = 1f
+        batch.setColor(0f, 0f, 0f, endingFadeAlpha)
+        batch.draw(fadeTexture, 0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+        batch.setColor(1f, 1f, 1f, 1f)
     }
 
     // ---------------------------------------------------
@@ -398,18 +447,12 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     // SCREEN
     // ---------------------------------------------------
 
-    override fun resize(
-        width: Int,
-        height: Int
-    ) {
-
-        camera.setToOrtho(
-            true,
-            width.toFloat(),
-            height.toFloat()
-        )
-
+    override fun resize(width: Int, height: Int) {
+        camera.setToOrtho(true, width.toFloat(), height.toFloat())
         camera.update()
+        if (::perspectiveRenderer.isInitialized) {
+            perspectiveRenderer.resize(width, height, spaceInitHorizontalHD + (medidaFlechasHorizontal * 3f))
+        }
     }
 
     private fun getListNumbers(arrow: Texture) : Array<TextureRegion> {
@@ -484,6 +527,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
             arrayPad4[0].texture.dispose()
         }
 
+        if (::perspectiveRenderer.isInitialized) perspectiveRenderer.dispose()
         player.disposePlayer()
     }
 

@@ -137,6 +137,7 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             (gdxView).setZOrderOnTop(true)
             (gdxView).holder.setFormat(PixelFormat.TRANSLUCENT)
         }
+
         gdxContainer.addView(gdxView)
         thisHandler.postDelayed({
             if (isVideo) {

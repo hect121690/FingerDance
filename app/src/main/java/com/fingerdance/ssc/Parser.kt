@@ -27,7 +27,9 @@ class Parser {
     data class FGChange(
         val beat: Double,
         val script: String,
-        val duration: Float = 0f,
+        val transitionBeats: Double = 0.0,
+        val effectDuration: Double = 0.0,
+        val durationUnit: Int = 0,
         var executed: Boolean = false
     )
 
@@ -514,17 +516,31 @@ class Parser {
                 val beat = parts[0].trim().toDouble()
                 val script = parts[1].trim()
 
-                val duration =
+                val transitionBeats =
                     parts.getOrNull(2)
-                        ?.trim()
-                        ?.toFloatOrNull()
-                        ?: 0f
+                        ?.toDoubleOrNull()
+                        ?.coerceAtLeast(0.0)
+                        ?: 0.0
+
+                val effectDuration =
+                    parts.getOrNull(3)
+                        ?.toDoubleOrNull()
+                        ?.coerceAtLeast(0.0)
+                        ?: 0.0
+
+                val durationUnit =
+                    parts.getOrNull(4)
+                        ?.toIntOrNull()
+                        ?.coerceIn(0, 1)
+                        ?: 0
 
                 result.add(
                     FGChange(
                         beat = beat,
                         script = script,
-                        duration = duration
+                        transitionBeats = transitionBeats,
+                        effectDuration = effectDuration,
+                        durationUnit = durationUnit
                     )
                 )
 
