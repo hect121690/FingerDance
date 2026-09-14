@@ -123,7 +123,27 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
     private var showOverlay = false
     private var intervalOverlay = 0f
 
-    var applyMesh = playerSong.nx
+    val applyMesh: Boolean
+        get() = nxProgress > 0f
+
+    private val baseNX = playerSong.nx
+
+    var nxProgress = if (baseNX) 1f else 0f
+        private set
+
+    private var nxStartProgress = nxProgress
+    private var nxTargetProgress = nxProgress
+    private var nxTransitionStartBeat = 0.0
+    private var nxTransitionBeats = 0.0
+    private var nxTransitioning = false
+    private var nxEffectDuration = 0.0
+    private var nxDurationUnit = 0
+    private var nxEffectStartBeat = 0.0
+    private var nxEffectStartMs = 0.0
+    private var nxWaitingReturn = false
+    private var nxReturningToBase = false
+    private var currentSongTimeMs = 0.0
+
     private lateinit var perspectiveRenderer: PerspectivePlayfieldRenderer
 
     val gdxHeight = Gdx.graphics.height
@@ -208,6 +228,7 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
 
         if (!isPaused) {
             val songTimeMs = a.getSongTimeMs()
+            currentSongTimeMs = songTimeMs
             elapsedTime += delta
 
             if (!applyMesh) {
@@ -259,6 +280,7 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
 
                 batch.end()
                 perspectiveRenderer.end()
+                perspectiveRenderer.progress = nxProgress
                 perspectiveRenderer.draw(camera.combined)
 
                 batch.projectionMatrix = camera.combined
@@ -278,6 +300,86 @@ open class GameScreenSscHorizontal(activity: GameScreenActivityHorizontal) : Scr
         }
 
         stage.draw()
+    }
+
+    fun setNXFromLua(
+        active: Boolean,
+        transitionBeats: Double,
+        effectDuration: Double,
+        durationUnit: Int,
+        startBeat: Double
+    ) {
+        nxStartProgress = nxProgress
+        nxTargetProgress = if (active) 1f else 0f
+        nxTransitionStartBeat = startBeat
+        nxTransitionBeats = transitionBeats.coerceAtLeast(0.0)
+        nxEffectDuration = effectDuration.coerceAtLeast(0.0)
+        nxDurationUnit = durationUnit.coerceIn(0, 1)
+        nxWaitingReturn = false
+        nxReturningToBase = false
+
+        if (nxTransitionBeats <= 0.0) {
+            nxProgress = nxTargetProgress
+            nxTransitioning = false
+            beginNxHold(startBeat, currentSongTimeMs)
+        } else {
+            nxTransitioning = true
+        }
+    }
+
+    fun updateNXEffect(currentBeat: Double, songTimeMs: Double) {
+        if (nxTransitioning) {
+            val elapsedBeats = currentBeat - nxTransitionStartBeat
+            val t = if (nxTransitionBeats <= 0.0) 1f else (elapsedBeats / nxTransitionBeats).toFloat().coerceIn(0f, 1f)
+
+            nxProgress = nxStartProgress + (nxTargetProgress - nxStartProgress) * t
+
+            if (t >= 1f) {
+                nxProgress = nxTargetProgress
+                nxTransitioning = false
+
+                if (nxReturningToBase) {
+                    nxReturningToBase = false
+                    nxWaitingReturn = false
+                } else {
+                    beginNxHold(currentBeat, songTimeMs)
+                }
+            }
+        }
+
+        if (nxWaitingReturn && !nxTransitioning) {
+            val finished = when (nxDurationUnit) {
+                1 -> songTimeMs - nxEffectStartMs >= nxEffectDuration
+                else -> currentBeat - nxEffectStartBeat >= nxEffectDuration
+            }
+            if (finished) returnNxToBase(currentBeat)
+        }
+    }
+
+    private fun beginNxHold(currentBeat: Double, songTimeMs: Double = 0.0) {
+        if (nxEffectDuration <= 0.0) {
+            nxWaitingReturn = false
+            return
+        }
+        nxEffectStartBeat = currentBeat
+        nxEffectStartMs = songTimeMs
+        nxWaitingReturn = true
+    }
+
+    private fun returnNxToBase(currentBeat: Double) {
+        nxWaitingReturn = false
+        nxReturningToBase = true
+        nxStartProgress = nxProgress
+        nxTargetProgress = if (baseNX) 1f else 0f
+        nxTransitionStartBeat = currentBeat
+
+        if (nxTransitionBeats <= 0.0) {
+            nxProgress = nxTargetProgress
+            nxTransitioning = false
+            nxReturningToBase = false
+        } else {
+            nxTransitioning = true
+        }
     }
 
     private fun drawEndingFade(delta: Float) {

@@ -1,6 +1,7 @@
 package com.fingerdance.ssc
 
 import LuaEngine
+import LuaFgContext
 import android.util.Log
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -304,6 +305,7 @@ class PlayerSscHorizontal(
         createWhiteTexture()
         initColumnNotes()
         inputProcessor.resetState()
+        luaNotes.flipX = false
         luaEngine = LuaEngine(playerSscHorizontal = this, widthNotes = medidaFlechasHorizontal * 5f)
         barLifeCalculator.reset()
     }
@@ -373,6 +375,7 @@ class PlayerSscHorizontal(
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
 
         updateFGChanges(currentBeat)
+        screen.updateNXEffect(currentBeat, songTimeMs)
 
         gameplayEngine.render(
             songTimeMs = songTimeMs,
@@ -432,6 +435,7 @@ class PlayerSscHorizontal(
         arrowFrame = ((meshTimeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
 
         updateFGChanges(meshCurrentBeat)
+        screen.updateNXEffect(meshCurrentBeat, songTimeMs)
         gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
 
         updateExpandAnimations(meshDelta)
@@ -484,6 +488,16 @@ class PlayerSscHorizontal(
         }
     }
 
+    fun setNXFromLua(active: Boolean, context: LuaFgContext) {
+        screen.setNXFromLua(
+            active = active,
+            transitionBeats = context.transitionBeats,
+            effectDuration = context.effectDuration,
+            durationUnit = context.durationUnit,
+            startBeat = context.beat
+        )
+    }
+
     private fun updateFGChanges(currentBeat: Double) {
         for (event in chart.fgChanges) {
             if (event.executed) continue
@@ -497,7 +511,15 @@ class PlayerSscHorizontal(
                     target
                 }
                 if (luaFile != null && luaFile.exists()) {
-                    luaEngine.executeLua(luaFile.absolutePath)
+                    luaEngine.executeLua(
+                        path = luaFile.absolutePath,
+                        context = LuaFgContext(
+                            beat = event.beat,
+                            transitionBeats = event.transitionBeats,
+                            effectDuration = event.effectDuration,
+                            durationUnit = event.durationUnit
+                        )
+                    )
                 } else {
                     Log.d("LUA_DEBUG", "Lua no encontrado: $target")
                 }

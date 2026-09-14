@@ -1,6 +1,7 @@
 package com.fingerdance.ssc
 
 import LuaEngine
+import LuaFgContext
 import android.util.Log
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -316,6 +317,7 @@ class PlayerSscHD (
         createWhiteTexture()
         initColumnNotes()
         inputProcessor.resetState()
+        luaNotes.flipX = false
         luaEngine = LuaEngine(playerSscHD = this, widthNotes = screen.arrowsSize * 6f)
         barLifeCalculator.reset()
     }
@@ -404,6 +406,7 @@ class PlayerSscHD (
         arrowFrame = ((timeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
 
         updateFGChanges(currentBeat)
+        screen.updateNXEffect(currentBeat, songTimeMs)
 
         gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
 
@@ -462,6 +465,7 @@ class PlayerSscHD (
         arrowFrame = ((meshTimeCom % msPorBeat.toLong()) / msPorFrame.toLong()).toInt()
 
         updateFGChanges(meshCurrentBeat)
+        screen.updateNXEffect(meshCurrentBeat, songTimeMs)
         gameplayEngine.render(songTimeMs = songTimeMs, renderer = this)
 
         updateExpandAnimations(meshDelta)
@@ -527,12 +531,30 @@ class PlayerSscHD (
                     target
                 }
                 if (luaFile != null && luaFile.exists()) {
-                    luaEngine.executeLua(luaFile.absolutePath)
+                    luaEngine.executeLua(
+                        path = luaFile.absolutePath,
+                        context = LuaFgContext(
+                            beat = event.beat,
+                            transitionBeats = event.transitionBeats,
+                            effectDuration = event.effectDuration,
+                            durationUnit = event.durationUnit
+                        )
+                    )
                 } else {
                     Log.d("LUA_DEBUG", "Lua no encontrado: $target")
                 }
             }
         }
+    }
+
+    fun setNXFromLua(active: Boolean, context: LuaFgContext) {
+        screen.setNXFromLua(
+            active = active,
+            transitionBeats = context.transitionBeats,
+            effectDuration = context.effectDuration,
+            durationUnit = context.durationUnit,
+            startBeat = context.beat
+        )
     }
 
     private fun applyJudge(

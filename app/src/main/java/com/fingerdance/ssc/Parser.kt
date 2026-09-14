@@ -2,6 +2,7 @@ package com.fingerdance.ssc
 
 import kotlin.collections.sortedBy
 import kotlin.math.max
+import com.fingerdance.ssc.attacks.AttackEvent
 
 class Parser {
 
@@ -72,7 +73,8 @@ class Parser {
         val scrolls: List<Scroll>,
         val combos: List<Combo>,
         var notes: List<Note>,
-        val fgChanges: MutableList<FGChange> = mutableListOf()
+        val fgChanges: MutableList<FGChange> = mutableListOf(),
+        val attacks: List<AttackEvent> = emptyList()
     )
 
     // =========================
@@ -83,7 +85,7 @@ class Parser {
 
         val offset = extractTag(textChart, "OFFSET")?.toDoubleOrNull() ?: 0.0
         val fgChanges = parseFGChanges(textHeader)
-
+        val attacks = parseAttacks(textChart)
         val bpms = parsePairs(textChart, "BPMS").map { BpmSegment(it.first, it.second) }
         // IMPORTANTE: TICKCOUNT=0 debe conservarse como 0.
         // 0 significa que ese segmento no genera checkpoints de HOLD.
@@ -105,7 +107,6 @@ class Parser {
             parseNotes(textChart, baseFakes)
 
         val fakes = (baseFakes + tokenFakes).sortedBy { it.beat }
-
         val allNotes = (notes + extendedNotes).sortedBy { it.beat }
 
         return Chart(
@@ -117,11 +118,12 @@ class Parser {
             delays = delays,
             warps = warps,
             fakes = fakes,
-            speeds = speeds, //.sortedBy { it.beat },
-            scrolls = scrolls, //.sortedBy { it.beat },
+            speeds = speeds,
+            scrolls = scrolls,
             combos = combos,
             notes = allNotes,
-            fgChanges = fgChanges
+            fgChanges = fgChanges,
+            attacks = attacks
         )
     }
 
@@ -549,6 +551,58 @@ class Parser {
         }
 
         return result
+    }
+
+    private fun parseAttacks(text: String): List<AttackEvent> {
+
+        val raw =
+            extractTag(text, "ATTACKS")
+                ?: return emptyList()
+
+        val result =
+            mutableListOf<AttackEvent>()
+
+        val attackRegex = Regex(
+            """TIME\s*=\s*([^:]+)\s*:\s*LEN\s*=\s*([^:]+)\s*:\s*MODS\s*=\s*(.*?)(?=\s*:\s*TIME\s*=|$)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
+        )
+
+        for (match in attackRegex.findAll(raw)) {
+
+            val startSecond =
+                match.groupValues[1]
+                    .trim()
+                    .toDoubleOrNull()
+                    ?: continue
+
+            val durationSeconds =
+                match.groupValues[2]
+                    .trim()
+                    .toDoubleOrNull()
+                    ?: continue
+
+            val modifiers =
+                match.groupValues[3]
+                    .trim()
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+
+            result.add(
+                AttackEvent(
+                    startSecond = startSecond,
+                    durationSeconds = durationSeconds.coerceAtLeast(0.0),
+                    modifiers = modifiers
+                )
+            )
+        }
+
+        return result.sortedBy {
+            it.startSecond
+        }
     }
 
     private fun parseSpeeds(text: String): List<Speed> {

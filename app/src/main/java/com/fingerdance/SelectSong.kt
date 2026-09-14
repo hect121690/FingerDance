@@ -1660,7 +1660,7 @@ class SelectSong : AppCompatActivity() {
             setDataSource(File(playerSong.rutaCancion!!).absolutePath)
             prepare()
         }
-
+        durationSong = mediaPlayer.duration
         val level = song.listKsf[positionActualLvs]
         val isHalfDouble = level.typePlayer == "B"
         playerSong.level = level.level

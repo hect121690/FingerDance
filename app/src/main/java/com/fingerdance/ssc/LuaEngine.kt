@@ -57,9 +57,9 @@ class LuaEngine(
 
                 when (player) {
                     is PlayerSsc -> player.setNXFromLua(active, fgContext)
-                    //is PlayerSscHorizontal -> player.setNXFromLua(active, fgContext)
-                    //is PlayerSscHD -> player.setNXFromLua(active, fgContext)
-                    //is PlayerSscHorizontalHD -> player.setNXFromLua(active, fgContext)
+                    is PlayerSscHorizontal -> player.setNXFromLua(active, fgContext)
+                    is PlayerSscHD -> player.setNXFromLua(active, fgContext)
+                    is PlayerSscHorizontalHD -> player.setNXFromLua(active, fgContext)
                 }
 
                 return LuaValue.NIL
@@ -127,6 +127,12 @@ class LuaEngine(
             }
         })
 
+        table.set("setFlipX", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                luaNotes.flipX = arg.toboolean()
+                return LuaValue.NIL
+            }
+        })
 
         globals.set("Notes", table)
     }

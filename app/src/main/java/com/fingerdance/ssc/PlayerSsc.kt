@@ -32,6 +32,7 @@ import com.fingerdance.isOnline
 import com.fingerdance.isPlayer1
 import com.fingerdance.loadTexture
 import com.fingerdance.luaFlare
+import com.fingerdance.luaJudge
 import com.fingerdance.luaNotes
 import com.fingerdance.luaRecepts
 import com.fingerdance.medidaFlechas
@@ -143,7 +144,6 @@ class PlayerSsc(
         val x: Int = widthJudges - (widthJudges / 2),
         val y: Int = Gdx.graphics.height / 2 - heightJudges * 6
     )
-
 
     private val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
 
@@ -260,6 +260,7 @@ class PlayerSsc(
     }
 
     private fun initCommonInfo() {
+        resetLuaGameplayState()
         mine = Texture(Gdx.files.absolute("${File(ruta).parent}/Tap Mine 3x2.png"))
         downLeftTap = loadTexture(ruta, "DownLeft Tap Note")
         upLeftTap = loadTexture(ruta, "UpLeft Tap Note")
@@ -340,6 +341,12 @@ class PlayerSsc(
             clipVanishBodyAtInitArrow = true,
             mineUsesMidLine = isMidLine,
             computeLeft = { x, y -> computeLeft(x, y) },
+            computeY = { column, y -> computeAttackY(column, y) },
+            computeRotation = { note -> computeAttackRotation(note) },
+            computeScaleY = { screen.getAttackReverseScaleY() },
+            computeScale = { screen.getAttackMiniScale() },
+            computeAlpha = { screen.getAttackStealthAlpha() },
+            computeDepthScale = { column -> screen.getAttackMoveZScale(column) },
             cellMetrics = screen.receptorMetrics
         ).also {
             noteRenderer = it
@@ -802,30 +809,81 @@ class PlayerSsc(
         )
     }
 
+    private fun computeAttackY(column: Int, y: Float): Float {
+        return screen.getAttackNoteY(
+            column = column,
+            y = y
+        )
+    }
+
+    private fun computeAttackRotation(note: Parser.Note): Float {
+        var rotation = 0f
+
+        rotation += screen.getAttackConfusionRotation(
+            currentBeat = beatToShow
+        )
+
+        rotation += screen.getAttackNoteRotation(
+            noteBeat = note.beat,
+            currentBeat = beatToShow
+        )
+
+        return rotation
+    }
+
+
     private fun computeLeft(x: Int, y: Int): Float {
         val baseX = medidaFlechas * (x + 1)
+        var offsetX = 0f
+
+        // =========================================================
+        // SNAKE
+        // =========================================================
+
         if (playerSong.snake) {
-            offsetX = (sin(y * frequency) * amplitude)
+            offsetX = sin(y * frequency) * amplitude
             if (y <= medidaFlechas + fadeDistance) {
                 val factor = (y - medidaFlechas) / fadeDistance
                 offsetX *= factor.coerceIn(0f, 1f)
             }
         }
 
+        // =========================================================
+        // ATTACKS - DRUNK
+        // =========================================================
+
+        val attackYOffset = y.toFloat() - screen.targetTop
+        offsetX += screen.getAttackColumnOffsetX(
+            column = x,
+            yOffset = attackYOffset
+        )
+
+        // =========================================================
+        // RESULT
+        // =========================================================
+
         return baseX + offsetX + luaNotes.screenX
     }
 
     private fun drawFlare(x: Int, frame: Int) {
         var left = 0f
+        val attackX = screen.getAttackColumnOffsetX(column = x, yOffset = 0f)
+        val receptorY = screen.getAttackReceptorY(x)
+        val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
+        val miniScale = screen.getAttackMiniScale()
         when (x) {
-            0 -> left = (medidaFlechas * (x + 1) - xFlare1) + luaFlare.screenX
-            1 -> left = (medidaFlechas * (x + 1) - xFlare2) + luaFlare.screenX
-            2 -> left = (medidaFlechas * (x + 1) - xFlare3) + luaFlare.screenX
-            3 -> left = (medidaFlechas * (x + 1) - xFlare4) + luaFlare.screenX
-            4 -> left = (medidaFlechas * (x + 1) - xFlare5) + luaFlare.screenX
+            0 -> left = (medidaFlechas * (x + 1) - xFlare1) + luaFlare.screenX + attackX
+            1 -> left = (medidaFlechas * (x + 1) - xFlare2) + luaFlare.screenX + attackX
+            2 -> left = (medidaFlechas * (x + 1) - xFlare3) + luaFlare.screenX + attackX
+            3 -> left = (medidaFlechas * (x + 1) - xFlare4) + luaFlare.screenX + attackX
+            4 -> left = (medidaFlechas * (x + 1) - xFlare5) + luaFlare.screenX + attackX
         }
+
         val flareSprite = flareSprites[frame]
-        flareSprite.setBounds(left, yFlare, widthFlare, widthFlare)
+        flareSprite.setBounds(left, receptorY - medidaFlechas * 2f, widthFlare, widthFlare)
+        flareSprite.setOriginCenter()
+        flareSprite.rotation = confusionRotation
+
         aBatch = batch.blendSrcFunc
         bBatch = batch.blendDstFunc
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
@@ -833,20 +891,25 @@ class PlayerSsc(
         batch.setBlendFunction(aBatch, bBatch)
 
         val elapsed = timeGetTime() - flare[x].startTime
-
         val (alpha, zoom) = calculateAlphaAndZoom(elapsed % animationDuration)
-
+        val flareSize = medidaFlechas * zoom * miniScale
+        val flareX = ((medidaFlechas * (x + 1)) - (flareSize - medidaFlechas) / 2) + luaFlare.screenX + attackX
+        val flareY = receptorY - ((flareSize - medidaFlechas) / 2f)
+        val reverseScaleY = screen.getAttackReverseScaleY()
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.color.a = alpha
-
         batch.draw(
             arrArrows[x][arrowFrame],
-            ((medidaFlechas * (x + 1)) - ((medidaFlechas * zoom) - medidaFlechas) / 2) + luaFlare.screenX,
-            STEPSIZE.toFloat() - ((medidaFlechas * zoom) - medidaFlechas) / 2,
-            medidaFlechas * zoom,
-            medidaFlechas * zoom
+            flareX,
+            flareY,
+            flareSize * 0.5f,
+            flareSize * 0.5f,
+            flareSize,
+            flareSize,
+            1f,
+            reverseScaleY,
+            confusionRotation
         )
-
         batch.color.a = 1f
         batch.setBlendFunction(aBatch, bBatch)
     }
@@ -889,25 +952,51 @@ class PlayerSsc(
 
     private fun drawExpandEffect(position: Int) {
         if (position !in expandElapsed.indices) return
+
         val elapsed = expandElapsed[position]
         if (elapsed >= expandDuration) return
+
         val receptor = getExpandReceptor(position) ?: return
         val progress = (elapsed / expandDuration).coerceIn(0f, 1f)
         val scale = 1f + (expandMaximumScale - 1f) * progress
         val alpha = (0.8f - progress * progress).coerceIn(0f, 0.8f)
-        val logicalX = getReceptorX(position)
+
+        val attackX = screen.getAttackColumnOffsetX(column = position, yOffset = 0f)
+        val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
+        val miniScale = screen.getAttackMiniScale()
+        val reverseScaleY = screen.getAttackReverseScaleY()
+
+        val logicalX = getReceptorX(position) + attackX
+        val logicalY = screen.getAttackReceptorY(position)
+
         val metrics = screen.receptorMetrics[position]
         val baseWidth = metrics.drawWidth(medidaFlechas)
         val baseHeight = metrics.drawHeight(medidaFlechas)
         val baseX = metrics.drawX(logicalX, medidaFlechas)
-        val baseY = metrics.drawY(topPos, medidaFlechas)
+        val baseY = metrics.drawY(logicalY, medidaFlechas)
         val originX = baseWidth * (metrics.visibleOffsetXRatio + metrics.visibleWidthRatio * 0.5f)
         val originY = baseHeight * (metrics.visibleOffsetYRatio + metrics.visibleHeightRatio * 0.5f)
+
+        val finalScale = scale * miniScale
+
         val previousSrc = batch.blendSrcFunc
         val previousDst = batch.blendDstFunc
+
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.setColor(1f, 1f, 1f, alpha)
-        batch.draw(receptor, baseX, baseY, originX, originY, baseWidth, baseHeight, scale, scale, 0f)
+
+        batch.draw(
+            receptor,
+            baseX,
+            baseY,
+            originX,
+            originY,
+            baseWidth,
+            baseHeight,
+            finalScale,
+            finalScale * reverseScaleY,
+            confusionRotation
+        )
 
         batch.setColor(1f, 1f, 1f, 1f)
         batch.setBlendFunction(previousSrc, previousDst)
@@ -1292,6 +1381,37 @@ class PlayerSsc(
         note: Parser.Note
     ) {
         onMineHit(timeGetTime())
+    }
+
+    private fun resetLuaGameplayState() {
+        luaNotes.screenX = 0f
+        luaNotes.screenY = 0f
+        luaNotes.screenZ = 0f
+        luaNotes.zoom = 1f
+        luaNotes.alpha = 1f
+        luaNotes.rotation = 0f
+        luaNotes.flipX = false
+
+        luaRecepts.screenX = 0f
+        luaRecepts.screenY = 0f
+        luaRecepts.screenZ = 0f
+        luaRecepts.zoom = 1f
+        luaRecepts.alpha = 1f
+        luaRecepts.rotation = 0f
+
+        luaFlare.screenX = 0f
+        luaFlare.screenY = 0f
+        luaFlare.screenZ = 0f
+        luaFlare.zoom = 1f
+        luaFlare.alpha = 1f
+        luaFlare.rotation = 0f
+
+        luaJudge.screenX = 0f
+        luaJudge.screenY = 0f
+        luaJudge.screenZ = 0f
+        luaJudge.zoom = 1f
+        luaJudge.alpha = 1f
+        luaJudge.rotation = 0f
     }
 
 }

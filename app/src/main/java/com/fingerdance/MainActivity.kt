@@ -109,6 +109,7 @@ var isPlayer1 = true
 var isOnline = false
 
 lateinit var mediaPlayer : MediaPlayer
+var durationSong = 0
 var ruta = ""
 
 var rutaBase = ""

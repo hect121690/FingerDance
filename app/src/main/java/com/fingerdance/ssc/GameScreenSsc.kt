@@ -18,10 +18,13 @@ import com.fingerdance.GameScreenActivity
 import com.fingerdance.aBatch
 import com.fingerdance.alphaPadB
 import com.fingerdance.bBatch
+import com.fingerdance.chart
+import com.fingerdance.durationSong
 import com.fingerdance.endingFadeAlpha
 import com.fingerdance.height
 import com.fingerdance.heightBtns
 import com.fingerdance.hideImagesPadA
+import com.fingerdance.isVertical
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
@@ -31,6 +34,10 @@ import com.fingerdance.playerSong
 import com.fingerdance.ruta
 import com.fingerdance.showPadB
 import com.fingerdance.skinPad
+import com.fingerdance.ssc.attacks.AttackFeatureFlags
+import com.fingerdance.ssc.attacks.AttackEffects
+import com.fingerdance.ssc.attacks.AttackEngine
+import com.fingerdance.ssc.attacks.AttackState
 import com.fingerdance.tema
 import com.fingerdance.typePadD
 import com.fingerdance.width
@@ -141,8 +148,18 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     private var intervalOverlay = 0f
 
     // Actívala para probar el playfield deformado con FrameBuffer + Mesh.
+    private val attackPerspectiveActive: Boolean
+        get() =
+            AttackFeatureFlags.PERSPECTIVE &&
+            (
+                abs(currentAttackState.skew * attackEndResetFactor) > 0.0001f ||
+                abs(currentAttackState.perspectiveTilt * attackEndResetFactor) > 0.0001f
+            )
+
     val applyMesh: Boolean
-        get() = nxProgress > 0f
+        get() =
+            nxProgress > 0f ||
+                    attackPerspectiveActive
 
 
     private val baseNX = playerSong.nx
@@ -196,7 +213,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
     private lateinit var font: BitmapFont
 
-
     init {
         if(showPadB == 1){
             padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsB/$skinPad.png")))
@@ -231,6 +247,36 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         imgsJudge.forEach { it.flip(false, true) }
         imgsTypeCombo.forEach { it.flip(false, true) }
     }
+
+    val attackEngine = AttackEngine(chart.attacks)
+    var currentAttackState = AttackState()
+        private set
+    var currentAttackSongTimeSeconds = 0f
+        private set
+
+    // =========================================================
+    // FINAL SUAVE DE ATTACKS
+    // =========================================================
+
+    private companion object {
+        const val ATTACK_END_RESET_DURATION = 1f
+    }
+
+    private var attackEndResetActive = false
+    private var attackEndResetElapsed = 0f
+
+    /**
+     * 1f = estado ATTACK completo.
+     * 0f = todos los ATTACKS visuales regresaron a neutral.
+     */
+    private var attackEndResetFactor = 1f
+
+    /**
+     * Evita iniciar varias veces el reset cuando songTimeMs permanece
+     * en durationSong después de que MediaPlayer termina.
+     */
+    private var attackEndResetFinished = false
+
     override fun show() {
         batch = SpriteBatch()
         font = BitmapFont()
@@ -280,6 +326,24 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         if (!isPaused) {
             val songTimeMs = a.getSongTimeMs()
             currentSongTimeMs = songTimeMs
+
+            /*
+             * Mientras no haya terminado la canción, AttackEngine trabaja normal.
+             *
+             * Al alcanzar durationSong congelamos currentAttackState exactamente
+             * en el último valor que tenía y hacemos que todos los efectos visuales
+             * regresen a neutral durante 1 segundo.
+             */
+            if (!attackEndResetActive && !attackEndResetFinished) {
+                if (durationSong > 0L && songTimeMs >= durationSong.toDouble()) {
+                    beginAttackEndReset()
+                } else {
+                    updateAttacks(songTimeMs, delta)
+                }
+            }
+
+            updateAttackEndReset(delta)
+
             elapsedTime += delta
 
             if (!applyMesh) {
@@ -308,10 +372,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 drawEndingFade(delta)
                 batch.end()
             } else {
-                /*
-                 * 1) Todo lo que NO queremos deformar se dibuja normalmente.
-                 *    Aquí permanecen fondo/pads y el feedback táctil.
-                 */
                 batch.begin()
                 showBgPads()
                 player.updateStepData(songTimeMs)
@@ -346,6 +406,19 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
                 /* 3) Deformamos el FrameBuffer completo con el Mesh. */
                 perspectiveRenderer.progress = nxProgress
+                perspectiveRenderer.attackSkew =
+                    if (AttackFeatureFlags.PERSPECTIVE) {
+                        currentAttackState.skew * attackEndResetFactor
+                    } else {
+                        0f
+                    }
+
+                perspectiveRenderer.attackTilt =
+                    if (AttackFeatureFlags.PERSPECTIVE) {
+                        currentAttackState.perspectiveTilt * attackEndResetFactor
+                    } else {
+                        0f
+                    }
                 perspectiveRenderer.draw(camera.combined)
 
                 /*
@@ -368,6 +441,361 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
 
         stage.draw()
+    }
+
+    fun getAttackMiniScale(): Float {
+        if (!AttackFeatureFlags.MINI) return 1f
+
+        return AttackEffects.miniScale(
+            currentAttackState.mini * attackEndResetFactor
+        )
+    }
+
+    /**
+     * Finger Dance adaptation for vertical screens.
+     *
+     * StepMania allows X modifiers to push notes outside the normal notefield.
+     * We keep that behavior, but on a vertical phone we prevent the VISIBLE
+     * portion of the note/receptor from leaving the physical screen.
+     *
+     * logicalX is the visible-left logical anchor used by NoteCellMetrics.
+     * The calculation below also accounts for Mini because SpriteBatch scales
+     * around the texture center, not around the visible pixels.
+     */
+    private fun clampAttackLogicalX(
+        column: Int,
+        logicalX: Float,
+        visualScale: Float
+    ): Float {
+        if (!isVertical || column !in receptorMetrics.indices) return logicalX
+
+        val metrics = receptorMetrics[column]
+        val drawWidth = metrics.drawWidth(medidaFlechas)
+        val drawX = metrics.drawX(logicalX, medidaFlechas)
+        val originX = drawX + drawWidth * 0.5f
+
+        val visibleLeftUnscaled = logicalX
+        val visibleRightUnscaled = logicalX + medidaFlechas
+
+        val visibleLeft =
+            originX + (visibleLeftUnscaled - originX) * visualScale
+        val visibleRight =
+            originX + (visibleRightUnscaled - originX) * visualScale
+
+        val minVisibleX = minOf(visibleLeft, visibleRight)
+        val maxVisibleX = maxOf(visibleLeft, visibleRight)
+        val screenWidth = Gdx.graphics.width.toFloat()
+
+        return when {
+            minVisibleX < 0f -> logicalX - minVisibleX
+            maxVisibleX > screenWidth -> logicalX - (maxVisibleX - screenWidth)
+            else -> logicalX
+        }
+    }
+
+    fun getAttackReceptorY(column: Int): Float {
+        var finalY = targetTop
+
+        val reverseAmount =
+            if (AttackFeatureFlags.REVERSE) {
+                currentAttackState.reverse * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (reverseAmount != 0f) {
+            val reverseY = AttackEffects.reverseReceptorY(
+                screenHeight = Gdx.graphics.height.toFloat(),
+                arrowSize = medidaFlechas
+            )
+
+            finalY +=
+                (reverseY - targetTop) * reverseAmount
+        }
+
+        val tipsyAmount =
+            if (AttackFeatureFlags.TIPSY) {
+                currentAttackState.tipsy * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (tipsyAmount != 0f) {
+            finalY += AttackEffects.tipsyY(
+                column = column,
+                songTimeSeconds = currentAttackSongTimeSeconds,
+                arrowSize = medidaFlechas,
+                amount = tipsyAmount
+            )
+        }
+
+        return finalY
+    }
+
+    fun getAttackNoteY(column: Int, y: Float): Float {
+        // StepMania aplica los ACCEL mods sobre fYOffset ANTES de
+        // Reverse y de los POSITION effects como Tipsy.
+        val originalYOffset =
+            y - targetTop
+
+        val boostAmount =
+            if (AttackFeatureFlags.BOOST) {
+                currentAttackState.boost * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val expandAmount =
+            if (AttackFeatureFlags.EXPAND) {
+                currentAttackState.expand * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val effectHeight =
+            Gdx.graphics.height.toFloat() +
+                    kotlin.math.abs(
+                        currentAttackState.perspectiveTilt *
+                                attackEndResetFactor
+                    ) * 200f
+
+        val transformedYOffset =
+            AttackEffects.transformAccelYOffset(
+                yOffset = originalYOffset,
+                effectHeight = effectHeight,
+                expandSeconds = currentAttackSongTimeSeconds,
+                boostAmount = boostAmount,
+                expandAmount = expandAmount
+            )
+
+        var finalY =
+            targetTop + transformedYOffset
+
+        val reverseAmount =
+            if (AttackFeatureFlags.REVERSE) {
+                currentAttackState.reverse * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (reverseAmount != 0f) {
+            val reverseReceptorY = AttackEffects.reverseReceptorY(
+                screenHeight = Gdx.graphics.height.toFloat(),
+                arrowSize = medidaFlechas
+            )
+
+            finalY = AttackEffects.reverseY(
+                y = finalY,
+                normalReceptorY = targetTop,
+                reverseReceptorY = reverseReceptorY,
+                amount = reverseAmount
+            )
+        }
+
+        val tipsyAmount =
+            if (AttackFeatureFlags.TIPSY) {
+                currentAttackState.tipsy * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (tipsyAmount != 0f) {
+            finalY += AttackEffects.tipsyY(
+                column = column,
+                songTimeSeconds = currentAttackSongTimeSeconds,
+                arrowSize = medidaFlechas,
+                amount = tipsyAmount
+            )
+        }
+
+        // MoveZ: también escala la distancia vertical respecto al receptor.
+        // Head y tail usan la misma escala, por eso el HOLD permanece rígido.
+        val moveZScale = getAttackMoveZScale(column)
+        if (moveZScale != 1f) {
+            val receptorY = getAttackReceptorY(column)
+            finalY = receptorY + (finalY - receptorY) * moveZScale
+        }
+
+        return finalY
+    }
+
+    private fun updateAttacks(songTimeMs: Double, delta: Float) {
+        currentAttackState = attackEngine.update(songTimeMs, delta)
+        currentAttackSongTimeSeconds = (songTimeMs / 1000.0).toFloat()
+    }
+
+    private fun beginAttackEndReset() {
+        if (attackEndResetActive || attackEndResetFinished) {
+            return
+        }
+
+        attackEndResetActive = true
+        attackEndResetElapsed = 0f
+        attackEndResetFactor = 1f
+    }
+
+    private fun updateAttackEndReset(delta: Float) {
+        if (!attackEndResetActive) {
+            return
+        }
+
+        attackEndResetElapsed += delta
+
+        val t =
+            (attackEndResetElapsed / ATTACK_END_RESET_DURATION)
+                .coerceIn(0f, 1f)
+
+        attackEndResetFactor =
+            1f - t
+
+        if (t >= 1f) {
+            attackEndResetFactor = 0f
+            attackEndResetActive = false
+            attackEndResetFinished = true
+
+            onAttackEndResetFinished()
+        }
+    }
+
+    /**
+     * Aquí coloca la lógica que YA usas para abandonar gameplay:
+     * readyToResult, cambio de Activity/Screen, DanceGrade, etc.
+     *
+     * Se ejecuta una sola vez y únicamente después de que el playfield
+     * terminó de regresar a su posición normal.
+     */
+    private fun onAttackEndResetFinished() {
+        // Ejemplo:
+        // a.goToDanceGrade()
+    }
+
+    fun getAttackColumnOffsetX(column: Int, yOffset: Float): Float {
+        var offsetX = 0f
+
+        if (AttackFeatureFlags.TORNADO && currentAttackState.tornado != 0f) {
+            offsetX += AttackEffects.tornadoX(
+                column = column,
+                columnCount = 5,
+                yOffset = yOffset,
+                arrowSize = medidaFlechas,
+                screenHeight = Gdx.graphics.height.toFloat(),
+                amount = currentAttackState.tornado * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.DRUNK && currentAttackState.drunk != 0f) {
+            offsetX += AttackEffects.drunkX(
+                column = column,
+                yOffset = yOffset,
+                songTimeSeconds = currentAttackSongTimeSeconds,
+                arrowSize = medidaFlechas,
+                screenHeight = Gdx.graphics.height.toFloat(),
+                amount = currentAttackState.drunk * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.FLIP && currentAttackState.flip != 0f) {
+            offsetX += AttackEffects.flipX(
+                column = column,
+                columnCount = 5,
+                arrowSize = medidaFlechas,
+                amount = currentAttackState.flip * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.INVERT && currentAttackState.invert != 0f) {
+            offsetX += AttackEffects.invertX(
+                column = column,
+                columnCount = 5,
+                arrowSize = medidaFlechas,
+                amount = currentAttackState.invert * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.BEAT && currentAttackState.beat != 0f) {
+            offsetX += AttackEffects.beatX(
+                yOffset = yOffset,
+                currentBeat = player.beatToShow,
+                amount = currentAttackState.beat * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.MINI && currentAttackState.mini != 0f) {
+            val baseX =
+                medidaFlechas * (column + 1)
+
+            val currentX =
+                baseX + offsetX
+
+            val centerX =
+                medidaFlechas * 3f
+
+            val miniX =
+                AttackEffects.miniX(
+                    x = currentX,
+                    centerX = centerX,
+                    amount = currentAttackState.mini * attackEndResetFactor
+                )
+
+            offsetX =
+                miniX - baseX
+        }
+
+        // MoveZ: proyecta X alrededor del centro del notefield.
+        // Se hace después de Tornado/Drunk/Flip/Invert/Beat/Mini.
+        val moveZScale = getAttackMoveZScale(column)
+        if (moveZScale != 1f) {
+            val baseX = medidaFlechas * (column + 1)
+            val currentX = baseX + offsetX
+            val fieldCenterX = medidaFlechas * 3.5f
+            val projectedX = fieldCenterX + (currentX - fieldCenterX) * moveZScale
+            offsetX = projectedX - baseX
+        }
+
+        // Final viewport protection ONLY for vertical mode.
+        // All X attacks are still combined normally; only the final visible
+        // result is translated back inside the physical screen if necessary.
+        if (isVertical) {
+            val baseX = medidaFlechas * (column + 1)
+            val unclampedX = baseX + offsetX
+            val clampedX = clampAttackLogicalX(
+                column = column,
+                logicalX = unclampedX,
+                visualScale = getAttackMiniScale()
+            )
+            offsetX = clampedX - baseX
+        }
+
+        return offsetX
+    }
+
+    fun getAttackConfusionRotation(currentBeat: Double): Float {
+        if (!AttackFeatureFlags.CONFUSION) return 0f
+
+        val amount =
+            currentAttackState.confusion * attackEndResetFactor
+
+        if (amount == 0f) return 0f
+
+        return AttackEffects.confusionRotation(
+            currentBeat = currentBeat,
+            amount = amount
+        )
+    }
+
+    fun getAttackNoteRotation(noteBeat: Double, currentBeat: Double): Float {
+        if (!AttackFeatureFlags.DIZZY) return 0f
+
+        val amount =
+            currentAttackState.dizzy * attackEndResetFactor
+
+        if (amount == 0f) return 0f
+
+        return AttackEffects.dizzyRotation(
+            noteBeat = noteBeat,
+            currentBeat = currentBeat,
+            amount = amount
+        )
     }
 
     fun setNXFromLua(
@@ -442,10 +870,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
     }
 
-    private fun beginNxHold(
-        currentBeat: Double,
-        songTimeMs: Double = 0.0
-    ) {
+    private fun beginNxHold(currentBeat: Double, songTimeMs: Double = 0.0) {
         if (nxEffectDuration <= 0.0) {
             nxWaitingReturn = false
             return
@@ -454,6 +879,16 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         nxEffectStartBeat = currentBeat
         nxEffectStartMs = songTimeMs
         nxWaitingReturn = true
+    }
+
+    fun getAttackReverseScaleY(): Float {
+        if (!AttackFeatureFlags.REVERSE) return 1f
+
+        val reverse =
+            (currentAttackState.reverse * attackEndResetFactor)
+                .coerceIn(0f, 1f)
+
+        return 1f - (2f * reverse)
     }
 
     private fun returnNxToBase(currentBeat: Double) {
@@ -591,10 +1026,141 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
     }
 
+
+fun getAttackDarkAlpha(): Float {
+        if (!AttackFeatureFlags.DARK) return 1f
+
+        val darkAmount =
+            currentAttackState.dark * attackEndResetFactor
+
+        return (1f - darkAmount)
+            .coerceIn(0f, 1f)
+    }
+
+    /**
+     * Proyección 2D segura para MoveZ por columna.
+     *
+     * StepMania mueve la columna en Z real. Aquí proyectamos ese Z a una escala
+     * perspectiva sin activar el renderer 3D experimental: TAP/MINE/HOLD siguen
+     * siendo geometría 2D rígida y no se curvan.
+     */
+    fun getAttackMoveZAmount(column: Int): Float {
+        if (!AttackFeatureFlags.MOVE_Z) return 0f
+
+        return currentAttackState.getMoveZ(column) * attackEndResetFactor
+    }
+
+    fun getAttackMoveZScale(column: Int): Float {
+        val amount = getAttackMoveZAmount(column)
+        if (kotlin.math.abs(amount) < 0.0001f) return 1f
+
+        // MoveZ 100% ~= una ArrowSize de profundidad.
+        val zPixels = amount * medidaFlechas
+        val focal = (Gdx.graphics.height.toFloat() * 0.75f).coerceAtLeast(medidaFlechas * 4f)
+        val denominator = (focal - zPixels).coerceAtLeast(focal * 0.25f)
+
+        return (focal / denominator).coerceIn(0.60f, 1.60f)
+    }
+
+    /**
+     * STEALTH:
+     * 0f -> notas completamente visibles.
+     * 1f -> TAP/MINE/HOLD completamente invisibles.
+     *
+     * No afecta receptores, HUD, input ni scoring.
+     * attackEndResetFactor hace que al final de la canción las notas
+     * recuperen suavemente alpha=1 durante el reset de 1 segundo.
+     */
+    fun getAttackStealthAlpha(): Float {
+        if (!AttackFeatureFlags.STEALTH) return 1f
+
+        val stealthAmount =
+            currentAttackState.stealth * attackEndResetFactor
+
+        return (1f - stealthAmount)
+            .coerceIn(0f, 1f)
+    }
+
+
     private fun drawReceptor(frame: TextureRegion, column: Int) {
-        val logicalX = medidaFlechas * (column + 1) + luaRecepts.screenX
-        val metrics = receptorMetrics[column]
-        batch.draw(frame, metrics.drawX(logicalX, medidaFlechas), metrics.drawY(targetTop, medidaFlechas), metrics.drawWidth(medidaFlechas), metrics.drawHeight(medidaFlechas))
+        val attackX =
+            getAttackColumnOffsetX(
+                column = column,
+                yOffset = 0f
+            )
+
+        var logicalY =
+            getAttackReceptorY(column)
+
+        val rotation =
+            getAttackConfusionRotation(
+                player.beatToShow
+            )
+
+        var logicalX =
+            medidaFlechas *
+                    (column + 1) +
+                    attackX +
+                    luaRecepts.screenX
+
+        val metrics =
+            receptorMetrics[column]
+
+        val drawX =
+            metrics.drawX(
+                logicalX,
+                medidaFlechas
+            )
+
+        val drawY =
+            metrics.drawY(
+                logicalY,
+                medidaFlechas
+            )
+
+        val drawWidth =
+            metrics.drawWidth(
+                medidaFlechas
+            )
+
+        val drawHeight =
+            metrics.drawHeight(
+                medidaFlechas
+            )
+
+        val reverseScaleY =
+            getAttackReverseScaleY()
+
+        val miniScale =
+            getAttackMiniScale() * getAttackMoveZScale(column)
+
+        val darkAlpha =
+            getAttackDarkAlpha()
+
+        val oldColor =
+            batch.color.cpy()
+
+        batch.setColor(
+            oldColor.r,
+            oldColor.g,
+            oldColor.b,
+            oldColor.a * darkAlpha
+        )
+
+        batch.draw(
+            frame,
+            drawX,
+            drawY,
+            drawWidth * 0.5f,
+            drawHeight * 0.5f,
+            drawWidth,
+            drawHeight,
+            miniScale,
+            miniScale * reverseScaleY,
+            rotation
+        )
+
+        batch.color = oldColor
     }
 
     private fun getReceptsTexture(arrow: Texture, isMirror: Boolean = false, metricsColumn: Int? = null): Array<TextureRegion> {
