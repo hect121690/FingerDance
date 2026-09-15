@@ -37,6 +37,11 @@ class SscNoteRenderer(
     private val mineUsesMidLine: Boolean,
     private val computeLeft: (column: Int, y: Int) -> Float,
     private val computeY: (column: Int, y: Float) -> Float = { _, y -> y },
+
+    /** fYOffset equivalente de StepMania, ya con ACCEL + scroll speed y sin Reverse/Tipsy. */
+    private val computeStepManiaYOffset: (sourceY: Float) -> Float = { 0f },
+    private val computeStepManiaFieldScaleY: () -> Float = { 1f },
+    private val computeStepManiaArrowScale: () -> Float = { 1f },
     private val computeScaleY: () -> Float = { 1f },
     private val computeScale: () -> Float = { 1f },
 
@@ -46,8 +51,21 @@ class SscNoteRenderer(
      */
     private val computeAlpha: () -> Float = { 1f },
 
+    /**
+     * Hidden/Sudden/Blink dependen de la posición visual de cada pieza.
+     * Recibe columna + Y central en pantalla.
+     */
+    private val computeAppearanceAlpha: (column: Int, screenY: Float) -> Float = { _, _ -> 1f },
+    private val computeAppearanceActive: () -> Boolean = { false },
+
     /** Escala perspectiva segura de MoveZ para la columna activa. */
     private val computeDepthScale: (column: Int) -> Float = { 1f },
+
+    /** ATTACK 3D amounts. Se mantienen separados y gobernados por FeatureFlags. */
+    private val computeBumpy: () -> Float = { 0f },
+    private val computeTwirl: () -> Float = { 0f },
+    private val computeRoll: () -> Float = { 0f },
+    private val computeReceptorCenterY: (column: Int) -> Float = { 0f },
 
     private val computeRotation: (note: Parser.Note) -> Float = { 0f },
 
@@ -69,7 +87,17 @@ class SscNoteRenderer(
      */
     private var activeNoteAlpha = 1f
     private var activeDepthScale = 1f
+    private var activeColumn = 0
+    private var activeSourceY = 0f
+    private var activeHoldSourceStartY = 0f
+    private var activeHoldSourceEndY = 0f
 
+    // Sólo segmentamos bodies cuando alguno de estos tres ATTACKS está realmente activo.
+    private val attack3DActive: Boolean
+        get() =
+            kotlin.math.abs(computeBumpy()) > 0.0001f ||
+            kotlin.math.abs(computeTwirl()) > 0.0001f ||
+            kotlin.math.abs(computeRoll()) > 0.0001f
 
     private data class CellDraw(val x: Float, val y: Float, val width: Float, val height: Float)
 
@@ -86,6 +114,34 @@ class SscNoteRenderer(
     private fun getBodyWidth(column: Int): Float = cellMetrics[column].drawWidth(arrowSize)
     private fun transformedY(column: Int, y: Int): Float = computeY(column, y.toFloat())
 
+    private fun appearanceAlphaAt(screenCenterY: Float): Float =
+        computeAppearanceAlpha(
+            activeColumn,
+            screenCenterY
+        ).coerceIn(0f, 1f)
+
+    private fun withAppearanceAlpha(
+        screenCenterY: Float,
+        draw: () -> Unit
+    ) {
+        val previousColor = batch.color.cpy()
+        val appearance =
+            appearanceAlphaAt(screenCenterY)
+
+        batch.setColor(
+            previousColor.r,
+            previousColor.g,
+            previousColor.b,
+            previousColor.a * appearance
+        )
+
+        try {
+            draw()
+        } finally {
+            batch.color = previousColor
+        }
+    }
+
     // -------------------------------------------------------------------------
     // ENTRADAS PUBLICAS
     // -------------------------------------------------------------------------
@@ -99,6 +155,8 @@ class SscNoteRenderer(
         isVanish: Boolean
     ) {
         val previousColor = batch.color.cpy()
+        activeColumn = column
+        activeSourceY = y.toFloat()
         activeNoteAlpha = computeAlpha().coerceIn(0f, 1f)
         activeDepthScale = computeDepthScale(column).coerceIn(0.60f, 1.60f)
 
@@ -132,6 +190,8 @@ class SscNoteRenderer(
         isVanish: Boolean
     ) {
         val previousColor = batch.color.cpy()
+        activeColumn = column
+        activeSourceY = y.toFloat()
         activeNoteAlpha = computeAlpha().coerceIn(0f, 1f)
         activeDepthScale = computeDepthScale(column).coerceIn(0.60f, 1.60f)
 
@@ -162,6 +222,10 @@ class SscNoteRenderer(
         isVanish: Boolean
     ) {
         val previousColor = batch.color.cpy()
+        activeColumn = column
+        activeSourceY = y.toFloat()
+        activeHoldSourceStartY = y.toFloat()
+        activeHoldSourceEndY = y2.toFloat()
         activeNoteAlpha = computeAlpha().coerceIn(0f, 1f)
         activeDepthScale = computeDepthScale(column).coerceIn(0.60f, 1.60f)
 
@@ -189,12 +253,44 @@ class SscNoteRenderer(
         width: Float,
         height: Float,
         rotation: Float = 0f,
-        reverseY: Boolean = true
+        reverseY: Boolean = true,
+        allowRoll: Boolean = true,
+        sourceY: Float = activeSourceY
     ) {
         val miniScale = computeScale() * activeDepthScale
         val reverseScaleY = if (reverseY) computeScaleY() else 1f
+        val centerY = y + height * 0.5f
 
-        if (!luaNotes.flipX) {
+        withAppearanceAlpha(centerY) {
+            if (!luaNotes.flipX && !attack3DActive) {
+                batch.draw(
+                    region,
+                    x,
+                    y,
+                    width * 0.5f,
+                    height * 0.5f,
+                    width,
+                    height,
+                    miniScale,
+                    miniScale * reverseScaleY,
+                    rotation
+                )
+                return@withAppearanceAlpha
+            }
+
+            val previousShader = batch.shader
+            batch.shader = normalFlipShader
+
+            applyFlipUniforms(
+                shader = normalFlipShader,
+                region = region,
+                ribbon = false,
+                objectCenterY = centerY,
+                objectCenterX = x + width * 0.5f,
+                allowRoll = allowRoll,
+                stepManiaYOffset = computeStepManiaYOffset(sourceY)
+            )
+
             batch.draw(
                 region,
                 x,
@@ -207,33 +303,9 @@ class SscNoteRenderer(
                 miniScale * reverseScaleY,
                 rotation
             )
-            return
+
+            batch.shader = previousShader
         }
-
-        val previousShader = batch.shader
-        batch.shader = normalFlipShader
-
-        applyFlipUniforms(
-            shader = normalFlipShader,
-            region = region,
-            ribbon = false,
-            objectCenterY = y + height * 0.5f
-        )
-
-        batch.draw(
-            region,
-            x,
-            y,
-            width * 0.5f,
-            height * 0.5f,
-            width,
-            height,
-            miniScale,
-            miniScale * reverseScaleY,
-            rotation
-        )
-
-        batch.shader = previousShader
     }
 
     private fun drawFlipBody(
@@ -250,38 +322,135 @@ class SscNoteRenderer(
         val scaledWidth = width * miniScale
         val centeredX = x + (width - scaledWidth) * 0.5f
 
-        if (!luaNotes.flipX) {
-            batch.draw(
-                region,
-                centeredX,
-                y,
-                scaledWidth,
-                height
-            )
+        if (!luaNotes.flipX && !attack3DActive && !computeAppearanceActive()) {
+            withAppearanceAlpha(y + height * 0.5f) {
+                batch.draw(
+                    region,
+                    centeredX,
+                    y,
+                    scaledWidth,
+                    height
+                )
+            }
             return
         }
 
         val previousShader = batch.shader
         batch.shader = normalFlipShader
 
-        applyFlipUniforms(
-            shader = normalFlipShader,
+        drawBodyPossiblySegmented(
             region = region,
-            ribbon = true,
-            objectCenterY = y + height * 0.5f,
-            bodyY = y,
-            bodyHeight = height
-        )
-
-        batch.draw(
-            region,
-            centeredX,
-            y,
-            scaledWidth,
-            height
+            x = centeredX,
+            y = y,
+            width = scaledWidth,
+            height = height,
+            fullBodyY = y,
+            fullBodyHeight = height,
+            shader = normalFlipShader
         )
 
         batch.shader = previousShader
+    }
+
+
+    /**
+     * Divide un HOLD body en tiras verticales cuando Bumpy/Twirl/Roll están activos.
+     * El shader transforma cada tira en el mismo espacio 3D, evitando que head/body/bottom
+     * tengan fórmulas distintas.
+     */
+    private fun drawBodyPossiblySegmented(
+        region: TextureRegion,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        fullBodyY: Float,
+        fullBodyHeight: Float,
+        shader: ShaderProgram
+    ) {
+        if (height <= 0f) return
+
+        if (!attack3DActive && !computeAppearanceActive()) {
+            val centerY = y + height * 0.5f
+
+            applyFlipUniforms(
+                shader = shader,
+                region = region,
+                ribbon = true,
+                objectCenterY = centerY,
+                objectCenterX = x + width * 0.5f,
+                bodyY = fullBodyY,
+                bodyHeight = fullBodyHeight
+            )
+
+            withAppearanceAlpha(centerY) {
+                batch.draw(region, x, y, width, height)
+            }
+            return
+        }
+
+        // 1/8 de flecha: suficiente densidad para holds largos sin disparar draw calls.
+        val targetSegmentHeight =
+            (arrowSize / 8f).coerceAtLeast(4f)
+
+        val segments =
+            kotlin.math.ceil(height / targetSegmentHeight)
+                .toInt()
+                .coerceAtLeast(1)
+
+        val texture = region.texture
+        val u1 = region.u
+        val u2 = region.u2
+        val vTop = region.v
+        val vBottom = region.v2
+
+        for (i in 0 until segments) {
+            val t0 = i.toFloat() / segments.toFloat()
+            val t1 = (i + 1).toFloat() / segments.toFloat()
+
+            val sy = y + height * t0
+            // pequeño solape para que el filtrado lineal no abra costuras visuales.
+            val sh =
+                (height * (t1 - t0) + 0.75f)
+                    .coerceAtMost(y + height - sy + 0.75f)
+
+            val sv1 = vTop + (vBottom - vTop) * t0
+            val sv2 = vTop + (vBottom - vTop) * t1
+
+            // Cada segmento usa un pivot distinto; hay que vaciar SpriteBatch
+            // antes de cambiar uniforms o todos usarían los uniforms del último segmento.
+            batch.flush()
+
+            val sourceT = (t0 + t1) * 0.5f
+            val segmentSourceY =
+                activeHoldSourceStartY +
+                    (activeHoldSourceEndY - activeHoldSourceStartY) * sourceT
+
+            applyFlipUniforms(
+                shader = shader,
+                region = region,
+                ribbon = true,
+                objectCenterY = sy + sh * 0.5f,
+                objectCenterX = x + width * 0.5f,
+                bodyY = fullBodyY,
+                bodyHeight = fullBodyHeight,
+                stepManiaYOffset = computeStepManiaYOffset(segmentSourceY)
+            )
+
+            withAppearanceAlpha(sy + sh * 0.5f) {
+                batch.draw(
+                    texture,
+                    x,
+                    sy,
+                    width,
+                    sh,
+                    u1,
+                    sv1,
+                    u2,
+                    sv2
+                )
+            }
+        }
     }
 
     private fun applyFlipUniforms(
@@ -289,8 +458,11 @@ class SscNoteRenderer(
         region: TextureRegion,
         ribbon: Boolean,
         objectCenterY: Float,
+        objectCenterX: Float = 0f,
         bodyY: Float = 0f,
-        bodyHeight: Float = 1f
+        bodyHeight: Float = 1f,
+        allowRoll: Boolean = true,
+        stepManiaYOffset: Float = computeStepManiaYOffset(activeSourceY)
     ) {
         shader.setUniformi("u_flipEnabled", if (luaNotes.flipX) 1 else 0)
         shader.setUniformi("u_flipRibbon", if (ribbon) 1 else 0)
@@ -300,6 +472,44 @@ class SscNoteRenderer(
         shader.setUniformf("u_bodyHeight", bodyHeight.coerceAtLeast(0.001f))
         shader.setUniformf("u_regionU", region.u)
         shader.setUniformf("u_regionU2", region.u2)
+
+        applyAttack3DUniforms(
+            shader = shader,
+            objectCenterX = objectCenterX,
+            objectCenterY = objectCenterY,
+            allowRoll = allowRoll,
+            stepManiaYOffset = stepManiaYOffset
+        )
+    }
+
+    private fun applyAttack3DUniforms(
+        shader: ShaderProgram,
+        objectCenterX: Float,
+        objectCenterY: Float,
+        allowRoll: Boolean,
+        stepManiaYOffset: Float
+    ) {
+        val bumpy = computeBumpy()
+        val twirl = computeTwirl()
+        val roll = computeRoll()
+
+        shader.setUniformf("u_bumpy", bumpy)
+        shader.setUniformf("u_twirl", twirl)
+        val fieldScaleY =
+            computeStepManiaFieldScaleY().coerceAtLeast(0.0001f)
+
+        val arrowScale =
+            computeStepManiaArrowScale().coerceAtLeast(0.0001f)
+
+        shader.setUniformf("u_roll", if (allowRoll) roll else 0f)
+        shader.setUniformf("u_stepmaniaYOffset", stepManiaYOffset)
+        shader.setUniformf("u_stepmaniaArrowScale", arrowScale)
+        shader.setUniformf("u_objectCenterX", objectCenterX)
+        shader.setUniformf("u_objectCenterY", objectCenterY)
+        shader.setUniformf(
+            "u_focalLength",
+            480f * fieldScaleY
+        )
     }
 
     // -------------------------------------------------------------------------
@@ -356,23 +566,27 @@ class SscNoteRenderer(
             if (bottomY > 0f && bottomY < limit && remainingLength > heightBodyHead) {
                 batch.setColor(1f, 1f, 1f, getAlpha(bottomY, limit.toDouble()) * activeNoteAlpha)
                 drawFlipRegion(
-                    region = bottoms[column][frame],
+region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
-                    height = bottom.height
+                    height = bottom.height,
+                    allowRoll = false,
+                    sourceY = y2.toFloat()
                 )
             }
 
             if (headY > 0f && headY < limit) {
                 batch.setColor(1f, 1f, 1f, getAlpha(headY, limit.toDouble()) * activeNoteAlpha)
                 drawFlipRegion(
-                    region = arrows[column][frame],
+region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
-                    rotation = rotation
+                    rotation = rotation,
+                    allowRoll = false,
+                    sourceY = y.toFloat()
                 )
             }
 
@@ -390,22 +604,26 @@ class SscNoteRenderer(
 
             if (remainingLength > heightBodyHead && bottomY > 0f) {
                 drawFlipRegion(
-                    region = bottoms[column][frame],
+region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
-                    height = bottom.height
+                    height = bottom.height,
+                    allowRoll = false,
+                    sourceY = y2.toFloat()
                 )
             }
 
             if (headY > 0f) {
                 drawFlipRegion(
-                    region = arrows[column][frame],
+region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
-                    rotation = rotation
+                    rotation = rotation,
+                    allowRoll = false,
+                    sourceY = y.toFloat()
                 )
             }
         }
@@ -486,11 +704,13 @@ class SscNoteRenderer(
                 )
 
                 drawFlipRegion(
-                    region = bottoms[column][frame],
+region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
-                    height = bottom.height
+                    height = bottom.height,
+                    allowRoll = false,
+                    sourceY = y2.toFloat()
                 )
             }
 
@@ -510,12 +730,14 @@ class SscNoteRenderer(
                 )
 
                 drawFlipRegion(
-                    region = arrows[column][frame],
+region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
-                    rotation = rotation
+                    rotation = rotation,
+                    allowRoll = false,
+                    sourceY = y.toFloat()
                 )
             }
 
@@ -544,11 +766,13 @@ class SscNoteRenderer(
                 )
 
                 drawFlipRegion(
-                    region = bottoms[column][frame],
+region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
-                    height = bottom.height
+                    height = bottom.height,
+                    allowRoll = false,
+                    sourceY = y2.toFloat()
                 )
             }
 
@@ -564,12 +788,14 @@ class SscNoteRenderer(
                 )
 
                 drawFlipRegion(
-                    region = arrows[column][frame],
+region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
-                    rotation = rotation
+                    rotation = rotation,
+                    allowRoll = false,
+                    sourceY = y.toFloat()
                 )
             }
 
@@ -636,12 +862,14 @@ class SscNoteRenderer(
             )
 
             drawFlipRegion(
-                region = bottoms[column][frame],
+region = bottoms[column][frame],
                 x = bottom.x,
                 y = bottom.y,
                 width = bottom.width,
-                height = bottom.height
-            )
+                height = bottom.height,
+                    allowRoll = false,
+                    sourceY = y2.toFloat()
+                )
         }
 
         if (
@@ -656,13 +884,15 @@ class SscNoteRenderer(
             )
 
             drawFlipRegion(
-                region = arrows[column][frame],
+region = arrows[column][frame],
                 x = head.x,
                 y = head.y,
                 width = head.width,
                 height = head.height,
-                rotation = rotation
-            )
+                rotation = rotation,
+                    allowRoll = false,
+                    sourceY = y.toFloat()
+                )
         }
 
         resetColor()
@@ -867,6 +1097,7 @@ class SscNoteRenderer(
             region,
             ribbon = true,
             objectCenterY = y + height * 0.5f,
+            objectCenterX = x + width * 0.5f,
             bodyY = y,
             bodyHeight = height
         )
@@ -907,10 +1138,17 @@ class SscNoteRenderer(
 
         vanishFadeShader.setUniformf("u_fadeEnd", fadeEnd)
         vanishFadeShader.setUniformf("u_fadeRange", rangeAlpha)
-        applyFlipUniforms(vanishFadeShader, region, ribbon = true, objectCenterY = y + height * 0.5f, bodyY = y, bodyHeight = height)
-
         resetColor()
-        batch.draw(region, centeredX, y, scaledWidth, height)
+        drawBodyPossiblySegmented(
+            region = region,
+            x = centeredX,
+            y = y,
+            width = scaledWidth,
+            height = height,
+            fullBodyY = y,
+            fullBodyHeight = height,
+            shader = vanishFadeShader
+        )
         batch.shader = previousShader
     }
 
@@ -940,10 +1178,17 @@ class SscNoteRenderer(
         vanishMidLineFadeShader.setUniformf("u_appearLimit", appearLimit)
         vanishMidLineFadeShader.setUniformf("u_vanishEnd", vanishEnd)
         vanishMidLineFadeShader.setUniformf("u_fadeRange", rangeAlpha)
-        applyFlipUniforms(vanishMidLineFadeShader, region, ribbon = true, objectCenterY = y + height * 0.5f, bodyY = y, bodyHeight = height)
-
         resetColor()
-        batch.draw(region, centeredX, y, scaledWidth, height)
+        drawBodyPossiblySegmented(
+            region = region,
+            x = centeredX,
+            y = y,
+            width = scaledWidth,
+            height = height,
+            fullBodyY = y,
+            fullBodyHeight = height,
+            shader = vanishMidLineFadeShader
+        )
         batch.shader = previousShader
     }
 
@@ -1291,9 +1536,41 @@ class SscNoteRenderer(
 
             uniform mat4 u_projTrans;
 
+            // Bumpy / Twirl / Roll
+            uniform float u_bumpy;
+            uniform float u_twirl;
+            uniform float u_roll;
+            uniform float u_stepmaniaYOffset;
+            uniform float u_stepmaniaArrowScale;
+            uniform float u_objectCenterX;
+            uniform float u_objectCenterY;
+            uniform float u_focalLength;
+
             varying vec4 v_color;
             varying vec2 v_texCoords;
             varying float v_worldY;
+
+            const float DEG_TO_RAD = 0.017453292519943295;
+
+            vec3 rotateX(vec3 p, float angle) {
+                float c = cos(angle);
+                float s = sin(angle);
+                return vec3(
+                    p.x,
+                    p.y * c - p.z * s,
+                    p.y * s + p.z * c
+                );
+            }
+
+            vec3 rotateY(vec3 p, float angle) {
+                float c = cos(angle);
+                float s = sin(angle);
+                return vec3(
+                    p.x * c + p.z * s,
+                    p.y,
+                    -p.x * s + p.z * c
+                );
+            }
 
             void main() {
                 v_color = a_color;
@@ -1304,12 +1581,69 @@ class SscNoteRenderer(
                 v_texCoords =
                     a_texCoord0;
 
+                // Conservamos worldY original para AP/Vanish/Flip ribbon.
                 v_worldY =
                     a_position.y;
 
+                vec3 p = vec3(
+                    a_position.x - u_objectCenterX,
+                    a_position.y - u_objectCenterY,
+                    0.0
+                );
+
+                // Este valor está en el mismo espacio lógico que ArrowEffects.cpp.
+                // Ya incluye Boost/Expand/scrollSpeed y todavía no incluye Reverse/Tipsy.
+                float yOffset = u_stepmaniaYOffset;
+
+                // Bumpy usa una magnitud ligada a ARROW_SIZE. En StepMania
+                // ARROW_SIZE=64; en Finger Dance 64 -> medidaFlechas.
+                float bumpyZ =
+                    u_bumpy *
+                    40.0 *
+                    sin(yOffset / 16.0) *
+                    u_stepmaniaArrowScale;
+
+                p.z += bumpyZ;
+
+                // Los ángulos permanecen en grados StepMania: no se escalan por píxeles.
+                float twirlAngle =
+                    (u_twirl * yOffset * 0.5) *
+                    DEG_TO_RAD;
+
+                float rollAngle =
+                    (u_roll * yOffset * 0.5) *
+                    DEG_TO_RAD;
+
+                p = rotateY(p, twirlAngle);
+                p = rotateX(p, rollAngle);
+
+                // Proyección perspectiva segura sobre el mismo playfield 2D.
+                float focal =
+                    max(u_focalLength, 1.0);
+
+                float denom =
+                    max(focal - p.z, focal * 0.20);
+
+                float perspective =
+                    clamp(
+                        focal / denom,
+                        0.35,
+                        2.50
+                    );
+
+                vec2 finalPos =
+                    vec2(
+                        u_objectCenterX + p.x * perspective,
+                        u_objectCenterY + p.y * perspective
+                    );
+
                 gl_Position =
                     u_projTrans *
-                    a_position;
+                    vec4(
+                        finalPos,
+                        a_position.z,
+                        a_position.w
+                    );
             }
         """.trimIndent()
     }

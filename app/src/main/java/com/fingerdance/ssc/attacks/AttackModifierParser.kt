@@ -88,6 +88,10 @@ object AttackModifierParser {
             "invert" -> AttackMod.INVERT
             "dark" -> AttackMod.DARK
             "stealth" -> AttackMod.STEALTH
+            "hidden" -> AttackMod.HIDDEN
+            "sudden" -> AttackMod.SUDDEN
+            "blink" -> AttackMod.BLINK
+            "blind" -> AttackMod.BLIND
             "normal" -> AttackMod.NORMAL
             else -> AttackMod.UNKNOWN
         }

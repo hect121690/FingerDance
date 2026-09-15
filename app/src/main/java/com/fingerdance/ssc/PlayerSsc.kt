@@ -342,11 +342,29 @@ class PlayerSsc(
             mineUsesMidLine = isMidLine,
             computeLeft = { x, y -> computeLeft(x, y) },
             computeY = { column, y -> computeAttackY(column, y) },
+            computeStepManiaYOffset = { sourceY ->
+                screen.getAttackStepManiaYOffset(
+                    rawPixelYOffset = sourceY - screen.targetTop,
+                    baseScrollSpeed = baseSpeed
+                )
+            },
+            computeStepManiaFieldScaleY = { screen.getAttackStepManiaFieldScaleY() },
+            computeStepManiaArrowScale = { screen.getAttackStepManiaArrowScale() },
             computeRotation = { note -> computeAttackRotation(note) },
             computeScaleY = { screen.getAttackReverseScaleY() },
             computeScale = { screen.getAttackMiniScale() },
             computeAlpha = { screen.getAttackStealthAlpha() },
+            computeAppearanceAlpha = { column, screenY ->
+                screen.getAttackAppearanceAlpha(column, screenY)
+            },
+            computeAppearanceActive = {
+                screen.isAttackAppearanceActive()
+            },
             computeDepthScale = { column -> screen.getAttackMoveZScale(column) },
+            computeBumpy = { screen.getAttackBumpyAmount() },
+            computeTwirl = { screen.getAttackTwirlAmount() },
+            computeRoll = { screen.getAttackRollAmount() },
+            computeReceptorCenterY = { column -> screen.getAttackReceptorCenterY(column) },
             cellMetrics = screen.receptorMetrics
         ).also {
             noteRenderer = it
@@ -812,7 +830,8 @@ class PlayerSsc(
     private fun computeAttackY(column: Int, y: Float): Float {
         return screen.getAttackNoteY(
             column = column,
-            y = y
+            y = y,
+            baseScrollSpeed = baseSpeed
         )
     }
 
@@ -855,7 +874,8 @@ class PlayerSsc(
         val attackYOffset = y.toFloat() - screen.targetTop
         offsetX += screen.getAttackColumnOffsetX(
             column = x,
-            yOffset = attackYOffset
+            yOffset = attackYOffset,
+            baseScrollSpeed = baseSpeed
         )
 
         // =========================================================
@@ -1062,6 +1082,12 @@ class PlayerSsc(
             alpha = 1.0f
         }
 
+        val blindAlpha =
+            screen.getAttackBlindAlpha()
+
+        val displayAlpha =
+            alpha * blindAlpha
+
         judgeSprite.setRegion(screen.imgsJudge[m_judge.judge])
         val judgeW = widthJudges * ftX
         val judgeH = heightJudges * ftY
@@ -1069,7 +1095,7 @@ class PlayerSsc(
         judgeSprite.setSize(judgeW, judgeH)
         judgeSprite.setOriginCenter()
         judgeSprite.setCenter(x + widthJudges / 2f, y + heightJudges / 2f)
-        judgeSprite.setColor(1f, 1f, 1f, alpha)
+        judgeSprite.setColor(1f, 1f, 1f, displayAlpha)
         judgeSprite.draw(batch)
 
         val comboWidth = (widthJudges * 0.5f) * ftX
@@ -1089,7 +1115,7 @@ class PlayerSsc(
             comboSprite.setSize(comboWidth, comboHeight)
             comboSprite.setOriginCenter()
             comboSprite.setCenter(comboX + comboWidth / 2f, comboY + comboHeight / 2f)
-            comboSprite.setColor(1f, 1f, 1f, alpha)
+            comboSprite.setColor(1f, 1f, 1f, displayAlpha)
             comboSprite.draw(batch)
 
             val numStr = if (count < 100) count.toString().padStart(3, '0') else count.toString()
@@ -1099,7 +1125,7 @@ class PlayerSsc(
             val digitY = comboY + comboHeight - 10f
 
             //digitSprite = Sprite()
-            digitSprite.setColor(1f, 1f, 1f, alpha)
+            digitSprite.setColor(1f, 1f, 1f, displayAlpha)
             for (char in numStr) {
                 val digit = char.digitToInt()
                 digitSprite.setRegion(numberList[digit])

@@ -59,7 +59,7 @@ object AttackEffects {
         effectHeight: Float,
         amount: Float
     ): Float {
-        if (!AttackFeatureFlags.BOOST) return yOffset
+        if (!AttackFeatureFlags.AccelScroll.BOOST) return yOffset
         if (amount == 0f || yOffset < 0f) return yOffset
 
         val safeEffectHeight =
@@ -104,7 +104,7 @@ object AttackEffects {
         amount: Float,
         period: Float = 0f
     ): Float {
-        if (!AttackFeatureFlags.EXPAND) return 1f
+        if (!AttackFeatureFlags.AccelScroll.EXPAND) return 1f
         if (amount == 0f) return 1f
 
         val phase =
@@ -139,37 +139,42 @@ object AttackEffects {
      * Finger Dance ya trae su scroll base convertido a píxeles antes de entrar
      * aquí, por eso NO volvemos a multiplicar por el scrollSpeed base.
      */
-    fun transformAccelYOffset(
-        yOffset: Float,
-        effectHeight: Float,
+    fun transformAccelYOffsetSm(
+        yOffsetSm: Float,
+        effectHeightSm: Float,
         expandSeconds: Float,
         boostAmount: Float,
-        expandAmount: Float
+        expandAmount: Float,
+        baseScrollSpeed: Float
     ): Float {
-        if (yOffset < 0f) {
-            return yOffset
+        val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
+
+        // StepMania: si la nota ya cruzó el receptor no aplica ACCEL,
+        // únicamente conserva el scroll speed base.
+        if (yOffsetSm < 0f) {
+            return yOffsetSm * safeBaseSpeed
         }
 
-        var result = yOffset
+        var result = yOffsetSm
 
-        if (AttackFeatureFlags.BOOST && boostAmount != 0f) {
-            result =
-                boostYOffset(
-                    yOffset = result,
-                    effectHeight = effectHeight,
-                    amount = boostAmount
-                )
+        if (AttackFeatureFlags.AccelScroll.BOOST && boostAmount != 0f) {
+            result = boostYOffset(
+                yOffset = result,
+                effectHeight = effectHeightSm,
+                amount = boostAmount
+            )
         }
 
-        if (AttackFeatureFlags.EXPAND && expandAmount != 0f) {
-            result *=
-                expandScrollMultiplier(
-                    expandSeconds = expandSeconds,
-                    amount = expandAmount
-                )
+        var scrollSpeed = safeBaseSpeed
+
+        if (AttackFeatureFlags.AccelScroll.EXPAND && expandAmount != 0f) {
+            scrollSpeed *= expandScrollMultiplier(
+                expandSeconds = expandSeconds,
+                amount = expandAmount
+            )
         }
 
-        return result
+        return result * scrollSpeed
     }
 
     // =========================================================
@@ -187,7 +192,7 @@ object AttackEffects {
         offset: Float = 0f,
         period: Float = 0f
     ): Float {
-        if (!AttackFeatureFlags.DRUNK) return 0f
+        if (!AttackFeatureFlags.Position.DRUNK) return 0f
 
 
         if (amount == 0f) {
@@ -246,7 +251,7 @@ object AttackEffects {
         speed: Float = 0f,
         offset: Float = 0f
     ): Float {
-        if (!AttackFeatureFlags.TIPSY) return 0f
+        if (!AttackFeatureFlags.Position.TIPSY) return 0f
 
         if (amount == 0f) return 0f
 
@@ -267,7 +272,7 @@ object AttackEffects {
         arrowSize: Float,
         amount: Float
     ): Float {
-        if (!AttackFeatureFlags.FLIP) return 0f
+        if (!AttackFeatureFlags.DirectionColumn.FLIP) return 0f
 
         if (amount == 0f || columnCount <= 1) return 0f
 
@@ -289,7 +294,7 @@ object AttackEffects {
         currentBeat: Double,
         amount: Float
     ): Float {
-        if (!AttackFeatureFlags.DIZZY) return 0f
+        if (!AttackFeatureFlags.Rotation3D.DIZZY) return 0f
 
         if (amount == 0f) return 0f
 
@@ -308,7 +313,7 @@ object AttackEffects {
         currentBeat: Double,
         amount: Float
     ): Float {
-        if (!AttackFeatureFlags.CONFUSION) return 0f
+        if (!AttackFeatureFlags.Rotation3D.CONFUSION) return 0f
 
         if (amount == 0f) return 0f
 
@@ -333,7 +338,7 @@ object AttackEffects {
         effectOffset: Float = 0f,
         period: Float = 0f
     ): Float {
-        if (!AttackFeatureFlags.TORNADO) return 0f
+        if (!AttackFeatureFlags.Position.TORNADO) return 0f
 
         if (amount == 0f || columnCount <= 1 || column !in 0 until columnCount) return 0f
 
@@ -414,7 +419,7 @@ object AttackEffects {
     }
 
     fun reverseY(y: Float, normalReceptorY: Float, reverseReceptorY: Float, amount: Float): Float {
-        if (!AttackFeatureFlags.REVERSE) return y
+        if (!AttackFeatureFlags.DirectionColumn.REVERSE) return y
 
         if (amount == 0f) return y
 
@@ -429,7 +434,7 @@ object AttackEffects {
     // =========================================================
 
     fun invertX(column: Int, columnCount: Int, arrowSize: Float, amount: Float): Float {
-        if (!AttackFeatureFlags.INVERT) return 0f
+        if (!AttackFeatureFlags.DirectionColumn.INVERT) return 0f
 
         if (amount == 0f || column !in 0 until columnCount || columnCount <= 1) return 0f
 
@@ -460,7 +465,7 @@ object AttackEffects {
     // =========================================================
 
     fun miniScale(amount: Float): Float {
-        if (!AttackFeatureFlags.MINI) return 1f
+        if (!AttackFeatureFlags.Scale.MINI) return 1f
 
         val scale =
             1f - (amount * MINI_PERCENT_BASE)
@@ -477,7 +482,7 @@ object AttackEffects {
         centerX: Float,
         amount: Float
     ): Float {
-        if (!AttackFeatureFlags.MINI) return x
+        if (!AttackFeatureFlags.Scale.MINI) return x
 
         val scale = miniScale(amount)
 
@@ -502,7 +507,7 @@ object AttackEffects {
         beatOffset: Float = 0f,
         beatMult: Float = 0f
     ): Float {
-        if (!AttackFeatureFlags.BEAT) return 0f
+        if (!AttackFeatureFlags.Position.BEAT) return 0f
 
         if (amount == 0f) return 0f
 

@@ -100,7 +100,7 @@ class SplashActivity : AppCompatActivity() {
         }
 
         firebaseDatabase = FirebaseDatabase.getInstance()
-
+        startAttackConfigRealtimeListener()
         val webView = findViewById<WebView>(R.id.webViewSplash)
 
         webView.loadUrl(
@@ -308,60 +308,33 @@ class SplashActivity : AppCompatActivity() {
     /**
      * Consulta los valores remotos de Firebase.
      */
-    private suspend fun fetchRemoteConfigSuspend():
-            RemoteConfig? =
-        suspendCancellableCoroutine { continuation ->
-
-            val databaseRef =
-                firebaseDatabase.getReference("version")
-
-            val listener = object : ValueEventListener {
-
-                override fun onDataChange(
-                    snapshot: DataSnapshot
-                ) {
-                    try {
-                        val config = RemoteConfig(
-                            flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false,
-                            mpOn = snapshot.child("mpOn").getValue(Boolean::class.java) ?: false,
-                            numberUpdate = snapshot.child("numberUpdate").value?.toString().orEmpty(),
-                            paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false,
-                            rebootChannelsDrive = snapshot.child("rebootChannelsDrive").getValue(Boolean::class.java) ?: false,
-                            resetRegister = snapshot.child("resetRegister").getValue(Boolean::class.java) ?: false,
-                            startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false,
-                            timeHalfDouble = snapshot.child("timeHalfDouble").value?.toString()?.toLongOrNull() ?: 0L,
-                            timeToPresiscion = snapshot.child("timeToPresiscion").value?.toString()?.toLongOrNull() ?: 0L,
-                            timeAdjust = snapshot.child("time_adjust").value?.toString()?.toLongOrNull() ?: 0L,
-                            validFolders = emptyList(),
-                            version = snapshot.child("value").value?.toString().orEmpty(),
-                            allowCheckValues = snapshot.child("allowCheckValues").getValue(Boolean::class.java) ?: false,
-                            versionRankingFirebase = snapshot.child("versionRankingFirebase").value?.toString()?.toIntOrNull() ?: 0,
+    private suspend fun fetchRemoteConfigSuspend(): RemoteConfig? = suspendCancellableCoroutine { continuation ->
+        val databaseRef = firebaseDatabase.getReference("version")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    val config = RemoteConfig(
+                        flagActiveAllows = snapshot.child("flagActiveAllows").getValue(Boolean::class.java) ?: false,
+                        mpOn = snapshot.child("mpOn").getValue(Boolean::class.java) ?: false,
+                        numberUpdate = snapshot.child("numberUpdate").value?.toString().orEmpty(),
+                        paypalOn = snapshot.child("paypalOn").getValue(Boolean::class.java) ?: false,
+                        rebootChannelsDrive = snapshot.child("rebootChannelsDrive").getValue(Boolean::class.java) ?: false,
+                        resetRegister = snapshot.child("resetRegister").getValue(Boolean::class.java) ?: false,
+                        startOnline = snapshot.child("startOnline").getValue(Boolean::class.java) ?: false,
+                        timeHalfDouble = snapshot.child("timeHalfDouble").value?.toString()?.toLongOrNull() ?: 0L,
+                        timeToPresiscion = snapshot.child("timeToPresiscion").value?.toString()?.toLongOrNull() ?: 0L,
+                        timeAdjust = snapshot.child("time_adjust").value?.toString()?.toLongOrNull() ?: 0L,
+                        validFolders = emptyList(),
+                        version = snapshot.child("value").value?.toString().orEmpty(),
+                        allowCheckValues = snapshot.child("allowCheckValues").getValue(Boolean::class.java) ?: false,
+                        versionRankingFirebase = snapshot.child("versionRankingFirebase").value?.toString()?.toIntOrNull() ?: 0,
                         )
 
-                        if (continuation.isActive) {
-                            continuation.resume(config)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(
-                            TAG,
-                            "Error interpretando RemoteConfig",
-                            e
-                        )
-
-                        if (continuation.isActive) {
-                            continuation.resume(null)
-                        }
+                    if (continuation.isActive) {
+                        continuation.resume(config)
                     }
-                }
-
-                override fun onCancelled(
-                    error: DatabaseError
-                ) {
-                    Log.e(
-                        TAG,
-                        "Firebase canceló RemoteConfig",
-                        error.toException()
-                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error interpretando RemoteConfig", e)
 
                     if (continuation.isActive) {
                         continuation.resume(null)
@@ -369,14 +342,22 @@ class SplashActivity : AppCompatActivity() {
                 }
             }
 
-            databaseRef.addListenerForSingleValueEvent(
-                listener
-            )
-
-            continuation.invokeOnCancellation {
-                databaseRef.removeEventListener(listener)
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Firebase canceló RemoteConfig", error.toException())
+                if (continuation.isActive) {
+                    continuation.resume(null)
+                }
             }
         }
+
+        databaseRef.addListenerForSingleValueEvent(
+            listener
+        )
+
+        continuation.invokeOnCancellation {
+            databaseRef.removeEventListener(listener)
+        }
+    }
 
     /**
      * Carga en orden la información general de Google Drive.

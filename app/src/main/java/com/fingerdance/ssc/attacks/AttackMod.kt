@@ -7,7 +7,7 @@ enum class AttackMod {
     MINI,
     OVERHEAD, HALLWAY, DISTANT, INCOMING, SPACE,
     REVERSE, FLIP, INVERT,
-    DARK, STEALTH,
+    DARK, STEALTH, HIDDEN, SUDDEN, BLINK, BLIND,
 
     // MoveZ1, MoveZ2, MoveZ3... usan este mismo tipo y guardan
     // la columna concreta en AttackModifier.column (base 0).

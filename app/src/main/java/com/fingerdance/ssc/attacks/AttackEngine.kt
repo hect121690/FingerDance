@@ -33,6 +33,10 @@ class AttackEngine(
         current.invert = approach(current.invert, target.invert, getApproachAmount(target, AttackMod.INVERT, deltaSeconds))
         current.dark = approach(current.dark, target.dark, getApproachAmount(target, AttackMod.DARK, deltaSeconds))
         current.stealth = approach(current.stealth, target.stealth, getApproachAmount(target, AttackMod.STEALTH, deltaSeconds))
+        current.hidden = approach(current.hidden, target.hidden, getApproachAmount(target, AttackMod.HIDDEN, deltaSeconds))
+        current.sudden = approach(current.sudden, target.sudden, getApproachAmount(target, AttackMod.SUDDEN, deltaSeconds))
+        current.blink = approach(current.blink, target.blink, getApproachAmount(target, AttackMod.BLINK, deltaSeconds))
+        current.blind = approach(current.blind, target.blind, getApproachAmount(target, AttackMod.BLIND, deltaSeconds))
 
         current.skew = approach(current.skew, target.skew, deltaSeconds * DEFAULT_APPROACH_MULTIPLIER * target.skewApproachSpeed)
         current.perspectiveTilt = approach(current.perspectiveTilt, target.perspectiveTilt, deltaSeconds * DEFAULT_APPROACH_MULTIPLIER * target.perspectiveTiltApproachSpeed)

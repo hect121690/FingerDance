@@ -13,6 +13,7 @@ import android.util.Log
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.fingerdance.ssc.Parser.Chart
+import com.fingerdance.ssc.attacks.AttackFeatureFlags
 import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -234,6 +235,8 @@ var luaJudge = LuaTransform()
 
 var isEndingFade = false
 var endingFadeAlpha = 0f
+
+var attackConfigListener: ValueEventListener? = null
 
 // ========== FUNCIONES HELPER ==========
 
@@ -864,6 +867,287 @@ fun readFileSsc(path: String): String {
     }
 }
 
+fun startAttackConfigRealtimeListener() {
+
+    val attacksRef = firebaseDatabase.getReference("version").child("attacks")
+
+    // Evita registrar dos listeners si por alguna razón
+    // llamamos esta función más de una vez.
+    attackConfigListener?.let { listener ->
+        attacksRef.removeEventListener(listener)
+    }
+
+    attackConfigListener =
+        object : ValueEventListener {
+
+            override fun onDataChange(
+                snapshot: DataSnapshot
+            ) {
+                try {
+                    applyAttackConfigSnapshot(snapshot)
+                } catch (e: Exception) {
+                    Log.e("ATTACK_CONFIG", "Error aplicando configuración realtime de ATTACKS", e)
+                }
+            }
+
+            override fun onCancelled(
+                error: DatabaseError
+            ) {
+                Log.e("ATTACK_CONFIG", "Firebase canceló listener realtime de ATTACKS", error.toException())
+            }
+        }
+
+    attacksRef.addValueEventListener(attackConfigListener!!)
+}
+
+fun applyAttackConfigSnapshot(
+    snapshot: DataSnapshot
+) {
+
+    // =========================================================
+    // ACCEL / SCROLL
+    // =========================================================
+
+    val accelScroll =
+        snapshot.child("accelScroll")
+
+    AttackFeatureFlags.AccelScroll.BOOST =
+        accelScroll
+            .child("boost")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.AccelScroll.BOOST
+
+    AttackFeatureFlags.AccelScroll.BOOST_INTENSITY =
+        accelScroll
+            .child("boostIntensity")
+            .value
+            ?.toString()
+            ?.toFloatOrNull()
+            ?.coerceAtLeast(0f)
+            ?: AttackFeatureFlags.AccelScroll.BOOST_INTENSITY
+
+    AttackFeatureFlags.AccelScroll.BRAKE =
+        accelScroll
+            .child("brake")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.AccelScroll.BRAKE
+
+    AttackFeatureFlags.AccelScroll.WAVE =
+        accelScroll
+            .child("wave")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.AccelScroll.WAVE
+
+    AttackFeatureFlags.AccelScroll.EXPAND =
+        accelScroll
+            .child("expand")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.AccelScroll.EXPAND
+
+    AttackFeatureFlags.AccelScroll.BOOMERANG =
+        accelScroll
+            .child("boomerang")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.AccelScroll.BOOMERANG
+
+
+    // =========================================================
+    // POSITION
+    // =========================================================
+
+    val position =
+        snapshot.child("position")
+
+    AttackFeatureFlags.Position.DRUNK =
+        position
+            .child("drunk")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Position.DRUNK
+
+    AttackFeatureFlags.Position.TORNADO =
+        position
+            .child("tornado")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Position.TORNADO
+
+    AttackFeatureFlags.Position.TIPSY =
+        position
+            .child("tipsy")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Position.TIPSY
+
+    AttackFeatureFlags.Position.BEAT =
+        position
+            .child("beat")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Position.BEAT
+
+    AttackFeatureFlags.Position.MOVE_Z =
+        position
+            .child("moveZ")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Position.MOVE_Z
+
+
+    // =========================================================
+    // ROTATION / 3D
+    // =========================================================
+
+    val rotation3D =
+        snapshot.child("rotation3D")
+
+    AttackFeatureFlags.Rotation3D.DIZZY =
+        rotation3D
+            .child("dizzy")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Rotation3D.DIZZY
+
+    AttackFeatureFlags.Rotation3D.CONFUSION =
+        rotation3D
+            .child("confusion")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Rotation3D.CONFUSION
+
+    AttackFeatureFlags.Rotation3D.BUMPY =
+        rotation3D
+            .child("bumpy")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Rotation3D.BUMPY
+
+    AttackFeatureFlags.Rotation3D.TWIRL =
+        rotation3D
+            .child("twirl")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Rotation3D.TWIRL
+
+    AttackFeatureFlags.Rotation3D.ROLL =
+        rotation3D
+            .child("roll")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Rotation3D.ROLL
+
+
+    // =========================================================
+    // SCALE
+    // =========================================================
+
+    val scale =
+        snapshot.child("scale")
+
+    AttackFeatureFlags.Scale.MINI =
+        scale
+            .child("mini")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Scale.MINI
+
+
+    // =========================================================
+    // DIRECTION / COLUMN
+    // =========================================================
+
+    val directionColumn =
+        snapshot.child("directionColumn")
+
+    AttackFeatureFlags.DirectionColumn.REVERSE =
+        directionColumn
+            .child("reverse")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.DirectionColumn.REVERSE
+
+    AttackFeatureFlags.DirectionColumn.FLIP =
+        directionColumn
+            .child("flip")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.DirectionColumn.FLIP
+
+    AttackFeatureFlags.DirectionColumn.INVERT =
+        directionColumn
+            .child("invert")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.DirectionColumn.INVERT
+
+
+    // =========================================================
+    // VISIBILITY
+    // =========================================================
+
+    val visibility =
+        snapshot.child("visibility")
+
+    AttackFeatureFlags.Visibility.DARK =
+        visibility
+            .child("dark")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Visibility.DARK
+
+    AttackFeatureFlags.Visibility.STEALTH =
+        visibility
+            .child("stealth")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Visibility.STEALTH
+
+    AttackFeatureFlags.Visibility.HIDDEN =
+        visibility
+            .child("hidden")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Visibility.HIDDEN
+
+    AttackFeatureFlags.Visibility.SUDDEN =
+        visibility
+            .child("sudden")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Visibility.SUDDEN
+
+    AttackFeatureFlags.Visibility.BLINK =
+        visibility
+            .child("blink")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Visibility.BLINK
+
+    AttackFeatureFlags.Visibility.BLIND =
+        visibility
+            .child("blind")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Visibility.BLIND
+
+
+    // =========================================================
+    // PERSPECTIVE
+    // =========================================================
+
+    val perspective = snapshot.child("perspective")
+
+    AttackFeatureFlags.Perspective.OVERHEAD =
+        perspective
+            .child("overhead")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Perspective.OVERHEAD
+
+    AttackFeatureFlags.Perspective.HALLWAY =
+        perspective
+            .child("hallway")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Perspective.HALLWAY
+
+    AttackFeatureFlags.Perspective.DISTANT =
+        perspective
+            .child("distant")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Perspective.DISTANT
+
+    AttackFeatureFlags.Perspective.INCOMING =
+        perspective
+            .child("incoming")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Perspective.INCOMING
+
+    AttackFeatureFlags.Perspective.SPACE =
+        perspective
+            .child("space")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.Perspective.SPACE
+}
+
 data class FirstRank(
     val nombre: String = "---------",
     val puntaje: String = "0",
@@ -881,11 +1165,6 @@ enum class SaveResult {
     LOCAL,
     LOCAL_AND_FIREBASE,
     INVALID_LEVEL
-}
-
-enum class VisualTarget {
-    RECEPTOR,
-    NOTES
 }
 
 enum class OrientationMode {

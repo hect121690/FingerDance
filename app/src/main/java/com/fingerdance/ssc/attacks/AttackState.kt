@@ -26,6 +26,10 @@ data class AttackState(
 
     var dark: Float = 0f,
     var stealth: Float = 0f,
+    var hidden: Float = 0f,
+    var sudden: Float = 0f,
+    var blink: Float = 0f,
+    var blind: Float = 0f,
 
     // MoveZ por columna, base 0. Ejemplo: key 2 == MoveZ3.
     val moveZ: MutableMap<Int, Float> = mutableMapOf(),
@@ -72,6 +76,10 @@ data class AttackState(
 
             AttackMod.DARK -> dark = level
             AttackMod.STEALTH -> stealth = level
+            AttackMod.HIDDEN -> hidden = level
+            AttackMod.SUDDEN -> sudden = level
+            AttackMod.BLINK -> blink = level
+            AttackMod.BLIND -> blind = level
 
             AttackMod.MOVE_Z -> {
                 val column = modifier.column ?: return
@@ -144,6 +152,10 @@ data class AttackState(
                 invert == 0f &&
                 dark == 0f &&
                 stealth == 0f &&
+                hidden == 0f &&
+                sudden == 0f &&
+                blink == 0f &&
+                blind == 0f &&
                 moveZ.values.all { it == 0f } &&
                 skew == 0f &&
                 perspectiveTilt == 0f

@@ -25,6 +25,7 @@ import com.fingerdance.height
 import com.fingerdance.heightBtns
 import com.fingerdance.hideImagesPadA
 import com.fingerdance.isVertical
+import com.fingerdance.halfDouble
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
@@ -38,6 +39,7 @@ import com.fingerdance.ssc.attacks.AttackFeatureFlags
 import com.fingerdance.ssc.attacks.AttackEffects
 import com.fingerdance.ssc.attacks.AttackEngine
 import com.fingerdance.ssc.attacks.AttackState
+import com.fingerdance.ssc.attacks.StepManiaFieldMetrics
 import com.fingerdance.tema
 import com.fingerdance.typePadD
 import com.fingerdance.width
@@ -135,6 +137,77 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     val recept4Frames = getReceptsTexture(textureLD, true, metricsColumn = 4)
 
     var targetTop = 0f
+
+    /**
+     * Espacio lógico de ArrowEffects para el modo visual actual.
+     * Vertical usa el lado lógico de P1 (320x480).
+     * Horizontal usa 640x480 dentro del 80% del ancho real.
+     */
+    private fun getStepManiaMetrics(): StepManiaFieldMetrics =
+        StepManiaFieldMetrics.create(
+            isVertical = isVertical,
+            halfDouble = halfDouble,
+            screenWidth = Gdx.graphics.width.toFloat(),
+            screenHeight = Gdx.graphics.height.toFloat(),
+            arrowSizePx = medidaFlechas
+        )
+
+    fun getAttackStepManiaFieldScaleY(): Float =
+        getStepManiaMetrics().fieldScaleY
+
+    fun getAttackStepManiaArrowScale(): Float =
+        getStepManiaMetrics().arrowScale
+
+    /**
+     * Reconstruye el fYOffset equivalente de StepMania.
+     * El yOffset que llega desde SscGameplayEngine ya incluye baseSpeed;
+     * StepMania aplica Boost antes de m_fScrollSpeed, por eso primero lo quitamos.
+     * El valor devuelto YA incluye Boost/Expand/baseSpeed, pero NO Reverse/Tipsy.
+     */
+    fun getAttackStepManiaYOffset(
+        rawPixelYOffset: Float,
+        baseScrollSpeed: Float
+    ): Float {
+        val metrics = getStepManiaMetrics()
+        val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
+
+        val preSpeedPixelOffset =
+            rawPixelYOffset / safeBaseSpeed
+
+        val preSpeedSmOffset =
+            metrics.toStepManiaY(preSpeedPixelOffset)
+
+        val boostAmount =
+            if (AttackFeatureFlags.AccelScroll.BOOST) {
+                currentAttackState.boost *
+                    AttackFeatureFlags.AccelScroll.BOOST_INTENSITY *
+                    attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val expandAmount =
+            if (AttackFeatureFlags.AccelScroll.EXPAND) {
+                currentAttackState.expand * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val effectHeightSm =
+            StepManiaFieldMetrics.SM_HEIGHT +
+                kotlin.math.abs(
+                    currentAttackState.perspectiveTilt * attackEndResetFactor
+                ) * 200f
+
+        return AttackEffects.transformAccelYOffsetSm(
+            yOffsetSm = preSpeedSmOffset,
+            effectHeightSm = effectHeightSm,
+            expandSeconds = currentAttackSongTimeSeconds,
+            boostAmount = boostAmount,
+            expandAmount = expandAmount,
+            baseScrollSpeed = safeBaseSpeed
+        )
+    }
     private var elapsedTime = 0f
     private var rithymAnim = 0f
 
@@ -150,7 +223,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     // Actívala para probar el playfield deformado con FrameBuffer + Mesh.
     private val attackPerspectiveActive: Boolean
         get() =
-            AttackFeatureFlags.PERSPECTIVE &&
+            AttackFeatureFlags.Perspective.ENABLED &&
             (
                 abs(currentAttackState.skew * attackEndResetFactor) > 0.0001f ||
                 abs(currentAttackState.perspectiveTilt * attackEndResetFactor) > 0.0001f
@@ -407,14 +480,14 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 /* 3) Deformamos el FrameBuffer completo con el Mesh. */
                 perspectiveRenderer.progress = nxProgress
                 perspectiveRenderer.attackSkew =
-                    if (AttackFeatureFlags.PERSPECTIVE) {
+                    if (AttackFeatureFlags.Perspective.ENABLED) {
                         currentAttackState.skew * attackEndResetFactor
                     } else {
                         0f
                     }
 
                 perspectiveRenderer.attackTilt =
-                    if (AttackFeatureFlags.PERSPECTIVE) {
+                    if (AttackFeatureFlags.Perspective.ENABLED) {
                         currentAttackState.perspectiveTilt * attackEndResetFactor
                     } else {
                         0f
@@ -444,7 +517,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
     fun getAttackMiniScale(): Float {
-        if (!AttackFeatureFlags.MINI) return 1f
+        if (!AttackFeatureFlags.Scale.MINI) return 1f
 
         return AttackEffects.miniScale(
             currentAttackState.mini * attackEndResetFactor
@@ -497,7 +570,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         var finalY = targetTop
 
         val reverseAmount =
-            if (AttackFeatureFlags.REVERSE) {
+            if (AttackFeatureFlags.DirectionColumn.REVERSE) {
                 currentAttackState.reverse * attackEndResetFactor
             } else {
                 0f
@@ -514,7 +587,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
 
         val tipsyAmount =
-            if (AttackFeatureFlags.TIPSY) {
+            if (AttackFeatureFlags.Position.TIPSY) {
                 currentAttackState.tipsy * attackEndResetFactor
             } else {
                 0f
@@ -532,47 +605,29 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         return finalY
     }
 
-    fun getAttackNoteY(column: Int, y: Float): Float {
-        // StepMania aplica los ACCEL mods sobre fYOffset ANTES de
-        // Reverse y de los POSITION effects como Tipsy.
-        val originalYOffset =
+    fun getAttackNoteY(
+        column: Int,
+        y: Float,
+        baseScrollSpeed: Float
+    ): Float {
+        val metrics = getStepManiaMetrics()
+
+        val rawPixelYOffset =
             y - targetTop
 
-        val boostAmount =
-            if (AttackFeatureFlags.BOOST) {
-                currentAttackState.boost * attackEndResetFactor
-            } else {
-                0f
-            }
-
-        val expandAmount =
-            if (AttackFeatureFlags.EXPAND) {
-                currentAttackState.expand * attackEndResetFactor
-            } else {
-                0f
-            }
-
-        val effectHeight =
-            Gdx.graphics.height.toFloat() +
-                    kotlin.math.abs(
-                        currentAttackState.perspectiveTilt *
-                                attackEndResetFactor
-                    ) * 200f
-
-        val transformedYOffset =
-            AttackEffects.transformAccelYOffset(
-                yOffset = originalYOffset,
-                effectHeight = effectHeight,
-                expandSeconds = currentAttackSongTimeSeconds,
-                boostAmount = boostAmount,
-                expandAmount = expandAmount
+        val smYOffset =
+            getAttackStepManiaYOffset(
+                rawPixelYOffset = rawPixelYOffset,
+                baseScrollSpeed = baseScrollSpeed
             )
 
+        // Devolvemos el fYOffset de StepMania a nuestro espacio físico.
         var finalY =
-            targetTop + transformedYOffset
+            targetTop + metrics.toPixelsY(smYOffset)
 
+        // StepMania GetYPos(): Reverse se aplica DESPUÉS de GetYOffset().
         val reverseAmount =
-            if (AttackFeatureFlags.REVERSE) {
+            if (AttackFeatureFlags.DirectionColumn.REVERSE) {
                 currentAttackState.reverse * attackEndResetFactor
             } else {
                 0f
@@ -592,8 +647,9 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             )
         }
 
+        // StepMania Tipsy usa ARROW_SIZE lógico; aquí 64 se convierte por scaleY.
         val tipsyAmount =
-            if (AttackFeatureFlags.TIPSY) {
+            if (AttackFeatureFlags.Position.TIPSY) {
                 currentAttackState.tipsy * attackEndResetFactor
             } else {
                 0f
@@ -608,8 +664,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             )
         }
 
-        // MoveZ: también escala la distancia vertical respecto al receptor.
-        // Head y tail usan la misma escala, por eso el HOLD permanece rígido.
         val moveZScale = getAttackMoveZScale(column)
         if (moveZScale != 1f) {
             val receptorY = getAttackReceptorY(column)
@@ -669,32 +723,45 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         // a.goToDanceGrade()
     }
 
-    fun getAttackColumnOffsetX(column: Int, yOffset: Float): Float {
+    fun getAttackColumnOffsetX(
+        column: Int,
+        yOffset: Float,
+        baseScrollSpeed: Float = 1f
+    ): Float {
         var offsetX = 0f
+        val metrics = getStepManiaMetrics()
 
-        if (AttackFeatureFlags.TORNADO && currentAttackState.tornado != 0f) {
+        // GetXPos de StepMania recibe el fYOffset ya procesado por
+        // Boost/Expand/scroll speed, pero todavía sin Reverse/Tipsy.
+        val smYOffset =
+            getAttackStepManiaYOffset(
+                rawPixelYOffset = yOffset,
+                baseScrollSpeed = baseScrollSpeed
+            )
+
+        if (AttackFeatureFlags.Position.TORNADO && currentAttackState.tornado != 0f) {
             offsetX += AttackEffects.tornadoX(
                 column = column,
                 columnCount = 5,
-                yOffset = yOffset,
+                yOffset = smYOffset,
                 arrowSize = medidaFlechas,
-                screenHeight = Gdx.graphics.height.toFloat(),
+                screenHeight = StepManiaFieldMetrics.SM_HEIGHT,
                 amount = currentAttackState.tornado * attackEndResetFactor
             )
         }
 
-        if (AttackFeatureFlags.DRUNK && currentAttackState.drunk != 0f) {
+        if (AttackFeatureFlags.Position.DRUNK && currentAttackState.drunk != 0f) {
             offsetX += AttackEffects.drunkX(
                 column = column,
-                yOffset = yOffset,
+                yOffset = smYOffset,
                 songTimeSeconds = currentAttackSongTimeSeconds,
                 arrowSize = medidaFlechas,
-                screenHeight = Gdx.graphics.height.toFloat(),
+                screenHeight = StepManiaFieldMetrics.SM_HEIGHT,
                 amount = currentAttackState.drunk * attackEndResetFactor
             )
         }
 
-        if (AttackFeatureFlags.FLIP && currentAttackState.flip != 0f) {
+        if (AttackFeatureFlags.DirectionColumn.FLIP && currentAttackState.flip != 0f) {
             offsetX += AttackEffects.flipX(
                 column = column,
                 columnCount = 5,
@@ -703,7 +770,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             )
         }
 
-        if (AttackFeatureFlags.INVERT && currentAttackState.invert != 0f) {
+        if (AttackFeatureFlags.DirectionColumn.INVERT && currentAttackState.invert != 0f) {
             offsetX += AttackEffects.invertX(
                 column = column,
                 columnCount = 5,
@@ -712,37 +779,30 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             )
         }
 
-        if (AttackFeatureFlags.BEAT && currentAttackState.beat != 0f) {
-            offsetX += AttackEffects.beatX(
-                yOffset = yOffset,
-                currentBeat = player.beatToShow,
-                amount = currentAttackState.beat * attackEndResetFactor
+        if (AttackFeatureFlags.Position.BEAT && currentAttackState.beat != 0f) {
+            // Beat devuelve unidades lógicas StepMania (factor base 20).
+            offsetX +=
+                AttackEffects.beatX(
+                    yOffset = smYOffset,
+                    currentBeat = player.beatToShow,
+                    amount = currentAttackState.beat * attackEndResetFactor
+                ) * metrics.arrowScale
+        }
+
+        if (AttackFeatureFlags.Scale.MINI && currentAttackState.mini != 0f) {
+            val baseX = medidaFlechas * (column + 1)
+            val currentX = baseX + offsetX
+            val centerX = medidaFlechas * 3f
+
+            val miniX = AttackEffects.miniX(
+                x = currentX,
+                centerX = centerX,
+                amount = currentAttackState.mini * attackEndResetFactor
             )
+
+            offsetX = miniX - baseX
         }
 
-        if (AttackFeatureFlags.MINI && currentAttackState.mini != 0f) {
-            val baseX =
-                medidaFlechas * (column + 1)
-
-            val currentX =
-                baseX + offsetX
-
-            val centerX =
-                medidaFlechas * 3f
-
-            val miniX =
-                AttackEffects.miniX(
-                    x = currentX,
-                    centerX = centerX,
-                    amount = currentAttackState.mini * attackEndResetFactor
-                )
-
-            offsetX =
-                miniX - baseX
-        }
-
-        // MoveZ: proyecta X alrededor del centro del notefield.
-        // Se hace después de Tornado/Drunk/Flip/Invert/Beat/Mini.
         val moveZScale = getAttackMoveZScale(column)
         if (moveZScale != 1f) {
             val baseX = medidaFlechas * (column + 1)
@@ -752,9 +812,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             offsetX = projectedX - baseX
         }
 
-        // Final viewport protection ONLY for vertical mode.
-        // All X attacks are still combined normally; only the final visible
-        // result is translated back inside the physical screen if necessary.
         if (isVertical) {
             val baseX = medidaFlechas * (column + 1)
             val unclampedX = baseX + offsetX
@@ -770,7 +827,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
     fun getAttackConfusionRotation(currentBeat: Double): Float {
-        if (!AttackFeatureFlags.CONFUSION) return 0f
+        if (!AttackFeatureFlags.Rotation3D.CONFUSION) return 0f
 
         val amount =
             currentAttackState.confusion * attackEndResetFactor
@@ -784,7 +841,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
     fun getAttackNoteRotation(noteBeat: Double, currentBeat: Double): Float {
-        if (!AttackFeatureFlags.DIZZY) return 0f
+        if (!AttackFeatureFlags.Rotation3D.DIZZY) return 0f
 
         val amount =
             currentAttackState.dizzy * attackEndResetFactor
@@ -882,7 +939,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
     fun getAttackReverseScaleY(): Float {
-        if (!AttackFeatureFlags.REVERSE) return 1f
+        if (!AttackFeatureFlags.DirectionColumn.REVERSE) return 1f
 
         val reverse =
             (currentAttackState.reverse * attackEndResetFactor)
@@ -1028,7 +1085,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
 
 fun getAttackDarkAlpha(): Float {
-        if (!AttackFeatureFlags.DARK) return 1f
+        if (!AttackFeatureFlags.Visibility.DARK) return 1f
 
         val darkAmount =
             currentAttackState.dark * attackEndResetFactor
@@ -1045,9 +1102,28 @@ fun getAttackDarkAlpha(): Float {
      * siendo geometría 2D rígida y no se curvan.
      */
     fun getAttackMoveZAmount(column: Int): Float {
-        if (!AttackFeatureFlags.MOVE_Z) return 0f
+        if (!AttackFeatureFlags.Position.MOVE_Z) return 0f
 
         return currentAttackState.getMoveZ(column) * attackEndResetFactor
+    }
+
+    fun getAttackBumpyAmount(): Float {
+        if (!AttackFeatureFlags.Rotation3D.BUMPY) return 0f
+        return currentAttackState.bumpy * attackEndResetFactor
+    }
+
+    fun getAttackTwirlAmount(): Float {
+        if (!AttackFeatureFlags.Rotation3D.TWIRL) return 0f
+        return currentAttackState.twirl * attackEndResetFactor
+    }
+
+    fun getAttackRollAmount(): Float {
+        if (!AttackFeatureFlags.Rotation3D.ROLL) return 0f
+        return currentAttackState.roll * attackEndResetFactor
+    }
+
+    fun getAttackReceptorCenterY(column: Int): Float {
+        return getAttackReceptorY(column) + (medidaFlechas * 0.5f)
     }
 
     fun getAttackMoveZScale(column: Int): Float {
@@ -1072,12 +1148,201 @@ fun getAttackDarkAlpha(): Float {
      * recuperen suavemente alpha=1 durante el reset de 1 segundo.
      */
     fun getAttackStealthAlpha(): Float {
-        if (!AttackFeatureFlags.STEALTH) return 1f
+        if (!AttackFeatureFlags.Visibility.STEALTH) return 1f
 
         val stealthAmount =
             currentAttackState.stealth * attackEndResetFactor
 
         return (1f - stealthAmount)
+            .coerceIn(0f, 1f)
+    }
+
+    /**
+     * True cuando Hidden/Sudden/Blink requieren alpha dependiente de posición/tiempo.
+     * Se usa también para segmentar HOLD bodies sólo cuando realmente hace falta.
+     */
+    fun isAttackAppearanceActive(): Boolean {
+        val hidden =
+            AttackFeatureFlags.Visibility.HIDDEN &&
+                    kotlin.math.abs(currentAttackState.hidden * attackEndResetFactor) > 0.0001f
+
+        val sudden =
+            AttackFeatureFlags.Visibility.SUDDEN &&
+                    kotlin.math.abs(currentAttackState.sudden * attackEndResetFactor) > 0.0001f
+
+        val blink =
+            AttackFeatureFlags.Visibility.BLINK &&
+                    kotlin.math.abs(currentAttackState.blink * attackEndResetFactor) > 0.0001f
+
+        return hidden || sudden || blink
+    }
+
+    /**
+     * Hidden / Sudden / Blink adaptados desde StepMania ArrowGetPercentVisible().
+     *
+     * StepMania usa CENTER_LINE_Y=160 y FADE_DIST_Y=40 con ArrowSpacing=64.
+     * En Finger Dance los convertimos proporcionalmente a medidaFlechas:
+     * centerLine = 2.5 * arrowSize
+     * fadeDist   = 0.625 * arrowSize
+     *
+     * Usamos distancia absoluta al receptor para que funcione igual en Reverse.
+     * Stealth NO se incluye aquí: ya se multiplica por separado.
+     */
+    fun getAttackAppearanceAlpha(
+        column: Int,
+        screenY: Float
+    ): Float {
+        if (!isAttackAppearanceActive()) return 1f
+
+        val hidden =
+            if (AttackFeatureFlags.Visibility.HIDDEN) {
+                (currentAttackState.hidden * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val sudden =
+            if (AttackFeatureFlags.Visibility.SUDDEN) {
+                (currentAttackState.sudden * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val blink =
+            if (AttackFeatureFlags.Visibility.BLINK) {
+                (currentAttackState.blink * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val receptorCenter =
+            getAttackReceptorCenterY(column)
+
+        val distance =
+            kotlin.math.abs(screenY - receptorCenter)
+
+        // StepMania mueve la línea central cuando Mini está activo.
+        val miniScale =
+            getAttackMiniScale()
+                .coerceAtLeast(0.10f)
+
+        val centerLine =
+            (medidaFlechas * 2.5f) / miniScale
+
+        val fadeDist =
+            medidaFlechas * 0.625f
+
+        // StepMania separa un poco Hidden y Sudden cuando ambos están activos.
+        val hiddenSudden =
+            (hidden * sudden)
+                .coerceIn(0f, 1f)
+
+        fun lerp(a: Float, b: Float, t: Float): Float =
+            a + (b - a) * t
+
+        fun scale(
+            value: Float,
+            fromLow: Float,
+            fromHigh: Float,
+            toLow: Float,
+            toHigh: Float
+        ): Float {
+            val denom = fromHigh - fromLow
+            if (kotlin.math.abs(denom) < 0.0001f) return toLow
+            val t = (value - fromLow) / denom
+            return toLow + (toHigh - toLow) * t
+        }
+
+        val hiddenEndLine =
+            centerLine +
+                    fadeDist *
+                    lerp(-1.0f, -1.25f, hiddenSudden)
+
+        val hiddenStartLine =
+            centerLine +
+                    fadeDist *
+                    lerp(0.0f, -0.25f, hiddenSudden)
+
+        val suddenEndLine =
+            centerLine +
+                    fadeDist *
+                    lerp(0.0f, 0.25f, hiddenSudden)
+
+        val suddenStartLine =
+            centerLine +
+                    fadeDist *
+                    lerp(1.0f, 1.25f, hiddenSudden)
+
+        var visibleAdjust = 0f
+
+        if (hidden != 0f) {
+            val hiddenAdjust =
+                scale(
+                    value = distance,
+                    fromLow = hiddenStartLine,
+                    fromHigh = hiddenEndLine,
+                    toLow = 0f,
+                    toHigh = -1f
+                ).coerceIn(-1f, 0f)
+
+            visibleAdjust +=
+                hidden * hiddenAdjust
+        }
+
+        if (sudden != 0f) {
+            val suddenAdjust =
+                scale(
+                    value = distance,
+                    fromLow = suddenStartLine,
+                    fromHigh = suddenEndLine,
+                    toLow = -1f,
+                    toHigh = 0f
+                ).coerceIn(-1f, 0f)
+
+            visibleAdjust +=
+                sudden * suddenAdjust
+        }
+
+        if (blink != 0f) {
+            // StepMania:
+            // sin(GetTime()*10) -> Quantize(..., BlinkModFrequency=.3333)
+            // -> SCALE(0..1, -1..0).
+            val frequency = 0.3333f
+            val raw =
+                kotlin.math.sin(
+                    currentAttackSongTimeSeconds * 10f
+                )
+
+            val quantized =
+                (
+                    kotlin.math.round(raw / frequency) *
+                            frequency
+                ).coerceIn(0f, 1f)
+
+            // StepMania trata Blink como efecto completo cuando está activo.
+            // Aquí mezclamos con el tween actual para no crear un salto al entrar/salir.
+            visibleAdjust +=
+                blink * (quantized - 1f)
+        }
+
+        return (1f + visibleAdjust)
+            .coerceIn(0f, 1f)
+    }
+
+    /**
+     * Blind de StepMania: oculta judgments y combo, no las notas/receptores.
+     */
+    fun getAttackBlindAlpha(): Float {
+        if (!AttackFeatureFlags.Visibility.BLIND) return 1f
+
+        val blind =
+            currentAttackState.blind *
+                    attackEndResetFactor
+
+        return (1f - blind)
             .coerceIn(0f, 1f)
     }
 
