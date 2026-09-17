@@ -145,7 +145,7 @@ class PlayerSsc(
         val y: Int = Gdx.graphics.height / 2 - heightJudges * 6
     )
 
-    private val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
+    val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
 
     private val timingData = TimmingData(
         bpms = bpms,
@@ -351,8 +351,8 @@ class PlayerSsc(
             computeStepManiaFieldScaleY = { screen.getAttackStepManiaFieldScaleY() },
             computeStepManiaArrowScale = { screen.getAttackStepManiaArrowScale() },
             computeRotation = { note -> computeAttackRotation(note) },
-            computeScaleY = { screen.getAttackReverseScaleY() },
-            computeScale = { screen.getAttackMiniScale() },
+            computeScaleY = { column -> screen.getAttackReverseScaleY(column) },
+            computeScale = { screen.getAttackVisualScale() },
             computeAlpha = { screen.getAttackStealthAlpha() },
             computeAppearanceAlpha = { column, screenY ->
                 screen.getAttackAppearanceAlpha(column, screenY)
@@ -890,7 +890,7 @@ class PlayerSsc(
         val attackX = screen.getAttackColumnOffsetX(column = x, yOffset = 0f)
         val receptorY = screen.getAttackReceptorY(x)
         val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
-        val miniScale = screen.getAttackMiniScale()
+        val miniScale = screen.getAttackVisualScale()
         when (x) {
             0 -> left = (medidaFlechas * (x + 1) - xFlare1) + luaFlare.screenX + attackX
             1 -> left = (medidaFlechas * (x + 1) - xFlare2) + luaFlare.screenX + attackX
@@ -915,7 +915,7 @@ class PlayerSsc(
         val flareSize = medidaFlechas * zoom * miniScale
         val flareX = ((medidaFlechas * (x + 1)) - (flareSize - medidaFlechas) / 2) + luaFlare.screenX + attackX
         val flareY = receptorY - ((flareSize - medidaFlechas) / 2f)
-        val reverseScaleY = screen.getAttackReverseScaleY()
+        val reverseScaleY = screen.getAttackReverseScaleY(x)
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.color.a = alpha
         batch.draw(
@@ -983,8 +983,8 @@ class PlayerSsc(
 
         val attackX = screen.getAttackColumnOffsetX(column = position, yOffset = 0f)
         val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
-        val miniScale = screen.getAttackMiniScale()
-        val reverseScaleY = screen.getAttackReverseScaleY()
+        val miniScale = screen.getAttackVisualScale()
+        val reverseScaleY = screen.getAttackReverseScaleY(position)
 
         val logicalX = getReceptorX(position) + attackX
         val logicalY = screen.getAttackReceptorY(position)

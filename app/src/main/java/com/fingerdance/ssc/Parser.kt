@@ -83,31 +83,141 @@ class Parser {
 
     fun parseSSC(textHeader: String, textChart: String, pathFile: String): Chart {
 
-        val offset = extractTag(textChart, "OFFSET")?.toDoubleOrNull() ?: 0.0
-        val fgChanges = parseFGChanges(textHeader)
-        val attacks = parseAttacks(textChart)
-        val bpms = parsePairs(textChart, "BPMS").map { BpmSegment(it.first, it.second) }
-        // IMPORTANTE: TICKCOUNT=0 debe conservarse como 0.
-        // 0 significa que ese segmento no genera checkpoints de HOLD.
-        val tickcounts = parsePairs(textChart, "TICKCOUNTS").map {
-            TickCountSegment(it.first, it.second.toInt())
-        }
-        val stops = parsePairs(textChart, "STOPS").map { Stop(it.first, it.second * 1000) }
-        val delays = parsePairs(textChart, "DELAYS").map { Delay(it.first, it.second * 1000) }
-        val warps = parsePairs(textChart, "WARPS").map { Warp(it.first, it.second) }
-        val combos = parseCombos(textChart)
-        val baseFakes = parsePairs(textChart, "FAKES").map {
-            Fake(it.first, it.second)
+        /*
+         * PRIORIDAD DE DATOS SSC:
+         *
+         * 1) textChart SIEMPRE manda si el tag existe y tiene contenido.
+         * 2) Si el tag no existe en textChart o viene vacío, usamos textHeader.
+         * 3) Si tampoco existe/tiene contenido en textHeader, cada parser
+         *    devuelve su valor vacío natural (emptyList / mutableListOf).
+         *
+         * No se mezclan listas de Header + Chart.
+         */
+        fun sourceFor(tag: String): String {
+            val chartValue = extractTag(textChart, tag)
+
+            if (!chartValue.isNullOrBlank()) {
+                return textChart
+            }
+
+            val headerValue = extractTag(textHeader, tag)
+
+            return if (!headerValue.isNullOrBlank()) {
+                textHeader
+            } else {
+                ""
+            }
         }
 
-        val speeds = parseSpeeds(textChart)
-        val scrolls = parseScrolls(textChart)
+        val offset =
+            extractTag(sourceFor("OFFSET"), "OFFSET")
+                ?.toDoubleOrNull()
+                ?: 0.0
 
+        val fgChanges =
+            parseFGChanges(
+                sourceFor("FGCHANGES")
+            )
+
+        val attacks =
+            parseAttacks(
+                sourceFor("ATTACKS")
+            )
+
+        val bpms =
+            parsePairs(
+                sourceFor("BPMS"),
+                "BPMS"
+            ).map {
+                BpmSegment(it.first, it.second)
+            }
+
+        val tickcounts =
+            parsePairs(
+                sourceFor("TICKCOUNTS"),
+                "TICKCOUNTS"
+            ).map {
+                TickCountSegment(
+                    it.first,
+                    it.second.toInt()
+                )
+            }
+
+        val stops =
+            parsePairs(
+                sourceFor("STOPS"),
+                "STOPS"
+            ).map {
+                Stop(
+                    it.first,
+                    it.second * 1000
+                )
+            }
+
+        val delays =
+            parsePairs(
+                sourceFor("DELAYS"),
+                "DELAYS"
+            ).map {
+                Delay(
+                    it.first,
+                    it.second * 1000
+                )
+            }
+
+        val warps =
+            parsePairs(
+                sourceFor("WARPS"),
+                "WARPS"
+            ).map {
+                Warp(
+                    it.first,
+                    it.second
+                )
+            }
+
+        val combos =
+            parseCombos(
+                sourceFor("COMBOS")
+            )
+
+        val baseFakes =
+            parsePairs(
+                sourceFor("FAKES"),
+                "FAKES"
+            ).map {
+                Fake(
+                    it.first,
+                    it.second
+                )
+            }
+
+        val speeds =
+            parseSpeeds(
+                sourceFor("SPEEDS")
+            )
+
+        val scrolls =
+            parseScrolls(
+                sourceFor("SCROLLS")
+            )
+
+        /*
+         * NOTES pertenecen exclusivamente al chart actual.
+         */
         val (notes, extendedNotes, tokenFakes) =
-            parseNotes(textChart, baseFakes)
+            parseNotes(
+                textChart,
+                baseFakes
+            )
 
-        val fakes = (baseFakes + tokenFakes).sortedBy { it.beat }
-        val allNotes = (notes + extendedNotes).sortedBy { it.beat }
+        val fakes =
+            (baseFakes + tokenFakes)
+                .sortedBy { it.beat }
+
+        val allNotes =
+            (notes + extendedNotes)
+                .sortedBy { it.beat }
 
         return Chart(
             chartPath = pathFile,
@@ -131,10 +241,7 @@ class Parser {
     // NOTES
     // =========================
 
-    private fun parseNotes(
-        text: String,
-        fakes: List<Fake>
-    ): Triple<List<Note>, List<Note>, List<Fake>> {
+    private fun parseNotes(text: String, fakes: List<Fake>): Triple<List<Note>, List<Note>, List<Fake>> {
 
         val notes = mutableListOf<Note>()
         val extendedNotes = mutableListOf<Note>()
@@ -421,9 +528,7 @@ class Parser {
     // TOKENIZER
     // =========================
 
-    private fun tokenize(
-        row: String
-    ): Pair<Map<Int, Char>, Map<Int, ExtendedToken>> {
+    private fun tokenize(row: String): Pair<Map<Int, Char>, Map<Int, ExtendedToken>> {
 
         val result = mutableMapOf<Int, Char>()
 
@@ -496,6 +601,7 @@ class Parser {
     // HELPERS
     // =========================
 
+
     private fun parseFGChanges(text: String): MutableList<FGChange> {
 
         val raw = extractTag(text, "FGCHANGES")
@@ -555,9 +661,7 @@ class Parser {
 
     private fun parseAttacks(text: String): List<AttackEvent> {
 
-        val raw =
-            extractTag(text, "ATTACKS")
-                ?: return emptyList()
+        val raw = extractTag(text, "ATTACKS") ?: return emptyList()
 
         val result =
             mutableListOf<AttackEvent>()
@@ -571,25 +675,9 @@ class Parser {
         )
 
         for (match in attackRegex.findAll(raw)) {
-
-            val startSecond =
-                match.groupValues[1]
-                    .trim()
-                    .toDoubleOrNull()
-                    ?: continue
-
-            val durationSeconds =
-                match.groupValues[2]
-                    .trim()
-                    .toDoubleOrNull()
-                    ?: continue
-
-            val modifiers =
-                match.groupValues[3]
-                    .trim()
-                    .split(",")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
+            val startSecond = match.groupValues[1].trim().toDoubleOrNull() ?: continue
+            val durationSeconds = match.groupValues[2].trim().toDoubleOrNull() ?: continue
+            val modifiers = match.groupValues[3].trim().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
             result.add(
                 AttackEvent(
@@ -654,50 +742,50 @@ class Parser {
 
     private fun parseCombos(text: String): List<Combo> {
         val raw = extractTag(text, "COMBOS")
-            ?: return listOf(
+            ?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+
+        return raw
+            .replace(";", "")
+            .split(",")
+            .mapNotNull { entry ->
+                val clean = entry.trim()
+
+                if (clean.isEmpty()) {
+                    return@mapNotNull null
+                }
+
+                val parts = clean.split("=")
+
+                if (parts.size < 2) {
+                    return@mapNotNull null
+                }
+
+                val beat =
+                    parts[0]
+                        .trim()
+                        .toDoubleOrNull()
+                        ?: return@mapNotNull null
+
+                val comboMultiplier =
+                    parts[1]
+                        .trim()
+                        .toIntOrNull()
+                        ?: return@mapNotNull null
+
+                val comboMultiplierMiss =
+                    parts.getOrNull(2)
+                        ?.trim()
+                        ?.toIntOrNull()
+                        ?: 1
+
                 Combo(
-                    beat = 0.0,
-                    comboMultiplier = 1,
-                    comboMultiplierMiss = 1
+                    beat = beat,
+                    comboMultiplier = comboMultiplier.coerceAtLeast(1),
+                    comboMultiplierMiss = comboMultiplierMiss
                 )
-            )
-
-        val result = raw.replace(";", "").split(",").mapNotNull { entry ->
-            val clean = entry.trim()
-
-            if (clean.isEmpty()) {
-                return@mapNotNull null
             }
-
-            val parts = clean.split("=")
-
-            if (parts.size < 2) {
-                return@mapNotNull null
-            }
-
-            val beat = parts[0].trim().toDoubleOrNull() ?: return@mapNotNull null
-
-            val comboMultiplier = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
-            val comboMultiplierMiss = parts.getOrNull(2)?.trim()?.toIntOrNull() ?: 1
-            Combo(
-                beat = beat,
-                comboMultiplier = comboMultiplier.coerceAtLeast(1),
-                comboMultiplierMiss = comboMultiplierMiss
-            )
-        }
             .sortedBy { it.beat }
-
-        return if (result.isEmpty()) {
-            listOf(
-                Combo(
-                    beat = 0.0,
-                    comboMultiplier = 1,
-                    comboMultiplierMiss = 1
-                )
-            )
-        } else {
-            result
-        }
     }
 
     private fun parsePairs(

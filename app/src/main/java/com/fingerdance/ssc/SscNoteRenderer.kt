@@ -42,7 +42,7 @@ class SscNoteRenderer(
     private val computeStepManiaYOffset: (sourceY: Float) -> Float = { 0f },
     private val computeStepManiaFieldScaleY: () -> Float = { 1f },
     private val computeStepManiaArrowScale: () -> Float = { 1f },
-    private val computeScaleY: () -> Float = { 1f },
+    private val computeScaleY: (column: Int) -> Float = { 1f },
     private val computeScale: () -> Float = { 1f },
 
     /**
@@ -96,8 +96,8 @@ class SscNoteRenderer(
     private val attack3DActive: Boolean
         get() =
             kotlin.math.abs(computeBumpy()) > 0.0001f ||
-            kotlin.math.abs(computeTwirl()) > 0.0001f ||
-            kotlin.math.abs(computeRoll()) > 0.0001f
+                    kotlin.math.abs(computeTwirl()) > 0.0001f ||
+                    kotlin.math.abs(computeRoll()) > 0.0001f
 
     private data class CellDraw(val x: Float, val y: Float, val width: Float, val height: Float)
 
@@ -255,13 +255,17 @@ class SscNoteRenderer(
         rotation: Float = 0f,
         reverseY: Boolean = true,
         allowRoll: Boolean = true,
-        sourceY: Float = activeSourceY
+        sourceY: Float = activeSourceY,
+        appearanceCenterY: Float = y + height * 0.5f
     ) {
         val miniScale = computeScale() * activeDepthScale
-        val reverseScaleY = if (reverseY) computeScaleY() else 1f
+        val reverseScaleY = if (reverseY) computeScaleY(activeColumn) else 1f
         val centerY = y + height * 0.5f
 
-        withAppearanceAlpha(centerY) {
+        // Hidden/Sudden/Blink deben usar el Y lógico del objeto, no el Y ya
+        // transformado por NoteCellMetrics. El BODY trabaja en ese espacio lógico,
+        // así que HEAD/BOTTOM/TAP/MINE deben evaluarse en el mismo espacio.
+        withAppearanceAlpha(appearanceCenterY) {
             if (!luaNotes.flipX && !attack3DActive) {
                 batch.draw(
                     region,
@@ -424,7 +428,7 @@ class SscNoteRenderer(
             val sourceT = (t0 + t1) * 0.5f
             val segmentSourceY =
                 activeHoldSourceStartY +
-                    (activeHoldSourceEndY - activeHoldSourceStartY) * sourceT
+                        (activeHoldSourceEndY - activeHoldSourceStartY) * sourceT
 
             applyFlipUniforms(
                 shader = shader,
@@ -566,27 +570,29 @@ class SscNoteRenderer(
             if (bottomY > 0f && bottomY < limit && remainingLength > heightBodyHead) {
                 batch.setColor(1f, 1f, 1f, getAlpha(bottomY, limit.toDouble()) * activeNoteAlpha)
                 drawFlipRegion(
-region = bottoms[column][frame],
+                    region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat()
+                    sourceY = y2.toFloat(),
+                    appearanceCenterY = bottomY + arrowSize * 0.5f
                 )
             }
 
             if (headY > 0f && headY < limit) {
                 batch.setColor(1f, 1f, 1f, getAlpha(headY, limit.toDouble()) * activeNoteAlpha)
                 drawFlipRegion(
-region = arrows[column][frame],
+                    region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat()
+                    sourceY = y.toFloat(),
+                    appearanceCenterY = headY + arrowSize * 0.5f
                 )
             }
 
@@ -604,26 +610,28 @@ region = arrows[column][frame],
 
             if (remainingLength > heightBodyHead && bottomY > 0f) {
                 drawFlipRegion(
-region = bottoms[column][frame],
+                    region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat()
+                    sourceY = y2.toFloat(),
+                    appearanceCenterY = bottomY + arrowSize * 0.5f
                 )
             }
 
             if (headY > 0f) {
                 drawFlipRegion(
-region = arrows[column][frame],
+                    region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat()
+                    sourceY = y.toFloat(),
+                    appearanceCenterY = headY + arrowSize * 0.5f
                 )
             }
         }
@@ -704,13 +712,14 @@ region = arrows[column][frame],
                 )
 
                 drawFlipRegion(
-region = bottoms[column][frame],
+                    region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat()
+                    sourceY = y2.toFloat(),
+                    appearanceCenterY = bottomY + arrowSize * 0.5f
                 )
             }
 
@@ -730,14 +739,15 @@ region = bottoms[column][frame],
                 )
 
                 drawFlipRegion(
-region = arrows[column][frame],
+                    region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat()
+                    sourceY = y.toFloat(),
+                    appearanceCenterY = headY + arrowSize * 0.5f
                 )
             }
 
@@ -766,13 +776,14 @@ region = arrows[column][frame],
                 )
 
                 drawFlipRegion(
-region = bottoms[column][frame],
+                    region = bottoms[column][frame],
                     x = bottom.x,
                     y = bottom.y,
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat()
+                    sourceY = y2.toFloat(),
+                    appearanceCenterY = bottomY + arrowSize * 0.5f
                 )
             }
 
@@ -788,14 +799,15 @@ region = bottoms[column][frame],
                 )
 
                 drawFlipRegion(
-region = arrows[column][frame],
+                    region = arrows[column][frame],
                     x = head.x,
                     y = head.y,
                     width = head.width,
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat()
+                    sourceY = y.toFloat(),
+                    appearanceCenterY = headY + arrowSize * 0.5f
                 )
             }
 
@@ -862,14 +874,15 @@ region = arrows[column][frame],
             )
 
             drawFlipRegion(
-region = bottoms[column][frame],
+                region = bottoms[column][frame],
                 x = bottom.x,
                 y = bottom.y,
                 width = bottom.width,
                 height = bottom.height,
-                    allowRoll = false,
-                    sourceY = y2.toFloat()
-                )
+                allowRoll = false,
+                sourceY = y2.toFloat(),
+                appearanceCenterY = bottomY + arrowSize * 0.5f
+            )
         }
 
         if (
@@ -884,15 +897,16 @@ region = bottoms[column][frame],
             )
 
             drawFlipRegion(
-region = arrows[column][frame],
+                region = arrows[column][frame],
                 x = head.x,
                 y = head.y,
                 width = head.width,
                 height = head.height,
                 rotation = rotation,
-                    allowRoll = false,
-                    sourceY = y.toFloat()
-                )
+                allowRoll = false,
+                sourceY = y.toFloat(),
+                appearanceCenterY = headY + arrowSize * 0.5f
+            )
         }
 
         resetColor()
@@ -911,11 +925,11 @@ region = arrows[column][frame],
             val limit = initArrow ?: return
             if (finalY < limit) {
                 batch.setColor(1f, 1f, 1f, getAlpha(finalY, limit.toDouble()) * activeNoteAlpha)
-                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
                 resetColor()
             }
         } else {
-            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
         }
     }
     // -------------------------------------------------------------------------
@@ -931,13 +945,13 @@ region = arrows[column][frame],
             val appearLimit = initArrow ?: return
             if (finalY < appearLimit && finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(y = finalY, appearLimit = appearLimit) * activeNoteAlpha)
-                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
                 resetColor()
             }
         } else {
             if (finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishAlpha(finalY) * activeNoteAlpha)
-                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
                 resetColor()
             }
         }
@@ -953,7 +967,7 @@ region = arrows[column][frame],
 
         if (finalY < measure) {
             batch.setColor(1f, 1f, 1f, getAlpha(finalY, measure) * activeNoteAlpha)
-            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
             resetColor()
         }
     }
@@ -970,11 +984,11 @@ region = arrows[column][frame],
             val limit = initArrow ?: return
             if (finalY < limit) {
                 batch.setColor(1f, 1f, 1f, getAlpha(finalY, limit.toDouble()) * activeNoteAlpha)
-                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
                 resetColor()
             }
         } else {
-            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
         }
     }
     // -------------------------------------------------------------------------
@@ -990,13 +1004,13 @@ region = arrows[column][frame],
             val appearLimit = initArrow ?: return
             if (finalY < appearLimit && finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(y = finalY, appearLimit = appearLimit) * activeNoteAlpha)
-                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
                 resetColor()
             }
         } else {
             if (finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishAlpha(finalY) * activeNoteAlpha)
-                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
                 resetColor()
             }
         }
@@ -1012,7 +1026,7 @@ region = arrows[column][frame],
 
         if (finalY < measure) {
             batch.setColor(1f, 1f, 1f, getAlpha(finalY, measure) * activeNoteAlpha)
-            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
             resetColor()
         }
     }
@@ -1104,12 +1118,18 @@ region = arrows[column][frame],
 
         resetColor()
 
-        batch.draw(
-            region,
-            centeredX,
-            y,
-            scaledWidth,
-            height
+        // IMPORTANTE: este BODY también debe pasar por Hidden/Sudden/Blink.
+        // Si el appearance está activo, drawBodyPossiblySegmented() lo divide
+        // en tiras y aplica el alpha por posición, igual que el resto del HOLD.
+        drawBodyPossiblySegmented(
+            region = region,
+            x = centeredX,
+            y = y,
+            width = scaledWidth,
+            height = height,
+            fullBodyY = y,
+            fullBodyHeight = height,
+            shader = appearFadeShader
         )
 
         batch.shader = previousShader

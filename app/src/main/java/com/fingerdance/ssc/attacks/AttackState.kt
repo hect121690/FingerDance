@@ -1,6 +1,9 @@
 package com.fingerdance.ssc.attacks
 
 data class AttackState(
+    // StepMania m_fScrollSpeed. AttackEngine lo inicializa con la velocidad base del jugador.
+    var xmod: Float = 1f,
+
     var boost: Float = 0f,
     var brake: Float = 0f,
     var wave: Float = 0f,
@@ -19,8 +22,13 @@ data class AttackState(
     var roll: Float = 0f,
 
     var mini: Float = 0f,
+    var tiny: Float = 0f,
 
     var reverse: Float = 0f,
+    var split: Float = 0f,
+    var alternate: Float = 0f,
+    var cross: Float = 0f,
+    var centered: Float = 0f,
     var flip: Float = 0f,
     var invert: Float = 0f,
 
@@ -29,6 +37,7 @@ data class AttackState(
     var hidden: Float = 0f,
     var sudden: Float = 0f,
     var blink: Float = 0f,
+    var randomVanish: Float = 0f,
     var blind: Float = 0f,
 
     // MoveZ por columna, base 0. Ejemplo: key 2 == MoveZ3.
@@ -51,6 +60,7 @@ data class AttackState(
         }
 
         when (modifier.type) {
+            AttackMod.XMOD -> xmod = level
             AttackMod.BOOST -> boost = level
             AttackMod.BRAKE -> brake = level
             AttackMod.WAVE -> wave = level
@@ -69,8 +79,13 @@ data class AttackState(
             AttackMod.ROLL -> roll = level
 
             AttackMod.MINI -> mini = level
+            AttackMod.TINY -> tiny = level
 
             AttackMod.REVERSE -> reverse = level
+            AttackMod.SPLIT -> split = level
+            AttackMod.ALTERNATE -> alternate = level
+            AttackMod.CROSS -> cross = level
+            AttackMod.CENTERED -> centered = level
             AttackMod.FLIP -> flip = level
             AttackMod.INVERT -> invert = level
 
@@ -79,6 +94,7 @@ data class AttackState(
             AttackMod.HIDDEN -> hidden = level
             AttackMod.SUDDEN -> sudden = level
             AttackMod.BLINK -> blink = level
+            AttackMod.RANDOM_VANISH -> randomVanish = level
             AttackMod.BLIND -> blind = level
 
             AttackMod.MOVE_Z -> {
@@ -147,7 +163,12 @@ data class AttackState(
                 twirl == 0f &&
                 roll == 0f &&
                 mini == 0f &&
+                tiny == 0f &&
                 reverse == 0f &&
+                split == 0f &&
+                alternate == 0f &&
+                cross == 0f &&
+                centered == 0f &&
                 flip == 0f &&
                 invert == 0f &&
                 dark == 0f &&
@@ -155,6 +176,7 @@ data class AttackState(
                 hidden == 0f &&
                 sudden == 0f &&
                 blink == 0f &&
+                randomVanish == 0f &&
                 blind == 0f &&
                 moveZ.values.all { it == 0f } &&
                 skew == 0f &&

@@ -9,6 +9,7 @@ object AttackModifierParser {
     private val bareNumberRegex = Regex("""^\s*([+-]?\d+(?:\.\d+)?)\s+(.+)$""")
     private val noRegex = Regex("""^\s*No\s+(.+)$""", RegexOption.IGNORE_CASE)
     private val moveZRegex = Regex("""^movez(\d+)$""", RegexOption.IGNORE_CASE)
+    private val xModRegex = Regex("""^([+]?(?:\d+(?:\.\d+)?|\.\d+))x$""", RegexOption.IGNORE_CASE)
 
     fun parse(rawModifier: String): AttackModifier {
         val raw = rawModifier.trim()
@@ -49,6 +50,21 @@ object AttackModifierParser {
 
         if (isNo) level = 0f
 
+        // XMod de StepMania: 4x, 8x, 1.5x, etc.
+        // Es un valor ABSOLUTO de m_fScrollSpeed, no un porcentaje.
+        val xModMatch = xModRegex.matchEntire(remainder)
+        if (xModMatch != null && !isNo) {
+            val xmod = xModMatch.groupValues[1].toFloatOrNull()
+            if (xmod != null && xmod > 0f && xmod.isFinite()) {
+                return AttackModifier(
+                    type = AttackMod.XMOD,
+                    level = xmod,
+                    approachSpeed = approachSpeed,
+                    raw = raw
+                )
+            }
+        }
+
         val moveZMatch = moveZRegex.matchEntire(remainder)
         if (moveZMatch != null) {
             val oneBasedColumn = moveZMatch.groupValues[1].toIntOrNull()
@@ -78,12 +94,17 @@ object AttackModifierParser {
             "twirl" -> AttackMod.TWIRL
             "roll" -> AttackMod.ROLL
             "mini" -> AttackMod.MINI
+            "tiny" -> AttackMod.TINY
             "overhead" -> AttackMod.OVERHEAD
             "hallway" -> AttackMod.HALLWAY
             "distant" -> AttackMod.DISTANT
             "incoming" -> AttackMod.INCOMING
             "space" -> AttackMod.SPACE
             "reverse" -> AttackMod.REVERSE
+            "split" -> AttackMod.SPLIT
+            "alternate" -> AttackMod.ALTERNATE
+            "cross" -> AttackMod.CROSS
+            "centered", "converge" -> AttackMod.CENTERED
             "flip" -> AttackMod.FLIP
             "invert" -> AttackMod.INVERT
             "dark" -> AttackMod.DARK
@@ -91,6 +112,7 @@ object AttackModifierParser {
             "hidden" -> AttackMod.HIDDEN
             "sudden" -> AttackMod.SUDDEN
             "blink" -> AttackMod.BLINK
+            "randomvanish" -> AttackMod.RANDOM_VANISH
             "blind" -> AttackMod.BLIND
             "normal" -> AttackMod.NORMAL
             else -> AttackMod.UNKNOWN

@@ -944,6 +944,15 @@ fun applyAttackConfigSnapshot(
             .getValue(Boolean::class.java)
             ?: AttackFeatureFlags.AccelScroll.EXPAND
 
+    AttackFeatureFlags.AccelScroll.EXPAND_INTENSITY =
+        accelScroll
+            .child("expandIntensity")
+            .value
+            ?.toString()
+            ?.toFloatOrNull()
+            ?.coerceAtLeast(0f)
+            ?: AttackFeatureFlags.AccelScroll.EXPAND_INTENSITY
+
     AttackFeatureFlags.AccelScroll.BOOMERANG =
         accelScroll
             .child("boomerang")

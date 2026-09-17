@@ -3,7 +3,7 @@ package com.fingerdance.ssc.attacks
 import com.fingerdance.isVertical
 import kotlin.math.acos
 import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.pow
 
 object AttackEffects {
 
@@ -26,7 +26,11 @@ object AttackEffects {
     private const val TORNADO_OFFSET_SCALE_HIGH = 1f
 
     private const val MINI_PERCENT_BASE = 0.5f
-    private const val MINI_MAX_SCALE_VERTICAL = 1.20f
+    private const val MINI_MAX_SCALE_VERTICAL = 1.12f
+    private const val MINI_MIN_SCALE_VERTICAL = 0.65f
+
+    private const val TINY_PERCENT_BASE = 0.5f
+    private const val TINY_PERCENT_GATE = 1f
 
     private const val BEAT_OFFSET_HEIGHT = 15f
     private const val BEAT_PI_HEIGHT = 2f
@@ -38,21 +42,26 @@ object AttackEffects {
 
     private const val BOOST_MOD_MIN_CLAMP = -400f
     private const val BOOST_MOD_MAX_CLAMP = 400f
+    private const val BRAKE_MOD_MIN_CLAMP = -400f
+    private const val BRAKE_MOD_MAX_CLAMP = 400f
+    private const val WAVE_MOD_MAGNITUDE = 20f
+    private const val WAVE_MOD_HEIGHT = 38f
+    private const val BOOMERANG_PEAK_PERCENTAGE = 0.75f
 
     private const val EXPAND_MULTIPLIER_FREQUENCY = 3f
     private const val EXPAND_MULTIPLIER_SCALE_TO_LOW = 0.75f
     private const val EXPAND_MULTIPLIER_SCALE_TO_HIGH = 1.75f
 
     // =========================================================
-    // BOOST / EXPAND
+    // BOOST / BRAKE / WAVE / BOOMERANG / EXPAND
     // =========================================================
 
     /**
      * StepMania 5.1 ACCEL_BOOST.
      *
-     * Recibe el yOffset lógico ya expresado en píxeles respecto al receptor.
-     * No debe aplicarse cuando yOffset < 0: StepMania deja de modificar
-     * las flechas después de que cruzan el receptor.
+     * Devuelve el yOffset transformado por Boost únicamente. En el pipeline
+     * combinado se usa la diferencia respecto al yOffset original para sumar
+     * Boost + Brake + Wave exactamente como ArrowEffects::GetYOffset().
      */
     fun boostYOffset(
         yOffset: Float,
@@ -62,30 +71,83 @@ object AttackEffects {
         if (!AttackFeatureFlags.AccelScroll.BOOST) return yOffset
         if (amount == 0f || yOffset < 0f) return yOffset
 
-        val safeEffectHeight =
-            effectHeight.coerceAtLeast(1f)
+        val safeEffectHeight = effectHeight.coerceAtLeast(1f)
+        val denominator = (yOffset + safeEffectHeight / 1.2f) / safeEffectHeight
 
-        val denominator =
-            (yOffset + safeEffectHeight / 1.2f) /
-                    safeEffectHeight
+        if (kotlin.math.abs(denominator) < 0.0001f) return yOffset
 
-        if (kotlin.math.abs(denominator) < 0.0001f) {
-            return yOffset
-        }
-
-        val newYOffset =
-            yOffset * 1.5f / denominator
-
-        var adjustment =
-            amount * (newYOffset - yOffset)
-
-        adjustment =
-            adjustment.coerceIn(
-                BOOST_MOD_MIN_CLAMP,
-                BOOST_MOD_MAX_CLAMP
-            )
+        val newYOffset = yOffset * 1.5f / denominator
+        val adjustment =
+            (amount * (newYOffset - yOffset))
+                .coerceIn(BOOST_MOD_MIN_CLAMP, BOOST_MOD_MAX_CLAMP)
 
         return yOffset + adjustment
+    }
+
+    /**
+     * StepMania 5.1 ACCEL_BRAKE.
+     *
+     * fScale = SCALE(yOffset, 0, effectHeight, 0, 1)
+     * fNewYOffset = yOffset * fScale
+     * adjustment = amount * (fNewYOffset - yOffset), clamp -400..400.
+     */
+    fun brakeYOffset(
+        yOffset: Float,
+        effectHeight: Float,
+        amount: Float
+    ): Float {
+        if (!AttackFeatureFlags.AccelScroll.BRAKE) return yOffset
+        if (amount == 0f || yOffset < 0f) return yOffset
+
+        val safeEffectHeight = effectHeight.coerceAtLeast(1f)
+        val scale = yOffset / safeEffectHeight
+        val newYOffset = yOffset * scale
+        val adjustment =
+            (amount * (newYOffset - yOffset))
+                .coerceIn(BRAKE_MOD_MIN_CLAMP, BRAKE_MOD_MAX_CLAMP)
+
+        return yOffset + adjustment
+    }
+
+    /**
+     * StepMania 5.1 ACCEL_WAVE.
+     *
+     * Devuelve sólo el ajuste que Wave suma a fYAdjust.
+     */
+    fun waveYOffsetAdjustment(
+        yOffset: Float,
+        amount: Float,
+        period: Float = 0f
+    ): Float {
+        if (!AttackFeatureFlags.AccelScroll.WAVE) return 0f
+        if (amount == 0f || yOffset < 0f) return 0f
+
+        val denominator = (period * WAVE_MOD_HEIGHT) + WAVE_MOD_HEIGHT
+        if (kotlin.math.abs(denominator) < 0.0001f) return 0f
+
+        return amount *
+                WAVE_MOD_MAGNITUDE *
+                kotlin.math.sin(yOffset / denominator)
+    }
+
+    /**
+     * StepMania 5.1 ACCEL_BOOMERANG.
+     *
+     * En ArrowEffects.cpp la cantidad no escala la parábola: cualquier valor
+     * distinto de cero activa la transformación completa. Esto replica ese
+     * comportamiento. Se aplica DESPUÉS de Boost + Brake + Wave y ANTES del
+     * scroll speed / Expand.
+     */
+    fun boomerangYOffset(
+        yOffset: Float,
+        screenHeight: Float,
+        amount: Float
+    ): Float {
+        if (!AttackFeatureFlags.AccelScroll.BOOMERANG) return yOffset
+        if (amount == 0f || yOffset < 0f) return yOffset
+
+        val safeScreenHeight = screenHeight.coerceAtLeast(1f)
+        return (-yOffset * yOffset / safeScreenHeight) + (1.5f * yOffset)
     }
 
     /**
@@ -93,11 +155,6 @@ object AttackEffects {
      *
      * Expand NO cambia el tamaño de la flecha. Modifica el scroll speed
      * mediante un multiplicador oscilante.
-     *
-     * Fallback metrics:
-     * frequency = 3
-     * cos -1..1 -> multiplier 0.75..1.75
-     * amount 0..1 -> scroll multiplier 1..expandMultiplier
      */
     fun expandScrollMultiplier(
         expandSeconds: Float,
@@ -112,56 +169,80 @@ object AttackEffects {
                     EXPAND_MULTIPLIER_FREQUENCY *
                     (period + 1f)
 
-        val cosine =
-            kotlin.math.cos(phase)
+        val cosine = kotlin.math.cos(phase)
 
-        // SCALE(cos, -1, 1, .75, 1.75)
         val expandMultiplier =
             EXPAND_MULTIPLIER_SCALE_TO_LOW +
                     ((cosine + 1f) * 0.5f) *
-                    (
-                        EXPAND_MULTIPLIER_SCALE_TO_HIGH -
-                                EXPAND_MULTIPLIER_SCALE_TO_LOW
-                    )
+                    (EXPAND_MULTIPLIER_SCALE_TO_HIGH - EXPAND_MULTIPLIER_SCALE_TO_LOW)
 
-        // SCALE(amount, 0, 1, 1, expandMultiplier)
-        return 1f +
-                amount *
-                (expandMultiplier - 1f)
+        return 1f + amount * (expandMultiplier - 1f)
     }
 
     /**
-     * Orden equivalente a la parte relevante de ArrowEffects::GetYOffset():
+     * Orden equivalente a ArrowEffects::GetYOffset() para los ACCEL soportados:
      *
-     * 1) Boost altera yOffset.
-     * 2) Expand altera el scroll multiplier.
+     * 1) Boost, Brake y Wave calculan ajustes usando el MISMO yOffset original
+     *    y esos ajustes se suman.
+     * 2) Boomerang transforma el yOffset ya ajustado.
+     * 3) Expand modifica fScrollSpeed.
+     * 4) Al final se multiplica yOffset * fScrollSpeed.
      *
      * Finger Dance ya trae su scroll base convertido a píxeles antes de entrar
-     * aquí, por eso NO volvemos a multiplicar por el scrollSpeed base.
+     * aquí; GameScreenSsc lo deshace y vuelve a aplicarlo en este punto.
      */
     fun transformAccelYOffsetSm(
         yOffsetSm: Float,
         effectHeightSm: Float,
         expandSeconds: Float,
         boostAmount: Float,
+        brakeAmount: Float,
+        waveAmount: Float,
+        boomerangAmount: Float,
         expandAmount: Float,
         baseScrollSpeed: Float
     ): Float {
         val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
 
-        // StepMania: si la nota ya cruzó el receptor no aplica ACCEL,
-        // únicamente conserva el scroll speed base.
-        if (yOffsetSm < 0f) {
-            return yOffsetSm * safeBaseSpeed
-        }
+        // StepMania: no aplica ACCEL después de cruzar el receptor.
+        if (yOffsetSm < 0f) return yOffsetSm * safeBaseSpeed
 
-        var result = yOffsetSm
+        val originalYOffset = yOffsetSm
+        var yAdjust = 0f
 
         if (AttackFeatureFlags.AccelScroll.BOOST && boostAmount != 0f) {
-            result = boostYOffset(
+            yAdjust +=
+                boostYOffset(
+                    yOffset = originalYOffset,
+                    effectHeight = effectHeightSm,
+                    amount = boostAmount
+                ) - originalYOffset
+        }
+
+        if (AttackFeatureFlags.AccelScroll.BRAKE && brakeAmount != 0f) {
+            yAdjust +=
+                brakeYOffset(
+                    yOffset = originalYOffset,
+                    effectHeight = effectHeightSm,
+                    amount = brakeAmount
+                ) - originalYOffset
+        }
+
+        if (AttackFeatureFlags.AccelScroll.WAVE && waveAmount != 0f) {
+            yAdjust +=
+                waveYOffsetAdjustment(
+                    yOffset = originalYOffset,
+                    amount = waveAmount
+                )
+        }
+
+        var result = originalYOffset + yAdjust
+
+        if (AttackFeatureFlags.AccelScroll.BOOMERANG && boomerangAmount != 0f) {
+            result = boomerangYOffset(
                 yOffset = result,
-                effectHeight = effectHeightSm,
-                amount = boostAmount
+                screenHeight = FieldMetrics.SM_HEIGHT,
+                amount = boomerangAmount
             )
         }
 
@@ -407,6 +488,62 @@ object AttackEffects {
     }
 
     // =========================================================
+    // REVERSE / SPLIT / ALTERNATE / CROSS / CENTERED
+    // =========================================================
+
+    /**
+     * Replica PlayerOptions::GetReversePercentForColumn().
+     * Los porcentajes de Reverse, Split, Alternate y Cross se suman por columna
+     * y después se pliegan al rango 0..1 igual que StepMania.
+     */
+    fun reversePercentForColumn(
+        column: Int,
+        columnCount: Int,
+        reverse: Float,
+        split: Float,
+        alternate: Float,
+        cross: Float
+    ): Float {
+        if (column !in 0 until columnCount || columnCount <= 0) return 0f
+
+        var value = reverse
+
+        if (column >= columnCount / 2) value += split
+        if ((column % 2) == 1) value += alternate
+
+        val firstCrossColumn = columnCount / 4
+        val lastCrossColumn = columnCount - 1 - firstCrossColumn
+        if (column in firstCrossColumn..lastCrossColumn) value += cross
+
+        if (value > 2f) value %= 2f
+        if (value > 1f) value = 2f - value
+
+        return value
+    }
+
+    /**
+     * Equivalente 2D de ArrowGetReverseShiftAndScale + GetYPos.
+     * CENTERED sólo reduce el shift hacia el punto medio; no modifica el scale
+     * de Reverse, exactamente como StepMania.
+     */
+    fun directionY(
+        y: Float,
+        normalReceptorY: Float,
+        reverseReceptorY: Float,
+        reverseAmount: Float,
+        centeredAmount: Float
+    ): Float {
+        val distance = reverseReceptorY - normalReceptorY
+        val center = (normalReceptorY + reverseReceptorY) * 0.5f
+        val scaleY = 1f - 2f * reverseAmount
+        val shiftFromCenter =
+            (reverseAmount - 0.5f) * distance * (1f - centeredAmount)
+        val sourceOffset = y - normalReceptorY
+
+        return center + shiftFromCenter + sourceOffset * scaleY
+    }
+
+    // =========================================================
     // REVERSE
     // =========================================================
 
@@ -471,7 +608,10 @@ object AttackEffects {
             1f - (amount * MINI_PERCENT_BASE)
 
         return if (isVertical) {
-            scale.coerceAtMost(MINI_MAX_SCALE_VERTICAL)
+            scale.coerceIn(
+                MINI_MIN_SCALE_VERTICAL,
+                MINI_MAX_SCALE_VERTICAL
+            )
         } else {
             scale
         }
@@ -488,6 +628,36 @@ object AttackEffects {
 
         return centerX +
                 (x - centerX) * scale
+    }
+
+    // =========================================================
+    // TINY
+    // =========================================================
+
+    /** StepMania GetZoom(): zoom *= pow(0.5, Tiny). */
+    fun tinyScale(amount: Float): Float {
+        if (!AttackFeatureFlags.Scale.TINY) return 1f
+        return TINY_PERCENT_BASE.pow(amount)
+    }
+
+    /**
+     * StepMania GetXPos(): Tiny puede juntar tracks pero no separarlos.
+     * fTinyPercent = min(pow(TinyPercentBase, amount), TinyPercentGate).
+     */
+    fun tinyX(
+        x: Float,
+        centerX: Float,
+        amount: Float
+    ): Float {
+        if (!AttackFeatureFlags.Scale.TINY) return x
+
+        val xScale =
+            kotlin.math.min(
+                TINY_PERCENT_BASE.pow(amount),
+                TINY_PERCENT_GATE
+            )
+
+        return centerX + (x - centerX) * xScale
     }
 
 

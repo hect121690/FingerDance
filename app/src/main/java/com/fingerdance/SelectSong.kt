@@ -1194,15 +1194,13 @@ class SelectSong : AppCompatActivity() {
 
         imgOffset.setOnClickListener {
 
-            //showModifyOffsetDialog()
+            showModifyOffsetDialog()
 
         }
 
         previewController.onResume()
         audioController.onResume()
     }
-
-
 
     private fun showModifyOffsetDialog() {
         val fileSsc = File(AppResources.listSongsChannelKsf[oldValue % AppResources.listSongsChannelKsf.size].rutaSsc)
@@ -1429,14 +1427,14 @@ class SelectSong : AppCompatActivity() {
         selectModeContainer.addView(verticalLayout)
         selectModeContainer.addView(hand)
 
-        // 🔥 PRELOAD (IMPORTANTE)
+        // PRELOAD (IMPORTANTE)
         val hPrev = BitmapFactory.decodeStream(assets.open("horizontal_mode_prev.png"))
         val hSelect = BitmapFactory.decodeStream(assets.open("horizontal_mode_select.png"))
 
         val vPrev = BitmapFactory.decodeStream(assets.open("vertical_mode_prev.png"))
         val vSelect = BitmapFactory.decodeStream(assets.open("vertical_mode_select.png"))
 
-        // 🔥 referencias
+        // referencias
         lateinit var imgHorizontal: ImageView
         lateinit var imgVertical: ImageView
 
@@ -1470,7 +1468,7 @@ class SelectSong : AppCompatActivity() {
             return section
         }
 
-        // 🔽 vertical
+        // vertical
         val topSection = createSection(vPrev, { imgVertical = it }) {
             isHandRunning = false
             hand.animate().cancel()
@@ -1481,12 +1479,12 @@ class SelectSong : AppCompatActivity() {
             modeSelected = true
             orientationMode = OrientationMode.VERTICAL
 
-            // 🔥 actualizar imágenes
+            // actualizar imágenes
             imgVertical.setImageBitmap(vSelect)
             imgHorizontal.setImageBitmap(hPrev)
         }
 
-        // 🔝 horizontal
+        // horizontal
         val bottomSection = createSection(hPrev, { imgHorizontal = it }) {
             isHandRunning = false
             hand.animate().cancel()
@@ -1497,7 +1495,7 @@ class SelectSong : AppCompatActivity() {
             modeSelected = true
             orientationMode = OrientationMode.HORIZONTAL
 
-            // 🔥 actualizar imágenes
+            // actualizar imágenes
             imgHorizontal.setImageBitmap(hSelect)
             imgVertical.setImageBitmap(vPrev)
         }
@@ -1570,7 +1568,7 @@ class SelectSong : AppCompatActivity() {
                                                 .withEndAction {
                                                     hand.postDelayed({
                                                         onEnd()
-                                                    }, 150) // 🔥 pausa natural
+                                                    }, 150)
                                                 }
                                         }
                                 }
@@ -1700,7 +1698,6 @@ class SelectSong : AppCompatActivity() {
         }else{
             playerSong.rutaKsf = level.rutaKsf
             playerSong.isSSC = false
-            //load(playerSong.rutaKsf, isHalfDouble)
             chart = ParserKsf().parseKSF(readFileSsc(level.rutaKsf), valueOffset = valueOffset.toDouble())
             val uniqueId = generateId(
                         "$${playerSong.level}|" +

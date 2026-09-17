@@ -2,12 +2,17 @@ package com.fingerdance.ssc.attacks
 
 object AttackFeatureFlags {
 
+    object Speed {
+        var XMOD: Boolean = true
+    }
+
     object AccelScroll {
         var BOOST: Boolean = true
         var BOOST_INTENSITY: Float = 0.50f
         var BRAKE: Boolean = true
         var WAVE: Boolean = true
         var EXPAND: Boolean = true
+        var EXPAND_INTENSITY: Float = 0.50f
         var BOOMERANG: Boolean = true
     }
 
@@ -29,10 +34,15 @@ object AttackFeatureFlags {
 
     object Scale {
         var MINI: Boolean = true
+        var TINY: Boolean = true
     }
 
     object DirectionColumn {
         var REVERSE: Boolean = true
+        var SPLIT: Boolean = true
+        var ALTERNATE: Boolean = true
+        var CROSS: Boolean = true
+        var CENTERED: Boolean = true
         var FLIP: Boolean = true
         var INVERT: Boolean = true
     }
@@ -43,6 +53,7 @@ object AttackFeatureFlags {
         var HIDDEN: Boolean = true
         var SUDDEN: Boolean = true
         var BLINK: Boolean = true
+        var RANDOM_VANISH: Boolean = true
         var BLIND: Boolean = true
     }
 

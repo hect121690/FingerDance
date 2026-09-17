@@ -23,7 +23,7 @@ package com.fingerdance.ssc.attacks
  *   - 640 -> 80% del ancho físico.
  *   - 480 -> toda la altura física.
  */
-data class StepManiaFieldMetrics(
+data class FieldMetrics(
     val physicalReferenceWidth: Float,
     val physicalReferenceHeight: Float,
     val logicalReferenceWidth: Float,
@@ -41,9 +41,9 @@ data class StepManiaFieldMetrics(
             screenWidth: Float,
             screenHeight: Float,
             arrowSizePx: Float
-        ): StepManiaFieldMetrics {
+        ): FieldMetrics {
             return if (isVertical) {
-                StepManiaFieldMetrics(
+                FieldMetrics(
                     physicalReferenceWidth = screenWidth.coerceAtLeast(1f),
                     physicalReferenceHeight = (
                         if (halfDouble) screenHeight * 0.575f else screenHeight
@@ -52,7 +52,7 @@ data class StepManiaFieldMetrics(
                     arrowSizePx = arrowSizePx.coerceAtLeast(1f)
                 )
             } else {
-                StepManiaFieldMetrics(
+                FieldMetrics(
                     physicalReferenceWidth = (screenWidth * 0.80f).coerceAtLeast(1f),
                     physicalReferenceHeight = screenHeight.coerceAtLeast(1f),
                     logicalReferenceWidth = SM_FULL_WIDTH,

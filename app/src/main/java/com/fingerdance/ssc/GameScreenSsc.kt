@@ -39,12 +39,11 @@ import com.fingerdance.ssc.attacks.AttackFeatureFlags
 import com.fingerdance.ssc.attacks.AttackEffects
 import com.fingerdance.ssc.attacks.AttackEngine
 import com.fingerdance.ssc.attacks.AttackState
-import com.fingerdance.ssc.attacks.StepManiaFieldMetrics
+import com.fingerdance.ssc.attacks.FieldMetrics
 import com.fingerdance.tema
 import com.fingerdance.typePadD
 import com.fingerdance.width
 import com.fingerdance.widthBtns
-import java.io.File
 import kotlin.math.abs
 
 open class GameScreenSsc(activity: GameScreenActivity) : Screen {
@@ -143,8 +142,8 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
      * Vertical usa el lado lógico de P1 (320x480).
      * Horizontal usa 640x480 dentro del 80% del ancho real.
      */
-    private fun getStepManiaMetrics(): StepManiaFieldMetrics =
-        StepManiaFieldMetrics.create(
+    private fun getStepManiaMetrics(): FieldMetrics =
+        FieldMetrics.create(
             isVertical = isVertical,
             halfDouble = halfDouble,
             screenWidth = Gdx.graphics.width.toFloat(),
@@ -162,7 +161,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
      * Reconstruye el fYOffset equivalente de StepMania.
      * El yOffset que llega desde SscGameplayEngine ya incluye baseSpeed;
      * StepMania aplica Boost antes de m_fScrollSpeed, por eso primero lo quitamos.
-     * El valor devuelto YA incluye Boost/Expand/baseSpeed, pero NO Reverse/Tipsy.
+     * El valor devuelto YA incluye Boost/Brake/Wave/Boomerang/Expand/baseSpeed, pero NO Reverse/Tipsy.
      */
     fun getAttackStepManiaYOffset(
         rawPixelYOffset: Float,
@@ -171,6 +170,8 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         val metrics = getStepManiaMetrics()
         val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
 
+        // SscGameplayEngine ya posicionó la nota usando la velocidad elegida por
+        // el jugador. La quitamos primero para reconstruir el fYOffset lógico.
         val preSpeedPixelOffset =
             rawPixelYOffset / safeBaseSpeed
 
@@ -180,32 +181,68 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         val boostAmount =
             if (AttackFeatureFlags.AccelScroll.BOOST) {
                 currentAttackState.boost *
-                    AttackFeatureFlags.AccelScroll.BOOST_INTENSITY *
-                    attackEndResetFactor
+                        AttackFeatureFlags.AccelScroll.BOOST_INTENSITY *
+                        attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val brakeAmount =
+            if (AttackFeatureFlags.AccelScroll.BRAKE) {
+                currentAttackState.brake * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val waveAmount =
+            if (AttackFeatureFlags.AccelScroll.WAVE) {
+                currentAttackState.wave * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val boomerangAmount =
+            if (AttackFeatureFlags.AccelScroll.BOOMERANG) {
+                currentAttackState.boomerang * attackEndResetFactor
             } else {
                 0f
             }
 
         val expandAmount =
             if (AttackFeatureFlags.AccelScroll.EXPAND) {
-                currentAttackState.expand * attackEndResetFactor
+                currentAttackState.expand *
+                        AttackFeatureFlags.AccelScroll.EXPAND_INTENSITY *
+                        attackEndResetFactor
             } else {
                 0f
             }
+        // StepMania usa m_fScrollSpeed DESPUÉS de Boost/Brake/Wave/Boomerang
+        // y antes del resultado final. XMod es absoluto (4x => 4.0), pero al
+        // terminar el ATTACK vuelve al XMod base seleccionado por el jugador.
+        val effectiveScrollSpeed =
+            if (AttackFeatureFlags.Speed.XMOD) {
+                safeBaseSpeed +
+                        (currentAttackState.xmod - safeBaseSpeed) * attackEndResetFactor
+            } else {
+                safeBaseSpeed
+            }
 
         val effectHeightSm =
-            StepManiaFieldMetrics.SM_HEIGHT +
-                kotlin.math.abs(
-                    currentAttackState.perspectiveTilt * attackEndResetFactor
-                ) * 200f
+            FieldMetrics.SM_HEIGHT +
+                    kotlin.math.abs(
+                        currentAttackState.perspectiveTilt * attackEndResetFactor
+                    ) * 200f
 
         return AttackEffects.transformAccelYOffsetSm(
             yOffsetSm = preSpeedSmOffset,
             effectHeightSm = effectHeightSm,
             expandSeconds = currentAttackSongTimeSeconds,
             boostAmount = boostAmount,
+            brakeAmount = brakeAmount,
+            waveAmount = waveAmount,
+            boomerangAmount = boomerangAmount,
             expandAmount = expandAmount,
-            baseScrollSpeed = safeBaseSpeed
+            baseScrollSpeed = effectiveScrollSpeed.coerceAtLeast(0.0001f)
         )
     }
     private var elapsedTime = 0f
@@ -224,10 +261,10 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     private val attackPerspectiveActive: Boolean
         get() =
             AttackFeatureFlags.Perspective.ENABLED &&
-            (
-                abs(currentAttackState.skew * attackEndResetFactor) > 0.0001f ||
-                abs(currentAttackState.perspectiveTilt * attackEndResetFactor) > 0.0001f
-            )
+                    (
+                            abs(currentAttackState.skew * attackEndResetFactor) > 0.0001f ||
+                                    abs(currentAttackState.perspectiveTilt * attackEndResetFactor) > 0.0001f
+                            )
 
     val applyMesh: Boolean
         get() =
@@ -524,6 +561,17 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         )
     }
 
+    fun getAttackTinyScale(): Float {
+        if (!AttackFeatureFlags.Scale.TINY) return 1f
+
+        return AttackEffects.tinyScale(
+            currentAttackState.tiny * attackEndResetFactor
+        )
+    }
+
+    fun getAttackVisualScale(): Float =
+        getAttackMiniScale() * getAttackTinyScale()
+
     /**
      * Finger Dance adaptation for vertical screens.
      *
@@ -566,25 +614,59 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
     }
 
-    fun getAttackReceptorY(column: Int): Float {
-        var finalY = targetTop
-
-        val reverseAmount =
-            if (AttackFeatureFlags.DirectionColumn.REVERSE) {
+    fun getAttackReversePercentForColumn(column: Int): Float {
+        val reverse =
+            if (AttackFeatureFlags.DirectionColumn.REVERSE)
                 currentAttackState.reverse * attackEndResetFactor
-            } else {
-                0f
-            }
+            else 0f
 
-        if (reverseAmount != 0f) {
-            val reverseY = AttackEffects.reverseReceptorY(
-                screenHeight = Gdx.graphics.height.toFloat(),
-                arrowSize = medidaFlechas
-            )
+        val split =
+            if (AttackFeatureFlags.DirectionColumn.SPLIT)
+                currentAttackState.split * attackEndResetFactor
+            else 0f
 
-            finalY +=
-                (reverseY - targetTop) * reverseAmount
+        val alternate =
+            if (AttackFeatureFlags.DirectionColumn.ALTERNATE)
+                currentAttackState.alternate * attackEndResetFactor
+            else 0f
+
+        val cross =
+            if (AttackFeatureFlags.DirectionColumn.CROSS)
+                currentAttackState.cross * attackEndResetFactor
+            else 0f
+
+        return AttackEffects.reversePercentForColumn(
+            column = column,
+            columnCount = 5,
+            reverse = reverse,
+            split = split,
+            alternate = alternate,
+            cross = cross
+        )
+    }
+
+    private fun getAttackCenteredAmount(): Float =
+        if (AttackFeatureFlags.DirectionColumn.CENTERED) {
+            currentAttackState.centered * attackEndResetFactor
+        } else {
+            0f
         }
+
+    fun getAttackReceptorY(column: Int): Float {
+        val reverseAmount = getAttackReversePercentForColumn(column)
+        val centeredAmount = getAttackCenteredAmount()
+        val reverseY = AttackEffects.reverseReceptorY(
+            screenHeight = Gdx.graphics.height.toFloat(),
+            arrowSize = medidaFlechas
+        )
+
+        var finalY = AttackEffects.directionY(
+            y = targetTop,
+            normalReceptorY = targetTop,
+            reverseReceptorY = reverseY,
+            reverseAmount = reverseAmount,
+            centeredAmount = centeredAmount
+        )
 
         val tipsyAmount =
             if (AttackFeatureFlags.Position.TIPSY) {
@@ -625,27 +707,22 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         var finalY =
             targetTop + metrics.toPixelsY(smYOffset)
 
-        // StepMania GetYPos(): Reverse se aplica DESPUÉS de GetYOffset().
-        val reverseAmount =
-            if (AttackFeatureFlags.DirectionColumn.REVERSE) {
-                currentAttackState.reverse * attackEndResetFactor
-            } else {
-                0f
-            }
+        // StepMania GetYPos(): Reverse/Split/Alternate/Cross + Centered
+        // se aplican DESPUÉS de GetYOffset().
+        val reverseAmount = getAttackReversePercentForColumn(column)
+        val centeredAmount = getAttackCenteredAmount()
+        val reverseReceptorY = AttackEffects.reverseReceptorY(
+            screenHeight = Gdx.graphics.height.toFloat(),
+            arrowSize = medidaFlechas
+        )
 
-        if (reverseAmount != 0f) {
-            val reverseReceptorY = AttackEffects.reverseReceptorY(
-                screenHeight = Gdx.graphics.height.toFloat(),
-                arrowSize = medidaFlechas
-            )
-
-            finalY = AttackEffects.reverseY(
-                y = finalY,
-                normalReceptorY = targetTop,
-                reverseReceptorY = reverseReceptorY,
-                amount = reverseAmount
-            )
-        }
+        finalY = AttackEffects.directionY(
+            y = finalY,
+            normalReceptorY = targetTop,
+            reverseReceptorY = reverseReceptorY,
+            reverseAmount = reverseAmount,
+            centeredAmount = centeredAmount
+        )
 
         // StepMania Tipsy usa ARROW_SIZE lógico; aquí 64 se convierte por scaleY.
         val tipsyAmount =
@@ -674,7 +751,11 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
     private fun updateAttacks(songTimeMs: Double, delta: Float) {
-        currentAttackState = attackEngine.update(songTimeMs, delta)
+        currentAttackState = attackEngine.update(
+            songTimeMs = songTimeMs,
+            deltaSeconds = delta,
+            baseScrollSpeed = player.baseSpeed
+        )
         currentAttackSongTimeSeconds = (songTimeMs / 1000.0).toFloat()
     }
 
@@ -745,7 +826,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 columnCount = 5,
                 yOffset = smYOffset,
                 arrowSize = medidaFlechas,
-                screenHeight = StepManiaFieldMetrics.SM_HEIGHT,
+                screenHeight = FieldMetrics.SM_HEIGHT,
                 amount = currentAttackState.tornado * attackEndResetFactor
             )
         }
@@ -756,7 +837,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 yOffset = smYOffset,
                 songTimeSeconds = currentAttackSongTimeSeconds,
                 arrowSize = medidaFlechas,
-                screenHeight = StepManiaFieldMetrics.SM_HEIGHT,
+                screenHeight = FieldMetrics.SM_HEIGHT,
                 amount = currentAttackState.drunk * attackEndResetFactor
             )
         }
@@ -803,6 +884,20 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             offsetX = miniX - baseX
         }
 
+        if (AttackFeatureFlags.Scale.TINY && currentAttackState.tiny != 0f) {
+            val baseX = medidaFlechas * (column + 1)
+            val currentX = baseX + offsetX
+            val centerX = medidaFlechas * 3f
+
+            val tinyX = AttackEffects.tinyX(
+                x = currentX,
+                centerX = centerX,
+                amount = currentAttackState.tiny * attackEndResetFactor
+            )
+
+            offsetX = tinyX - baseX
+        }
+
         val moveZScale = getAttackMoveZScale(column)
         if (moveZScale != 1f) {
             val baseX = medidaFlechas * (column + 1)
@@ -818,7 +913,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             val clampedX = clampAttackLogicalX(
                 column = column,
                 logicalX = unclampedX,
-                visualScale = getAttackMiniScale()
+                visualScale = getAttackVisualScale()
             )
             offsetX = clampedX - baseX
         }
@@ -938,11 +1033,9 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         nxWaitingReturn = true
     }
 
-    fun getAttackReverseScaleY(): Float {
-        if (!AttackFeatureFlags.DirectionColumn.REVERSE) return 1f
-
+    fun getAttackReverseScaleY(column: Int): Float {
         val reverse =
-            (currentAttackState.reverse * attackEndResetFactor)
+            getAttackReversePercentForColumn(column)
                 .coerceIn(0f, 1f)
 
         return 1f - (2f * reverse)
@@ -1084,7 +1177,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     }
 
 
-fun getAttackDarkAlpha(): Float {
+    fun getAttackDarkAlpha(): Float {
         if (!AttackFeatureFlags.Visibility.DARK) return 1f
 
         val darkAmount =
@@ -1174,7 +1267,11 @@ fun getAttackDarkAlpha(): Float {
             AttackFeatureFlags.Visibility.BLINK &&
                     kotlin.math.abs(currentAttackState.blink * attackEndResetFactor) > 0.0001f
 
-        return hidden || sudden || blink
+        val randomVanish =
+            AttackFeatureFlags.Visibility.RANDOM_VANISH &&
+                    kotlin.math.abs(currentAttackState.randomVanish * attackEndResetFactor) > 0.0001f
+
+        return hidden || sudden || blink || randomVanish
     }
 
     /**
@@ -1213,6 +1310,14 @@ fun getAttackDarkAlpha(): Float {
         val blink =
             if (AttackFeatureFlags.Visibility.BLINK) {
                 (currentAttackState.blink * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val randomVanish =
+            if (AttackFeatureFlags.Visibility.RANDOM_VANISH) {
+                (currentAttackState.randomVanish * attackEndResetFactor)
                     .coerceIn(0f, 1f)
             } else {
                 0f
@@ -1318,14 +1423,31 @@ fun getAttackDarkAlpha(): Float {
 
             val quantized =
                 (
-                    kotlin.math.round(raw / frequency) *
-                            frequency
-                ).coerceIn(0f, 1f)
+                        kotlin.math.round(raw / frequency) *
+                                frequency
+                        ).coerceIn(0f, 1f)
 
             // StepMania trata Blink como efecto completo cuando está activo.
             // Aquí mezclamos con el tween actual para no crear un salto al entrar/salir.
             visibleAdjust +=
                 blink * (quantized - 1f)
+        }
+
+        if (randomVanish != 0f) {
+            // StepMania: fade alrededor de CENTER_LINE_Y con distancia real 80 px
+            // sobre ArrowSpacing=64. En Finger Dance: 80/64 = 1.25 arrows.
+            val realFadeDist = medidaFlechas * 1.25f
+            val distFromCenterLine = kotlin.math.abs(distance - centerLine)
+            val randomAdjust =
+                scale(
+                    value = distFromCenterLine,
+                    fromLow = realFadeDist,
+                    fromHigh = 2f * realFadeDist,
+                    toLow = -1f,
+                    toHigh = 0f
+                )
+
+            visibleAdjust += randomVanish * randomAdjust
         }
 
         return (1f + visibleAdjust)
@@ -1394,10 +1516,10 @@ fun getAttackDarkAlpha(): Float {
             )
 
         val reverseScaleY =
-            getAttackReverseScaleY()
+            getAttackReverseScaleY(column)
 
         val miniScale =
-            getAttackMiniScale() * getAttackMoveZScale(column)
+            getAttackVisualScale() * getAttackMoveZScale(column)
 
         val darkAlpha =
             getAttackDarkAlpha()
