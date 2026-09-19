@@ -739,4 +739,64 @@ object AttackEffects {
 
         return amount * shift
     }
+
+    // =========================================================
+    // EARTHWORM
+    // =========================================================
+
+    fun earthwormY(
+        yOffsetSm: Float,
+        songTimeSeconds: Float,
+        amount: Float
+    ): Float {
+
+        if (kotlin.math.abs(amount) <= 0.0001f) {
+            return yOffsetSm
+        }
+
+        /*
+         * Earthworm:
+         *
+         * La posición de la nota oscila longitudinalmente mientras
+         * recorre el playfield.
+         *
+         * 64 = una flecha en espacio lógico StepMania.
+         *
+         * Cerca del receptor reducimos progresivamente la deformación
+         * para garantizar:
+         *
+         *      yOffsetSm = 0 -> resultado = 0
+         *
+         * Por lo tanto Earthworm JAMÁS mueve el punto de juicio.
+         */
+        val distanceFromReceptor =
+            kotlin.math.abs(yOffsetSm)
+
+        val receptorFade =
+            (distanceFromReceptor / 64f)
+                .coerceIn(0f, 1f)
+
+        /*
+         * Una onda espacial + temporal.
+         *
+         * La componente espacial hace que distintas notas estén en
+         * fases distintas y produzcan la forma de gusano.
+         *
+         * La temporal hace que la onda viaje.
+         */
+        val phase =
+            (yOffsetSm / 48f) +
+                    (songTimeSeconds * 5.0f)
+
+        val amplitude =
+            24f *
+                    amount *
+                    receptorFade
+
+        val displacement =
+            kotlin.math.sin(phase) *
+                    amplitude
+
+        return yOffsetSm + displacement
+    }
 }

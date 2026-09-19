@@ -114,6 +114,7 @@ object AttackModifierParser {
             "blink" -> AttackMod.BLINK
             "randomvanish" -> AttackMod.RANDOM_VANISH
             "blind" -> AttackMod.BLIND
+            "earthworm" -> AttackMod.EARTHWORM
             "normal" -> AttackMod.NORMAL
             else -> AttackMod.UNKNOWN
         }

@@ -167,8 +167,12 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         rawPixelYOffset: Float,
         baseScrollSpeed: Float
     ): Float {
-        val metrics = getStepManiaMetrics()
-        val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
+
+        val metrics =
+            getStepManiaMetrics()
+
+        val safeBaseSpeed =
+            baseScrollSpeed.coerceAtLeast(0.0001f)
 
         // SscGameplayEngine ya posicionó la nota usando la velocidad elegida por
         // el jugador. La quitamos primero para reconstruir el fYOffset lógico.
@@ -176,7 +180,9 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             rawPixelYOffset / safeBaseSpeed
 
         val preSpeedSmOffset =
-            metrics.toStepManiaY(preSpeedPixelOffset)
+            metrics.toStepManiaY(
+                preSpeedPixelOffset
+            )
 
         val boostAmount =
             if (AttackFeatureFlags.AccelScroll.BOOST) {
@@ -189,21 +195,24 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
         val brakeAmount =
             if (AttackFeatureFlags.AccelScroll.BRAKE) {
-                currentAttackState.brake * attackEndResetFactor
+                currentAttackState.brake *
+                        attackEndResetFactor
             } else {
                 0f
             }
 
         val waveAmount =
             if (AttackFeatureFlags.AccelScroll.WAVE) {
-                currentAttackState.wave * attackEndResetFactor
+                currentAttackState.wave *
+                        attackEndResetFactor
             } else {
                 0f
             }
 
         val boomerangAmount =
             if (AttackFeatureFlags.AccelScroll.BOOMERANG) {
-                currentAttackState.boomerang * attackEndResetFactor
+                currentAttackState.boomerang *
+                        attackEndResetFactor
             } else {
                 0f
             }
@@ -216,13 +225,17 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             } else {
                 0f
             }
-        // StepMania usa m_fScrollSpeed DESPUÉS de Boost/Brake/Wave/Boomerang
-        // y antes del resultado final. XMod es absoluto (4x => 4.0), pero al
-        // terminar el ATTACK vuelve al XMod base seleccionado por el jugador.
+
+        // StepMania usa m_fScrollSpeed DESPUÉS de
+        // Boost/Brake/Wave/Boomerang.
         val effectiveScrollSpeed =
             if (AttackFeatureFlags.Speed.XMOD) {
                 safeBaseSpeed +
-                        (currentAttackState.xmod - safeBaseSpeed) * attackEndResetFactor
+                        (
+                                currentAttackState.xmod -
+                                        safeBaseSpeed
+                                ) *
+                        attackEndResetFactor
             } else {
                 safeBaseSpeed
             }
@@ -230,20 +243,69 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         val effectHeightSm =
             FieldMetrics.SM_HEIGHT +
                     kotlin.math.abs(
-                        currentAttackState.perspectiveTilt * attackEndResetFactor
+                        currentAttackState.perspectiveTilt *
+                                attackEndResetFactor
                     ) * 200f
 
-        return AttackEffects.transformAccelYOffsetSm(
-            yOffsetSm = preSpeedSmOffset,
-            effectHeightSm = effectHeightSm,
-            expandSeconds = currentAttackSongTimeSeconds,
-            boostAmount = boostAmount,
-            brakeAmount = brakeAmount,
-            waveAmount = waveAmount,
-            boomerangAmount = boomerangAmount,
-            expandAmount = expandAmount,
-            baseScrollSpeed = effectiveScrollSpeed.coerceAtLeast(0.0001f)
-        )
+        // -------------------------------------------------------------------------
+        // EARTHWORM
+        // -------------------------------------------------------------------------
+
+        /*
+         * Vía 1:
+         * ATTACK del SSC:
+         *
+         * MODS=Earthworm
+         */
+        val attackEarthwormAmount =
+            if (AttackFeatureFlags.AccelScroll.EARTHWORM) {
+                currentAttackState.earthworm * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val earthwormAmount =
+            if (playerSong.isEw) {
+                1f
+            } else {
+                attackEarthwormAmount
+            }
+
+        // -------------------------------------------------------------------------
+        // ACCEL / SPEED
+        // -------------------------------------------------------------------------
+
+        var transformedYOffset =
+            AttackEffects.transformAccelYOffsetSm(
+                yOffsetSm = preSpeedSmOffset,
+                effectHeightSm = effectHeightSm,
+                expandSeconds = currentAttackSongTimeSeconds,
+                boostAmount = boostAmount,
+                brakeAmount = brakeAmount,
+                waveAmount = waveAmount,
+                boomerangAmount = boomerangAmount,
+                expandAmount = expandAmount,
+                baseScrollSpeed = effectiveScrollSpeed.coerceAtLeast(0.0001f)
+            )
+
+        // -------------------------------------------------------------------------
+        // EARTHWORM
+        // -------------------------------------------------------------------------
+
+        if (earthwormAmount != 0f) {
+
+            transformedYOffset =
+                AttackEffects.earthwormY(
+                    yOffsetSm =
+                        transformedYOffset,
+                    songTimeSeconds =
+                        currentAttackSongTimeSeconds,
+                    amount =
+                        earthwormAmount
+                )
+        }
+
+        return transformedYOffset
     }
     private var elapsedTime = 0f
     private var rithymAnim = 0f
@@ -692,6 +754,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         y: Float,
         baseScrollSpeed: Float
     ): Float {
+
         val metrics = getStepManiaMetrics()
 
         val rawPixelYOffset =
@@ -703,31 +766,74 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 baseScrollSpeed = baseScrollSpeed
             )
 
-        // Devolvemos el fYOffset de StepMania a nuestro espacio físico.
+        val reverseAmount =
+            getAttackReversePercentForColumn(column)
+                .coerceIn(0f, 1f)
+
+        val centeredAmount =
+            getAttackCenteredAmount()
+
+        val reverseReceptorY =
+            AttackEffects.reverseReceptorY(
+                screenHeight = Gdx.graphics.height.toFloat(),
+                arrowSize = medidaFlechas
+            )
+
+        /*
+         * Finger Dance no lleva Reverse hasta el extremo inferior.
+         * Nuestro recorrido Reverse disponible es aproximadamente media pantalla.
+         */
+        val normalTravelDistance =
+            (Gdx.graphics.height.toFloat() - targetTop)
+                .coerceAtLeast(1f)
+
+        val reverseTravelDistance =
+            reverseReceptorY
+                .coerceAtLeast(1f)
+
+        val fullReverseDistanceScale =
+            (reverseTravelDistance / normalTravelDistance)
+                .coerceAtLeast(0.0001f)
+
+        val distanceScale =
+            1f +
+                    (fullReverseDistanceScale - 1f) *
+                    reverseAmount
+
         var finalY =
-            targetTop + metrics.toPixelsY(smYOffset)
+            targetTop +
+                    metrics.toPixelsY(smYOffset) *
+                    distanceScale
 
-        // StepMania GetYPos(): Reverse/Split/Alternate/Cross + Centered
-        // se aplican DESPUÉS de GetYOffset().
-        val reverseAmount = getAttackReversePercentForColumn(column)
-        val centeredAmount = getAttackCenteredAmount()
-        val reverseReceptorY = AttackEffects.reverseReceptorY(
-            screenHeight = Gdx.graphics.height.toFloat(),
-            arrowSize = medidaFlechas
-        )
+        finalY =
+            AttackEffects.directionY(
+                y = finalY,
+                normalReceptorY = targetTop,
+                reverseReceptorY = reverseReceptorY,
+                reverseAmount = reverseAmount,
+                centeredAmount = centeredAmount
+            )
 
-        finalY = AttackEffects.directionY(
-            y = finalY,
-            normalReceptorY = targetTop,
-            reverseReceptorY = reverseReceptorY,
-            reverseAmount = reverseAmount,
-            centeredAmount = centeredAmount
-        )
+        /*
+         * IMPORTANTE:
+         *
+         * reverseReceptorY es el TOP desde donde dibujamos el receptor:
+         *
+         *     height/2 - medidaFlechas
+         *
+         * pero nuestro cero lógico Reverse debe quedar en:
+         *
+         *     height/2
+         *
+         * Por eso falta exactamente una medidaFlechas.
+         */
+        finalY +=
+            medidaFlechas * reverseAmount
 
-        // StepMania Tipsy usa ARROW_SIZE lógico; aquí 64 se convierte por scaleY.
         val tipsyAmount =
             if (AttackFeatureFlags.Position.TIPSY) {
-                currentAttackState.tipsy * attackEndResetFactor
+                currentAttackState.tipsy *
+                        attackEndResetFactor
             } else {
                 0f
             }
@@ -741,10 +847,23 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             )
         }
 
-        val moveZScale = getAttackMoveZScale(column)
+        val moveZScale =
+            getAttackMoveZScale(column)
+
         if (moveZScale != 1f) {
-            val receptorY = getAttackReceptorY(column)
-            finalY = receptorY + (finalY - receptorY) * moveZScale
+            /*
+             * OJO:
+             * Para las NOTAS ahora el pivote lógico Reverse también necesita
+             * la misma compensación.
+             */
+            val receptorY =
+                getAttackReceptorY(column) +
+                        medidaFlechas * reverseAmount
+
+            finalY =
+                receptorY +
+                        (finalY - receptorY) *
+                        moveZScale
         }
 
         return finalY
@@ -1279,17 +1398,27 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
      *
      * StepMania usa CENTER_LINE_Y=160 y FADE_DIST_Y=40 con ArrowSpacing=64.
      * En Finger Dance los convertimos proporcionalmente a medidaFlechas:
+     *
      * centerLine = 2.5 * arrowSize
      * fadeDist   = 0.625 * arrowSize
      *
-     * Usamos distancia absoluta al receptor para que funcione igual en Reverse.
-     * Stealth NO se incluye aquí: ya se multiplica por separado.
+     * Usamos distancia absoluta al receptor para que funcione igual en:
+     * - Vertical normal
+     * - Reverse
+     * - Reverse parcial
+     *
+     * Stealth NO se incluye aquí:
+     * ya se multiplica por separado mediante computeAlpha().
      */
-    fun getAttackAppearanceAlpha(
-        column: Int,
-        screenY: Float
-    ): Float {
-        if (!isAttackAppearanceActive()) return 1f
+    fun getAttackAppearanceAlpha(column: Int, screenY: Float): Float {
+
+        if (!isAttackAppearanceActive()) {
+            return 1f
+        }
+
+        // -------------------------------------------------------------------------
+        // AMOUNTS ACTIVOS
+        // -------------------------------------------------------------------------
 
         val hidden =
             if (AttackFeatureFlags.Visibility.HIDDEN) {
@@ -1323,30 +1452,65 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 0f
             }
 
-        val receptorCenter =
-            getAttackReceptorCenterY(column)
+        // -------------------------------------------------------------------------
+        // DISTANCIA AL RECEPTOR
+        // -------------------------------------------------------------------------
 
-        val distance =
-            kotlin.math.abs(screenY - receptorCenter)
+        val receptorCenter = getAttackReceptorCenterY(column)
 
-        // StepMania mueve la línea central cuando Mini está activo.
-        val miniScale =
-            getAttackMiniScale()
-                .coerceAtLeast(0.10f)
+        /*
+         * Usamos distancia absoluta.
+         *
+         * NORMAL:
+         * la nota sube hacia el receptor -> distance disminuye.
+         *
+         * REVERSE:
+         * la nota baja hacia el receptor -> distance disminuye.
+         *
+         * Así Hidden/Sudden no necesitan saber en qué dirección viaja la nota.
+         */
+        val distance = abs(screenY - receptorCenter)
 
-        val centerLine =
-            (medidaFlechas * 2.5f) / miniScale
+        // -------------------------------------------------------------------------
+        // STEP MANIA METRICS
+        // -------------------------------------------------------------------------
 
-        val fadeDist =
-            medidaFlechas * 0.625f
+        /*
+         * StepMania:
+         *
+         * CENTER_LINE_Y = 160
+         * ArrowSpacing  = 64
+         *
+         * 160 / 64 = 2.5 arrows
+         *
+         * Mini desplaza efectivamente esta zona visual.
+         */
+        val miniScale = getAttackMiniScale().coerceAtLeast(0.10f)
+        val centerLine = (medidaFlechas * 2.5f) / miniScale
 
-        // StepMania separa un poco Hidden y Sudden cuando ambos están activos.
-        val hiddenSudden =
-            (hidden * sudden)
-                .coerceIn(0f, 1f)
+        /*
+         * StepMania:
+         *
+         * FADE_DIST_Y = 40
+         * ArrowSpacing = 64
+         *
+         * 40 / 64 = 0.625 arrows
+         */
+        val fadeDist = medidaFlechas// * 0.625f
 
-        fun lerp(a: Float, b: Float, t: Float): Float =
-            a + (b - a) * t
+        // -------------------------------------------------------------------------
+        // HELPERS
+        // -------------------------------------------------------------------------
+
+        /*
+         * Cuando Hidden + Sudden están activos simultáneamente,
+         * StepMania separa ligeramente ambas regiones.
+         */
+        val hiddenSudden = (hidden * sudden).coerceIn(0f, 1f)
+
+        fun lerp(a: Float, b: Float, t: Float): Float {
+            return a + (b - a) * t
+        }
 
         fun scale(
             value: Float,
@@ -1356,34 +1520,58 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             toHigh: Float
         ): Float {
             val denom = fromHigh - fromLow
-            if (kotlin.math.abs(denom) < 0.0001f) return toLow
+            if (abs(denom) < 0.0001f) {
+                return toLow
+            }
             val t = (value - fromLow) / denom
             return toLow + (toHigh - toLow) * t
         }
 
-        val hiddenEndLine =
-            centerLine +
-                    fadeDist *
-                    lerp(-1.0f, -1.25f, hiddenSudden)
+        // -------------------------------------------------------------------------
+        // HIDDEN / SUDDEN LINES
+        // -------------------------------------------------------------------------
 
-        val hiddenStartLine =
-            centerLine +
-                    fadeDist *
-                    lerp(0.0f, -0.25f, hiddenSudden)
+        /*
+         * HIDDEN
+         *
+         * Lejos del receptor:
+         *     alpha = 1
+         *
+         * Al entrar en hiddenStartLine:
+         *     comienza el fade.
+         *
+         * Al llegar a hiddenEndLine:
+         *     alpha = 0.
+         */
+        val hiddenEndLine = centerLine + fadeDist * lerp(-1.0f, -1.25f, hiddenSudden)
+        val hiddenStartLine = centerLine + fadeDist * lerp(0.0f, -0.25f, hiddenSudden)
 
-        val suddenEndLine =
-            centerLine +
-                    fadeDist *
-                    lerp(0.0f, 0.25f, hiddenSudden)
+        /*
+         * SUDDEN
+         *
+         * Hace lo contrario:
+         *
+         * lejos del receptor:
+         *     invisible
+         *
+         * al acercarse:
+         *     aparece.
+         */
+        val suddenEndLine = centerLine + fadeDist * lerp(0.0f,0.25f, hiddenSudden)
+        val suddenStartLine = centerLine + fadeDist * lerp(1.0f, 1.25f, hiddenSudden)
 
-        val suddenStartLine =
-            centerLine +
-                    fadeDist *
-                    lerp(1.0f, 1.25f, hiddenSudden)
+        // -------------------------------------------------------------------------
+        // RESULTADO ACUMULADO
+        // -------------------------------------------------------------------------
 
         var visibleAdjust = 0f
 
+        // -------------------------------------------------------------------------
+        // HIDDEN
+        // -------------------------------------------------------------------------
+
         if (hidden != 0f) {
+
             val hiddenAdjust =
                 scale(
                     value = distance,
@@ -1393,51 +1581,75 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                     toHigh = -1f
                 ).coerceIn(-1f, 0f)
 
-            visibleAdjust +=
-                hidden * hiddenAdjust
+            visibleAdjust += hidden * hiddenAdjust
         }
 
+        // -------------------------------------------------------------------------
+        // SUDDEN
+        // -------------------------------------------------------------------------
+
         if (sudden != 0f) {
+
             val suddenAdjust =
                 scale(
                     value = distance,
                     fromLow = suddenStartLine,
                     fromHigh = suddenEndLine,
                     toLow = -1f,
-                    toHigh = 0f
-                ).coerceIn(-1f, 0f)
+                    toHigh = 0f)
+                .coerceIn(-1f, 0f)
 
-            visibleAdjust +=
-                sudden * suddenAdjust
+            visibleAdjust += sudden * suddenAdjust
         }
+
+        // -------------------------------------------------------------------------
+        // BLINK
+        // -------------------------------------------------------------------------
 
         if (blink != 0f) {
-            // StepMania:
-            // sin(GetTime()*10) -> Quantize(..., BlinkModFrequency=.3333)
-            // -> SCALE(0..1, -1..0).
+            /*
+             * StepMania:
+             *
+             * sin(GetTime() * 10)
+             *
+             * después cuantiza usando:
+             *
+             * BlinkModFrequency = 0.3333
+             *
+             * y finalmente lo transforma a un ajuste -1..0.
+             */
             val frequency = 0.3333f
-            val raw =
-                kotlin.math.sin(
-                    currentAttackSongTimeSeconds * 10f
-                )
+            val raw = kotlin.math.sin(currentAttackSongTimeSeconds * 10f)
 
-            val quantized =
-                (
-                        kotlin.math.round(raw / frequency) *
-                                frequency
-                        ).coerceIn(0f, 1f)
+            val quantized = (kotlin.math.round(raw / frequency) * frequency).coerceIn(0f, 1f)
 
-            // StepMania trata Blink como efecto completo cuando está activo.
-            // Aquí mezclamos con el tween actual para no crear un salto al entrar/salir.
-            visibleAdjust +=
-                blink * (quantized - 1f)
+            /*
+             * StepMania aplica Blink completamente.
+             *
+             * Aquí lo multiplicamos por el tween del ATTACK para
+             * conservar entrada/salida suave del modifier.
+             */
+            visibleAdjust += blink * (quantized - 1f)
         }
 
+        // -------------------------------------------------------------------------
+        // RANDOM VANISH
+        // -------------------------------------------------------------------------
+
         if (randomVanish != 0f) {
-            // StepMania: fade alrededor de CENTER_LINE_Y con distancia real 80 px
-            // sobre ArrowSpacing=64. En Finger Dance: 80/64 = 1.25 arrows.
+
+            /*
+             * StepMania usa aproximadamente una zona de 80 px
+             * alrededor de CENTER_LINE_Y.
+             *
+             * ArrowSpacing = 64
+             *
+             * 80 / 64 = 1.25 arrows.
+             */
             val realFadeDist = medidaFlechas * 1.25f
-            val distFromCenterLine = kotlin.math.abs(distance - centerLine)
+
+            val distFromCenterLine = abs(distance - centerLine)
+
             val randomAdjust =
                 scale(
                     value = distFromCenterLine,
@@ -1445,13 +1657,16 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                     fromHigh = 2f * realFadeDist,
                     toLow = -1f,
                     toHigh = 0f
-                )
+                ).coerceIn(-1f, 0f)
 
             visibleAdjust += randomVanish * randomAdjust
         }
 
-        return (1f + visibleAdjust)
-            .coerceIn(0f, 1f)
+        // -------------------------------------------------------------------------
+        // ALPHA FINAL
+        // -------------------------------------------------------------------------
+
+        return (1f + visibleAdjust).coerceIn(0f, 1f)
     }
 
     /**

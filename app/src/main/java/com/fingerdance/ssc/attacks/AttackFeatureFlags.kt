@@ -14,6 +14,7 @@ object AttackFeatureFlags {
         var EXPAND: Boolean = true
         var EXPAND_INTENSITY: Float = 0.50f
         var BOOMERANG: Boolean = true
+        var EARTHWORM: Boolean = true
     }
 
     object Position {

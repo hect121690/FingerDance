@@ -75,7 +75,7 @@ class AttackEngine(
         current.blink = approach(current.blink, target.blink, getApproachAmount(target, AttackMod.BLINK, deltaSeconds))
         current.randomVanish = approach(current.randomVanish, target.randomVanish, getApproachAmount(target, AttackMod.RANDOM_VANISH, deltaSeconds))
         current.blind = approach(current.blind, target.blind, getApproachAmount(target, AttackMod.BLIND, deltaSeconds))
-
+        current.earthworm = approach(current.earthworm, target.earthworm, getApproachAmount(target, AttackMod.EARTHWORM, deltaSeconds))
         current.skew = approach(current.skew, target.skew, deltaSeconds * target.skewApproachSpeed)
         current.perspectiveTilt = approach(current.perspectiveTilt, target.perspectiveTilt, deltaSeconds * target.perspectiveTiltApproachSpeed)
 

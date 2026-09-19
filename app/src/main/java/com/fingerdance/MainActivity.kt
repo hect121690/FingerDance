@@ -132,7 +132,7 @@ lateinit var arrayGrades : ArrayList<Bitmap>
 lateinit var arrGradesDesc : ArrayList<Bitmap>
 lateinit var arrGradesDescAbrev : ArrayList<Bitmap>
 lateinit var channelFavorites : Channels
-lateinit var listFavorites : ArrayList<Song>
+var listFavorites : ArrayList<Song> = ArrayList()
 lateinit var mockListChannels : ArrayList<Nivel>
 
 lateinit var bitNR1 : Bitmap
@@ -2079,7 +2079,6 @@ class MainActivity : AppCompatActivity(), Serializable {
 
                     if (themes.getString("favorites", "").orEmpty().isNotEmpty()) {
                         val jsonListFavorites = themes.getString("favorites", "")
-
                         listFavorites = gson.fromJson(
                             jsonListFavorites,
                             object : TypeToken<ArrayList<Song>>() {}.type

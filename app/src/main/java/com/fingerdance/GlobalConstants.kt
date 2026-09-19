@@ -900,9 +900,7 @@ fun startAttackConfigRealtimeListener() {
     attacksRef.addValueEventListener(attackConfigListener!!)
 }
 
-fun applyAttackConfigSnapshot(
-    snapshot: DataSnapshot
-) {
+fun applyAttackConfigSnapshot(snapshot: DataSnapshot) {
 
     // =========================================================
     // ACCEL / SCROLL
@@ -958,6 +956,12 @@ fun applyAttackConfigSnapshot(
             .child("boomerang")
             .getValue(Boolean::class.java)
             ?: AttackFeatureFlags.AccelScroll.BOOMERANG
+
+    AttackFeatureFlags.AccelScroll.EARTHWORM =
+        accelScroll
+            .child("earthworm")
+            .getValue(Boolean::class.java)
+            ?: AttackFeatureFlags.AccelScroll.EARTHWORM
 
 
     // =========================================================

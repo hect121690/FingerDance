@@ -153,7 +153,6 @@ class PlayerSscHD (
             targetY = medidaFlechas,
             screenHeight = screen.gdxHeight.toFloat(),
             baseSpeed = baseSpeed,
-            isEW = playerSong.isEw,
             zonePerfectMs = ZONE_PERFECT,
             zoneGreatMs = ZONE_GREAT,
             zoneGoodMs = ZONE_GOOD,

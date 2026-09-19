@@ -21,7 +21,6 @@ class SscGameplayEngine(
         val targetY: Float = stepSize,
         val screenHeight: Float,
         val baseSpeed: Float,
-        val isEW: Boolean,
         val zonePerfectMs: Long,
         val zoneGreatMs: Long,
         val zoneGoodMs: Long,
@@ -161,7 +160,7 @@ class SscGameplayEngine(
     private val columnIndex = IntArray(config.columnCount)
     private val keyState = IntArray(config.columnCount)
     private val holdCompletedThisFrame = mutableSetOf<Parser.Note>()
-    private val missedTapVisuals = mutableSetOf<Parser.Note>()
+    //private val missedTapVisuals = mutableSetOf<Parser.Note>()
 
     private val noteRowKey = mutableMapOf<Parser.Note, Long>()
     private val rowStates = mutableMapOf<Long, RowState>()
@@ -682,7 +681,7 @@ class SscGameplayEngine(
 
     fun reset() {
         hitNotes.clear()
-        missedTapVisuals.clear()
+        //missedTapVisuals.clear()
         finishedHolds.clear()
         releasedHoldBeat.clear()
         holdCompletedThisFrame.clear()
@@ -711,7 +710,6 @@ class SscGameplayEngine(
             songVisibleBeat = currentBeat,
             songVisibleTimeMs = songTimeMs,
             stepSize = config.stepSize,
-            isEW = config.isEW
         ) * config.baseSpeed
     }
 
@@ -756,7 +754,6 @@ class SscGameplayEngine(
             timingData.getDisplayedSpeedPercent(
                 rawBeat = currentBeat,
                 rawTimeMs = songTimeMs,
-                isEW = config.isEW
             ) * config.baseSpeed
 
         if (displayedSpeed < config.lowSpeedThreshold) {
@@ -805,22 +802,39 @@ class SscGameplayEngine(
         songTimeMs: Double,
         renderer: Renderer
     ) {
-        val isMissVisual = missedTapVisuals.contains(note)
-        if (hitNotes.contains(note) && !isMissVisual) return
-        val offset = offsetForBeat(note.beat, currentBeat, songTimeMs)
+        /*
+         * Cualquier TAP ya resuelto deja de dibujarse:
+         * PERFECT / GREAT / GOOD / BAD / MISS.
+         */
+        if (hitNotes.contains(note)) return
+
+        val offset =
+            offsetForBeat(
+                note.beat,
+                currentBeat,
+                songTimeMs
+            )
+
         if (!isOffsetVisible(offset)) {
-            if (isMissVisual && offset <= config.drawDistanceAfterTargetsPx) {
-                missedTapVisuals.remove(note)
-            }
             return
         }
 
-        val y = config.targetY.toInt() + offset.toInt()
-        if (note.isMine){
-            renderer.drawMine(note, note.column, y)
-        }
-        else {
-            renderer.drawTap(note, note.column, y)
+        val y =
+            config.targetY.toInt() +
+                    offset.toInt()
+
+        if (note.isMine) {
+            renderer.drawMine(
+                note,
+                note.column,
+                y
+            )
+        } else {
+            renderer.drawTap(
+                note,
+                note.column,
+                y
+            )
         }
     }
 
@@ -1106,9 +1120,9 @@ class SscGameplayEngine(
 
         if (rowState == null) {
             emitJudge(note.column, JUDGE_MISS, isFromInput = false, note = note)
-            if (note.type == Parser.NoteType.TAP) {
-                missedTapVisuals.add(note)
-            }
+            //if (note.type == Parser.NoteType.TAP) {
+            //    missedTapVisuals.add(note)
+            //}
             consumeNote(note)
             return
         }
@@ -1144,15 +1158,6 @@ class SscGameplayEngine(
         )
 
         if (judge == JUDGE_MISS) {
-            for (note in rowState.notes) {
-                if (
-                    note.type == Parser.NoteType.TAP &&
-                    !rowState.hitJudgments.containsKey(note)
-                ) {
-                    missedTapVisuals.add(note)
-                }
-            }
-
             consumeRowNotes(rowState)
         }
     }

@@ -386,7 +386,7 @@ class TimmingData(
         return displayed
     }
 
-    fun getDisplayedSpeedPercent(rawBeat: Double, rawTimeMs: Double, isEW: Boolean = false): Double {
+    fun getDisplayedSpeedPercent(rawBeat: Double, rawTimeMs: Double): Double {
         if (sortedSpeeds.isEmpty()) return 1.0
 
         val index = getSpeedIndexAtBeat(rawBeat)
@@ -434,13 +434,6 @@ class TimmingData(
             }
         }
 
-        if (isEW) {
-            val beatPhase = (rawBeat % 2.0) * 4.0 * Math.PI
-            val accordion = kotlin.math.sin(beatPhase)
-            val smoothAccordion = accordion * kotlin.math.abs(accordion)
-            speed *= 1.0 + smoothAccordion * 0.12
-        }
-
         return speed
     }
 
@@ -470,14 +463,13 @@ class TimmingData(
         noteBeat: Double,
         songVisibleBeat: Double,
         songVisibleTimeMs: Double,
-        stepSize: Float,
-        isEW: Boolean
+        stepSize: Float
     ): Float {
         val noteDispBeat = getDisplayedBeat(noteBeat)
         val songDispBeat = getDisplayedBeat(songVisibleBeat)
 
         val deltaBeatDisp = noteDispBeat - songDispBeat
-        val speedPercent = getDisplayedSpeedPercent(songVisibleBeat, songVisibleTimeMs, isEW)
+        val speedPercent = getDisplayedSpeedPercent(songVisibleBeat, songVisibleTimeMs)
 
         return (deltaBeatDisp * stepSize * speedPercent).toFloat()
     }

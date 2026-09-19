@@ -698,6 +698,7 @@ class SelectSong : AppCompatActivity() {
                     "M" -> playerSong.mirror = true
                     "SN" -> playerSong.snake = true
                     "NX" -> playerSong.nx = true
+                    "EW" -> playerSong.isEw = true
                 }
             }
         }
@@ -977,6 +978,7 @@ class SelectSong : AppCompatActivity() {
                             "AP" -> playerSong.ap = false
                             "SN" -> playerSong.snake =  false
                             "NX" -> playerSong.nx = false
+                            "EW" -> playerSong.isEw = false
                         }
                     } else {
                         when (itemValues.value) {
@@ -1020,6 +1022,11 @@ class SelectSong : AppCompatActivity() {
                                     listEfectsDisplay.remove(isNx)
                                     playerSong.nx = false
                                 }
+                                val isEw = listEfectsDisplay.find { it.value == "EW" }
+                                if (isEw != null) {
+                                    listEfectsDisplay.remove(isEw)
+                                    playerSong.isEw = false
+                                }
                             }
                             "AP" -> {
                                 listEfectsDisplay.add(itemValues)
@@ -1038,6 +1045,11 @@ class SelectSong : AppCompatActivity() {
                                 if (isNx != null) {
                                     listEfectsDisplay.remove(isNx)
                                     playerSong.nx = false
+                                }
+                                val isEw = listEfectsDisplay.find { it.value == "EW" }
+                                if (isEw != null) {
+                                    listEfectsDisplay.remove(isEw)
+                                    playerSong.isEw = false
                                 }
                             }
                         }
@@ -1093,6 +1105,7 @@ class SelectSong : AppCompatActivity() {
                         when (existEffect.value) {
                             "SN" -> playerSong.snake = false
                             "NX" -> playerSong.nx = false
+                            "EW" -> playerSong.isEw = false
                         }
                     } else {
                         listEfectsDisplay.add(itemValues)
@@ -1104,6 +1117,11 @@ class SelectSong : AppCompatActivity() {
                                     listEfectsDisplay.remove(isNx)
                                     playerSong.nx = false
                                 }
+                                val isEw = listEfectsDisplay.find { it.value == "EW" }
+                                if (isEw != null) {
+                                    listEfectsDisplay.remove(isEw)
+                                    playerSong.isEw = false
+                                }
                             }
                             "NX" -> {
                                 playerSong.nx = true
@@ -1111,6 +1129,24 @@ class SelectSong : AppCompatActivity() {
                                 if (isSnake != null) {
                                     listEfectsDisplay.remove(isSnake)
                                     playerSong.snake = false
+                                }
+                                val isEw = listEfectsDisplay.find { it.value == "EW" }
+                                if (isEw != null) {
+                                    listEfectsDisplay.remove(isEw)
+                                    playerSong.isEw = false
+                                }
+                            }
+                            "EW" -> {
+                                playerSong.isEw = true
+                                val isSnake = listEfectsDisplay.find { it.value == "SN" }
+                                if (isSnake != null) {
+                                    listEfectsDisplay.remove(isSnake)
+                                    playerSong.snake = false
+                                }
+                                val isNx = listEfectsDisplay.find { it.value == "NX" }
+                                if (isNx != null) {
+                                    listEfectsDisplay.remove(isNx)
+                                    playerSong.nx = false
                                 }
                             }
                         }

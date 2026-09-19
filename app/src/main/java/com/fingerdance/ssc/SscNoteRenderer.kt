@@ -255,17 +255,13 @@ class SscNoteRenderer(
         rotation: Float = 0f,
         reverseY: Boolean = true,
         allowRoll: Boolean = true,
-        sourceY: Float = activeSourceY,
-        appearanceCenterY: Float = y + height * 0.5f
+        sourceY: Float = activeSourceY
     ) {
         val miniScale = computeScale() * activeDepthScale
         val reverseScaleY = if (reverseY) computeScaleY(activeColumn) else 1f
         val centerY = y + height * 0.5f
 
-        // Hidden/Sudden/Blink deben usar el Y lógico del objeto, no el Y ya
-        // transformado por NoteCellMetrics. El BODY trabaja en ese espacio lógico,
-        // así que HEAD/BOTTOM/TAP/MINE deben evaluarse en el mismo espacio.
-        withAppearanceAlpha(appearanceCenterY) {
+        withAppearanceAlpha(centerY) {
             if (!luaNotes.flipX && !attack3DActive) {
                 batch.draw(
                     region,
@@ -576,8 +572,7 @@ class SscNoteRenderer(
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat(),
-                    appearanceCenterY = bottomY + arrowSize * 0.5f
+                    sourceY = y2.toFloat()
                 )
             }
 
@@ -591,8 +586,7 @@ class SscNoteRenderer(
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat(),
-                    appearanceCenterY = headY + arrowSize * 0.5f
+                    sourceY = y.toFloat()
                 )
             }
 
@@ -616,8 +610,7 @@ class SscNoteRenderer(
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat(),
-                    appearanceCenterY = bottomY + arrowSize * 0.5f
+                    sourceY = y2.toFloat()
                 )
             }
 
@@ -630,8 +623,7 @@ class SscNoteRenderer(
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat(),
-                    appearanceCenterY = headY + arrowSize * 0.5f
+                    sourceY = y.toFloat()
                 )
             }
         }
@@ -718,8 +710,7 @@ class SscNoteRenderer(
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat(),
-                    appearanceCenterY = bottomY + arrowSize * 0.5f
+                    sourceY = y2.toFloat()
                 )
             }
 
@@ -746,8 +737,7 @@ class SscNoteRenderer(
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat(),
-                    appearanceCenterY = headY + arrowSize * 0.5f
+                    sourceY = y.toFloat()
                 )
             }
 
@@ -782,8 +772,7 @@ class SscNoteRenderer(
                     width = bottom.width,
                     height = bottom.height,
                     allowRoll = false,
-                    sourceY = y2.toFloat(),
-                    appearanceCenterY = bottomY + arrowSize * 0.5f
+                    sourceY = y2.toFloat()
                 )
             }
 
@@ -806,8 +795,7 @@ class SscNoteRenderer(
                     height = head.height,
                     rotation = rotation,
                     allowRoll = false,
-                    sourceY = y.toFloat(),
-                    appearanceCenterY = headY + arrowSize * 0.5f
+                    sourceY = y.toFloat()
                 )
             }
 
@@ -880,8 +868,7 @@ class SscNoteRenderer(
                 width = bottom.width,
                 height = bottom.height,
                 allowRoll = false,
-                sourceY = y2.toFloat(),
-                appearanceCenterY = bottomY + arrowSize * 0.5f
+                sourceY = y2.toFloat()
             )
         }
 
@@ -904,8 +891,7 @@ class SscNoteRenderer(
                 height = head.height,
                 rotation = rotation,
                 allowRoll = false,
-                sourceY = y.toFloat(),
-                appearanceCenterY = headY + arrowSize * 0.5f
+                sourceY = y.toFloat()
             )
         }
 
@@ -925,11 +911,11 @@ class SscNoteRenderer(
             val limit = initArrow ?: return
             if (finalY < limit) {
                 batch.setColor(1f, 1f, 1f, getAlpha(finalY, limit.toDouble()) * activeNoteAlpha)
-                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
             }
         } else {
-            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
         }
     }
     // -------------------------------------------------------------------------
@@ -945,13 +931,13 @@ class SscNoteRenderer(
             val appearLimit = initArrow ?: return
             if (finalY < appearLimit && finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(y = finalY, appearLimit = appearLimit) * activeNoteAlpha)
-                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
             }
         } else {
             if (finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishAlpha(finalY) * activeNoteAlpha)
-                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+                drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
             }
         }
@@ -967,7 +953,7 @@ class SscNoteRenderer(
 
         if (finalY < measure) {
             batch.setColor(1f, 1f, 1f, getAlpha(finalY, measure) * activeNoteAlpha)
-            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
             resetColor()
         }
     }
@@ -984,11 +970,11 @@ class SscNoteRenderer(
             val limit = initArrow ?: return
             if (finalY < limit) {
                 batch.setColor(1f, 1f, 1f, getAlpha(finalY, limit.toDouble()) * activeNoteAlpha)
-                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
             }
         } else {
-            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
         }
     }
     // -------------------------------------------------------------------------
@@ -1004,13 +990,13 @@ class SscNoteRenderer(
             val appearLimit = initArrow ?: return
             if (finalY < appearLimit && finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(y = finalY, appearLimit = appearLimit) * activeNoteAlpha)
-                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
             }
         } else {
             if (finalY > measureVanish) {
                 batch.setColor(1f, 1f, 1f, getVanishAlpha(finalY) * activeNoteAlpha)
-                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+                drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
             }
         }
@@ -1026,7 +1012,7 @@ class SscNoteRenderer(
 
         if (finalY < measure) {
             batch.setColor(1f, 1f, 1f, getAlpha(finalY, measure) * activeNoteAlpha)
-            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation, appearanceCenterY = finalY + arrowSize * 0.5f)
+            drawFlipRegion(region = mines[frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
             resetColor()
         }
     }
@@ -1118,19 +1104,17 @@ class SscNoteRenderer(
 
         resetColor()
 
-        // IMPORTANTE: este BODY también debe pasar por Hidden/Sudden/Blink.
-        // Si el appearance está activo, drawBodyPossiblySegmented() lo divide
-        // en tiras y aplica el alpha por posición, igual que el resto del HOLD.
-        drawBodyPossiblySegmented(
-            region = region,
-            x = centeredX,
-            y = y,
-            width = scaledWidth,
-            height = height,
-            fullBodyY = y,
-            fullBodyHeight = height,
-            shader = appearFadeShader
-        )
+        val bodyCenterY = y + height * 0.5f
+
+        withAppearanceAlpha(bodyCenterY) {
+            batch.draw(
+                region,
+                centeredX,
+                y,
+                scaledWidth,
+                height
+            )
+        }
 
         batch.shader = previousShader
     }

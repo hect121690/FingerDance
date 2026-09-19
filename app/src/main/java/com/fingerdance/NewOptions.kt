@@ -1,6 +1,5 @@
 package com.fingerdance
 
-import android.R.attr.singleLine
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -49,10 +48,10 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import android.graphics.SurfaceTexture
-import android.graphics.drawable.ColorDrawable
 import android.media.MediaPlayer
 import android.view.Surface
 import android.view.TextureView
+import android.widget.ImageButton
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -97,6 +96,8 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.google.android.material.button.MaterialButton
 import java.util.Locale
 import androidx.core.graphics.toColorInt
+import com.google.gson.Gson
+import java.util.zip.ZipInputStream
 
 private var fileNameChannel = ""
 
@@ -209,6 +210,24 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
     private val pickPreviewFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             saveFileToDestination(it)
+        }
+    }
+
+    private var adminSongTargetFolder: File? = null
+
+    private val pickAdminSongZip = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != AppCompatActivity.RESULT_OK) return@registerForActivityResult
+        val uri = result.data?.data ?: return@registerForActivityResult
+        val targetFolder = adminSongTargetFolder ?: return@registerForActivityResult
+        lifecycleScope.launch {
+            try {
+                installSongZip(uri, targetFolder)
+                themes.edit().putString("allTunes", "").apply()
+                Toast.makeText(requireContext(), "Canción agregada correctamente", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(requireContext(), "No se pudo agregar la canción: ${e.message ?: "Error desconocido"}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -347,6 +366,7 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         setupDeleteChannel(view)
         setupCreateChannel(view)
         setupInstallChannels(view)
+        setupAdminSongs(view)
         setupDownloadChannel()
     }
 
@@ -738,6 +758,170 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
     }
 
+    private fun setupAdminSongs(view: View) {
+        val btnAdminSongs = view.findViewById<Button>(R.id.btn_admin_songs)
+        btnAdminSongs.setOnClickListener {
+            showAdminChannelsDialog()
+        }
+    }
+
+    private fun showAdminChannelsDialog() {
+        val colorCyan = Color.rgb(0, 229, 255)
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
+        val colorText = Color.rgb(225, 225, 235)
+
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 18, 28, 14)
+        }
+
+        val title = TextView(requireContext()).apply {
+            text = "ADMINISTRAR CANCIONES"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
+            setPadding(0, 4, 0, 8)
+        }
+
+        val description = TextView(requireContext()).apply {
+            text = "Aquí puedes agregar o eliminar canciones de un canal en específico.\nSelecciona el Canal que quieres administrar."
+            setTextColor(colorText)
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(4, 0, 4, 20)
+        }
+
+        val scrollView = ScrollView(requireContext()).apply {
+            isFillViewport = false
+            isVerticalScrollBarEnabled = true
+        }
+
+        val channelsContainer = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        listChannels.forEach { channel ->
+            val channelRow = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(20, 10, 20, 10)
+                background = neonCardDrawable(colorCard, colorBorder, 1)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, 12)
+                }
+            }
+
+            val channelName = TextView(requireContext()).apply {
+                text = channel.nombre
+                setTextColor(Color.WHITE)
+                textSize = 16f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(12, 14, 12, 14)
+                setShadowLayer(4f, 0f, 0f, Color.argb(150, 0, 229, 255))
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+
+            val arrow = TextView(requireContext()).apply {
+                text = "›"
+                setTextColor(colorCyan)
+                textSize = 30f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setPadding(12, 0, 8, 0)
+            }
+
+            channelRow.addView(channelName)
+            channelRow.addView(arrow)
+            channelsContainer.addView(channelRow)
+        }
+
+        scrollView.addView(channelsContainer)
+        scrollView.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (height * 0.45f).toInt()
+        )
+
+        container.addView(title)
+        container.addView(description)
+        container.addView(scrollView)
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
+            .setView(container)
+            .setCancelable(true)
+            .setNegativeButton("CANCELAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
+            for (i in 0 until channelsContainer.childCount) {
+                val row = channelsContainer.getChildAt(i)
+                val channel = listChannels[i]
+
+                row.setOnClickListener {
+                    dialog.dismiss()
+                    showSongsDialog(channel)
+                }
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun setupDownloadChannel() {
+        downloadButtonChannel.setOnClickListener {
+            if (selectedChannels.isEmpty()) {
+                Toast.makeText(requireContext(), "Selecciona al menos un canal", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val totalSelected = selectedChannels.size
+            val builder = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
+            builder.setTitle("Aviso")
+            builder.setMessage(
+                if (totalSelected == 1) {
+                    "Se descargará el canal seleccionado. " +
+                            "Se recomienda usar una conexión Wi-Fi."
+                } else {
+                    "Se descargarán $totalSelected canales. " +
+                            "Se recomienda usar una conexión Wi-Fi."
+                }
+            )
+
+            builder.setCancelable(false)
+
+            builder.setPositiveButton("Aceptar") { _, _ ->
+                when {
+                    isUsingWifi(requireContext()) -> { downloadSelectedChannels() }
+                    isUsingMobileData(requireContext()) -> { mostrarDialogoDatosMoviles() }
+                    else -> {
+                        Toast.makeText(requireContext(), "No se detectó una conexión a Internet", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            builder.setNegativeButton("Cerrar") { dialog, _ ->
+                dialog.dismiss()
+            }
+
+            builder.show()
+        }
+    }
+
     private fun showCreateChannelDialog() {
         val colorCard = Color.argb(90, 8, 12, 32)
         val colorBorder = Color.argb(130, 0, 229, 255)
@@ -839,46 +1023,6 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
         }
 
         dialog.show()
-    }
-
-    private fun setupDownloadChannel() {
-        downloadButtonChannel.setOnClickListener {
-            if (selectedChannels.isEmpty()) {
-                Toast.makeText(requireContext(), "Selecciona al menos un canal", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val totalSelected = selectedChannels.size
-            val builder = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
-            builder.setTitle("Aviso")
-            builder.setMessage(
-                if (totalSelected == 1) {
-                    "Se descargará el canal seleccionado. " +
-                            "Se recomienda usar una conexión Wi-Fi."
-                } else {
-                    "Se descargarán $totalSelected canales. " +
-                            "Se recomienda usar una conexión Wi-Fi."
-                }
-            )
-
-            builder.setCancelable(false)
-
-            builder.setPositiveButton("Aceptar") { _, _ ->
-                when {
-                    isUsingWifi(requireContext()) -> { downloadSelectedChannels() }
-                    isUsingMobileData(requireContext()) -> { mostrarDialogoDatosMoviles() }
-                    else -> {
-                        Toast.makeText(requireContext(), "No se detectó una conexión a Internet", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-
-            builder.setNegativeButton("Cerrar") { dialog, _ ->
-                dialog.dismiss()
-            }
-
-            builder.show()
-        }
     }
 
     private fun downloadSelectedChannels() {
@@ -986,6 +1130,419 @@ class CancionesFragment : Fragment(R.layout.options_canciones) {
                     .show()
             }
         }
+    }
+
+    private fun showSongsDialog(channel: Channels) {
+        val colorCyan = Color.rgb(0, 229, 255)
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
+        val colorDanger = Color.rgb(255, 55, 95)
+
+        val channelFolder = File(channel.banner).parentFile
+
+        if (channelFolder == null) {
+            Toast.makeText(requireContext(), "No se encontró la carpeta del canal", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val songsInChannel = channel.listCanciones.filter { song ->
+            try {
+                File(song.rutaSong).parentFile?.parentFile?.canonicalFile == channelFolder.canonicalFile
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 18, 28, 14)
+        }
+
+        val titleRow = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 14)
+        }
+
+        val title = TextView(requireContext()).apply {
+            text = "CANCIONES"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER_VERTICAL
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val addButton = TextView(requireContext()).apply {
+            text = "+"
+            contentDescription = "Agregar canción"
+            setTextColor(Color.WHITE)
+            textSize = 27f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            background = circleDrawable(Color.argb(180, 0, 120, 150), colorCyan, 2)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(46), dpToPx(46))
+        }
+
+        titleRow.addView(title)
+        titleRow.addView(addButton)
+
+        val channelText = TextView(requireContext()).apply {
+            text = channel.nombre
+            setTextColor(colorCyan)
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(4, 0, 4, 14)
+        }
+
+        val scrollView = ScrollView(requireContext()).apply {
+            isFillViewport = false
+            isVerticalScrollBarEnabled = true
+        }
+
+        val songsContainer = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        if (songsInChannel.isEmpty()) {
+            val emptyText = TextView(requireContext()).apply {
+                text = "Este canal no contiene canciones."
+                setTextColor(Color.rgb(170, 175, 185))
+                textSize = 15f
+                gravity = Gravity.CENTER
+                setPadding(20, 40, 20, 40)
+            }
+            songsContainer.addView(emptyText)
+        } else {
+            songsInChannel.forEach { song ->
+                val row = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(18, 8, 12, 8)
+                    background = neonCardDrawable(colorCard, colorBorder, 1)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, 12)
+                    }
+                }
+
+                val songText = TextView(requireContext()).apply {
+                    text = "${song.title} - ${if (song.isSSC) "SSC" else "KSF"}"
+                    setTextColor(Color.WHITE)
+                    textSize = 15f
+                    typeface = Typeface.DEFAULT_BOLD
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(10, 14, 10, 14)
+                    maxLines = 2
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                }
+
+                val deleteButton = ImageButton(requireContext()).apply {
+                    setImageResource(android.R.drawable.ic_menu_delete)
+                    setColorFilter(colorDanger)
+                    setBackgroundColor(Color.TRANSPARENT)
+                    contentDescription = "Eliminar ${song.title}"
+                    setPadding(16, 16, 16, 16)
+                    layoutParams = LinearLayout.LayoutParams(dpToPx(50), dpToPx(50))
+                }
+
+                deleteButton.setOnClickListener {
+                    showDeleteSongConfirmation(
+                        songName = song.title,
+                        songPath = song.rutaSong,
+                        row = row,
+                        songsContainer = songsContainer
+                    )
+                }
+
+                row.addView(songText)
+                row.addView(deleteButton)
+                songsContainer.addView(row)
+            }
+        }
+
+        scrollView.addView(songsContainer)
+        scrollView.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (height * 0.48f).toInt()
+        )
+
+        container.addView(titleRow)
+        container.addView(channelText)
+        container.addView(scrollView)
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
+            .setView(container)
+            .setCancelable(true)
+            .setNegativeButton("CERRAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
+            addButton.setOnClickListener {
+                showAddSongDialog(channelFolder)
+            }
+        }
+
+        dialog.setOnDismissListener {
+            adminSongTargetFolder = null
+        }
+
+        dialog.show()
+    }
+
+    private fun showDeleteSongConfirmation(songName: String, songPath: String, row: View, songsContainer: LinearLayout) {
+        val colorDanger = Color.rgb(255, 55, 95)
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.DeleteChannelDialog)
+            .setTitle("Eliminar canción")
+            .setMessage("¿Desea borrar la canción $songName?")
+            .setCancelable(false)
+            .setPositiveButton("ELIMINAR", null)
+            .setNegativeButton("CANCELAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
+                setTextColor(colorDanger)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val songFolder = File(songPath).parentFile
+
+                if (songFolder == null || !songFolder.exists()) {
+                    Toast.makeText(requireContext(), "No se encontró la carpeta de la canción", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                val deleted = try {
+                    songFolder.deleteRecursively()
+                } catch (_: Exception) {
+                    false
+                }
+
+                if (!deleted) {
+                    Toast.makeText(requireContext(), "No se pudo eliminar la canción", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                if(listFavorites.isNotEmpty()) {
+                    listFavorites.removeAll { favorite ->
+                        try {
+                            File(favorite.rutaSong).canonicalPath == File(songPath).canonicalPath
+                        } catch (_: Exception) {
+                            favorite.rutaSong == songPath
+                        }
+                    }
+                    themes.edit().putString("favorites", Gson().toJson(listFavorites))
+                }
+                themes.edit().putString("allTunes", "").apply()
+
+                songsContainer.removeView(row)
+
+                Toast.makeText(
+                    requireContext(),
+                    "Canción eliminada correctamente",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun showAddSongDialog(channelFolder: File) {
+        val colorCyan = Color.rgb(0, 229, 255)
+        val colorCard = Color.argb(90, 8, 12, 32)
+        val colorBorder = Color.argb(130, 0, 229, 255)
+        val colorText = Color.rgb(225, 225, 235)
+
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 18, 28, 14)
+        }
+
+        val title = TextView(requireContext()).apply {
+            text = "AGREGAR CANCIÓN"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setShadowLayer(4f, 0f, 0f, Color.argb(180, 0, 229, 255))
+            setPadding(0, 4, 0, 18)
+        }
+
+        val card = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(22, 18, 22, 18)
+            background = neonCardDrawable(colorCard, colorBorder, 1)
+        }
+
+        val description = TextView(requireContext()).apply {
+            text = "Selecciona de tu dispositivo la canción que quieres agregar, debe estar en formato ZIP y muy importante, debes asegurarte de saber si la canción es formato KSF o SSC, al igual que el canal donde la vas a agregar."
+            setTextColor(colorText)
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 12)
+        }
+
+        val requirement = TextView(requireContext()).apply {
+            text = "El contenido del ZIP será descomprimido dentro del canal seleccionado."
+            setTextColor(colorCyan)
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setShadowLayer(3f, 0f, 0f, Color.argb(150, 0, 229, 255))
+        }
+
+        card.addView(description)
+        card.addView(requirement)
+
+        container.addView(title)
+        container.addView(card)
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.TransparentDialog)
+            .setView(container)
+            .setCancelable(false)
+            .setPositiveButton("SELECCIONAR", null)
+            .setNegativeButton("CANCELAR", null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val negative = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+
+            positive.setTextColor(colorCyan)
+            positive.typeface = Typeface.DEFAULT_BOLD
+            negative.setTextColor(Color.WHITE)
+            negative.typeface = Typeface.DEFAULT_BOLD
+
+            positive.setOnClickListener {
+                adminSongTargetFolder = channelFolder
+                dialog.dismiss()
+
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/zip"
+
+                    putExtra(
+                        DocumentsContract.EXTRA_INITIAL_URI,
+                        Uri.fromFile(
+                            Environment.getExternalStoragePublicDirectory(
+                                Environment.DIRECTORY_DOWNLOADS
+                            )
+                        )
+                    )
+                }
+
+                pickAdminSongZip.launch(intent)
+            }
+
+            negative.setOnClickListener {
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
+    }
+
+    private suspend fun installSongZip(uri: Uri, targetFolder: File) = withContext(Dispatchers.IO) {
+        if (!targetFolder.exists() && !targetFolder.mkdirs()) {
+            throw IllegalStateException("No se pudo acceder a la carpeta del canal")
+        }
+
+        val originalName = getFileNameFromUri(uri)
+        val zipName = if (originalName.endsWith(".zip", true)) originalName else "$originalName.zip"
+        val destinationZip = File(targetFolder, zipName)
+
+        requireContext().contentResolver.openInputStream(uri)?.use { input ->
+            BufferedInputStream(input).use { bufferedInput ->
+                BufferedOutputStream(FileOutputStream(destinationZip)).use { output ->
+                    bufferedInput.copyTo(output)
+                }
+            }
+        } ?: throw IllegalStateException("No se pudo abrir el archivo ZIP")
+
+        try {
+            unzipSongFile(destinationZip, targetFolder)
+        } finally {
+            destinationZip.delete()
+        }
+    }
+
+    private fun unzipSongFile(zipFile: File, destinationFolder: File) {
+        val destinationCanonical = destinationFolder.canonicalFile
+
+        ZipInputStream(BufferedInputStream(zipFile.inputStream())).use { zip ->
+            var entry = zip.nextEntry
+
+            while (entry != null) {
+                val destination = File(destinationFolder, entry.name).canonicalFile
+
+                if (!destination.path.startsWith(destinationCanonical.path + File.separator)) {
+                    throw SecurityException("El ZIP contiene una ruta no válida")
+                }
+
+                if (entry.isDirectory) {
+                    if (!destination.exists()) destination.mkdirs()
+                } else {
+                    destination.parentFile?.let {
+                        if (!it.exists()) it.mkdirs()
+                    }
+
+                    BufferedOutputStream(FileOutputStream(destination)).use { output ->
+                        val buffer = ByteArray(65_536)
+                        var read = zip.read(buffer)
+
+                        while (read != -1) {
+                            output.write(buffer, 0, read)
+                            read = zip.read(buffer)
+                        }
+
+                        output.flush()
+                    }
+                }
+
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+    }
+
+    private fun circleDrawable(fillColor: Int, borderColor: Int, borderWidthDp: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(fillColor)
+            setStroke(dpToPx(borderWidthDp), borderColor)
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private suspend fun downloadChannelFromDrive(fileId: String, fileName: String, context: Context, progressCallback: (Int) -> Unit): File? = withContext(Dispatchers.IO) {

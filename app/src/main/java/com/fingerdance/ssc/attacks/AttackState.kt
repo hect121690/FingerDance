@@ -9,6 +9,7 @@ data class AttackState(
     var wave: Float = 0f,
     var expand: Float = 0f,
     var boomerang: Float = 0f,
+    var earthworm: Float = 0f,
 
     var drunk: Float = 0f,
     var dizzy: Float = 0f,
@@ -66,6 +67,7 @@ data class AttackState(
             AttackMod.WAVE -> wave = level
             AttackMod.EXPAND -> expand = level
             AttackMod.BOOMERANG -> boomerang = level
+            AttackMod.EARTHWORM -> earthworm = level
 
             AttackMod.DRUNK -> drunk = level
             AttackMod.DIZZY -> dizzy = level
