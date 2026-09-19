@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.GlyphLayout
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
@@ -540,7 +541,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 barBlack.setPosition(medidaFlechas, 0f)
                 barRed.setSize(maxWidth, maxlHeight)
                 barRed.setPosition(medidaFlechas, 0f)
-
+                drawSongTime(songTimeMs)
                 drawEndingFade(delta)
                 batch.end()
             } else {
@@ -604,7 +605,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 barBlack.setPosition(medidaFlechas, 0f)
                 barRed.setSize(maxWidth, maxlHeight)
                 barRed.setPosition(medidaFlechas, 0f)
-
+                drawSongTime(songTimeMs)
                 drawEndingFade(delta)
                 batch.end()
             }
@@ -613,6 +614,20 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
 
         stage.draw()
+    }
+
+    private fun drawSongTime(songTimeMs: Double) {
+        val totalSeconds = (songTimeMs / 1000.0).toInt().coerceAtLeast(0)
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        val text = String.format("%02d:%02d", minutes, seconds)
+
+        val layout = GlyphLayout(font, text)
+
+        val x = Gdx.graphics.width - layout.width - 50f
+        val y = 80f
+
+        font.draw(batch, text, x, y)
     }
 
     fun getAttackMiniScale(): Float {
