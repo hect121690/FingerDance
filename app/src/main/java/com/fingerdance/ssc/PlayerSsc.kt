@@ -353,8 +353,12 @@ class PlayerSsc(
             computeScaleY = { column -> screen.getAttackReverseScaleY(column) },
             computeScale = { screen.getAttackVisualScale() },
             computeAlpha = { screen.getAttackStealthAlpha() },
-            computeAppearanceAlpha = { column, screenY ->
-                screen.getAttackAppearanceAlpha(column, screenY)
+            computeAppearanceAlpha = { column, sourceY ->
+                screen.getAttackAppearanceAlpha(
+                    column = column,
+                    sourceY = sourceY,
+                    baseScrollSpeed = baseSpeed
+                )
             },
             computeAppearanceActive = {
                 screen.isAttackAppearanceActive()
@@ -800,7 +804,8 @@ class PlayerSsc(
             y2 = y2,
             frame = arrowFrame,
             isAp = isAp,
-            isVanish = isVanish
+            isVanish = isVanish,
+            isAnchored = gameplayEngine.isHoldVisuallyAnchored(note)
         )
     }
 

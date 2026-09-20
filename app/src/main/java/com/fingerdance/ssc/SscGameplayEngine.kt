@@ -838,6 +838,27 @@ class SscGameplayEngine(
         }
     }
 
+    /**
+     * Indica si el HEAD de una HOLD debe permanecer visualmente anclado al receptor.
+     *
+     * El renderer usa este dato para colocar el head/body exactamente sobre el
+     * receptor FINAL de la columna (incluyendo Reverse/Split/Alternate/Cross),
+     * sin cambiar la matemática de trayectoria de las notas que todavía viajan.
+     */
+    fun isHoldVisuallyAnchored(note: Parser.Note): Boolean {
+        val column = note.column
+        if (column !in config.activeColumns) return false
+
+        val heldNow =
+            longNotes[column].pressed &&
+                    longNotes[column].note === note &&
+                    isColumnPhysicallyHeld(column)
+
+        return heldNow ||
+                holdCompletedThisFrame.contains(note) ||
+                (note.isFake && note.isPressed)
+    }
+
     private fun renderHoldCandidate(
         note: Parser.Note,
         currentBeat: Double,

@@ -1,6 +1,5 @@
 package com.fingerdance.ssc
 
-import com.badlogic.gdx.Gdx
 import com.fingerdance.ssc.Parser.BpmSegment
 import com.fingerdance.ssc.Parser.Delay
 import com.fingerdance.ssc.Parser.Fake
@@ -8,6 +7,7 @@ import com.fingerdance.ssc.Parser.Scroll
 import com.fingerdance.ssc.Parser.Speed
 import com.fingerdance.ssc.Parser.Stop
 import com.fingerdance.ssc.Parser.Warp
+import kotlin.math.abs
 import kotlin.math.min
 
 class TimmingData(
@@ -132,7 +132,7 @@ class TimmingData(
             addNormalSegment(e.beat)
 
             val sameBeatEvents = mutableListOf<Event>()
-            while (i < events.size && kotlin.math.abs(events[i].beat - e.beat) <= EPS) {
+            while (i < events.size && abs(events[i].beat - e.beat) <= EPS) {
                 sameBeatEvents.add(events[i])
                 i++
             }
@@ -224,8 +224,8 @@ class TimmingData(
         if (beat < seg.beatStart || beat >= seg.beatEnd) return false
 
         // StepMania permite stop/delay dentro de warp.
-        val hasStopHere = sortedStops.any { kotlin.math.abs(it.beat - beat) <= EPS }
-        val hasDelayHere = sortedDelays.any { kotlin.math.abs(it.beat - beat) <= EPS }
+        val hasStopHere = sortedStops.any { abs(it.beat - beat) <= EPS }
+        val hasDelayHere = sortedDelays.any { abs(it.beat - beat) <= EPS }
 
         return !hasStopHere && !hasDelayHere
     }
@@ -308,6 +308,14 @@ class TimmingData(
     }
 
     fun beatToTime(beat: Double): Double {
+        val stopAtBeat = timeSegments.firstOrNull {
+            it.isStop && abs(it.beatStart - beat) <= EPS
+        }
+
+        if (stopAtBeat != null) {
+            return stopAtBeat.timeStartMs
+        }
+
         val seg = findSegmentByBeat(beat)
 
         return when {
@@ -320,7 +328,7 @@ class TimmingData(
 
     private fun getDelayAtBeat(beat: Double): Double {
         return sortedDelays
-            .firstOrNull { kotlin.math.abs(it.beat - beat) <= EPS }
+            .firstOrNull { abs(it.beat - beat) <= EPS }
             ?.durationMs
             ?: 0.0
     }

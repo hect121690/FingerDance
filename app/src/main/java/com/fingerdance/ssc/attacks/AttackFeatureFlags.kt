@@ -8,7 +8,6 @@ object AttackFeatureFlags {
 
     object AccelScroll {
         var BOOST: Boolean = true
-        var BOOST_INTENSITY: Float = 0.50f
         var BRAKE: Boolean = true
         var WAVE: Boolean = true
         var EXPAND: Boolean = true

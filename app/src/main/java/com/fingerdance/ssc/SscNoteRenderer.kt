@@ -52,10 +52,11 @@ class SscNoteRenderer(
     private val computeAlpha: () -> Float = { 1f },
 
     /**
-     * Hidden/Sudden/Blink dependen de la posición visual de cada pieza.
-     * Recibe columna + Y central en pantalla.
+     * Hidden/Sudden/Blink/RandomVanish reciben la posición SOURCE de la pieza,
+     * antes de Reverse y antes de la geometría visual final.  GameScreenSsc la
+     * convierte al espacio lógico de StepMania (0..480 para el área útil).
      */
-    private val computeAppearanceAlpha: (column: Int, screenY: Float) -> Float = { _, _ -> 1f },
+    private val computeAppearanceAlpha: (column: Int, sourceY: Float) -> Float = { _, _ -> 1f },
     private val computeAppearanceActive: () -> Boolean = { false },
 
     /** Escala perspectiva segura de MoveZ para la columna activa. */
@@ -92,6 +93,13 @@ class SscNoteRenderer(
     private var activeHoldSourceStartY = 0f
     private var activeHoldSourceEndY = 0f
 
+    /**
+     * true mientras el engine mantiene una HOLD agarrada en el receptor.
+     * Sólo modifica la geometría del HEAD/BODY de esa HOLD; no toca TAPs ni
+     * la fórmula general de Reverse.
+     */
+    private var activeHoldAnchored = false
+
     // Sólo segmentamos bodies cuando alguno de estos tres ATTACKS está realmente activo.
     private val attack3DActive: Boolean
         get() =
@@ -114,19 +122,19 @@ class SscNoteRenderer(
     private fun getBodyWidth(column: Int): Float = cellMetrics[column].drawWidth(arrowSize)
     private fun transformedY(column: Int, y: Int): Float = computeY(column, y.toFloat())
 
-    private fun appearanceAlphaAt(screenCenterY: Float): Float =
+    private fun appearanceAlphaAt(sourceY: Float): Float =
         computeAppearanceAlpha(
             activeColumn,
-            screenCenterY
+            sourceY
         ).coerceIn(0f, 1f)
 
     private fun withAppearanceAlpha(
-        screenCenterY: Float,
+        sourceY: Float,
         draw: () -> Unit
     ) {
         val previousColor = batch.color.cpy()
         val appearance =
-            appearanceAlphaAt(screenCenterY)
+            appearanceAlphaAt(sourceY)
 
         batch.setColor(
             previousColor.r,
@@ -219,13 +227,15 @@ class SscNoteRenderer(
         y2: Int,
         frame: Int,
         isAp: Boolean,
-        isVanish: Boolean
+        isVanish: Boolean,
+        isAnchored: Boolean = false
     ) {
         val previousColor = batch.color.cpy()
         activeColumn = column
         activeSourceY = y.toFloat()
         activeHoldSourceStartY = y.toFloat()
         activeHoldSourceEndY = y2.toFloat()
+        activeHoldAnchored = isAnchored
         activeNoteAlpha = computeAlpha().coerceIn(0f, 1f)
         activeDepthScale = computeDepthScale(column).coerceIn(0.60f, 1.60f)
 
@@ -243,8 +253,19 @@ class SscNoteRenderer(
             batch.color = previousColor
             activeNoteAlpha = 1f
             activeDepthScale = 1f
+            activeHoldAnchored = false
         }
     }
+
+    /**
+     * Posición lógica TOP del receptor real de la columna.
+     *
+     * computeReceptorCenterY() ya incluye Reverse/Split/Alternate/Cross/Tipsy.
+     * Restamos media flecha porque SscNoteRenderer trabaja con Y lógico de TOP,
+     * igual que getCellDraw()/drawReceptor.
+     */
+    private fun anchoredHoldHeadY(column: Int): Float =
+        computeReceptorCenterY(column) - (arrowSize * 0.5f)
 
     private fun drawFlipRegion(
         region: TextureRegion,
@@ -261,7 +282,7 @@ class SscNoteRenderer(
         val reverseScaleY = if (reverseY) computeScaleY(activeColumn) else 1f
         val centerY = y + height * 0.5f
 
-        withAppearanceAlpha(centerY) {
+        withAppearanceAlpha(sourceY) {
             if (!luaNotes.flipX && !attack3DActive) {
                 batch.draw(
                     region,
@@ -323,7 +344,7 @@ class SscNoteRenderer(
         val centeredX = x + (width - scaledWidth) * 0.5f
 
         if (!luaNotes.flipX && !attack3DActive && !computeAppearanceActive()) {
-            withAppearanceAlpha(y + height * 0.5f) {
+            withAppearanceAlpha(activeSourceY) {
                 batch.draw(
                     region,
                     centeredX,
@@ -383,7 +404,7 @@ class SscNoteRenderer(
                 bodyHeight = fullBodyHeight
             )
 
-            withAppearanceAlpha(centerY) {
+            withAppearanceAlpha(activeSourceY) {
                 batch.draw(region, x, y, width, height)
             }
             return
@@ -437,7 +458,7 @@ class SscNoteRenderer(
                 stepManiaYOffset = computeStepManiaYOffset(segmentSourceY)
             )
 
-            withAppearanceAlpha(sy + sh * 0.5f) {
+            withAppearanceAlpha(segmentSourceY) {
                 batch.draw(
                     texture,
                     x,
@@ -517,7 +538,13 @@ class SscNoteRenderer(
     // -------------------------------------------------------------------------
     private fun drawLongNoteNormal(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
-        val headY = transformedY(column, y)
+        val transformedHeadY = transformedY(column, y)
+        val headY =
+            if (activeHoldAnchored) {
+                anchoredHoldHeadY(column)
+            } else {
+                transformedHeadY
+            }
         val bottomY = transformedY(column, y2)
         val head = getCellDraw(column, logicalX, headY)
         val bottom = getCellDraw(column, logicalX, bottomY)
@@ -634,7 +661,13 @@ class SscNoteRenderer(
     // -------------------------------------------------------------------------
     private fun drawLongNoteVanish(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
-        val headY = transformedY(column, y)
+        val transformedHeadY = transformedY(column, y)
+        val headY =
+            if (activeHoldAnchored) {
+                anchoredHoldHeadY(column)
+            } else {
+                transformedHeadY
+            }
         val bottomY = transformedY(column, y2)
         val head = getCellDraw(column, logicalX, headY)
         val bottom = getCellDraw(column, logicalX, bottomY)
@@ -808,7 +841,13 @@ class SscNoteRenderer(
     // -------------------------------------------------------------------------
     private fun drawLongNoteAp(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
-        val headY = transformedY(column, y)
+        val transformedHeadY = transformedY(column, y)
+        val headY =
+            if (activeHoldAnchored) {
+                anchoredHoldHeadY(column)
+            } else {
+                transformedHeadY
+            }
         val bottomY = transformedY(column, y2)
         val head = getCellDraw(column, logicalX, headY)
         val bottom = getCellDraw(column, logicalX, bottomY)
@@ -1652,3 +1691,4 @@ class SscNoteRenderer(
         """.trimIndent()
     }
 }
+

@@ -236,7 +236,7 @@ var luaJudge = LuaTransform()
 var isEndingFade = false
 var endingFadeAlpha = 0f
 
-var attackConfigListener: ValueEventListener? = null
+//var attackConfigListener: ValueEventListener? = null
 
 // ========== FUNCIONES HELPER ==========
 
@@ -867,6 +867,7 @@ fun readFileSsc(path: String): String {
     }
 }
 
+/*
 fun startAttackConfigRealtimeListener() {
 
     val attacksRef = firebaseDatabase.getReference("version").child("attacks")
@@ -880,9 +881,7 @@ fun startAttackConfigRealtimeListener() {
     attackConfigListener =
         object : ValueEventListener {
 
-            override fun onDataChange(
-                snapshot: DataSnapshot
-            ) {
+            override fun onDataChange(snapshot: DataSnapshot) {
                 try {
                     applyAttackConfigSnapshot(snapshot)
                 } catch (e: Exception) {
@@ -899,6 +898,7 @@ fun startAttackConfigRealtimeListener() {
 
     attacksRef.addValueEventListener(attackConfigListener!!)
 }
+*/
 
 fun applyAttackConfigSnapshot(snapshot: DataSnapshot) {
 
@@ -915,14 +915,6 @@ fun applyAttackConfigSnapshot(snapshot: DataSnapshot) {
             .getValue(Boolean::class.java)
             ?: AttackFeatureFlags.AccelScroll.BOOST
 
-    AttackFeatureFlags.AccelScroll.BOOST_INTENSITY =
-        accelScroll
-            .child("boostIntensity")
-            .value
-            ?.toString()
-            ?.toFloatOrNull()
-            ?.coerceAtLeast(0f)
-            ?: AttackFeatureFlags.AccelScroll.BOOST_INTENSITY
 
     AttackFeatureFlags.AccelScroll.BRAKE =
         accelScroll

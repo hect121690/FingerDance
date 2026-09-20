@@ -16,8 +16,14 @@ package com.fingerdance.ssc.attacks
  *
  * Vertical:
  *   - representamos sólo el lado lógico de P1: 320 x 480.
- *   - full:       480 -> toda la altura física.
- *   - halfDouble: 480 -> height * 0.575.
+ *   - modo normal: 480 -> la mitad superior útil de Finger Dance (height * 0.5).
+ *     El origen lógico Y=0 está en el receptor (GameScreenSsc.targetTop).
+ *   - halfDouble conserva su referencia previa (height * 0.575) y no forma parte
+ *     de la adaptación vertical normal de ATTACKS.
+ *
+ * IMPORTANTE: esta altura sólo define la ESCALA matemática de ArrowEffects.
+ * No recorta notas a 480: offsets > 480 siguen siendo válidos para notas que
+ * todavía se encuentran debajo del área útil superior.
  *
  * Horizontal:
  *   - 640 -> 80% del ancho físico.
@@ -46,7 +52,7 @@ data class FieldMetrics(
                 FieldMetrics(
                     physicalReferenceWidth = screenWidth.coerceAtLeast(1f),
                     physicalReferenceHeight = (
-                        if (halfDouble) screenHeight * 0.575f else screenHeight
+                        if (halfDouble) screenHeight * 0.575f else screenHeight * 0.50f
                     ).coerceAtLeast(1f),
                     logicalReferenceWidth = SM_PLAYER_WIDTH,
                     arrowSizePx = arrowSizePx.coerceAtLeast(1f)

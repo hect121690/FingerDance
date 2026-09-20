@@ -100,7 +100,7 @@ class SplashActivity : AppCompatActivity() {
         }
 
         firebaseDatabase = FirebaseDatabase.getInstance()
-        startAttackConfigRealtimeListener()
+        //startAttackConfigRealtimeListener()
         val webView = findViewById<WebView>(R.id.webViewSplash)
 
         webView.loadUrl(
@@ -230,9 +230,7 @@ class SplashActivity : AppCompatActivity() {
         }
     }
 
-    private fun setGlobalDataFromConfig(
-        config: RemoteConfig
-    ) {
+    private fun setGlobalDataFromConfig(config: RemoteConfig) {
         flagActiveAllows = config.flagActiveAllows
         mpOn = config.mpOn
         numberUpdateFirebase = config.numberUpdate
@@ -365,9 +363,7 @@ class SplashActivity : AppCompatActivity() {
      * Cada función utiliza internamente Dispatchers.IO, por lo que
      * no es necesario envolver nuevamente todo el método en IO.
      */
-    private suspend fun loadDriveDataSuspend(
-        config: RemoteConfig?
-    ) {
+    private suspend fun loadDriveDataSuspend(config: RemoteConfig?) {
         try {
             Log.d(FLOW_TAG, "Drive: cargando archivos generales")
 
@@ -518,9 +514,7 @@ class SplashActivity : AppCompatActivity() {
     /**
      * Carga canales desde caché o desde Google Drive.
      */
-    private suspend fun getChannelsWithBgaDriveSuspend(
-        config: RemoteConfig?
-    ) {
+    private suspend fun getChannelsWithBgaDriveSuspend(config: RemoteConfig?) {
         try {
             if (config?.rebootChannelsDrive == true) {
                 Log.d(
@@ -592,9 +586,7 @@ class SplashActivity : AppCompatActivity() {
      * Las canciones de cada canal se procesan concurrentemente,
      * pero executeDriveRequest limita las conexiones activas a 4.
      */
-    private suspend fun getChannelsFromBgaDriveSuspend():
-            List<MainActivity.ChannelsDrive> =
-        coroutineScope {
+    private suspend fun getChannelsFromBgaDriveSuspend(): List<MainActivity.ChannelsDrive> = coroutineScope {
 
             val channelsJson = listDriveChildrenSuspend(
                 parentId = FOLDER_ID_CHANNELS_BGA,
@@ -713,10 +705,7 @@ class SplashActivity : AppCompatActivity() {
     /**
      * Obtiene los videos de una canción.
      */
-    private suspend fun loadSongDriveData(
-        songId: String,
-        songName: String
-    ): MainActivity.SongsDrive? {
+    private suspend fun loadSongDriveData(songId: String, songName: String): MainActivity.SongsDrive? {
         return try {
             val videosJson = listDriveChildrenSuspend(
                 parentId = songId,
@@ -790,10 +779,7 @@ class SplashActivity : AppCompatActivity() {
     /**
      * Consulta los elementos hijos de una carpeta de Drive.
      */
-    private suspend fun listDriveChildrenSuspend(
-        parentId: String,
-        onlyFolders: Boolean = false
-    ): JSONArray? {
+    private suspend fun listDriveChildrenSuspend(parentId: String, onlyFolders: Boolean = false): JSONArray? {
         return try {
             val mimeFilter =
                 if (onlyFolders) {
@@ -845,10 +831,7 @@ class SplashActivity : AppCompatActivity() {
      * - Desconexión garantizada.
      * - Registro del cuerpo de error HTTP.
      */
-    private suspend fun executeDriveRequest(
-        url: String,
-        requestDescription: String
-    ): JSONObject? =
+    private suspend fun executeDriveRequest(url: String, requestDescription: String): JSONObject? =
         driveSemaphore.withPermit {
 
             withContext(Dispatchers.IO) {
@@ -929,8 +912,7 @@ class SplashActivity : AppCompatActivity() {
     /**
      * Lee la caché de canales.
      */
-    private suspend fun getChannelsCacheSuspend():
-            List<MainActivity.ChannelsDrive>? =
+    private suspend fun getChannelsCacheSuspend(): List<MainActivity.ChannelsDrive>? =
         withContext(Dispatchers.IO) {
             try {
                 val json = themes.getString(
@@ -966,9 +948,7 @@ class SplashActivity : AppCompatActivity() {
     /**
      * Guarda los canales en SharedPreferences.
      */
-    private suspend fun saveChannelsCacheSuspend(
-        channels: List<MainActivity.ChannelsDrive>
-    ) {
+    private suspend fun saveChannelsCacheSuspend(channels: List<MainActivity.ChannelsDrive>) {
         withContext(Dispatchers.IO) {
             try {
                 val json = Gson().toJson(channels)
@@ -1166,8 +1146,7 @@ class SplashActivity : AppCompatActivity() {
         )
     }
 
-    private suspend fun fetchAllRankingsSuspend():
-            HashMap<String, ArrayList<FirstRank>>? =
+    private suspend fun fetchAllRankingsSuspend(): HashMap<String, ArrayList<FirstRank>>? =
         suspendCancellableCoroutine { continuation ->
             val rankingsRef = firebaseDatabase.getReference("rankings")
 
@@ -1239,9 +1218,7 @@ class SplashActivity : AppCompatActivity() {
             }
         }
 
-    private fun applyRankingsToMemory(
-        rankings: HashMap<String, ArrayList<FirstRank>>
-    ) {
+    private fun applyRankingsToMemory(rankings: HashMap<String, ArrayList<FirstRank>>) {
         listGlobalRankingLocal.clear()
         listGlobalRankingLocal.putAll(rankings)
 
