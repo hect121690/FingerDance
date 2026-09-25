@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.fingerdance.luaNotes
+import com.fingerdance.medidaFlechas
 
 /**
  * Render compartido de TAP, MINE y HOLD para los Player SSC.
@@ -536,45 +537,25 @@ class SscNoteRenderer(
     // -------------------------------------------------------------------------
     // HOLD NORMAL
     // -------------------------------------------------------------------------
+    private val compenseY1 = (middleSize * 0.25f).toInt()
     private fun drawLongNoteNormal(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
         val transformedHeadY = transformedY(column, y)
-        val headY =
-            if (activeHoldAnchored) {
-                anchoredHoldHeadY(column)
-            } else {
-                transformedHeadY
-            }
-        val bottomY = transformedY(column, y2)
-        val head = getCellDraw(column, logicalX, headY)
-        val bottom = getCellDraw(column, logicalX, bottomY)
-
+        val headY = if (activeHoldAnchored) anchoredHoldHeadY(column) else transformedHeadY
+        val bottomY = transformedY(column, y2 + compenseY1)
         val isReverse = bottomY < headY
+        val bottomDrawY = if (isReverse) bottomY - middleSize else bottomY + middleSize
+        val head = getCellDraw(column, logicalX, headY)
+        val bottom = getCellDraw(column, logicalX, bottomDrawY)
         val remainingLength = kotlin.math.abs(bottomY - headY)
-
-        val bodyStartY =
-            if (isReverse) {
-                bottomY
-            } else {
-                headY + middleSize
-            }
-
-        val bodyEndY =
-            if (isReverse) {
-                headY + middleSize
-            } else {
-                bottomY + middleSize
-            }
-
-        val bodyHeight =
-            (bodyEndY - bodyStartY)
-                .coerceAtLeast(0f)
+        val bodyStartY = if (isReverse) bottomY else headY + middleSize
+        val bodyEndY = if (isReverse) headY + middleSize else bottomY + middleSize
+        val bodyHeight = (bodyEndY - bodyStartY).coerceAtLeast(0f)
         val widthBody = getBodyWidth(column)
         val leftBody = getBodyX(column, logicalX)
 
         if (normalUsesMidLine) {
             val limit = initArrow ?: return
-
             val visibleBodyStart = bodyStartY.coerceAtLeast(0f)
             val visibleBodyEnd = minOf(bodyEndY, limit)
             val visibleBodyHeight = visibleBodyEnd - visibleBodyStart
@@ -616,7 +597,6 @@ class SscNoteRenderer(
                     sourceY = y.toFloat()
                 )
             }
-
             resetColor()
         } else {
             if (bodyHeight > 0f) {
@@ -662,51 +642,25 @@ class SscNoteRenderer(
     private fun drawLongNoteVanish(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
         val transformedHeadY = transformedY(column, y)
-        val headY =
-            if (activeHoldAnchored) {
-                anchoredHoldHeadY(column)
-            } else {
-                transformedHeadY
-            }
-        val bottomY = transformedY(column, y2)
-        val head = getCellDraw(column, logicalX, headY)
-        val bottom = getCellDraw(column, logicalX, bottomY)
-
+        val headY = if (activeHoldAnchored) anchoredHoldHeadY(column) else transformedHeadY
+        val bottomY = transformedY(column, y2 + compenseY1)
         val isReverse = bottomY < headY
+        val bottomDrawY = if (isReverse) bottomY - middleSize else bottomY + middleSize
+        val head = getCellDraw(column, logicalX, headY)
+        val bottom = getCellDraw(column, logicalX, bottomDrawY)
         val remainingLength = kotlin.math.abs(bottomY - headY)
-
-        val bodyStartY =
-            if (isReverse) {
-                bottomY
-            } else {
-                headY + middleSize
-            }
-
-        val bodyEndY =
-            if (isReverse) {
-                headY + middleSize
-            } else {
-                bottomY + middleSize
-            }
-
-        val bodyHeight =
-            (bodyEndY - bodyStartY)
-                .coerceAtLeast(0f)
+        val bodyStartY = if (isReverse) bottomY else headY + middleSize
+        val bodyEndY = if (isReverse) headY + middleSize else bottomY + middleSize
+        val bodyHeight = (bodyEndY - bodyStartY).coerceAtLeast(0f)
         val widthBody = getBodyWidth(column)
         val leftBody = getBodyX(column, logicalX)
         val vanishBodyFadeEnd = (measureVanish + (arrowSize * 2f)).toFloat()
 
         if (vanishUsesMidLine) {
             val appearLimit = initArrow ?: return
-
             val visibleBodyStart = maxOf(bodyStartY, measureVanish.toFloat())
             val unclippedBodyEnd = bodyEndY
-            val visibleBodyEnd = if (clipVanishBodyAtInitArrow) {
-                minOf(unclippedBodyEnd, appearLimit)
-            } else {
-                unclippedBodyEnd
-            }
-
+            val visibleBodyEnd = if (clipVanishBodyAtInitArrow) minOf(unclippedBodyEnd, appearLimit) else unclippedBodyEnd
             val visibleBodyHeight = visibleBodyEnd - visibleBodyStart
 
             if (visibleBodyHeight > 0f) {
@@ -721,21 +675,8 @@ class SscNoteRenderer(
                 )
             }
 
-            if (
-                remainingLength > heightBodyHead &&
-                bottomY > measureVanish &&
-                bottomY < appearLimit
-            ) {
-                batch.setColor(
-                    1f,
-                    1f,
-                    1f,
-                    getVanishMidLineAlpha(
-                        y = bottomY,
-                        appearLimit = appearLimit
-                    )
-                )
-
+            if (remainingLength > heightBodyHead && bottomY > measureVanish && bottomY < appearLimit) {
+                batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(bottomY, appearLimit))
                 drawFlipRegion(
                     region = bottoms[column][frame],
                     x = bottom.x,
@@ -747,21 +688,8 @@ class SscNoteRenderer(
                 )
             }
 
-            if (
-                headY > 0f &&
-                headY > measureVanish &&
-                headY < appearLimit
-            ) {
-                batch.setColor(
-                    1f,
-                    1f,
-                    1f,
-                    getVanishMidLineAlpha(
-                        y = headY,
-                        appearLimit = appearLimit
-                    )
-                )
-
+            if (headY > 0f && headY > measureVanish && headY < appearLimit) {
+                batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(headY, appearLimit))
                 drawFlipRegion(
                     region = arrows[column][frame],
                     x = head.x,
@@ -773,7 +701,6 @@ class SscNoteRenderer(
                     sourceY = y.toFloat()
                 )
             }
-
             resetColor()
         } else {
             if (bodyHeight > 0f) {
@@ -787,17 +714,8 @@ class SscNoteRenderer(
                 )
             }
 
-            if (
-                remainingLength > heightBodyHead &&
-                bottomY > measureVanish
-            ) {
-                batch.setColor(
-                    1f,
-                    1f,
-                    1f,
-                    getVanishAlpha(bottomY)
-                )
-
+            if (remainingLength > heightBodyHead && bottomY > measureVanish) {
+                batch.setColor(1f, 1f, 1f, getVanishAlpha(bottomY))
                 drawFlipRegion(
                     region = bottoms[column][frame],
                     x = bottom.x,
@@ -809,17 +727,8 @@ class SscNoteRenderer(
                 )
             }
 
-            if (
-                headY > 0f &&
-                headY > measureVanish
-            ) {
-                batch.setColor(
-                    1f,
-                    1f,
-                    1f,
-                    getVanishAlpha(headY)
-                )
-
+            if (headY > 0f && headY > measureVanish) {
+                batch.setColor(1f, 1f, 1f, getVanishAlpha(headY))
                 drawFlipRegion(
                     region = arrows[column][frame],
                     x = head.x,
@@ -831,7 +740,6 @@ class SscNoteRenderer(
                     sourceY = y.toFloat()
                 )
             }
-
             resetColor()
         }
     }
@@ -842,37 +750,18 @@ class SscNoteRenderer(
     private fun drawLongNoteAp(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
         val transformedHeadY = transformedY(column, y)
-        val headY =
-            if (activeHoldAnchored) {
-                anchoredHoldHeadY(column)
-            } else {
-                transformedHeadY
-            }
-        val bottomY = transformedY(column, y2)
-        val head = getCellDraw(column, logicalX, headY)
-        val bottom = getCellDraw(column, logicalX, bottomY)
-
+        val headY = if (activeHoldAnchored) anchoredHoldHeadY(column) else transformedHeadY
+        val bottomY = transformedY(column, y2 + compenseY1)
         val isReverse = bottomY < headY
+        val bottomDrawY = if (isReverse) bottomY - middleSize else bottomY + middleSize
+        val head = getCellDraw(column, logicalX, headY)
+        val bottom = getCellDraw(column, logicalX, bottomDrawY)
         val remainingLength = kotlin.math.abs(bottomY - headY)
-
-        val bodyStartY =
-            if (isReverse) {
-                bottomY
-            } else {
-                headY + middleSize
-            }
-
-        val bodyEndY =
-            if (isReverse) {
-                headY + middleSize
-            } else {
-                bottomY + middleSize
-            }
-
+        val bodyStartY = if (isReverse) bottomY else headY + middleSize
+        val bodyEndY = if (isReverse) headY + middleSize else bottomY + middleSize
         val widthBody = getBodyWidth(column)
         val leftBody = getBodyX(column, logicalX)
         val limit = measure.toFloat()
-
         val visibleBodyStart = bodyStartY.coerceAtLeast(0f)
         val visibleBodyEnd = minOf(bodyEndY, limit)
         val visibleBodyHeight = visibleBodyEnd - visibleBodyStart
@@ -888,18 +777,8 @@ class SscNoteRenderer(
             )
         }
 
-        if (
-            remainingLength > heightBodyHead &&
-            bottomY > 0f &&
-            bottomY < limit
-        ) {
-            batch.setColor(
-                1f,
-                1f,
-                1f,
-                getAlpha(bottomY, measure) * activeNoteAlpha
-            )
-
+        if (remainingLength > heightBodyHead && bottomY > 0f && bottomY < limit) {
+            batch.setColor(1f, 1f, 1f, getAlpha(bottomY, measure) * activeNoteAlpha)
             drawFlipRegion(
                 region = bottoms[column][frame],
                 x = bottom.x,
@@ -911,17 +790,8 @@ class SscNoteRenderer(
             )
         }
 
-        if (
-            headY > 0f &&
-            headY < limit
-        ) {
-            batch.setColor(
-                1f,
-                1f,
-                1f,
-                getAlpha(headY, measure) * activeNoteAlpha
-            )
-
+        if (headY > 0f && headY < limit) {
+            batch.setColor(1f, 1f, 1f, getAlpha(headY, measure) * activeNoteAlpha)
             drawFlipRegion(
                 region = arrows[column][frame],
                 x = head.x,
@@ -933,7 +803,6 @@ class SscNoteRenderer(
                 sourceY = y.toFloat()
             )
         }
-
         resetColor()
     }
 

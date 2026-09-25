@@ -76,6 +76,10 @@ import com.fingerdance.OptionsActivity
 import com.fingerdance.ssc.ChartOffsetAdapter
 import com.fingerdance.ssc.Parser
 import com.fingerdance.ssc.ParserKsf
+import com.fingerdance.ssc.TimmingData
+import com.fingerdance.ssc.attacks.AttackMod
+import com.fingerdance.ssc.attacks.AttackModifierParser
+import com.fingerdance.ssc.attacks.AttackNoteTransforms
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -88,6 +92,7 @@ import java.io.FileOutputStream
 import java.io.FileWriter
 import java.io.InputStream
 import java.math.BigDecimal
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -1248,12 +1253,12 @@ class SelectSong : AppCompatActivity() {
         val checkAll = dialogView.findViewById<CheckBox>(R.id.checkAll)
         val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
         val adapter = ChartOffsetAdapter(charts)
+
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
+
         checkAll.setOnCheckedChangeListener { _, checked ->
-            charts.forEach {
-                it.checked = checked
-            }
+            charts.forEach { it.checked = checked }
             adapter.notifyDataSetChanged()
         }
 
@@ -1262,11 +1267,10 @@ class SelectSong : AppCompatActivity() {
             .create()
 
         btnSave.setOnClickListener {
-
             val updated = processSscOffsets(
-                original,
-                charts.filter { it.checked },
-                valueOffset.toInt()
+                content = original,
+                selected = charts.filter { it.checked },
+                valueOffset = valueOffset.toInt()
             )
 
             fileSsc.writeText(updated)
@@ -1283,24 +1287,28 @@ class SelectSong : AppCompatActivity() {
     }
 
     private fun parseSscCharts(content: String): MutableList<SscChart> {
-
         val result = mutableListOf<SscChart>()
-
         val blocks = content.split("#NOTEDATA:;")
 
-        blocks.forEachIndexed { index, block ->
+        val header = blocks.firstOrNull().orEmpty()
+        val headerOffset = Regex(
+            "#OFFSET\\s*:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*;"
+        ).find(header)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
 
-            if (!block.contains("#STEPSTYPE:"))
-                return@forEachIndexed
+        blocks.forEachIndexed { index, block ->
+            if (!block.contains("#STEPSTYPE:")) return@forEachIndexed
 
             fun get(tag: String): String {
-
-                return Regex("#$tag:(.*?);").find(block)?.groupValues?.get(1)?.trim() ?: ""
+                return Regex(
+                    "#$tag\\s*:(.*?);",
+                    RegexOption.DOT_MATCHES_ALL
+                ).find(block)?.groupValues?.get(1)?.trim() ?: ""
             }
 
             val stepType = get("STEPSTYPE")
-
             if (stepType == "pump-double") return@forEachIndexed
+
+            val chartOffset = get("OFFSET").toDoubleOrNull()
 
             result.add(
                 SscChart(
@@ -1311,7 +1319,7 @@ class SelectSong : AppCompatActivity() {
                     description = get("DESCRIPTION"),
                     chartName = get("CHARTNAME"),
                     credit = get("CREDIT"),
-                    offset = get("OFFSET").toDoubleOrNull() ?: 0.0
+                    offset = chartOffset ?: headerOffset
                 )
             )
         }
@@ -1321,31 +1329,75 @@ class SelectSong : AppCompatActivity() {
 
     private fun processSscOffsets(content: String, selected: List<SscChart>, valueOffset: Int): String {
         val blocks = content.split("#NOTEDATA:;").toMutableList()
+
+        val header = blocks.firstOrNull().orEmpty()
+
+        val offsetRegex = Regex(
+            "#OFFSET\\s*:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*;"
+        )
+
+        val headerOffset = offsetRegex
+            .find(header)
+            ?.groupValues
+            ?.get(1)
+            ?.toDoubleOrNull()
+            ?: 0.0
+
         selected.forEach { chart ->
             val index = chart.blockIndex
 
-            if (index >= blocks.size)
+            if (index <= 0 || index >= blocks.size) {
                 return@forEach
+            }
 
             val block = blocks[index]
-            val regex = Regex("#OFFSET:([-+]?[0-9]*\\.?[0-9]+);")
+            val match = offsetRegex.find(block)
 
-            val match = regex.find(block)
-            val currentOffset = match?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+            val currentOffset = match
+                ?.groupValues
+                ?.get(1)
+                ?.toDoubleOrNull()
+                ?: headerOffset
 
             val newOffset = currentOffset + ((valueOffset * 10) / 1000.0)
-            val formatted = String.format("%.6f", newOffset)
+            val formatted = String.format(Locale.US, "%.6f", newOffset)
+
             val newBlock = if (match != null) {
-                regex.replace(block) {
+                offsetRegex.replaceFirst(
+                    block,
                     "#OFFSET:$formatted;"
-                }
+                )
             } else {
-                block + "\n#OFFSET:$formatted;"
+                insertOffsetBeforeNotes(
+                    block = block,
+                    formattedOffset = formatted
+                )
             }
+
             blocks[index] = newBlock
         }
 
         return blocks.joinToString("#NOTEDATA:;")
+    }
+
+    private fun insertOffsetBeforeNotes(block: String, formattedOffset: String): String {
+        val notesRegex = Regex("#NOTES\\s*:")
+        val match = notesRegex.find(block)
+
+        if (match == null) {
+            val lineBreak = if (block.contains("\r\n")) "\r\n" else "\n"
+            return block.trimEnd() + lineBreak + "#OFFSET:$formattedOffset;" + lineBreak
+        }
+
+        val lineBreak = if (block.contains("\r\n")) "\r\n" else "\n"
+
+        return buildString {
+            append(block.substring(0, match.range.first).trimEnd())
+            append(lineBreak)
+            append("#OFFSET:$formattedOffset;")
+            append(lineBreak)
+            append(block.substring(match.range.first))
+        }
     }
 
     private fun exportModifiedSscToPublicFingerDance(sourceSsc: File, updatedContent: String) {
@@ -1731,6 +1783,33 @@ class SelectSong : AppCompatActivity() {
                     chart.notes = Parser().makeRandomHD(chart.notes)
                 }
             }
+            val hasBigAttack = chart.attacks.any { attack ->
+                attack.modifiers.any { raw ->
+                    val modifier = AttackModifierParser.parse(raw)
+                    modifier.type == AttackMod.BIG && modifier.level != 0f
+                }
+            }
+
+            if (hasBigAttack) {
+                val bigAttacks = AttackNoteTransforms.apply(
+                    sourceNotes = chart.notes,
+                    attacks= chart.attacks,
+                    timingData = TimmingData(
+                        bpms = chart.bpms,
+                        stops = chart.stops,
+                        delays = chart.delays,
+                        warps = chart.warps,
+                        fakes = chart.fakes,
+                        speeds = chart.speeds,
+                        scrolls = chart.scrolls,
+                        offsetMs = chart.offset * 1000.0,
+                        userOffsetMs = valueOffset * 10.0
+                    ),
+                    columnCount = 5
+                )
+                chart.notes = bigAttacks
+            }
+
         }else{
             playerSong.rutaKsf = level.rutaKsf
             playerSong.isSSC = false

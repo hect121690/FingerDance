@@ -1,7 +1,6 @@
 package com.fingerdance.ssc.attacks
 
 data class AttackState(
-    // StepMania m_fScrollSpeed. AttackEngine lo inicializa con la velocidad base del jugador.
     var xmod: Float = 1f,
 
     var boost: Float = 0f,
@@ -80,6 +79,7 @@ data class AttackState(
             AttackMod.TWIRL -> twirl = level
             AttackMod.ROLL -> roll = level
 
+            AttackMod.BIG -> Unit
             AttackMod.MINI -> mini = level
             AttackMod.TINY -> tiny = level
 

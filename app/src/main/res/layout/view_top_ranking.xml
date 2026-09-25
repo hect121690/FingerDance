@@ -7,8 +7,6 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Encabezado -->
-
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintLayout2"
         android:layout_width="match_parent"
@@ -24,8 +22,8 @@
             android:id="@+id/linearLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
             android:gravity="center_vertical"
             android:orientation="vertical"
             android:padding="8dp"
@@ -42,6 +40,7 @@
                 android:layout_marginTop="36dp" />
 
         </LinearLayout>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <TextView
@@ -50,12 +49,12 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:background="@drawable/bg_ranking_title"
-        android:shadowColor="#FF00FF"
+        android:shadowColor="#00E5FF"
         android:shadowDx="0"
         android:shadowDy="0"
         android:shadowRadius="10"
         android:text="TOP RANKING"
-        android:textColor="#FFFFFF"
+        android:textColor="#F4FBFF"
         android:textSize="28dp"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -90,18 +89,19 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:shadowColor="@color/black"
-            android:shadowDx="5"
-            android:shadowDy="5"
-            android:shadowRadius="1"
+            android:shadowColor="#FF2D95"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="6"
             android:text="13"
-            android:textColor="@android:color/white"
+            android:textColor="#F4FBFF"
             android:textSize="42dp"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -369,6 +369,7 @@ class Parser {
                                     beat = beat,
                                     isFake = isFake,
                                     isVanish = isVanish,
+                                    isHide = isHide,
                                     isPhantom = false,
                                     isMine = true,
                                     type = NoteType.TAP

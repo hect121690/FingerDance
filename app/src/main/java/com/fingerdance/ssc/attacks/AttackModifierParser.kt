@@ -93,6 +93,7 @@ object AttackModifierParser {
             "beat" -> AttackMod.BEAT
             "twirl" -> AttackMod.TWIRL
             "roll" -> AttackMod.ROLL
+            "big" -> AttackMod.BIG
             "mini" -> AttackMod.MINI
             "tiny" -> AttackMod.TINY
             "overhead" -> AttackMod.OVERHEAD

@@ -1,6 +1,7 @@
 package com.fingerdance
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -22,6 +23,7 @@ class TopRankingView @JvmOverloads constructor(
     private lateinit var titleText: TextView
     private lateinit var iconText: TextView
     private lateinit var iconImage: ImageView
+
 
     init {
         initView()
@@ -67,7 +69,15 @@ class RankingAdapter(private val nivelList: ArrayList<FirstRank>) : RecyclerView
     class ViewHolder(private var itemBinding: ItemRankingBinding) :
         RecyclerView.ViewHolder(itemBinding.root) {
         fun bindItem(firstRank: FirstRank, i: Int) {
-            itemBinding.positionText.text = i.toString()
+            //itemBinding.positionText.text = i.toString()
+            itemBinding.positionImage.setImageBitmap(
+                when(i){
+                    1 -> bitNR1
+                    2 -> bitNR2
+                    3 -> bitNR3
+                    else -> null
+                }
+            )
             itemBinding.nameText.text = firstRank.nombre
             itemBinding.nameText.isSelected = true
             itemBinding.puntajeText.text = firstRank.puntaje

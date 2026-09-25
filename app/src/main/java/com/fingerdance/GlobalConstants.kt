@@ -119,7 +119,7 @@ var hjGreat   = 60L
 var hjGood    = 85L
 var hjBad     = 110L
 
-const val MULTIPLER_TOUCH_RADIUS = 0.05f
+const val MULTIPLER_TOUCH_RADIUS = 0.075f
 
 lateinit var soundPoolSelectSong: SoundPool
 var selectSong_movKsf : Int = 0
