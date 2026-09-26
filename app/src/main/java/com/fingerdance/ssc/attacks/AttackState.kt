@@ -1,6 +1,7 @@
 package com.fingerdance.ssc.attacks
 
 data class AttackState(
+    // StepMania m_fScrollSpeed. AttackEngine lo inicializa con la velocidad base del jugador.
     var xmod: Float = 1f,
 
     var boost: Float = 0f,
@@ -39,6 +40,9 @@ data class AttackState(
     var blink: Float = 0f,
     var randomVanish: Float = 0f,
     var blind: Float = 0f,
+
+    // AutoPlay es discreto: se activa/desactiva exactamente con el ATTACK.
+    var autoPlay: Boolean = false,
 
     // MoveZ por columna, base 0. Ejemplo: key 2 == MoveZ3.
     val moveZ: MutableMap<Int, Float> = mutableMapOf(),
@@ -98,6 +102,9 @@ data class AttackState(
             AttackMod.BLINK -> blink = level
             AttackMod.RANDOM_VANISH -> randomVanish = level
             AttackMod.BLIND -> blind = level
+
+            AttackMod.AUTOPLAY -> autoPlay = level > 0f
+            AttackMod.ATTACK_MINES -> Unit
 
             AttackMod.MOVE_Z -> {
                 val column = modifier.column ?: return
@@ -180,6 +187,7 @@ data class AttackState(
                 blink == 0f &&
                 randomVanish == 0f &&
                 blind == 0f &&
+                !autoPlay &&
                 moveZ.values.all { it == 0f } &&
                 skew == 0f &&
                 perspectiveTilt == 0f

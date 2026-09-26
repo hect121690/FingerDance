@@ -79,6 +79,10 @@ class AttackEngine(
         current.skew = approach(current.skew, target.skew, deltaSeconds * target.skewApproachSpeed)
         current.perspectiveTilt = approach(current.perspectiveTilt, target.perspectiveTilt, deltaSeconds * target.perspectiveTiltApproachSpeed)
 
+        // AutoPlay no usa Approach: es un estado de controller discreto y sólo
+        // debe estar activo dentro del intervalo TIME..TIME+LEN del ATTACK.
+        current.autoPlay = target.autoPlay
+
         // MoveZ necesita tween independiente por columna porque *N puede ser distinto
         // en MoveZ1, MoveZ2, MoveZ3, etc.
         val moveZColumns = (current.moveZ.keys + target.moveZ.keys).toSet()

@@ -106,6 +106,9 @@ class SscGameplayEngine(
     private data class LongNoteState(
         // Activa lógicamente desde que se cacha/recacha hasta el tail.
         var pressed: Boolean = false,
+        // Una HOLD iniciada por ATTACK AutoPlay se sostiene hasta su tail
+        // aunque no exista input físico del usuario.
+        var autoPlayed: Boolean = false,
         var note: Parser.Note? = null,
         var timeStartedMs: Double = 0.0,
 
@@ -258,7 +261,11 @@ class SscGameplayEngine(
         }
     }
 
-    fun updateStepData(songTimeMs: Double, input: IntArray) {
+    fun updateStepData(
+        songTimeMs: Double,
+        input: IntArray,
+        autoPlayActive: Boolean = false
+    ) {
         holdCompletedThisFrame.clear()
         require(input.size >= config.columnCount) {
             "El input tiene ${input.size} columnas y el motor necesita ${config.columnCount}."
@@ -274,6 +281,15 @@ class SscGameplayEngine(
         val nowBeat = timingData.timeToBeat(songTimeMs.toDouble())
         currentBeat = nowBeat
         updateComboMultiplier(nowBeat)
+
+        // ATTACK AutoPlay juzga únicamente TAP/HOLD. Las mines se dejan intactas.
+        // Se procesa antes del input real para evitar dobles judgments en el mismo frame.
+        if (autoPlayActive) {
+            processAttackAutoPlay(
+                previousSongTimeMs = previousSongTimeMs,
+                songTimeMs = songTimeMs
+            )
+        }
 
         for (column in config.activeColumns) {
             when (keyState[column]) {
@@ -369,7 +385,95 @@ class SscGameplayEngine(
         processLongNoteTicksByRow(songTimeMs)
 
         updateReleasedHoldVisuals(songTimeMs)
-        updateAutoMisses(songTimeMs)
+        if (!autoPlayActive) {
+            updateAutoMisses(songTimeMs)
+        }
+    }
+
+    /**
+     * ATTACK AutoPlay: resuelve como PERFECT todas las TAP/HOLD cuyo instante
+     * musical se cruzó en este frame. No toca mines, no juzga fakes y no altera
+     * el camino normal de input cuando AutoPlay está apagado.
+     *
+     * Una HOLD iniciada aquí queda marcada autoPlayed y se mantiene sostenida
+     * hasta su tail, incluso si el ATTACK termina antes que la HOLD.
+     */
+    private fun processAttackAutoPlay(previousSongTimeMs: Double, songTimeMs: Double) {
+        if (songTimeMs < previousSongTimeMs) return
+
+        val epsilonMs = 0.01
+
+        for (column in config.activeColumns) {
+            val notesInColumn = columnNotes[column]
+            val startIndex = columnIndex[column]
+
+            for (index in startIndex until notesInColumn.size) {
+                val note = notesInColumn[index]
+
+                if (note.isFake) continue
+                if (hitNotes.contains(note)) continue
+                if (finishedHolds.contains(note)) continue
+                if (!timingData.isJudgableBeat(note.beat)) continue
+
+                val noteTimeMs =
+                    timingData.beatToTime(note.beat)
+
+                // Todavía no llega.
+                if (noteTimeMs > songTimeMs + epsilonMs) {
+                    break
+                }
+
+                // Mines nunca se pisan en AutoPlay.
+                if (note.isMine) {
+                    continue
+                }
+
+                when (note.type) {
+                    Parser.NoteType.TAP -> {
+                        listener.onNoteFlare(column)
+
+                        registerRowHit(
+                            column = column,
+                            note = note,
+                            judge = JUDGE_PERFECT,
+                            isFromInput = false
+                        )
+
+                        hitNotes.add(note)
+                    }
+
+                    Parser.NoteType.HOLD -> {
+                        if (longNotes[column].pressed) {
+                            continue
+                        }
+
+                        listener.onNoteFlare(column)
+
+                        val headResolved =
+                            isHoldHeadResolved(note)
+
+                        if (!headResolved) {
+                            registerRowHit(
+                                column = column,
+                                note = note,
+                                judge = JUDGE_PERFECT,
+                                isFromInput = false
+                            )
+                        }
+
+                        startLongNote(
+                            column = column,
+                            note = note,
+                            timeMs = songTimeMs,
+                            scanFromBeat = note.beat,
+                            autoPlayed = true
+                        )
+                    }
+                }
+            }
+
+            advanceColumnIndex(column)
+        }
     }
 
     private fun processLongNoteTicksByRow(timeMs: Double) {
@@ -612,6 +716,7 @@ class SscGameplayEngine(
          */
         if (longNote.note === note) {
             longNote.pressed = false
+            longNote.autoPlayed = false
             longNote.note = null
 
             val endBeat =
@@ -669,6 +774,13 @@ class SscGameplayEngine(
     }
 
     private fun isColumnPhysicallyHeld(column: Int): Boolean {
+        val longNote = longNotes[column]
+
+        // Si AutoPlay arrancó esta HOLD, queda sostenida lógicamente hasta el tail.
+        if (longNote.pressed && longNote.autoPlayed) {
+            return true
+        }
+
         return keyState[column] == KEY_DOWN || keyState[column] == KEY_PRESS
     }
 
@@ -1231,11 +1343,13 @@ class SscGameplayEngine(
         column: Int,
         note: Parser.Note,
         timeMs: Double,
-        scanFromBeat: Double = timingData.timeToBeat(timeMs)
+        scanFromBeat: Double = timingData.timeToBeat(timeMs),
+        autoPlayed: Boolean = false
     ) {
         val longNote = longNotes[column]
 
         longNote.pressed = true
+        longNote.autoPlayed = autoPlayed
         longNote.note = note
         longNote.timeStartedMs = timeMs
         longNote.holdLife = 1.0

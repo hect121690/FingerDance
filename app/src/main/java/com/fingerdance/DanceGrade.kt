@@ -509,7 +509,7 @@ class DanceGrade : AppCompatActivity() {
 
     private fun resolveSaveScenario(): SaveResult {
         // Offline u Online → No guardar
-        if (isOffline || isOnline) {
+        if (isAutoPlayDebug || isOffline || isOnline) {
             return SaveResult.NONE
         }else{
             rankList = listGlobalRanking[playerSong.checkedValues] ?: arrayListOf()

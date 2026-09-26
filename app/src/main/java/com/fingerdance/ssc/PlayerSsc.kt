@@ -27,6 +27,7 @@ import com.fingerdance.hjBad
 import com.fingerdance.hjGood
 import com.fingerdance.hjGreat
 import com.fingerdance.hjPerfect
+import com.fingerdance.isAutoPlayDebug
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
 import com.fingerdance.isPlayer1
@@ -650,7 +651,11 @@ class PlayerSsc(
 
         gameplayEngine.updateStepData(
             songTimeMs = songTimeMs,
-            input = inputProcessor.getKeyBoard)
+            input = inputProcessor.getKeyBoard,
+            autoPlayActive =
+                screen.currentAttackState.autoPlay ||
+                isAutoPlayDebug
+        )
 
         if (isOnline) {
             sendLiveScoreIfNeeded()

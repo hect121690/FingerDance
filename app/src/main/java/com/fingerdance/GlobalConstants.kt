@@ -121,6 +121,8 @@ var hjBad     = 110L
 
 const val MULTIPLER_TOUCH_RADIUS = 0.075f
 
+var isAutoPlayDebug = getValueIsAutoPlayDebug()
+
 lateinit var soundPoolSelectSong: SoundPool
 var selectSong_movKsf : Int = 0
 var selectSong_backKsf : Int = 0
@@ -240,6 +242,30 @@ var endingFadeAlpha = 0f
 
 // ========== FUNCIONES HELPER ==========
 
+fun getValueIsAutoPlayDebug(): Boolean {
+    return try {
+        val documentsDir = android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOCUMENTS
+        )
+
+        val file = java.io.File(
+            documentsDir,
+            "isAutoPlay.txt"
+        )
+
+        if (!file.exists() || !file.isFile) {
+            return false
+        }
+
+        when (file.readText().trim().lowercase()) {
+            "true" -> true
+            "false" -> false
+            else -> false
+        }
+    } catch (_: Exception) {
+        false
+    }
+}
 fun calculateAlphaAndZoom(elapsedTime: Long): Pair<Float, Float> {
     val progress = (elapsedTime.toFloat() / 300.toFloat()).coerceIn(0f, 1f)
 

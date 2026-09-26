@@ -109,115 +109,42 @@ class Parser {
             }
         }
 
-        val offset =
-            extractTag(sourceFor("OFFSET"), "OFFSET")
-                ?.toDoubleOrNull()
-                ?: 0.0
-
-        val fgChanges =
-            parseFGChanges(
-                sourceFor("FGCHANGES")
-            )
-
-        val attacks =
-            parseAttacks(
-                sourceFor("ATTACKS")
-            )
-
-        val bpms =
-            parsePairs(
-                sourceFor("BPMS"),
-                "BPMS"
-            ).map {
-                BpmSegment(it.first, it.second)
+        val offset = extractTag(sourceFor("OFFSET"), "OFFSET")?.toDoubleOrNull() ?: 0.0
+        val fgChanges = parseFGChanges(sourceFor("FGCHANGES"))
+        val attacks = parseAttacks(sourceFor("ATTACKS"))
+        val bpms = parsePairs(sourceFor("BPMS"), "BPMS").map { BpmSegment(it.first, it.second) }
+        val tickcounts = parsePairs(sourceFor("TICKCOUNTS"), "TICKCOUNTS").map {
+                TickCountSegment(it.first, it.second.toInt())
             }
 
-        val tickcounts =
-            parsePairs(
-                sourceFor("TICKCOUNTS"),
-                "TICKCOUNTS"
-            ).map {
-                TickCountSegment(
-                    it.first,
-                    it.second.toInt()
-                )
+        val stops = parsePairs(sourceFor("STOPS"), "STOPS").map {
+                Stop(it.first, it.second * 1000)
             }
 
-        val stops =
-            parsePairs(
-                sourceFor("STOPS"),
-                "STOPS"
-            ).map {
-                Stop(
-                    it.first,
-                    it.second * 1000
-                )
+        val delays = parsePairs(sourceFor("DELAYS"), "DELAYS").map {
+                Delay(it.first, it.second * 1000)
             }
 
-        val delays =
-            parsePairs(
-                sourceFor("DELAYS"),
-                "DELAYS"
-            ).map {
-                Delay(
-                    it.first,
-                    it.second * 1000
-                )
+        val warps = parsePairs(sourceFor("WARPS"), "WARPS").map {
+                Warp(it.first, it.second)
             }
 
-        val warps =
-            parsePairs(
-                sourceFor("WARPS"),
-                "WARPS"
-            ).map {
-                Warp(
-                    it.first,
-                    it.second
-                )
+        val combos = parseCombos(sourceFor("COMBOS"))
+        val baseFakes = parsePairs(sourceFor("FAKES"), "FAKES").map {
+                Fake(it.first, it.second)
             }
 
-        val combos =
-            parseCombos(
-                sourceFor("COMBOS")
-            )
-
-        val baseFakes =
-            parsePairs(
-                sourceFor("FAKES"),
-                "FAKES"
-            ).map {
-                Fake(
-                    it.first,
-                    it.second
-                )
-            }
-
-        val speeds =
-            parseSpeeds(
-                sourceFor("SPEEDS")
-            )
-
-        val scrolls =
-            parseScrolls(
-                sourceFor("SCROLLS")
-            )
+        val speeds = parseSpeeds(sourceFor("SPEEDS"))
+        val scrolls = parseScrolls(sourceFor("SCROLLS"))
 
         /*
          * NOTES pertenecen exclusivamente al chart actual.
          */
-        val (notes, extendedNotes, tokenFakes) =
-            parseNotes(
-                textChart,
-                baseFakes
-            )
+        val (notes, extendedNotes, _) = parseNotes(textChart, baseFakes)
 
-        val fakes =
-            (baseFakes + tokenFakes)
-                .sortedBy { it.beat }
+        val fakes = baseFakes.sortedBy { it.beat }
 
-        val allNotes =
-            (notes + extendedNotes)
-                .sortedBy { it.beat }
+        val allNotes = (notes + extendedNotes).sortedBy { it.beat }
 
         return Chart(
             chartPath = pathFile,

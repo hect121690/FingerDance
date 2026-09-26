@@ -116,6 +116,8 @@ object AttackModifierParser {
             "randomvanish" -> AttackMod.RANDOM_VANISH
             "blind" -> AttackMod.BLIND
             "earthworm" -> AttackMod.EARTHWORM
+            "autoplay" -> AttackMod.AUTOPLAY
+            "attackmines" -> AttackMod.ATTACK_MINES
             "normal" -> AttackMod.NORMAL
             else -> AttackMod.UNKNOWN
         }

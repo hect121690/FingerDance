@@ -27,6 +27,7 @@ import com.fingerdance.heightBtns
 import com.fingerdance.hideImagesPadA
 import com.fingerdance.isVertical
 import com.fingerdance.halfDouble
+import com.fingerdance.isAutoPlayDebug
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
@@ -384,6 +385,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
     )
 
     private lateinit var font: BitmapFont
+    private lateinit var fontAutoPlayDebug: BitmapFont
 
     init {
         if(showPadB == 1){
@@ -454,6 +456,10 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         font = BitmapFont()
         font.color = Color.WHITE
         font.data.setScale(2f, -2f)
+        fontAutoPlayDebug = BitmapFont()
+        fontAutoPlayDebug.color = Color.WHITE
+        fontAutoPlayDebug.data.setScale(5f, -5f)
+
         stage = Stage(ScreenViewport())
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
@@ -613,6 +619,33 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
 
         stage.draw()
+
+        drawAutoPlayDebugText()
+    }
+
+    private fun drawAutoPlayDebugText() {
+        if (!isAutoPlayDebug) return
+
+        val text1 = "Demo Play"
+        val text2 = "AutoPlayer"
+
+        val layout1 = GlyphLayout(fontAutoPlayDebug, text1)
+        val layout2 = GlyphLayout(fontAutoPlayDebug, text2)
+
+        val centerX = Gdx.graphics.width * 0.5f
+        val centerY = Gdx.graphics.height * 0.5f
+
+        val x1 = centerX - layout1.width * 0.5f
+        val x2 = centerX - layout2.width * 0.5f
+
+        val y1 = centerY - 40f
+        val y2 = centerY + 40f
+
+        batch.projectionMatrix = camera.combined
+        batch.begin()
+        fontAutoPlayDebug.draw(batch, text1, x1, y1)
+        fontAutoPlayDebug.draw(batch, text2, x2, y2)
+        batch.end()
     }
 
     private fun drawSongTime(songTimeMs: Double) {
