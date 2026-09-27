@@ -73,21 +73,17 @@ class PerspectivePlayfieldRenderer(
     // =========================================================
 
     /*
-     * IMPORTANTE:
+     * attackSkew genera una deformación centrada alrededor de pivotX.
      *
-     * Antes attackSkew se convertía en un shift horizontal:
+     * No trasladamos todo el playfield lateralmente.
+     * La deformación:
      *
-     *     width * 0.30f * attackSkew
+     * t = 0   -> 0
+     * t = .5  -> máxima
+     * t = 1   -> 0
      *
-     * Eso empujaba TODO el playfield a la derecha con Space.
-     *
-     * Ahora attackSkew produce una deformación CENTRADA alrededor
-     * de pivotX. La deformación es cero en los extremos verticales
-     * y máxima aproximadamente a media pantalla.
-     *
-     * Eso hace que una nota que sube describa una trayectoria curva
-     * hacia afuera/adentro, como si se deslizara sobre una superficie
-     * redondeada, sin trasladar todo el campo lateralmente.
+     * Esto conserva los extremos del playfield y evita que el receptor
+     * se desplace por una transformación global.
      */
     var attackSkew = 0f
         set(value) {
@@ -97,11 +93,18 @@ class PerspectivePlayfieldRenderer(
         }
 
     /*
-     * Lo conservamos porque AttackState ya lo usa para
-     * Space/Incoming/Hallway/Distant.
+     * Se conserva porque AttackState lo usa para:
      *
-     * Sigue neutralizado temporalmente. La implementación anterior
-     * attackTilt -> scaleX fue la que hacía explotar el tamaño.
+     * Space
+     * Incoming
+     * Hallway
+     * Distant
+     *
+     * IMPORTANTE:
+     * attackTilt NO modifica Y en esta implementación.
+     *
+     * En la revisión donde los receptores funcionaban correctamente,
+     * Tilt estaba neutralizado dentro del mesh.
      */
     var attackTilt = 0f
         set(value) {
@@ -111,16 +114,7 @@ class PerspectivePlayfieldRenderer(
         }
 
     /*
-     * Intensidad de la "curvatura esférica".
-     *
-     * 0.30 = a mitad de pantalla, Space 100% puede abrir el campo
-     * aproximadamente un 30% respecto a pivotX.
-     *
-     * Si después del video se ve demasiado:
-     *     0.22f - 0.25f
-     *
-     * Si se ve muy suave:
-     *     0.35f
+     * Intensidad de la curvatura horizontal ATTACK.
      */
     var attackCurveAmount = 0.30f
         set(value) {
@@ -132,13 +126,16 @@ class PerspectivePlayfieldRenderer(
     /*
      * Forma de la curva:
      *
-     * 1.0 = seno puro.
+     * 1.0 = seno
      * >1  = concentra más el efecto hacia la zona media.
      */
     var attackCurvePower = 1.0f
         set(value) {
-            val newValue = value.coerceAtLeast(0.01f)
+            val newValue =
+                value.coerceAtLeast(0.01f)
+
             if (field == newValue) return
+
             field = newValue
             updateMesh()
         }
@@ -152,10 +149,16 @@ class PerspectivePlayfieldRenderer(
     private var pivotX = pivotX
 
     private var frameBuffer =
-        createFrameBuffer(width, height)
+        createFrameBuffer(
+            width,
+            height
+        )
 
-    private val shader = createShader()
-    private var mesh = createMesh()
+    private val shader =
+        createShader()
+
+    private var mesh =
+        createMesh()
 
     init {
         require(segments >= 1)
@@ -244,9 +247,14 @@ class PerspectivePlayfieldRenderer(
             return
         }
 
-        this.width = width
-        this.height = height
-        this.pivotX = pivotX
+        this.width =
+            width
+
+        this.height =
+            height
+
+        this.pivotX =
+            pivotX
 
         frameBuffer.dispose()
 
@@ -316,33 +324,54 @@ class PerspectivePlayfieldRenderer(
             )
 
         val indices =
-            ShortArray(indexCount)
+            ShortArray(
+                indexCount
+            )
 
         var p = 0
 
-        for (i in 0 until segments) {
+        for (
+        i in
+        0 until segments
+        ) {
             val topLeft =
-                (i * 2).toShort()
+                (i * 2)
+                    .toShort()
 
             val topRight =
-                (i * 2 + 1).toShort()
+                (i * 2 + 1)
+                    .toShort()
 
             val bottomLeft =
-                ((i + 1) * 2).toShort()
+                ((i + 1) * 2)
+                    .toShort()
 
             val bottomRight =
-                ((i + 1) * 2 + 1).toShort()
+                ((i + 1) * 2 + 1)
+                    .toShort()
 
-            indices[p++] = topLeft
-            indices[p++] = bottomLeft
-            indices[p++] = topRight
+            indices[p++] =
+                topLeft
 
-            indices[p++] = topRight
-            indices[p++] = bottomLeft
-            indices[p++] = bottomRight
+            indices[p++] =
+                bottomLeft
+
+            indices[p++] =
+                topRight
+
+            indices[p++] =
+                topRight
+
+            indices[p++] =
+                bottomLeft
+
+            indices[p++] =
+                bottomRight
         }
 
-        result.setIndices(indices)
+        result.setIndices(
+            indices
+        )
 
         return result
     }
@@ -361,7 +390,9 @@ class PerspectivePlayfieldRenderer(
 
         val vertices =
             FloatArray(
-                (segments + 1) * 2 * 5
+                (segments + 1) *
+                        2 *
+                        5
             )
 
         val nxTopShiftPx =
@@ -370,27 +401,31 @@ class PerspectivePlayfieldRenderer(
 
         var p = 0
 
-        for (row in 0..segments) {
+        for (
+        row in
+        0..segments
+        ) {
             val t =
                 row.toFloat() /
                         segments.toFloat()
 
             /*
-             * t:
              * 0 = arriba
              * 1 = abajo
              */
             val depth =
                 1f - t
 
-            // -------------------------------------------------
-            // NX: PERSPECTIVA ORIGINAL
-            // -------------------------------------------------
+            // =================================================
+            // NX HORIZONTAL
+            // =================================================
 
             val horizontalEffect =
                 depth.pow(
                     horizontalPower
-                        .coerceAtLeast(0.01f)
+                        .coerceAtLeast(
+                            0.01f
+                        )
                 )
 
             val perspectiveScaleX =
@@ -401,58 +436,53 @@ class PerspectivePlayfieldRenderer(
                                 )
 
             /*
-             * progress=0 -> NX no afecta.
-             * progress=1 -> NX completo.
+             * progress:
+             *
+             * 0 = NX apagado
+             * 1 = NX completo
              */
             val nxScaleX =
                 1f +
                         (
-                                perspectiveScaleX - 1f
-                                ) * progress
+                                perspectiveScaleX -
+                                        1f
+                                ) *
+                        progress
 
             val nxShiftX =
                 nxTopShiftPx *
                         horizontalEffect *
                         progress
 
-            // -------------------------------------------------
-            // ATTACK SKEW / SPACE:
-            // CURVA CENTRADA, SIN SHIFT GLOBAL
-            // -------------------------------------------------
+            // =================================================
+            // ATTACK SKEW
+            // =================================================
 
             /*
-             * Perfil "esférico":
+             * Curva centrada:
              *
              * t=0   -> 0
              * t=.5  -> 1
              * t=1   -> 0
              *
-             * De esta manera:
-             * - no arrastramos todo el playfield a un lado;
-             * - el efecto aparece gradualmente;
-             * - es máximo en la zona media;
-             * - vuelve a desaparecer hacia el otro extremo.
+             * Muy importante:
+             * el receptor está cerca de uno de los extremos del mesh,
+             * por eso el ATTACK no lo arrastra fuera de pantalla.
              */
             val rawSphereCurve =
                 sin(
                     PI.toFloat() *
                             t
-                ).coerceAtLeast(0f)
+                )
+                    .coerceAtLeast(
+                        0f
+                    )
 
             val sphereCurve =
                 rawSphereCurve.pow(
                     attackCurvePower
                 )
 
-            /*
-             * Space actualmente da attackSkew positivo.
-             *
-             * scale > 1:
-             * los lados se abren respecto al pivote.
-             *
-             * Si algún chart usa skew negativo:
-             * se contrae hacia el centro.
-             */
             val attackScaleX =
                 1f +
                         (
@@ -462,20 +492,24 @@ class PerspectivePlayfieldRenderer(
                                 )
 
             /*
-             * Tilt permanece neutralizado.
+             * attackTilt permanece neutralizado.
              *
-             * NO volver a hacer:
+             * No usar:
              *
-             *     1 - (0.45 * attackTilt * depth)
+             * 1 - (0.45f * attackTilt * depth)
              *
-             * porque ya comprobamos que eso provoca un crecimiento
-             * excesivo de notas/receptores.
+             * Tampoco usar attackTilt para modificar Y.
+             *
+             * Es precisamente lo que queremos evitar para que
+             * Hallway / Distant / Incoming no saquen el receptor
+             * del viewport.
              */
-            val attackTiltScaleX = 1f
+            val attackTiltScaleX =
+                1f
 
-            // -------------------------------------------------
-            // COMPOSICIÓN FINAL X
-            // -------------------------------------------------
+            // =================================================
+            // X FINAL
+            // =================================================
 
             val finalScaleX =
                 nxScaleX *
@@ -483,46 +517,67 @@ class PerspectivePlayfieldRenderer(
                         attackTiltScaleX
 
             /*
-             * Importante:
-             * NO hay attackShiftX.
+             * No existe attackShiftX.
              *
-             * Space ya no traslada el campo a la derecha.
+             * Sólo conservamos el shift propio de NX.
              */
             val finalShiftX =
                 nxShiftX
 
             val leftX =
                 pivotX +
-                        (0f - pivotX) *
+                        (
+                                0f -
+                                        pivotX
+                                ) *
                         finalScaleX +
                         finalShiftX
 
             val rightX =
                 pivotX +
-                        (width.toFloat() - pivotX) *
+                        (
+                                width.toFloat() -
+                                        pivotX
+                                ) *
                         finalScaleX +
                         finalShiftX
 
-            // -------------------------------------------------
+            // =================================================
             // Y
-            // -------------------------------------------------
+            // =================================================
 
             val fullPerspectiveT =
                 t.pow(
                     verticalPower
-                        .coerceAtLeast(0.01f)
+                        .coerceAtLeast(
+                            0.01f
+                        )
                 )
 
             /*
-             * Sólo NX modifica por ahora la distribución vertical.
-             * Los ATTACK perspective no cambian Y hasta que
-             * reimplementemos correctamente PerspectiveTilt.
+             * CRÍTICO:
+             *
+             * Sólo NX modifica la distribución vertical.
+             *
+             * Los ATTACKS:
+             *
+             * Hallway
+             * Distant
+             * Incoming
+             * Space
+             *
+             * NO modifican Y aquí.
+             *
+             * Reverse sigue manejándose fuera de este mesh,
+             * en la geometría de notas/receptor de GameScreenSsc.
              */
             val perspectiveT =
                 t +
                         (
-                                fullPerspectiveT - t
-                                ) * progress
+                                fullPerspectiveT -
+                                        t
+                                ) *
+                        progress
 
             val y =
                 height *
@@ -531,24 +586,43 @@ class PerspectivePlayfieldRenderer(
                         progress
 
             /*
-             * El FrameBuffer de LibGDX está invertido verticalmente.
+             * FrameBuffer LibGDX:
+             * coordenada V invertida.
              */
             val v =
                 1f - t
 
             // LEFT
-            vertices[p++] = leftX
-            vertices[p++] = y
-            vertices[p++] = 0f
-            vertices[p++] = 0f
-            vertices[p++] = v
+            vertices[p++] =
+                leftX
+
+            vertices[p++] =
+                y
+
+            vertices[p++] =
+                0f
+
+            vertices[p++] =
+                0f
+
+            vertices[p++] =
+                v
 
             // RIGHT
-            vertices[p++] = rightX
-            vertices[p++] = y
-            vertices[p++] = 0f
-            vertices[p++] = 1f
-            vertices[p++] = v
+            vertices[p++] =
+                rightX
+
+            vertices[p++] =
+                y
+
+            vertices[p++] =
+                0f
+
+            vertices[p++] =
+                1f
+
+            vertices[p++] =
+                v
         }
 
         mesh.setVertices(
@@ -574,8 +648,12 @@ class PerspectivePlayfieldRenderer(
             varying vec2 v_texCoords;
 
             void main() {
-                v_texCoords = a_texCoord0;
-                gl_Position = u_projTrans * a_position;
+                v_texCoords =
+                    a_texCoord0;
+
+                gl_Position =
+                    u_projTrans *
+                    a_position;
             }
             """.trimIndent()
 
@@ -602,7 +680,9 @@ class PerspectivePlayfieldRenderer(
             vertexShader,
             fragmentShader
         ).also { shader ->
-            if (!shader.isCompiled) {
+            if (
+                !shader.isCompiled
+            ) {
                 throw IllegalStateException(
                     "No se pudo compilar PerspectivePlayfieldRenderer: ${shader.log}"
                 )

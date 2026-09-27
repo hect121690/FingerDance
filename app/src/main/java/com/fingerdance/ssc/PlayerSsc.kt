@@ -27,7 +27,6 @@ import com.fingerdance.hjBad
 import com.fingerdance.hjGood
 import com.fingerdance.hjGreat
 import com.fingerdance.hjPerfect
-import com.fingerdance.isAutoPlayDebug
 import com.fingerdance.isMidLine
 import com.fingerdance.isOnline
 import com.fingerdance.isPlayer1
@@ -651,11 +650,7 @@ class PlayerSsc(
 
         gameplayEngine.updateStepData(
             songTimeMs = songTimeMs,
-            input = inputProcessor.getKeyBoard,
-            autoPlayActive =
-                screen.currentAttackState.autoPlay ||
-                isAutoPlayDebug
-        )
+            input = inputProcessor.getKeyBoard)
 
         if (isOnline) {
             sendLiveScoreIfNeeded()
@@ -993,8 +988,6 @@ class PlayerSsc(
         val attackX = screen.getAttackColumnOffsetX(column = position, yOffset = 0f)
         val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
         val miniScale = screen.getAttackVisualScale()
-        val reverseScaleY = screen.getAttackReverseScaleY(position)
-
         val logicalX = getReceptorX(position) + attackX
         val logicalY = screen.getAttackReceptorY(position)
 
@@ -1023,7 +1016,7 @@ class PlayerSsc(
             baseWidth,
             baseHeight,
             finalScale,
-            finalScale * reverseScaleY,
+            finalScale,
             confusionRotation
         )
 

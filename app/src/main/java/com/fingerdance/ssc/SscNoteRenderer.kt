@@ -1,10 +1,15 @@
 package com.fingerdance.ssc
 
+import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.GL20
+import com.badlogic.gdx.graphics.Mesh
+import com.badlogic.gdx.graphics.VertexAttribute
+import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
+import com.badlogic.gdx.math.Matrix4
 import com.fingerdance.luaNotes
-import com.fingerdance.medidaFlechas
 
 /**
  * Render compartido de TAP, MINE y HOLD para los Player SSC.
@@ -74,10 +79,154 @@ class SscNoteRenderer(
     private val cellMetrics: Array<GameScreenSsc.NoteCellMetrics>
 ) {
 
+    /*
+     * IMPORTANTE: debe inicializarse ANTES de crear cualquiera de los shaders
+     * que lo reutilizan. Kotlin inicializa propiedades de instancia en orden
+     * textual; si queda al final de la clase, createNormalFlipShader() lo lee
+     * antes de inicializarse y ShaderProgram recibe vertexShader=null.
+     */
+    private val COMMON_VERTEX_SHADER = """
+            attribute vec4 a_position;
+            attribute vec4 a_color;
+            attribute vec2 a_texCoord0;
+
+            uniform mat4 u_projTrans;
+
+            // Bumpy / Twirl / Roll
+            uniform float u_bumpy;
+            uniform float u_twirl;
+            uniform float u_roll;
+            uniform float u_stepmaniaYOffset;
+            uniform float u_stepmaniaArrowScale;
+            uniform float u_objectCenterX;
+            uniform float u_objectCenterY;
+            uniform float u_focalLength;
+
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+            varying float v_worldY;
+
+            const float DEG_TO_RAD = 0.017453292519943295;
+
+            vec3 rotateX(vec3 p, float angle) {
+                float c = cos(angle);
+                float s = sin(angle);
+                return vec3(
+                    p.x,
+                    p.y * c - p.z * s,
+                    p.y * s + p.z * c
+                );
+            }
+
+            vec3 rotateY(vec3 p, float angle) {
+                float c = cos(angle);
+                float s = sin(angle);
+                return vec3(
+                    p.x * c + p.z * s,
+                    p.y,
+                    -p.x * s + p.z * c
+                );
+            }
+
+            void main() {
+                v_color = a_color;
+                v_color.a =
+                    v_color.a *
+                    (255.0 / 254.0);
+
+                v_texCoords =
+                    a_texCoord0;
+
+                // Conservamos worldY original para AP/Vanish/Flip ribbon.
+                v_worldY =
+                    a_position.y;
+
+                vec3 p = vec3(
+                    a_position.x - u_objectCenterX,
+                    a_position.y - u_objectCenterY,
+                    0.0
+                );
+
+                // Este valor está en el mismo espacio lógico que ArrowEffects.cpp.
+                // Ya incluye Boost/Expand/scrollSpeed y todavía no incluye Reverse/Tipsy.
+                float yOffset = u_stepmaniaYOffset;
+
+                // Bumpy usa una magnitud ligada a ARROW_SIZE. En StepMania
+                // ARROW_SIZE=64; en Finger Dance 64 -> medidaFlechas.
+                float bumpyZ =
+                    u_bumpy *
+                    40.0 *
+                    sin(yOffset / 16.0) *
+                    u_stepmaniaArrowScale;
+
+                p.z += bumpyZ;
+
+                // Los ángulos permanecen en grados StepMania: no se escalan por píxeles.
+                float twirlAngle =
+                    (u_twirl * yOffset * 0.5) *
+                    DEG_TO_RAD;
+
+                float rollAngle =
+                    (u_roll * yOffset * 0.5) *
+                    DEG_TO_RAD;
+
+                p = rotateY(p, twirlAngle);
+                p = rotateX(p, rollAngle);
+
+                // Proyección perspectiva segura sobre el mismo playfield 2D.
+                float focal =
+                    max(u_focalLength, 1.0);
+
+                float denom =
+                    max(focal - p.z, focal * 0.20);
+
+                float perspective =
+                    clamp(
+                        focal / denom,
+                        0.35,
+                        2.50
+                    );
+
+                vec2 finalPos =
+                    vec2(
+                        u_objectCenterX + p.x * perspective,
+                        u_objectCenterY + p.y * perspective
+                    );
+
+                gl_Position =
+                    u_projTrans *
+                    vec4(
+                        finalPos,
+                        a_position.z,
+                        a_position.w
+                    );
+            }
+        """.trimIndent()
+
     private val normalFlipShader = createNormalFlipShader()
     private val appearFadeShader = createAppearFadeShader()
     private val vanishFadeShader = createVanishFadeShader()
     private val vanishMidLineFadeShader = createVanishMidLineFadeShader()
+
+    /*
+     * Ribbon 3D continuo para HOLD bodies.
+     *
+     * Antes cada segmento del body se enviaba como un SpriteBatch.draw separado
+     * con un pivot/uniform distinto. Bumpy/Twirl/Roll podían separar físicamente
+     * esas tiras y el HOLD terminaba viéndose "por cachos".
+     *
+     * Aquí todos los segmentos comparten vértices dentro de UN Mesh y se
+     * renderizan en una sola llamada. La geometría queda continua.
+     */
+    private val holdRibbonShader = createHoldRibbonShader()
+    private val holdRibbonCombinedMatrix = Matrix4()
+
+    private companion object {
+        const val HOLD_RIBBON_MAX_SEGMENTS = 64
+    }
+
+    private val holdRibbonMesh: Mesh =
+        createHoldRibbonMesh()
 
     // TAP / MINE / HEAD / BOTTOM: una vuelta completa cada 6 alturas de flecha.
     // El BODY NO usa esta longitud: siempre hace una sola media vuelta de head a bottom.
@@ -268,6 +417,112 @@ class SscNoteRenderer(
     private fun anchoredHoldHeadY(column: Int): Float =
         computeReceptorCenterY(column) - (arrowSize * 0.5f)
 
+    /**
+     * Recorte físico del BODY al viewport.
+     *
+     * NO es una regla de MidLine: evita dibujar/segmentar miles de píxeles
+     * que están fuera de pantalla. tStart/tEnd conservan qué tramo de la
+     * textura/cuerpo corresponde al fragmento visible.
+     */
+    private data class BodyViewportClip(
+        val y: Float,
+        val height: Float,
+        val tStart: Float,
+        val tEnd: Float
+    )
+
+    private fun clipBodyToViewport(
+        y: Float,
+        height: Float
+    ): BodyViewportClip? {
+        if (height <= 0f) return null
+
+        val fullEnd =
+            y + height
+
+        val viewportTop = 0f
+        val viewportBottom =
+            Gdx.graphics.height.toFloat()
+
+        val clippedStart =
+            maxOf(
+                y,
+                viewportTop
+            )
+
+        val clippedEnd =
+            minOf(
+                fullEnd,
+                viewportBottom
+            )
+
+        val clippedHeight =
+            clippedEnd - clippedStart
+
+        if (clippedHeight <= 0f) {
+            return null
+        }
+
+        val tStart =
+            ((clippedStart - y) / height)
+                .coerceIn(0f, 1f)
+
+        val tEnd =
+            ((clippedEnd - y) / height)
+                .coerceIn(0f, 1f)
+
+        return BodyViewportClip(
+            y = clippedStart,
+            height = clippedHeight,
+            tStart = tStart,
+            tEnd = tEnd
+        )
+    }
+
+    private fun isLogicalSpriteInsideViewport(
+        logicalY: Float
+    ): Boolean {
+        val screenHeight =
+            Gdx.graphics.height.toFloat()
+
+        return logicalY + arrowSize > 0f &&
+                logicalY < screenHeight
+    }
+
+    private fun drawRegionSlice(
+        region: TextureRegion,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        tStart: Float,
+        tEnd: Float
+    ) {
+        val texture = region.texture
+        val u1 = region.u
+        val u2 = region.u2
+        val v1 =
+            region.v +
+                    (region.v2 - region.v) *
+                    tStart
+        val v2 =
+            region.v +
+                    (region.v2 - region.v) *
+                    tEnd
+
+        batch.draw(
+            texture,
+            x,
+            y,
+            width,
+            height,
+            u1,
+            v1,
+            u2,
+            v2
+        )
+    }
+
     private fun drawFlipRegion(
         region: TextureRegion,
         x: Float,
@@ -280,7 +535,14 @@ class SscNoteRenderer(
         sourceY: Float = activeSourceY
     ) {
         val miniScale = computeScale() * activeDepthScale
-        val reverseScaleY = if (reverseY) computeScaleY(activeColumn) else 1f
+
+        /*
+         * StepMania Reverse modifica GetYPos, no el zoomY del sprite.
+         * Antes computeScaleY=1-2*Reverse hacía que toda pieza desapareciera
+         * verticalmente al cruzar Reverse=0.5 y luego se dibujara invertida.
+         * Eso era especialmente destructivo durante ATTACK Approach.
+         */
+        val spriteScaleY = 1f
         val centerY = y + height * 0.5f
 
         withAppearanceAlpha(sourceY) {
@@ -294,7 +556,7 @@ class SscNoteRenderer(
                     width,
                     height,
                     miniScale,
-                    miniScale * reverseScaleY,
+                    miniScale * spriteScaleY,
                     rotation
                 )
                 return@withAppearanceAlpha
@@ -322,7 +584,7 @@ class SscNoteRenderer(
                 width,
                 height,
                 miniScale,
-                miniScale * reverseScaleY,
+                miniScale * spriteScaleY,
                 rotation
             )
 
@@ -330,35 +592,355 @@ class SscNoteRenderer(
         }
     }
 
+    private fun createHoldRibbonMesh(): Mesh {
+        val vertexCount =
+            (HOLD_RIBBON_MAX_SEGMENTS + 1) * 2
+
+        val indexCount =
+            HOLD_RIBBON_MAX_SEGMENTS * 6
+
+        val mesh =
+            Mesh(
+                false,
+                vertexCount,
+                indexCount,
+                VertexAttribute(
+                    VertexAttributes.Usage.Position,
+                    3,
+                    ShaderProgram.POSITION_ATTRIBUTE
+                ),
+                VertexAttribute(
+                    VertexAttributes.Usage.TextureCoordinates,
+                    2,
+                    ShaderProgram.TEXCOORD_ATTRIBUTE + "0"
+                ),
+                VertexAttribute(
+                    VertexAttributes.Usage.Generic,
+                    1,
+                    "a_yOffset"
+                ),
+                VertexAttribute(
+                    VertexAttributes.Usage.Generic,
+                    1,
+                    "a_alpha"
+                )
+            )
+
+        val indices =
+            ShortArray(indexCount)
+
+        var p = 0
+
+        for (i in 0 until HOLD_RIBBON_MAX_SEGMENTS) {
+            val topLeft = (i * 2).toShort()
+            val topRight = (i * 2 + 1).toShort()
+            val bottomLeft = ((i + 1) * 2).toShort()
+            val bottomRight = ((i + 1) * 2 + 1).toShort()
+
+            indices[p++] = topLeft
+            indices[p++] = bottomLeft
+            indices[p++] = topRight
+
+            indices[p++] = topRight
+            indices[p++] = bottomLeft
+            indices[p++] = bottomRight
+        }
+
+        mesh.setIndices(indices)
+        return mesh
+    }
+
+    /**
+     * HOLD body continuo para Bumpy/Twirl/Roll.
+     *
+     * - un solo Mesh;
+     * - vértices compartidos entre segmentos;
+     * - yOffset SM propio por fila;
+     * - alpha de appearance propio por fila;
+     * - sin batch.flush() por segmento.
+     */
+    private fun drawContinuous3DBody(
+        region: TextureRegion,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        fullBodyY: Float,
+        fullBodyHeight: Float,
+        sourceTStart: Float,
+        sourceTEnd: Float
+    ) {
+        if (height <= 0f) return
+
+        val targetSegmentHeight =
+            (arrowSize / 6f)
+                .coerceAtLeast(3f)
+
+        val segmentCount =
+            kotlin.math.ceil(
+                height / targetSegmentHeight
+            )
+                .toInt()
+                .coerceIn(
+                    2,
+                    HOLD_RIBBON_MAX_SEGMENTS
+                )
+
+        // x,y,z,u,v,yOffset,alpha = 7 floats por vértice.
+        val floatsPerVertex = 7
+        val vertexCount = (segmentCount + 1) * 2
+        val vertices =
+            FloatArray(
+                vertexCount * floatsPerVertex
+            )
+
+        val uLeft = region.u
+        val uRight = region.u2
+        val vTop = region.v
+        val vBottom = region.v2
+
+        var p = 0
+
+        for (row in 0..segmentCount) {
+            val localT =
+                row.toFloat() /
+                        segmentCount.toFloat()
+
+            val sourceT =
+                sourceTStart +
+                        (sourceTEnd - sourceTStart) *
+                        localT
+
+            val worldY =
+                y +
+                        height *
+                        localT
+
+            val sourceY =
+                activeHoldSourceStartY +
+                        (
+                            activeHoldSourceEndY -
+                                activeHoldSourceStartY
+                            ) *
+                        sourceT
+
+            val yOffset =
+                computeStepManiaYOffset(
+                    sourceY
+                )
+
+            val rowAlpha =
+                appearanceAlphaAt(
+                    sourceY
+                )
+
+            val v =
+                vTop +
+                        (vBottom - vTop) *
+                        sourceT
+
+            // LEFT
+            vertices[p++] = x
+            vertices[p++] = worldY
+            vertices[p++] = 0f
+            vertices[p++] = uLeft
+            vertices[p++] = v
+            vertices[p++] = yOffset
+            vertices[p++] = rowAlpha
+
+            // RIGHT
+            vertices[p++] = x + width
+            vertices[p++] = worldY
+            vertices[p++] = 0f
+            vertices[p++] = uRight
+            vertices[p++] = v
+            vertices[p++] = yOffset
+            vertices[p++] = rowAlpha
+        }
+
+        holdRibbonMesh.setVertices(
+            vertices,
+            0,
+            vertices.size
+        )
+
+        /*
+         * El Mesh se dibuja dentro de un SpriteBatch.begin().
+         * Vaciamos una sola vez, renderizamos el ribbon y volvemos a dejar
+         * ligado el shader de SpriteBatch.
+         */
+        batch.flush()
+
+        region.texture.bind(0)
+
+        holdRibbonShader.bind()
+
+        holdRibbonCombinedMatrix
+            .set(batch.projectionMatrix)
+            .mul(batch.transformMatrix)
+
+        holdRibbonShader.setUniformMatrix(
+            "u_projTrans",
+            holdRibbonCombinedMatrix
+        )
+
+        holdRibbonShader.setUniformi(
+            "u_texture",
+            0
+        )
+
+        val color = batch.color
+        holdRibbonShader.setUniformf(
+            "u_color",
+            color.r,
+            color.g,
+            color.b,
+            color.a
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_bumpy",
+            computeBumpy()
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_twirl",
+            computeTwirl()
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_roll",
+            computeRoll()
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_stepmaniaArrowScale",
+            computeStepManiaArrowScale()
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_objectCenterX",
+            x + width * 0.5f
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_objectCenterY",
+            y + height * 0.5f
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_focalLength",
+            480f *
+                    computeStepManiaFieldScaleY()
+                        .coerceAtLeast(0.0001f)
+        )
+
+        holdRibbonShader.setUniformi(
+            "u_flipEnabled",
+            if (luaNotes.flipX) 1 else 0
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_bodyY",
+            fullBodyY
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_bodyHeight",
+            fullBodyHeight.coerceAtLeast(0.0001f)
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_regionU",
+            region.u
+        )
+
+        holdRibbonShader.setUniformf(
+            "u_regionU2",
+            region.u2
+        )
+
+        holdRibbonMesh.render(
+            holdRibbonShader,
+            GL20.GL_TRIANGLES,
+            0,
+            segmentCount * 6
+        )
+
+        /*
+         * Mesh.render deja su shader ligado. SpriteBatch ya tenía sus matrices
+         * preparadas, así que basta con volver a ligar el shader anterior.
+         */
+        batch.shader.bind()
+    }
+
     private fun drawFlipBody(
         region: TextureRegion,
         x: Float,
         y: Float,
         width: Float,
-        height: Float
+        height: Float,
+        fullBodyY: Float = y,
+        fullBodyHeight: Float = height,
+        sourceTStart: Float = 0f,
+        sourceTEnd: Float = 1f
     ) {
         if (height <= 0f) return
 
-        val miniScale = computeScale() * activeDepthScale
+        val miniScale =
+            computeScale() *
+                    activeDepthScale
 
-        val scaledWidth = width * miniScale
-        val centeredX = x + (width - scaledWidth) * 0.5f
+        val scaledWidth =
+            width * miniScale
 
-        if (!luaNotes.flipX && !attack3DActive && !computeAppearanceActive()) {
+        val centeredX =
+            x +
+                    (width - scaledWidth) *
+                    0.5f
+
+        /*
+         * El path 3D usa un ribbon continuo. No volvemos a separar el body
+         * en SpriteBatch.draw independientes.
+         */
+        if (attack3DActive) {
+            drawContinuous3DBody(
+                region = region,
+                x = centeredX,
+                y = y,
+                width = scaledWidth,
+                height = height,
+                fullBodyY = fullBodyY,
+                fullBodyHeight = fullBodyHeight,
+                sourceTStart = sourceTStart,
+                sourceTEnd = sourceTEnd
+            )
+            return
+        }
+
+        if (
+            !luaNotes.flipX &&
+            !computeAppearanceActive()
+        ) {
             withAppearanceAlpha(activeSourceY) {
-                batch.draw(
-                    region,
-                    centeredX,
-                    y,
-                    scaledWidth,
-                    height
+                drawRegionSlice(
+                    region = region,
+                    x = centeredX,
+                    y = y,
+                    width = scaledWidth,
+                    height = height,
+                    tStart = sourceTStart,
+                    tEnd = sourceTEnd
                 )
             }
             return
         }
 
-        val previousShader = batch.shader
-        batch.shader = normalFlipShader
+        val previousShader =
+            batch.shader
+
+        batch.shader =
+            normalFlipShader
 
         drawBodyPossiblySegmented(
             region = region,
@@ -366,14 +948,16 @@ class SscNoteRenderer(
             y = y,
             width = scaledWidth,
             height = height,
-            fullBodyY = y,
-            fullBodyHeight = height,
-            shader = normalFlipShader
+            fullBodyY = fullBodyY,
+            fullBodyHeight = fullBodyHeight,
+            shader = normalFlipShader,
+            sourceTStart = sourceTStart,
+            sourceTEnd = sourceTEnd
         )
 
-        batch.shader = previousShader
+        batch.shader =
+            previousShader
     }
-
 
     /**
      * Divide un HOLD body en tiras verticales cuando Bumpy/Twirl/Roll están activos.
@@ -388,7 +972,9 @@ class SscNoteRenderer(
         height: Float,
         fullBodyY: Float,
         fullBodyHeight: Float,
-        shader: ShaderProgram
+        shader: ShaderProgram,
+        sourceTStart: Float = 0f,
+        sourceTEnd: Float = 1f
     ) {
         if (height <= 0f) return
 
@@ -406,19 +992,37 @@ class SscNoteRenderer(
             )
 
             withAppearanceAlpha(activeSourceY) {
-                batch.draw(region, x, y, width, height)
+                drawRegionSlice(
+                    region = region,
+                    x = x,
+                    y = y,
+                    width = width,
+                    height = height,
+                    tStart = sourceTStart,
+                    tEnd = sourceTEnd
+                )
             }
             return
         }
 
-        // 1/8 de flecha: suficiente densidad para holds largos sin disparar draw calls.
+        /*
+         * El shader necesita muestrear el BODY porque Bumpy/Twirl/Roll dependen
+         * de fYOffset, pero un flush por cada 1/8 de flecha es demasiado caro
+         * en Android. 1/4 conserva una curva suficientemente suave y reduce
+         * aproximadamente a la mitad los flushes.
+         */
         val targetSegmentHeight =
-            (arrowSize / 8f).coerceAtLeast(4f)
+            (arrowSize / 4f).coerceAtLeast(6f)
 
         val segments =
             kotlin.math.ceil(height / targetSegmentHeight)
                 .toInt()
-                .coerceAtLeast(1)
+                /*
+                 * Guardrail para charts con HOLDs enormes + Bumpy/Twirl/Roll.
+                 * Tras el clipping normalmente ya será pequeño; 48 evita un
+                 * flush-storm accidental sin alterar la geometría visible.
+                 */
+                .coerceIn(1, 48)
 
         val texture = region.texture
         val u1 = region.u
@@ -427,14 +1031,34 @@ class SscNoteRenderer(
         val vBottom = region.v2
 
         for (i in 0 until segments) {
-            val t0 = i.toFloat() / segments.toFloat()
-            val t1 = (i + 1).toFloat() / segments.toFloat()
+            val localT0 =
+                i.toFloat() /
+                        segments.toFloat()
 
-            val sy = y + height * t0
+            val localT1 =
+                (i + 1).toFloat() /
+                        segments.toFloat()
+
+            val t0 =
+                sourceTStart +
+                        (sourceTEnd - sourceTStart) *
+                        localT0
+
+            val t1 =
+                sourceTStart +
+                        (sourceTEnd - sourceTStart) *
+                        localT1
+
+            val sy =
+                y +
+                        height *
+                        localT0
             // pequeño solape para que el filtrado lineal no abra costuras visuales.
             val sh =
-                (height * (t1 - t0) + 0.75f)
-                    .coerceAtMost(y + height - sy + 0.75f)
+                (height * (localT1 - localT0) + 0.75f)
+                    .coerceAtMost(
+                        y + height - sy + 0.75f
+                    )
 
             val sv1 = vTop + (vBottom - vTop) * t0
             val sv2 = vTop + (vBottom - vTop) * t1
@@ -537,25 +1161,45 @@ class SscNoteRenderer(
     // -------------------------------------------------------------------------
     // HOLD NORMAL
     // -------------------------------------------------------------------------
-    private val compenseY1 = (middleSize * 0.25f).toInt()
     private fun drawLongNoteNormal(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
         val transformedHeadY = transformedY(column, y)
-        val headY = if (activeHoldAnchored) anchoredHoldHeadY(column) else transformedHeadY
-        val bottomY = transformedY(column, y2 + compenseY1)
-        val isReverse = bottomY < headY
-        val bottomDrawY = if (isReverse) bottomY - middleSize else bottomY + middleSize
+        val headY =
+            if (activeHoldAnchored) {
+                anchoredHoldHeadY(column)
+            } else {
+                transformedHeadY
+            }
+        val bottomY = transformedY(column, y2)
         val head = getCellDraw(column, logicalX, headY)
-        val bottom = getCellDraw(column, logicalX, bottomDrawY)
+        val bottom = getCellDraw(column, logicalX, bottomY)
+
+        val isReverse = bottomY < headY
         val remainingLength = kotlin.math.abs(bottomY - headY)
-        val bodyStartY = if (isReverse) bottomY else headY + middleSize
-        val bodyEndY = if (isReverse) headY + middleSize else bottomY + middleSize
-        val bodyHeight = (bodyEndY - bodyStartY).coerceAtLeast(0f)
+
+        val bodyStartY =
+            if (isReverse) {
+                bottomY
+            } else {
+                headY + middleSize
+            }
+
+        val bodyEndY =
+            if (isReverse) {
+                headY + middleSize
+            } else {
+                bottomY + middleSize
+            }
+
+        val bodyHeight =
+            (bodyEndY - bodyStartY)
+                .coerceAtLeast(0f)
         val widthBody = getBodyWidth(column)
         val leftBody = getBodyX(column, logicalX)
 
         if (normalUsesMidLine) {
             val limit = initArrow ?: return
+
             val visibleBodyStart = bodyStartY.coerceAtLeast(0f)
             val visibleBodyEnd = minOf(bodyEndY, limit)
             val visibleBodyHeight = visibleBodyEnd - visibleBodyStart
@@ -597,19 +1241,38 @@ class SscNoteRenderer(
                     sourceY = y.toFloat()
                 )
             }
+
             resetColor()
         } else {
-            if (bodyHeight > 0f) {
+            /*
+             * MISMA geometría que MidLine, distinta regla de visibilidad:
+             * sin fade/limit de initArrow, pero nunca procesamos geometría
+             * que está completamente fuera de la pantalla física.
+             */
+            val clip =
+                clipBodyToViewport(
+                    y = bodyStartY,
+                    height = bodyHeight
+                )
+
+            if (clip != null) {
                 drawFlipBody(
                     region = bodies[column][frame],
                     x = leftBody,
-                    y = bodyStartY,
+                    y = clip.y,
                     width = widthBody,
-                    height = bodyHeight
+                    height = clip.height,
+                    fullBodyY = bodyStartY,
+                    fullBodyHeight = bodyHeight,
+                    sourceTStart = clip.tStart,
+                    sourceTEnd = clip.tEnd
                 )
             }
 
-            if (remainingLength > heightBodyHead && bottomY > 0f) {
+            if (
+                remainingLength > heightBodyHead &&
+                isLogicalSpriteInsideViewport(bottomY)
+            ) {
                 drawFlipRegion(
                     region = bottoms[column][frame],
                     x = bottom.x,
@@ -621,7 +1284,9 @@ class SscNoteRenderer(
                 )
             }
 
-            if (headY > 0f) {
+            if (
+                isLogicalSpriteInsideViewport(headY)
+            ) {
                 drawFlipRegion(
                     region = arrows[column][frame],
                     x = head.x,
@@ -642,25 +1307,51 @@ class SscNoteRenderer(
     private fun drawLongNoteVanish(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
         val transformedHeadY = transformedY(column, y)
-        val headY = if (activeHoldAnchored) anchoredHoldHeadY(column) else transformedHeadY
-        val bottomY = transformedY(column, y2 + compenseY1)
-        val isReverse = bottomY < headY
-        val bottomDrawY = if (isReverse) bottomY - middleSize else bottomY + middleSize
+        val headY =
+            if (activeHoldAnchored) {
+                anchoredHoldHeadY(column)
+            } else {
+                transformedHeadY
+            }
+        val bottomY = transformedY(column, y2)
         val head = getCellDraw(column, logicalX, headY)
-        val bottom = getCellDraw(column, logicalX, bottomDrawY)
+        val bottom = getCellDraw(column, logicalX, bottomY)
+
+        val isReverse = bottomY < headY
         val remainingLength = kotlin.math.abs(bottomY - headY)
-        val bodyStartY = if (isReverse) bottomY else headY + middleSize
-        val bodyEndY = if (isReverse) headY + middleSize else bottomY + middleSize
-        val bodyHeight = (bodyEndY - bodyStartY).coerceAtLeast(0f)
+
+        val bodyStartY =
+            if (isReverse) {
+                bottomY
+            } else {
+                headY + middleSize
+            }
+
+        val bodyEndY =
+            if (isReverse) {
+                headY + middleSize
+            } else {
+                bottomY + middleSize
+            }
+
+        val bodyHeight =
+            (bodyEndY - bodyStartY)
+                .coerceAtLeast(0f)
         val widthBody = getBodyWidth(column)
         val leftBody = getBodyX(column, logicalX)
         val vanishBodyFadeEnd = (measureVanish + (arrowSize * 2f)).toFloat()
 
         if (vanishUsesMidLine) {
             val appearLimit = initArrow ?: return
+
             val visibleBodyStart = maxOf(bodyStartY, measureVanish.toFloat())
             val unclippedBodyEnd = bodyEndY
-            val visibleBodyEnd = if (clipVanishBodyAtInitArrow) minOf(unclippedBodyEnd, appearLimit) else unclippedBodyEnd
+            val visibleBodyEnd = if (clipVanishBodyAtInitArrow) {
+                minOf(unclippedBodyEnd, appearLimit)
+            } else {
+                unclippedBodyEnd
+            }
+
             val visibleBodyHeight = visibleBodyEnd - visibleBodyStart
 
             if (visibleBodyHeight > 0f) {
@@ -675,8 +1366,21 @@ class SscNoteRenderer(
                 )
             }
 
-            if (remainingLength > heightBodyHead && bottomY > measureVanish && bottomY < appearLimit) {
-                batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(bottomY, appearLimit))
+            if (
+                remainingLength > heightBodyHead &&
+                bottomY > measureVanish &&
+                bottomY < appearLimit
+            ) {
+                batch.setColor(
+                    1f,
+                    1f,
+                    1f,
+                    getVanishMidLineAlpha(
+                        y = bottomY,
+                        appearLimit = appearLimit
+                    )
+                )
+
                 drawFlipRegion(
                     region = bottoms[column][frame],
                     x = bottom.x,
@@ -688,8 +1392,21 @@ class SscNoteRenderer(
                 )
             }
 
-            if (headY > 0f && headY > measureVanish && headY < appearLimit) {
-                batch.setColor(1f, 1f, 1f, getVanishMidLineAlpha(headY, appearLimit))
+            if (
+                headY > 0f &&
+                headY > measureVanish &&
+                headY < appearLimit
+            ) {
+                batch.setColor(
+                    1f,
+                    1f,
+                    1f,
+                    getVanishMidLineAlpha(
+                        y = headY,
+                        appearLimit = appearLimit
+                    )
+                )
+
                 drawFlipRegion(
                     region = arrows[column][frame],
                     x = head.x,
@@ -701,21 +1418,42 @@ class SscNoteRenderer(
                     sourceY = y.toFloat()
                 )
             }
+
             resetColor()
         } else {
-            if (bodyHeight > 0f) {
+            val clip =
+                clipBodyToViewport(
+                    y = bodyStartY,
+                    height = bodyHeight
+                )
+
+            if (clip != null) {
                 drawWithVanishShader(
                     region = bodies[column][frame],
                     x = leftBody,
-                    y = bodyStartY,
+                    y = clip.y,
                     width = widthBody,
-                    height = bodyHeight,
-                    fadeEnd = vanishBodyFadeEnd
+                    height = clip.height,
+                    fadeEnd = vanishBodyFadeEnd,
+                    fullBodyY = bodyStartY,
+                    fullBodyHeight = bodyHeight,
+                    sourceTStart = clip.tStart,
+                    sourceTEnd = clip.tEnd
                 )
             }
 
-            if (remainingLength > heightBodyHead && bottomY > measureVanish) {
-                batch.setColor(1f, 1f, 1f, getVanishAlpha(bottomY))
+            if (
+                remainingLength > heightBodyHead &&
+                bottomY > measureVanish &&
+                isLogicalSpriteInsideViewport(bottomY)
+            ) {
+                batch.setColor(
+                    1f,
+                    1f,
+                    1f,
+                    getVanishAlpha(bottomY)
+                )
+
                 drawFlipRegion(
                     region = bottoms[column][frame],
                     x = bottom.x,
@@ -727,8 +1465,17 @@ class SscNoteRenderer(
                 )
             }
 
-            if (headY > 0f && headY > measureVanish) {
-                batch.setColor(1f, 1f, 1f, getVanishAlpha(headY))
+            if (
+                headY > measureVanish &&
+                isLogicalSpriteInsideViewport(headY)
+            ) {
+                batch.setColor(
+                    1f,
+                    1f,
+                    1f,
+                    getVanishAlpha(headY)
+                )
+
                 drawFlipRegion(
                     region = arrows[column][frame],
                     x = head.x,
@@ -740,6 +1487,7 @@ class SscNoteRenderer(
                     sourceY = y.toFloat()
                 )
             }
+
             resetColor()
         }
     }
@@ -750,18 +1498,37 @@ class SscNoteRenderer(
     private fun drawLongNoteAp(column: Int, y: Int, y2: Int, frame: Int, rotation: Float) {
         val logicalX = computeLeft(column, y)
         val transformedHeadY = transformedY(column, y)
-        val headY = if (activeHoldAnchored) anchoredHoldHeadY(column) else transformedHeadY
-        val bottomY = transformedY(column, y2 + compenseY1)
-        val isReverse = bottomY < headY
-        val bottomDrawY = if (isReverse) bottomY - middleSize else bottomY + middleSize
+        val headY =
+            if (activeHoldAnchored) {
+                anchoredHoldHeadY(column)
+            } else {
+                transformedHeadY
+            }
+        val bottomY = transformedY(column, y2)
         val head = getCellDraw(column, logicalX, headY)
-        val bottom = getCellDraw(column, logicalX, bottomDrawY)
+        val bottom = getCellDraw(column, logicalX, bottomY)
+
+        val isReverse = bottomY < headY
         val remainingLength = kotlin.math.abs(bottomY - headY)
-        val bodyStartY = if (isReverse) bottomY else headY + middleSize
-        val bodyEndY = if (isReverse) headY + middleSize else bottomY + middleSize
+
+        val bodyStartY =
+            if (isReverse) {
+                bottomY
+            } else {
+                headY + middleSize
+            }
+
+        val bodyEndY =
+            if (isReverse) {
+                headY + middleSize
+            } else {
+                bottomY + middleSize
+            }
+
         val widthBody = getBodyWidth(column)
         val leftBody = getBodyX(column, logicalX)
         val limit = measure.toFloat()
+
         val visibleBodyStart = bodyStartY.coerceAtLeast(0f)
         val visibleBodyEnd = minOf(bodyEndY, limit)
         val visibleBodyHeight = visibleBodyEnd - visibleBodyStart
@@ -777,8 +1544,18 @@ class SscNoteRenderer(
             )
         }
 
-        if (remainingLength > heightBodyHead && bottomY > 0f && bottomY < limit) {
-            batch.setColor(1f, 1f, 1f, getAlpha(bottomY, measure) * activeNoteAlpha)
+        if (
+            remainingLength > heightBodyHead &&
+            bottomY > 0f &&
+            bottomY < limit
+        ) {
+            batch.setColor(
+                1f,
+                1f,
+                1f,
+                getAlpha(bottomY, measure) * activeNoteAlpha
+            )
+
             drawFlipRegion(
                 region = bottoms[column][frame],
                 x = bottom.x,
@@ -790,8 +1567,17 @@ class SscNoteRenderer(
             )
         }
 
-        if (headY > 0f && headY < limit) {
-            batch.setColor(1f, 1f, 1f, getAlpha(headY, measure) * activeNoteAlpha)
+        if (
+            headY > 0f &&
+            headY < limit
+        ) {
+            batch.setColor(
+                1f,
+                1f,
+                1f,
+                getAlpha(headY, measure) * activeNoteAlpha
+            )
+
             drawFlipRegion(
                 region = arrows[column][frame],
                 x = head.x,
@@ -803,6 +1589,7 @@ class SscNoteRenderer(
                 sourceY = y.toFloat()
             )
         }
+
         resetColor()
     }
 
@@ -823,7 +1610,16 @@ class SscNoteRenderer(
                 resetColor()
             }
         } else {
-            drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
+            if (isLogicalSpriteInsideViewport(finalY)) {
+                drawFlipRegion(
+                    region = arrows[column][frame],
+                    x = draw.x,
+                    y = draw.y,
+                    width = draw.width,
+                    height = draw.height,
+                    rotation = rotation
+                )
+            }
         }
     }
     // -------------------------------------------------------------------------
@@ -843,7 +1639,10 @@ class SscNoteRenderer(
                 resetColor()
             }
         } else {
-            if (finalY > measureVanish) {
+            if (
+                finalY > measureVanish &&
+                isLogicalSpriteInsideViewport(finalY)
+            ) {
                 batch.setColor(1f, 1f, 1f, getVanishAlpha(finalY) * activeNoteAlpha)
                 drawFlipRegion(region = arrows[column][frame], x = draw.x, y = draw.y, width = draw.width, height = draw.height, rotation = rotation)
                 resetColor()
@@ -1037,7 +1836,11 @@ class SscNoteRenderer(
         y: Float,
         width: Float,
         height: Float,
-        fadeEnd: Float
+        fadeEnd: Float,
+        fullBodyY: Float = y,
+        fullBodyHeight: Float = height,
+        sourceTStart: Float = 0f,
+        sourceTEnd: Float = 1f
     ) {
         if (height <= 0f) return
 
@@ -1057,9 +1860,11 @@ class SscNoteRenderer(
             y = y,
             width = scaledWidth,
             height = height,
-            fullBodyY = y,
-            fullBodyHeight = height,
-            shader = vanishFadeShader
+            fullBodyY = fullBodyY,
+            fullBodyHeight = fullBodyHeight,
+            shader = vanishFadeShader,
+            sourceTStart = sourceTStart,
+            sourceTEnd = sourceTEnd
         )
         batch.shader = previousShader
     }
@@ -1107,6 +1912,185 @@ class SscNoteRenderer(
     // -------------------------------------------------------------------------
     // CREACION DE SHADERS
     // -------------------------------------------------------------------------
+
+    private fun createHoldRibbonShader(): ShaderProgram {
+        val vertexShader =
+            """
+        attribute vec3 a_position;
+        attribute vec2 a_texCoord0;
+        attribute float a_yOffset;
+        attribute float a_alpha;
+
+        uniform mat4 u_projTrans;
+
+        varying vec2 v_texCoords;
+        varying float v_worldY;
+        varying float v_alpha;
+
+        void main() {
+            v_texCoords = a_texCoord0;
+            v_worldY = a_position.y;
+            v_alpha = a_alpha;
+
+            /*
+             * IMPORTANTE:
+             * Para los HOLD bodies NO aplicamos Bumpy/Twirl/Roll.
+             *
+             * Eso evita:
+             * - serpenteo lateral
+             * - efecto reloj de arena
+             * - torsiones raras al final del chart
+             *
+             * El mesh continuo se conserva, así que ya no se verá por cachos.
+             */
+            gl_Position =
+                u_projTrans *
+                vec4(
+                    a_position.xy,
+                    a_position.z,
+                    1.0
+                );
+        }
+        """.trimIndent()
+
+        val fragmentShader =
+            """
+        #ifdef GL_ES
+        precision mediump float;
+        #endif
+
+        varying vec2 v_texCoords;
+        varying float v_worldY;
+        varying float v_alpha;
+
+        uniform sampler2D u_texture;
+        uniform vec4 u_color;
+
+        uniform int u_flipEnabled;
+        uniform float u_bodyY;
+        uniform float u_bodyHeight;
+        uniform float u_regionU;
+        uniform float u_regionU2;
+
+        vec2 applyFlip(
+            vec2 uv,
+            float worldY,
+            out float visible
+        ) {
+            visible = 1.0;
+
+            if (u_flipEnabled == 0) {
+                return uv;
+            }
+
+            float safeBodyHeight =
+                max(
+                    u_bodyHeight,
+                    0.0001
+                );
+
+            float t =
+                clamp(
+                    (worldY - u_bodyY) /
+                        safeBodyHeight,
+                    0.0,
+                    1.0
+                );
+
+            float flipScale =
+                cos(
+                    t *
+                    3.14159265359
+                );
+
+            float widthScale =
+                max(
+                    abs(flipScale),
+                    0.015
+                );
+
+            float regionWidth =
+                u_regionU2 -
+                u_regionU;
+
+            if (
+                abs(regionWidth) <
+                0.000001
+            ) {
+                return uv;
+            }
+
+            float localX =
+                (uv.x - u_regionU) /
+                regionWidth;
+
+            float centeredX =
+                localX - 0.5;
+
+            if (
+                abs(centeredX) >
+                0.5 * widthScale
+            ) {
+                visible = 0.0;
+                return uv;
+            }
+
+            float remappedX =
+                centeredX /
+                widthScale +
+                0.5;
+
+            if (flipScale < 0.0) {
+                remappedX =
+                    1.0 -
+                    remappedX;
+            }
+
+            float finalU =
+                u_regionU +
+                remappedX *
+                regionWidth;
+
+            return vec2(
+                finalU,
+                uv.y
+            );
+        }
+
+        void main() {
+            float visible;
+
+            vec2 uv =
+                applyFlip(
+                    v_texCoords,
+                    v_worldY,
+                    visible
+                );
+
+            vec4 texColor =
+                texture2D(
+                    u_texture,
+                    uv
+                );
+
+            gl_FragColor =
+                vec4(
+                    texColor.rgb *
+                        u_color.rgb,
+                    texColor.a *
+                        u_color.a *
+                        v_alpha *
+                        visible
+                );
+        }
+        """.trimIndent()
+
+        return compileShader(
+            "HoldRibbonShader",
+            vertexShader,
+            fragmentShader
+        )
+    }
 
     private fun createNormalFlipShader(): ShaderProgram {
         val vertexShader = COMMON_VERTEX_SHADER
@@ -1438,126 +2422,7 @@ class SscNoteRenderer(
         appearFadeShader.dispose()
         vanishFadeShader.dispose()
         vanishMidLineFadeShader.dispose()
-    }
-
-    companion object {
-        private val COMMON_VERTEX_SHADER = """
-            attribute vec4 a_position;
-            attribute vec4 a_color;
-            attribute vec2 a_texCoord0;
-
-            uniform mat4 u_projTrans;
-
-            // Bumpy / Twirl / Roll
-            uniform float u_bumpy;
-            uniform float u_twirl;
-            uniform float u_roll;
-            uniform float u_stepmaniaYOffset;
-            uniform float u_stepmaniaArrowScale;
-            uniform float u_objectCenterX;
-            uniform float u_objectCenterY;
-            uniform float u_focalLength;
-
-            varying vec4 v_color;
-            varying vec2 v_texCoords;
-            varying float v_worldY;
-
-            const float DEG_TO_RAD = 0.017453292519943295;
-
-            vec3 rotateX(vec3 p, float angle) {
-                float c = cos(angle);
-                float s = sin(angle);
-                return vec3(
-                    p.x,
-                    p.y * c - p.z * s,
-                    p.y * s + p.z * c
-                );
-            }
-
-            vec3 rotateY(vec3 p, float angle) {
-                float c = cos(angle);
-                float s = sin(angle);
-                return vec3(
-                    p.x * c + p.z * s,
-                    p.y,
-                    -p.x * s + p.z * c
-                );
-            }
-
-            void main() {
-                v_color = a_color;
-                v_color.a =
-                    v_color.a *
-                    (255.0 / 254.0);
-
-                v_texCoords =
-                    a_texCoord0;
-
-                // Conservamos worldY original para AP/Vanish/Flip ribbon.
-                v_worldY =
-                    a_position.y;
-
-                vec3 p = vec3(
-                    a_position.x - u_objectCenterX,
-                    a_position.y - u_objectCenterY,
-                    0.0
-                );
-
-                // Este valor está en el mismo espacio lógico que ArrowEffects.cpp.
-                // Ya incluye Boost/Expand/scrollSpeed y todavía no incluye Reverse/Tipsy.
-                float yOffset = u_stepmaniaYOffset;
-
-                // Bumpy usa una magnitud ligada a ARROW_SIZE. En StepMania
-                // ARROW_SIZE=64; en Finger Dance 64 -> medidaFlechas.
-                float bumpyZ =
-                    u_bumpy *
-                    40.0 *
-                    sin(yOffset / 16.0) *
-                    u_stepmaniaArrowScale;
-
-                p.z += bumpyZ;
-
-                // Los ángulos permanecen en grados StepMania: no se escalan por píxeles.
-                float twirlAngle =
-                    (u_twirl * yOffset * 0.5) *
-                    DEG_TO_RAD;
-
-                float rollAngle =
-                    (u_roll * yOffset * 0.5) *
-                    DEG_TO_RAD;
-
-                p = rotateY(p, twirlAngle);
-                p = rotateX(p, rollAngle);
-
-                // Proyección perspectiva segura sobre el mismo playfield 2D.
-                float focal =
-                    max(u_focalLength, 1.0);
-
-                float denom =
-                    max(focal - p.z, focal * 0.20);
-
-                float perspective =
-                    clamp(
-                        focal / denom,
-                        0.35,
-                        2.50
-                    );
-
-                vec2 finalPos =
-                    vec2(
-                        u_objectCenterX + p.x * perspective,
-                        u_objectCenterY + p.y * perspective
-                    );
-
-                gl_Position =
-                    u_projTrans *
-                    vec4(
-                        finalPos,
-                        a_position.z,
-                        a_position.w
-                    );
-            }
-        """.trimIndent()
+        holdRibbonShader.dispose()
+        holdRibbonMesh.dispose()
     }
 }
-

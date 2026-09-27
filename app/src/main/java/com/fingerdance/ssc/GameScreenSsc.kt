@@ -27,7 +27,6 @@ import com.fingerdance.heightBtns
 import com.fingerdance.hideImagesPadA
 import com.fingerdance.isVertical
 import com.fingerdance.halfDouble
-import com.fingerdance.isAutoPlayDebug
 import com.fingerdance.isEndingFade
 import com.fingerdance.loadTexture
 import com.fingerdance.luaRecepts
@@ -619,33 +618,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         }
 
         stage.draw()
-
-        drawAutoPlayDebugText()
-    }
-
-    private fun drawAutoPlayDebugText() {
-        if (!isAutoPlayDebug) return
-
-        val text1 = "Demo Play"
-        val text2 = "AutoPlayer"
-
-        val layout1 = GlyphLayout(fontAutoPlayDebug, text1)
-        val layout2 = GlyphLayout(fontAutoPlayDebug, text2)
-
-        val centerX = Gdx.graphics.width * 0.5f
-        val centerY = Gdx.graphics.height * 0.5f
-
-        val x1 = centerX - layout1.width * 0.5f
-        val x2 = centerX - layout2.width * 0.5f
-
-        val y1 = centerY - 40f
-        val y2 = centerY + 40f
-
-        batch.projectionMatrix = camera.combined
-        batch.begin()
-        fontAutoPlayDebug.draw(batch, text1, x1, y1)
-        fontAutoPlayDebug.draw(batch, text2, x2, y2)
-        batch.end()
     }
 
     private fun drawSongTime(songTimeMs: Double) {
@@ -761,6 +733,84 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             0f
         }
 
+    /**
+     * Mantiene la parte VISIBLE del receptor dentro de la pantalla.
+     *
+     * Esto es geometría/seguridad del playfield y NO depende de isMidLine.
+     * isMidLine sólo debe decidir cuándo una nota es visible, no cambiar
+     * dónde puede terminar físicamente el receptor.
+     *
+     * Se toma en cuenta el recorte real de la celda, Mini/Tiny, MoveZ y
+     * el signo de Reverse/Split/Alternate/Cross.
+     */
+    private fun clampAttackLogicalY(
+        column: Int,
+        logicalY: Float,
+        visualScaleY: Float
+    ): Float {
+        if (!isVertical || column !in receptorMetrics.indices) {
+            return logicalY
+        }
+
+        val metrics = receptorMetrics[column]
+
+        val drawHeight =
+            metrics.drawHeight(medidaFlechas)
+
+        val drawY =
+            metrics.drawY(
+                logicalY,
+                medidaFlechas
+            )
+
+        val originY =
+            drawY + drawHeight * 0.5f
+
+        /*
+         * logicalY representa el borde visible superior de la flecha y
+         * logicalY + medidaFlechas el inferior. SpriteBatch escala alrededor
+         * del centro de la celda, por eso proyectamos ambos bordes.
+         */
+        val visibleTopUnscaled = logicalY
+        val visibleBottomUnscaled = logicalY + medidaFlechas
+
+        val visibleTop =
+            originY +
+                    (visibleTopUnscaled - originY) *
+                    visualScaleY
+
+        val visibleBottom =
+            originY +
+                    (visibleBottomUnscaled - originY) *
+                    visualScaleY
+
+        val minVisibleY =
+            minOf(
+                visibleTop,
+                visibleBottom
+            )
+
+        val maxVisibleY =
+            maxOf(
+                visibleTop,
+                visibleBottom
+            )
+
+        val screenHeight =
+            Gdx.graphics.height.toFloat()
+
+        return when {
+            minVisibleY < 0f ->
+                logicalY - minVisibleY
+
+            maxVisibleY > screenHeight ->
+                logicalY - (maxVisibleY - screenHeight)
+
+            else ->
+                logicalY
+        }
+    }
+
     fun getAttackReceptorY(column: Int): Float {
         val reverseAmount = getAttackReversePercentForColumn(column)
         val centeredAmount = getAttackCenteredAmount()
@@ -793,54 +843,59 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             )
         }
 
-        return finalY
+        /*
+         * Igual que el notefield con isMidLine=true: el receptor jamás se
+         * dispara fuera del viewport. Esta regla se aplica SIEMPRE.
+         */
+        val receptorScaleY =
+            getAttackVisualScale() *
+                    getAttackMoveZScale(column)
+
+        return clampAttackLogicalY(
+            column = column,
+            logicalY = finalY,
+            visualScaleY = receptorScaleY
+        )
     }
 
-    fun getAttackNoteY(
-        column: Int,
-        y: Float,
-        baseScrollSpeed: Float
-    ): Float {
-
+    fun getAttackNoteY(column: Int, y: Float, baseScrollSpeed: Float): Float {
         val metrics = getStepManiaMetrics()
-
-        val rawPixelYOffset =
-            y - targetTop
-
-        val smYOffset =
-            getAttackStepManiaYOffset(
-                rawPixelYOffset = rawPixelYOffset,
-                baseScrollSpeed = baseScrollSpeed
-            )
-
-        val reverseAmount =
-            getAttackReversePercentForColumn(column)
-                .coerceIn(0f, 1f)
-
-        val centeredAmount =
-            getAttackCenteredAmount()
-
-        val reverseReceptorY =
-            AttackEffects.reverseReceptorY(
-                screenHeight = Gdx.graphics.height.toFloat(),
-                arrowSize = medidaFlechas
-            )
+        val rawPixelYOffset = y - targetTop
+        val smYOffset = getAttackStepManiaYOffset(rawPixelYOffset = rawPixelYOffset, baseScrollSpeed = baseScrollSpeed)
+        val reverseAmount = getAttackReversePercentForColumn(column).coerceIn(0f, 1f)
+        val centeredAmount = getAttackCenteredAmount()
 
         /*
-         * Finger Dance no lleva Reverse hasta el extremo inferior.
-         * Nuestro recorrido Reverse disponible es aproximadamente media pantalla.
+         * TOP físico del receptor Reverse.
+         *
+         * Ejemplo:
+         * height/2 - medidaFlechas
          */
-        val normalTravelDistance =
-            (Gdx.graphics.height.toFloat() - targetTop)
-                .coerceAtLeast(1f)
+        val reverseReceptorY = AttackEffects.reverseReceptorY(screenHeight = Gdx.graphics.height.toFloat(), arrowSize = medidaFlechas)
 
-        val reverseTravelDistance =
-            reverseReceptorY
-                .coerceAtLeast(1f)
+        /*
+         * En NORMAL las notas se desplazan hacia arriba y el punto de contacto
+         * está en targetTop.
+         *
+         * En REVERSE se desplazan hacia abajo. La referencia equivalente es
+         * el borde inferior del receptor.
+         *
+         * reverseReceptorY + medidaFlechas == height/2
+         */
+        val reverseJudgeY = reverseReceptorY + medidaFlechas
 
-        val fullReverseDistanceScale =
-            (reverseTravelDistance / normalTravelDistance)
-                .coerceAtLeast(0.0001f)
+        /*
+         * Recorrido NORMAL:
+         *
+         * height -> medidaFlechas
+         *
+         * Recorrido REVERSE:
+         *
+         * 0 -> height/2
+         */
+        val normalTravelDistance = (Gdx.graphics.height.toFloat() - targetTop).coerceAtLeast(1f)
+        val reverseTravelDistance = reverseJudgeY.coerceAtLeast(1f)
+        val fullReverseDistanceScale = (reverseTravelDistance / normalTravelDistance).coerceAtLeast(0.0001f)
 
         val distanceScale =
             1f +
@@ -852,30 +907,20 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                     metrics.toPixelsY(smYOffset) *
                     distanceScale
 
+        /*
+         * Para NOTAS usamos reverseJudgeY.
+         *
+         * getAttackReceptorY() sigue usando reverseReceptorY porque ése
+         * continúa siendo el TOP desde donde se dibuja el sprite receptor.
+         */
         finalY =
             AttackEffects.directionY(
                 y = finalY,
                 normalReceptorY = targetTop,
-                reverseReceptorY = reverseReceptorY,
+                reverseReceptorY = reverseJudgeY,
                 reverseAmount = reverseAmount,
                 centeredAmount = centeredAmount
             )
-
-        /*
-         * IMPORTANTE:
-         *
-         * reverseReceptorY es el TOP desde donde dibujamos el receptor:
-         *
-         *     height/2 - medidaFlechas
-         *
-         * pero nuestro cero lógico Reverse debe quedar en:
-         *
-         *     height/2
-         *
-         * Por eso falta exactamente una medidaFlechas.
-         */
-        finalY +=
-            medidaFlechas * reverseAmount
 
         val tipsyAmount =
             if (AttackFeatureFlags.Position.TIPSY) {
@@ -886,12 +931,13 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             }
 
         if (tipsyAmount != 0f) {
-            finalY += AttackEffects.tipsyY(
-                column = column,
-                songTimeSeconds = currentAttackSongTimeSeconds,
-                arrowSize = medidaFlechas,
-                amount = tipsyAmount
-            )
+            finalY +=
+                AttackEffects.tipsyY(
+                    column = column,
+                    songTimeSeconds = currentAttackSongTimeSeconds,
+                    arrowSize = medidaFlechas,
+                    amount = tipsyAmount
+                )
         }
 
         val moveZScale =
@@ -899,17 +945,27 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
 
         if (moveZScale != 1f) {
             /*
-             * OJO:
-             * Para las NOTAS ahora el pivote lógico Reverse también necesita
-             * la misma compensación.
+             * El pivote del recorrido de las NOTAS tiene que ser el mismo
+             * punto donde termina el recorrido Reverse.
+             *
+             * Normal  -> targetTop
+             * Reverse -> reverseJudgeY
+             *
+             * directionY nos da la interpolación para porcentajes parciales
+             * de Reverse/Split/Alternate/Cross.
              */
-            val receptorY =
-                getAttackReceptorY(column) +
-                        medidaFlechas * reverseAmount
+            val noteTargetY =
+                AttackEffects.directionY(
+                    y = targetTop,
+                    normalReceptorY = targetTop,
+                    reverseReceptorY = reverseJudgeY,
+                    reverseAmount = reverseAmount,
+                    centeredAmount = centeredAmount
+                )
 
             finalY =
-                receptorY +
-                        (finalY - receptorY) *
+                noteTargetY +
+                        (finalY - noteTargetY) *
                         moveZScale
         }
 
@@ -1199,13 +1255,15 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
         nxWaitingReturn = true
     }
 
-    fun getAttackReverseScaleY(column: Int): Float {
-        val reverse =
-            getAttackReversePercentForColumn(column)
-                .coerceIn(0f, 1f)
-
-        return 1f - (2f * reverse)
-    }
+    /**
+     * Reverse en StepMania invierte la POSICION Y del arrow (GetYPos);
+     * no hace zoomY del sprite de +1 a -1. Mantener esta función en 1f
+     * evita que TAP/receptor/HOLD colapsen a altura 0 cuando Reverse pasa
+     * por 50% durante Approach.
+     *
+     * La dirección real ya vive en getAttackNoteY()/getAttackReceptorY().
+     */
+    fun getAttackReverseScaleY(column: Int): Float = 1f
 
     private fun returnNxToBase(currentBeat: Double) {
         nxWaitingReturn = false
@@ -1730,9 +1788,6 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
                 medidaFlechas
             )
 
-        val reverseScaleY =
-            getAttackReverseScaleY(column)
-
         val miniScale =
             getAttackVisualScale() * getAttackMoveZScale(column)
 
@@ -1758,7 +1813,7 @@ open class GameScreenSsc(activity: GameScreenActivity) : Screen {
             drawWidth,
             drawHeight,
             miniScale,
-            miniScale * reverseScaleY,
+            miniScale,
             rotation
         )
 
