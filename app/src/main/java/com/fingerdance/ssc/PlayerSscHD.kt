@@ -129,9 +129,8 @@ class PlayerSscHD (
         val y: Int = Gdx.graphics.height / 2 - heightJudges * 6
     )
 
-    private lateinit var cellMetrics: Array<GameScreenSsc.NoteCellMetrics>
 
-    private val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
+    val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
 
     private val timingData = TimmingData(
         bpms = bpms,
@@ -253,7 +252,6 @@ class PlayerSscHD (
         upRightBottom = upLeftBottom
         downRightBottom = downLeftBottom
 
-        cellMetrics = buildCellMetrics()
 
         val ldArrowFrame = getArrows3x2(downLeftTap)
         val luArrowFrame = getArrows3x2(upLeftTap)
@@ -339,10 +337,38 @@ class PlayerSscHD (
             heightBodyHead = heightBodyHead,
             normalUsesMidLine = isMidLine,
             vanishUsesMidLine = isMidLine,
-            clipVanishBodyAtInitArrow = false,
+            clipVanishBodyAtInitArrow = true,
             mineUsesMidLine = isMidLine,
             computeLeft = { x, y -> computeLeft(x, y) },
-            cellMetrics = cellMetrics
+            computeY = { column, y -> computeAttackY(column, y) },
+            computeStepManiaYOffset = { sourceY ->
+                screen.getAttackStepManiaYOffset(
+                    rawPixelYOffset = sourceY - screen.targetTop,
+                    baseScrollSpeed = baseSpeed
+                )
+            },
+            computeStepManiaFieldScaleY = { screen.getAttackStepManiaFieldScaleY() },
+            computeStepManiaArrowScale = { screen.getAttackStepManiaArrowScale() },
+            computeRotation = { note -> computeAttackRotation(note) },
+            computeScaleY = { column -> screen.getAttackReverseScaleY(column) },
+            computeScale = { screen.getAttackVisualScale() },
+            computeAlpha = { screen.getAttackStealthAlpha() },
+            computeAppearanceAlpha = { column, sourceY ->
+                screen.getAttackAppearanceAlpha(
+                    column = column,
+                    sourceY = sourceY,
+                    baseScrollSpeed = baseSpeed
+                )
+            },
+            computeAppearanceActive = {
+                screen.isAttackAppearanceActive()
+            },
+            computeDepthScale = { column -> screen.getAttackMoveZScale(column) },
+            computeBumpy = { screen.getAttackBumpyAmount() },
+            computeTwirl = { screen.getAttackTwirlAmount() },
+            computeRoll = { screen.getAttackRollAmount() },
+            computeReceptorCenterY = { column -> screen.getAttackReceptorCenterY(column) },
+            cellMetrics = screen.receptorMetrics
         ).also {
             noteRenderer = it
         }
@@ -626,6 +652,7 @@ class PlayerSscHD (
     }
 
     override fun onNoteFlare(column: Int) {
+        if (column !in 2..7) return
         if (column !in flare.indices) return
         flare[column].startTime = screen.timeGetTime()
     }
@@ -651,7 +678,8 @@ class PlayerSscHD (
             y2 = y2,
             frame = arrowFrame,
             isAp = isAp,
-            isVanish = isVanish
+            isVanish = isVanish,
+            isAnchored = gameplayEngine.isHoldVisuallyAnchored(note)
         )
     }
 
@@ -677,23 +705,67 @@ class PlayerSscHD (
         )
     }
 
+    private fun computeAttackY(column: Int, y: Float): Float {
+        return screen.getAttackNoteY(
+            column = column,
+            y = y,
+            baseScrollSpeed = baseSpeed
+        )
+    }
+
+    private fun computeAttackRotation(note: Parser.Note): Float {
+        var rotation = 0f
+
+        rotation += screen.getAttackConfusionRotation(
+            currentBeat = beatToShow
+        )
+
+        rotation += screen.getAttackNoteRotation(
+            noteBeat = note.beat,
+            currentBeat = beatToShow
+        )
+
+        return rotation
+    }
+
     private fun computeLeft(x: Int, y: Int): Float {
         val baseX = noteX[x]
+        var localOffsetX = 0f
+
         if (playerSong.snake) {
-            offsetX = (sin(y * frequency) * amplitude)
-            if (y <= screen.arrowsSize + fadeDistance) {
-                val factor = (y - screen.arrowsSize) / fadeDistance
-                offsetX *= factor.coerceIn(0f, 1f)
+            localOffsetX = sin(y * frequency) * amplitude
+            if (y <= medidaFlechas + fadeDistance) {
+                val factor = (y - medidaFlechas) / fadeDistance
+                localOffsetX *= factor.coerceIn(0f, 1f)
             }
         }
 
-        return baseX + offsetX + luaNotes.screenX
+        val attackYOffset = y.toFloat() - screen.targetTop
+        localOffsetX += screen.getAttackColumnOffsetX(
+            column = x,
+            yOffset = attackYOffset,
+            baseScrollSpeed = baseSpeed
+        )
+
+        return baseX + localOffsetX + luaNotes.screenX
     }
 
     private fun drawFlare(x: Int, frame: Int) {
-        var left = (screen.arrowsSize * (x - 1) - xFlare1) + luaFlare.screenX
+        if (x !in 2..7) return
+
+        val attackX = screen.getAttackColumnOffsetX(column = x, yOffset = 0f)
+        val receptorY = screen.getAttackReceptorY(x)
+        val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
+        val miniScale = screen.getAttackVisualScale()
+        val baseX = noteX[x] + luaFlare.screenX + attackX
+
         val flareSprite = flareSprites[frame]
-        flareSprite.setBounds(left, yFlare, widthFlare, widthFlare)
+        flareSprite.setBounds(
+            baseX - xFlare1,
+            receptorY - screen.arrowsSize * 2f,
+            widthFlare,
+            widthFlare
+        )
         aBatch = batch.blendSrcFunc
         bBatch = batch.blendDstFunc
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
@@ -701,19 +773,25 @@ class PlayerSscHD (
         batch.setBlendFunction(aBatch, bBatch)
 
         val elapsed = screen.timeGetTime() - flare[x].startTime
-
         val (alpha, zoom) = calculateAlphaAndZoom(elapsed % animationDuration)
+        val flareSize = screen.arrowsSize * zoom * miniScale
+        val flareX = baseX - (flareSize - screen.arrowsSize) / 2f
+        val flareY = receptorY - (flareSize - screen.arrowsSize) / 2f
 
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.color.a = alpha
         batch.draw(
             arrArrows[x][arrowFrame],
-            (noteX[x] - ((screen.arrowsSize * zoom) - screen.arrowsSize) / 2) + luaFlare.screenX,
-            medidaFlechas.toFloat() - ((screen.arrowsSize * zoom) - screen.arrowsSize) / 2,
-            screen.arrowsSize * zoom,
-            screen.arrowsSize * zoom
+            flareX,
+            flareY,
+            flareSize * 0.5f,
+            flareSize * 0.5f,
+            flareSize,
+            flareSize,
+            1f,
+            1f,
+            confusionRotation
         )
-
         batch.color.a = 1f
         batch.setBlendFunction(aBatch, bBatch)
     }
@@ -772,13 +850,33 @@ class PlayerSscHD (
         val progress = (elapsed / expandDuration).coerceIn(0f, 1f)
         val scale = 1f + (expandMaximumScale - 1f) * progress
         val alpha = (0.8f - progress * progress).coerceIn(0f, 0.8f)
-        val baseX = getReceptorX(position)
-        val baseY = topPos
-        val originX = sizeScale * 0.50f
-        val originY = sizeScale * 0.50f
+
+        val attackX = screen.getAttackColumnOffsetX(column = position, yOffset = 0f)
+
+        val receptorAttackY = screen.getAttackReceptorY(position)
+        val attackDeltaY = receptorAttackY - screen.targetTop
+        val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
+
+        val visualScale = screen.getAttackVisualScale()
+        val logicalX = getReceptorX(position) + attackX
+        val logicalY = topPos + attackDeltaY
+
+        // ---------------------------------------------
+        // Conversión por NoteCellMetrics.
+        // ---------------------------------------------
+
+        val metrics = screen.receptorMetrics[position]
+        val baseWidth = metrics.drawWidth(sizeScale)
+        val baseHeight = metrics.drawHeight(sizeScale)
+        val baseX = metrics.drawX(logicalX, sizeScale)
+        val baseY = metrics.drawY(logicalY, sizeScale)
+        val originX = baseWidth * (metrics.visibleOffsetXRatio + metrics.visibleWidthRatio * 0.5f)
+        val originY = baseHeight * (metrics.visibleOffsetYRatio + metrics.visibleHeightRatio * 0.5f)
+
+        val finalScale = scale * visualScale * 0.85f
 
         val previousSrc = batch.blendSrcFunc
-        val previousDst = batch.blendDstFunc
+        val previousDst =batch.blendDstFunc
 
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.setColor(1f, 1f, 1f, alpha)
@@ -789,11 +887,11 @@ class PlayerSscHD (
             baseY,
             originX,
             originY,
-            sizeScale,
-            sizeScale,
-            scale,
-            scale,
-            0f
+            baseWidth,
+            baseHeight,
+            finalScale,
+            finalScale,
+            confusionRotation
         )
 
         batch.setColor(1f, 1f, 1f, 1f)
@@ -1012,64 +1110,6 @@ class PlayerSscHD (
         return frames
     }
 
-    private fun buildCellMetrics(): Array<GameScreenSsc.NoteCellMetrics> {
-        val ld = calculateReceptorCellMetrics(screen.receptLD[0].texture, false)
-        val lu = calculateReceptorCellMetrics(screen.receptLU[0].texture, false)
-        val ce = calculateReceptorCellMetrics(screen.receptCE[0].texture, false)
-        val ru = calculateReceptorCellMetrics(screen.receptRU[0].texture, true)
-        val rd = calculateReceptorCellMetrics(screen.receptRD[0].texture, true)
-        return arrayOf(ld, lu, ce, ru, rd, ld, lu, ce, ru, rd)
-    }
-
-    private data class ReceptorBounds(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
-        val width get() = maxX - minX + 1
-        val height get() = maxY - minY + 1
-    }
-
-    private fun calculateReceptorCellMetrics(texture: Texture, isMirror: Boolean, alphaThreshold: Int = 1): GameScreenSsc.NoteCellMetrics {
-        val frame = TextureRegion(texture, 0, 0, texture.width, texture.height / 3)
-        val textureData = texture.textureData
-        if (!textureData.isPrepared) textureData.prepare()
-        val pixmap = textureData.consumePixmap()
-
-        try {
-            val sourceX = frame.regionX
-            val sourceY = frame.regionY
-            val sourceWidth = frame.regionWidth
-            val sourceHeight = frame.regionHeight
-            var minX = sourceWidth
-            var minY = sourceHeight
-            var maxX = -1
-            var maxY = -1
-
-            for (py in 0 until sourceHeight) {
-                for (px in 0 until sourceWidth) {
-                    val alpha = pixmap.getPixel(sourceX + px, sourceY + py) and 0xFF
-                    if (alpha >= alphaThreshold) {
-                        if (px < minX) minX = px
-                        if (py < minY) minY = py
-                        if (px > maxX) maxX = px
-                        if (py > maxY) maxY = py
-                    }
-                }
-            }
-
-            val bounds = if (maxX < minX || maxY < minY) ReceptorBounds(0, 0, sourceWidth - 1, sourceHeight - 1)
-            else ReceptorBounds(minX, minY, maxX, maxY)
-            val cellWidth = sourceWidth.toFloat()
-            val cellHeight = sourceHeight.toFloat()
-            val offsetX = if (isMirror) (sourceWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
-
-            return GameScreenSsc.NoteCellMetrics(
-                visibleWidthRatio = bounds.width / cellWidth,
-                visibleHeightRatio = bounds.height / cellHeight,
-                visibleOffsetXRatio = offsetX,
-                visibleOffsetYRatio = bounds.minY / cellHeight
-            )
-        } finally {
-            if (textureData.disposePixmap()) pixmap.dispose()
-        }
-    }
 
     fun disposePlayer() {
         downLeftTap.dispose()
@@ -1149,14 +1189,17 @@ class PlayerSscHD (
     }
 
     override fun drawTap(note: Parser.Note, column: Int, y: Int) {
+        if (column !in 2..7) return
         drawNote(column, y, note)
     }
 
     override fun drawMine(note: Parser.Note, column: Int, y: Int) {
+        if (column !in 2..7) return
         drawMines(column, y, note)
     }
 
     override fun drawHold(note: Parser.Note,  column: Int, yHead: Int, yTail: Int) {
+        if (column !in 2..7) return
         drawLongNote(column, yHead, yTail, note)
     }
 

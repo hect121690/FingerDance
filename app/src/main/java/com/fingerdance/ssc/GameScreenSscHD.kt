@@ -1,12 +1,16 @@
 package com.fingerdance.ssc
 
+import NoteCellMetrics
 import android.os.SystemClock
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.GlyphLayout
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
@@ -14,6 +18,11 @@ import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.fingerdance.*
+import com.fingerdance.ssc.attacks.AttackFeatureFlags
+import com.fingerdance.ssc.attacks.AttackEffects
+import com.fingerdance.ssc.attacks.AttackEngine
+import com.fingerdance.ssc.attacks.AttackState
+import com.fingerdance.ssc.attacks.FieldMetrics
 import kotlin.math.abs
 
 open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
@@ -101,21 +110,14 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     // RECEPTORS
     // ---------------------------------------------------
 
-    data class OverlayMetrics(
-        val widthRatio: Float = 1f,
-        val heightRatio: Float = 1f,
-        val offsetXRatio: Float = 0f,
-        val offsetYRatio: Float = 0f
-    )
-
-    private val receptorOverlayMetrics = Array(10) { OverlayMetrics() }
+    val receptorMetrics = Array(10) { NoteCellMetrics() }
 
     private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor")
     private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor")
     private val textureCE = loadTexture(ruta, "Center Ready Receptor")
 
-    val receptLD = getReceptsTexture(textureLD, metricsColumn = 0)
-    val receptLU = getReceptsTexture(textureLU, metricsColumn = 1)
+    val receptLD = getReceptsTexture(textureLD, metricsColumn = 5)
+    val receptLU = getReceptsTexture(textureLU, metricsColumn = 6)
     val receptCE = getReceptsTexture(textureCE, metricsColumn = 2)
     val receptRU = getReceptsTexture(textureLU, true, metricsColumn = 3)
     val receptRD = getReceptsTexture(textureLD, true, metricsColumn = 4)
@@ -126,6 +128,57 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     lateinit var player: PlayerSscHD
 
     var targetTop = 0f
+
+    private fun getStepManiaMetrics(): FieldMetrics =
+        FieldMetrics.create(
+            isVertical = true,
+            halfDouble = true,
+            screenWidth = Gdx.graphics.width.toFloat(),
+            screenHeight = Gdx.graphics.height.toFloat(),
+            arrowSizePx = arrowsSize
+        )
+
+    fun getAttackStepManiaFieldScaleY(): Float = getStepManiaMetrics().fieldScaleY
+    fun getAttackStepManiaArrowScale(): Float = getStepManiaMetrics().arrowScale
+
+    fun getAttackStepManiaYOffset(rawPixelYOffset: Float, baseScrollSpeed: Float): Float {
+        val metrics = getStepManiaMetrics()
+        val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
+        val preSpeedPixelOffset = rawPixelYOffset / safeBaseSpeed
+        val preSpeedSmOffset = metrics.toStepManiaY(preSpeedPixelOffset)
+
+        val boostAmount = if (AttackFeatureFlags.AccelScroll.BOOST) currentAttackState.boost * attackEndResetFactor else 0f
+        val brakeAmount = if (AttackFeatureFlags.AccelScroll.BRAKE) currentAttackState.brake * attackEndResetFactor else 0f
+        val waveAmount = if (AttackFeatureFlags.AccelScroll.WAVE) currentAttackState.wave * attackEndResetFactor else 0f
+        val boomerangAmount = if (AttackFeatureFlags.AccelScroll.BOOMERANG) currentAttackState.boomerang * attackEndResetFactor else 0f
+        val expandAmount = if (AttackFeatureFlags.AccelScroll.EXPAND) currentAttackState.expand * AttackFeatureFlags.AccelScroll.EXPAND_INTENSITY * attackEndResetFactor else 0f
+        val effectiveScrollSpeed = if (AttackFeatureFlags.Speed.XMOD) {
+            safeBaseSpeed + (currentAttackState.xmod - safeBaseSpeed) * attackEndResetFactor
+        } else safeBaseSpeed
+        val effectHeightSm = FieldMetrics.SM_HEIGHT + kotlin.math.abs(currentAttackState.perspectiveTilt * attackEndResetFactor) * 200f
+        val attackEarthwormAmount = if (AttackFeatureFlags.AccelScroll.EARTHWORM) currentAttackState.earthworm * attackEndResetFactor else 0f
+        val earthwormAmount = if (playerSong.isEw) 1f else attackEarthwormAmount
+
+        var transformedYOffset = AttackEffects.transformAccelYOffsetSm(
+            yOffsetSm = preSpeedSmOffset,
+            effectHeightSm = effectHeightSm,
+            expandSeconds = currentAttackSongTimeSeconds,
+            boostAmount = boostAmount,
+            brakeAmount = brakeAmount,
+            waveAmount = waveAmount,
+            boomerangAmount = boomerangAmount,
+            expandAmount = expandAmount,
+            baseScrollSpeed = effectiveScrollSpeed.coerceAtLeast(0.0001f)
+        )
+        if (earthwormAmount != 0f) {
+            transformedYOffset = AttackEffects.earthwormY(
+                yOffsetSm = transformedYOffset,
+                songTimeSeconds = currentAttackSongTimeSeconds,
+                amount = earthwormAmount
+            )
+        }
+        return transformedYOffset
+    }
 
     private var elapsedTime = 0f
     private var rithymAnim = 0f
@@ -138,8 +191,14 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     private var showOverlay = false
     private var intervalOverlay = 0f
 
+    private val attackPerspectiveActive: Boolean
+        get() = AttackFeatureFlags.Perspective.ENABLED && (
+            abs(currentAttackState.skew * attackEndResetFactor) > 0.0001f ||
+                abs(currentAttackState.perspectiveTilt * attackEndResetFactor) > 0.0001f
+        )
+
     val applyMesh: Boolean
-        get() = nxProgress > 0f
+        get() = nxProgress > 0f || attackPerspectiveActive
 
     private val baseNX = playerSong.nx
 
@@ -176,9 +235,27 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
     val lifeLightningFrames: Array<TextureRegion> = getLifeLightningFrames(lifeLightningTexture)
     private val fadeTexture = Texture(Gdx.files.internal("black.png"))
 
+
+    private lateinit var font: BitmapFont
+
+    val attackEngine = AttackEngine(chart.attacks)
+    var currentAttackState = AttackState()
+        private set
+    var currentAttackSongTimeSeconds = 0f
+        private set
+
+    private companion object {
+        const val ATTACK_END_RESET_DURATION = 1f
+    }
+    private var attackEndResetActive = false
+    private var attackEndResetElapsed = 0f
+    private var attackEndResetFactor = 1f
+    private var attackEndResetFinished = false
+
     // ---------------------------------------------------
 
     init {
+        receptorMetrics[7] = receptorMetrics[2]
 
         if (showPadB == 1) {
             padB = TextureRegion(Texture(Gdx.files.external("/FingerDance/PadsB/$skinPad.png")))
@@ -223,6 +300,9 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     override fun show() {
         batch = SpriteBatch()
+        font = BitmapFont()
+        font.color = Color.WHITE
+        font.data.setScale(2f, -2f)
         stage = Stage(ScreenViewport())
         camera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         camera.setToOrtho(true)
@@ -262,6 +342,15 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         if (!isPaused) {
             val songTimeMs = a.getSongTimeMs()
             currentSongTimeMs = songTimeMs
+
+            if (!attackEndResetActive && !attackEndResetFinished) {
+                if (durationSong > 0L && songTimeMs >= durationSong.toDouble()) {
+                    beginAttackEndReset()
+                } else {
+                    updateAttacks(songTimeMs, delta)
+                }
+            }
+            updateAttackEndReset(delta)
             elapsedTime += delta
 
             if (!applyMesh) {
@@ -314,6 +403,8 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
                 batch.end()
                 perspectiveRenderer.end()
                 perspectiveRenderer.progress = nxProgress
+                perspectiveRenderer.attackSkew = if (AttackFeatureFlags.Perspective.ENABLED) currentAttackState.skew * attackEndResetFactor else 0f
+                perspectiveRenderer.attackTilt = if (AttackFeatureFlags.Perspective.ENABLED) currentAttackState.perspectiveTilt * attackEndResetFactor else 0f
                 perspectiveRenderer.draw(camera.combined)
 
                 batch.projectionMatrix = camera.combined
@@ -333,6 +424,539 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         }
 
         stage.draw()
+    }
+
+    private fun getAttackLane(column: Int): Int = (column - 2).coerceIn(0, 5)
+
+    private fun getHalfDoubleBaseX(column: Int): Float = when (column) {
+        2 -> arrowsSize
+        3 -> arrowsSize * 2f
+        4 -> arrowsSize * 3f
+        5 -> arrowsSize * 4f
+        6 -> arrowsSize * 5f
+        7 -> arrowsSize * 6f
+        else -> -9999f
+    }
+
+    fun getAttackMiniScale(): Float {
+        if (!AttackFeatureFlags.Scale.MINI) return 1f
+
+        return AttackEffects.miniScale(
+            currentAttackState.mini * attackEndResetFactor
+        )
+    }
+
+    fun getAttackTinyScale(): Float {
+        if (!AttackFeatureFlags.Scale.TINY) return 1f
+
+        return AttackEffects.tinyScale(
+            currentAttackState.tiny * attackEndResetFactor
+        )
+    }
+
+    fun getAttackVisualScale(): Float =
+        getAttackMiniScale() * getAttackTinyScale()
+
+    /**
+     * Finger Dance adaptation for vertical screens.
+     *
+     * StepMania allows X modifiers to push notes outside the normal notefield.
+     * We keep that behavior, but on a vertical phone we prevent the VISIBLE
+     * portion of the note/receptor from leaving the physical screen.
+     *
+     * logicalX is the visible-left logical anchor used by NoteCellMetrics.
+     * The calculation below also accounts for Mini because SpriteBatch scales
+     * around the texture center, not around the visible pixels.
+     */
+    private fun clampAttackLogicalX(
+        column: Int,
+        logicalX: Float,
+        visualScale: Float
+    ): Float {
+        if (!isVertical || column !in receptorMetrics.indices) return logicalX
+
+        val metrics = receptorMetrics[column]
+        val drawWidth = metrics.drawWidth(arrowsSize)
+        val drawX = metrics.drawX(logicalX, arrowsSize)
+        val originX = drawX + drawWidth * 0.5f
+
+        val visibleLeftUnscaled = logicalX
+        val visibleRightUnscaled = logicalX + arrowsSize
+
+        val visibleLeft =
+            originX + (visibleLeftUnscaled - originX) * visualScale
+        val visibleRight =
+            originX + (visibleRightUnscaled - originX) * visualScale
+
+        val minVisibleX = minOf(visibleLeft, visibleRight)
+        val maxVisibleX = maxOf(visibleLeft, visibleRight)
+        val screenWidth = Gdx.graphics.width.toFloat()
+
+        return when {
+            minVisibleX < 0f -> logicalX - minVisibleX
+            maxVisibleX > screenWidth -> logicalX - (maxVisibleX - screenWidth)
+            else -> logicalX
+        }
+    }
+
+    fun getAttackReversePercentForColumn(column: Int): Float {
+        val reverse =
+            if (AttackFeatureFlags.DirectionColumn.REVERSE)
+                currentAttackState.reverse * attackEndResetFactor
+            else 0f
+
+        val split =
+            if (AttackFeatureFlags.DirectionColumn.SPLIT)
+                currentAttackState.split * attackEndResetFactor
+            else 0f
+
+        val alternate =
+            if (AttackFeatureFlags.DirectionColumn.ALTERNATE)
+                currentAttackState.alternate * attackEndResetFactor
+            else 0f
+
+        val cross =
+            if (AttackFeatureFlags.DirectionColumn.CROSS)
+                currentAttackState.cross * attackEndResetFactor
+            else 0f
+
+        return AttackEffects.reversePercentForColumn(
+            column = getAttackLane(column),
+            columnCount = 6,
+            reverse = reverse,
+            split = split,
+            alternate = alternate,
+            cross = cross
+        )
+    }
+
+    private fun getAttackCenteredAmount(): Float =
+        if (AttackFeatureFlags.DirectionColumn.CENTERED) {
+            currentAttackState.centered * attackEndResetFactor
+        }else {
+            0f
+        }
+
+    private fun clampAttackLogicalY(
+        column: Int,
+        logicalY: Float,
+        visualScaleY: Float
+    ): Float {
+        if (!isVertical || column !in receptorMetrics.indices) {
+            return logicalY
+        }
+
+        val metrics = receptorMetrics[column]
+
+        val drawHeight =
+            metrics.drawHeight(arrowsSize)
+
+        val drawY =
+            metrics.drawY(
+                logicalY,
+                arrowsSize
+            )
+
+        val originY =
+            drawY + drawHeight * 0.5f
+
+        /*
+         * logicalY representa el borde visible superior de la flecha y
+         * logicalY + arrowsSize el inferior. SpriteBatch escala alrededor
+         * del centro de la celda, por eso proyectamos ambos bordes.
+         */
+        val visibleTopUnscaled = logicalY
+        val visibleBottomUnscaled = logicalY + arrowsSize
+
+        val visibleTop =
+            originY +
+                    (visibleTopUnscaled - originY) *
+                    visualScaleY
+
+        val visibleBottom =
+            originY +
+                    (visibleBottomUnscaled - originY) *
+                    visualScaleY
+
+        val minVisibleY =
+            minOf(
+                visibleTop,
+                visibleBottom
+            )
+
+        val maxVisibleY =
+            maxOf(
+                visibleTop,
+                visibleBottom
+            )
+
+        val screenHeight =
+            Gdx.graphics.height.toFloat()
+
+        return when {
+            minVisibleY < 0f ->
+                logicalY - minVisibleY
+
+            maxVisibleY > screenHeight ->
+                logicalY - (maxVisibleY - screenHeight)
+
+            else ->
+                logicalY
+        }
+    }
+
+    fun getAttackReceptorY(column: Int): Float {
+        val reverseAmount = getAttackReversePercentForColumn(column)
+        val centeredAmount = getAttackCenteredAmount()
+        val reverseY = AttackEffects.reverseReceptorY(
+            screenHeight = Gdx.graphics.height.toFloat(),
+            arrowSize = arrowsSize
+        )
+
+        var finalY = AttackEffects.directionY(
+            y = targetTop,
+            normalReceptorY = targetTop,
+            reverseReceptorY = reverseY,
+            reverseAmount = reverseAmount,
+            centeredAmount = centeredAmount
+        )
+
+        val tipsyAmount =
+            if (AttackFeatureFlags.Position.TIPSY) {
+                currentAttackState.tipsy * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (tipsyAmount != 0f) {
+            finalY += AttackEffects.tipsyY(
+                column = getAttackLane(column),
+                songTimeSeconds = currentAttackSongTimeSeconds,
+                arrowSize = arrowsSize,
+                amount = tipsyAmount
+            )
+        }
+
+        /*
+         * Igual que el notefield con isMidLine=true: el receptor jamás se
+         * dispara fuera del viewport. Esta regla se aplica SIEMPRE.
+         */
+        val receptorScaleY =
+            getAttackVisualScale() *
+                    getAttackMoveZScale(column)
+
+        return clampAttackLogicalY(
+            column = column,
+            logicalY = finalY,
+            visualScaleY = receptorScaleY
+        )
+    }
+
+    fun getAttackNoteY(column: Int, y: Float, baseScrollSpeed: Float): Float {
+        val metrics = getStepManiaMetrics()
+        val rawPixelYOffset = y - targetTop
+        val smYOffset = getAttackStepManiaYOffset(rawPixelYOffset = rawPixelYOffset, baseScrollSpeed = baseScrollSpeed)
+        val reverseAmount = getAttackReversePercentForColumn(column).coerceIn(0f, 1f)
+        val centeredAmount = getAttackCenteredAmount()
+
+        /*
+         * TOP físico del receptor Reverse.
+         *
+         * Ejemplo:
+         * height/2 - arrowsSize
+         */
+        val reverseReceptorY = AttackEffects.reverseReceptorY(screenHeight = Gdx.graphics.height.toFloat(), arrowSize = arrowsSize)
+
+        /*
+         * En NORMAL las notas se desplazan hacia arriba y el punto de contacto
+         * está en targetTop.
+         *
+         * En REVERSE se desplazan hacia abajo. La referencia equivalente es
+         * el borde inferior del receptor.
+         *
+         * reverseReceptorY + arrowsSize == height/2
+         */
+        val reverseJudgeY = reverseReceptorY + arrowsSize
+
+        /*
+         * Recorrido NORMAL:
+         *
+         * height -> arrowsSize
+         *
+         * Recorrido REVERSE:
+         *
+         * 0 -> height/2
+         */
+        val normalTravelDistance = (Gdx.graphics.height.toFloat() - targetTop).coerceAtLeast(1f)
+        val reverseTravelDistance = reverseJudgeY.coerceAtLeast(1f)
+        val fullReverseDistanceScale = (reverseTravelDistance / normalTravelDistance).coerceAtLeast(0.0001f)
+
+        val distanceScale =
+            1f +
+                    (fullReverseDistanceScale - 1f) *
+                    reverseAmount
+
+        var finalY =
+            targetTop +
+                    metrics.toPixelsY(smYOffset) *
+                    distanceScale
+
+        /*
+         * Para NOTAS usamos reverseJudgeY.
+         *
+         * getAttackReceptorY() sigue usando reverseReceptorY porque ése
+         * continúa siendo el TOP desde donde se dibuja el sprite receptor.
+         */
+        finalY =
+            AttackEffects.directionY(
+                y = finalY,
+                normalReceptorY = targetTop,
+                reverseReceptorY = reverseJudgeY,
+                reverseAmount = reverseAmount,
+                centeredAmount = centeredAmount
+            )
+
+        val tipsyAmount =
+            if (AttackFeatureFlags.Position.TIPSY) {
+                currentAttackState.tipsy *
+                        attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (tipsyAmount != 0f) {
+            finalY +=
+                AttackEffects.tipsyY(
+                    column = getAttackLane(column),
+                    songTimeSeconds = currentAttackSongTimeSeconds,
+                    arrowSize = arrowsSize,
+                    amount = tipsyAmount
+                )
+        }
+
+        val moveZScale =
+            getAttackMoveZScale(column)
+
+        if (moveZScale != 1f) {
+            /*
+             * El pivote del recorrido de las NOTAS tiene que ser el mismo
+             * punto donde termina el recorrido Reverse.
+             *
+             * Normal  -> targetTop
+             * Reverse -> reverseJudgeY
+             *
+             * directionY nos da la interpolación para porcentajes parciales
+             * de Reverse/Split/Alternate/Cross.
+             */
+            val noteTargetY =
+                AttackEffects.directionY(
+                    y = targetTop,
+                    normalReceptorY = targetTop,
+                    reverseReceptorY = reverseJudgeY,
+                    reverseAmount = reverseAmount,
+                    centeredAmount = centeredAmount
+                )
+
+            finalY =
+                noteTargetY +
+                        (finalY - noteTargetY) *
+                        moveZScale
+        }
+
+        return finalY
+    }
+
+    private fun updateAttacks(songTimeMs: Double, delta: Float) {
+        currentAttackState = attackEngine.update(
+            songTimeMs = songTimeMs,
+            deltaSeconds = delta,
+            baseScrollSpeed = player.baseSpeed
+        )
+        currentAttackSongTimeSeconds = (songTimeMs / 1000.0).toFloat()
+    }
+
+    private fun beginAttackEndReset() {
+        if (attackEndResetActive || attackEndResetFinished) {
+            return
+        }
+
+        attackEndResetActive = true
+        attackEndResetElapsed = 0f
+        attackEndResetFactor = 1f
+    }
+
+    private fun updateAttackEndReset(delta: Float) {
+        if (!attackEndResetActive) {
+            return
+        }
+
+        attackEndResetElapsed += delta
+
+        val t =
+            (attackEndResetElapsed / ATTACK_END_RESET_DURATION)
+                .coerceIn(0f, 1f)
+
+        attackEndResetFactor =
+            1f - t
+
+        if (t >= 1f) {
+            attackEndResetFactor = 0f
+            attackEndResetActive = false
+            attackEndResetFinished = true
+
+            onAttackEndResetFinished()
+        }
+    }
+
+    private fun onAttackEndResetFinished() {
+        // Ejemplo:
+        // a.goToDanceGrade()
+    }
+
+    fun getAttackColumnOffsetX(
+        column: Int,
+        yOffset: Float,
+        baseScrollSpeed: Float = 1f
+    ): Float {
+        var offsetX = 0f
+        val metrics = getStepManiaMetrics()
+
+        // GetXPos de StepMania recibe el fYOffset ya procesado por
+        // Boost/Expand/scroll speed, pero todavía sin Reverse/Tipsy.
+        val smYOffset =
+            getAttackStepManiaYOffset(
+                rawPixelYOffset = yOffset,
+                baseScrollSpeed = baseScrollSpeed
+            )
+
+        if (AttackFeatureFlags.Position.TORNADO && currentAttackState.tornado != 0f) {
+            offsetX += AttackEffects.tornadoX(
+                column = getAttackLane(column),
+                columnCount = 6,
+                yOffset = smYOffset,
+                arrowSize = arrowsSize,
+                screenHeight = FieldMetrics.SM_HEIGHT,
+                amount = currentAttackState.tornado * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.Position.DRUNK && currentAttackState.drunk != 0f) {
+            offsetX += AttackEffects.drunkX(
+                column = getAttackLane(column),
+                yOffset = smYOffset,
+                songTimeSeconds = currentAttackSongTimeSeconds,
+                arrowSize = arrowsSize,
+                screenHeight = FieldMetrics.SM_HEIGHT,
+                amount = currentAttackState.drunk * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.DirectionColumn.FLIP && currentAttackState.flip != 0f) {
+            offsetX += AttackEffects.flipX(
+                column = getAttackLane(column),
+                columnCount = 6,
+                arrowSize = arrowsSize,
+                amount = currentAttackState.flip * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.DirectionColumn.INVERT && currentAttackState.invert != 0f) {
+            offsetX += AttackEffects.invertX(
+                column = getAttackLane(column),
+                columnCount = 6,
+                arrowSize = arrowsSize,
+                amount = currentAttackState.invert * attackEndResetFactor
+            )
+        }
+
+        if (AttackFeatureFlags.Position.BEAT && currentAttackState.beat != 0f) {
+            // Beat devuelve unidades lógicas StepMania (factor base 20).
+            offsetX +=
+                AttackEffects.beatX(
+                    yOffset = smYOffset,
+                    currentBeat = player.beatToShow,
+                    amount = currentAttackState.beat * attackEndResetFactor
+                ) * metrics.arrowScale
+        }
+
+        if (AttackFeatureFlags.Scale.MINI && currentAttackState.mini != 0f) {
+            val baseX = getHalfDoubleBaseX(column)
+            val currentX = baseX + offsetX
+            val centerX = arrowsSize * 4f
+
+            val miniX = AttackEffects.miniX(
+                x = currentX,
+                centerX = centerX,
+                amount = currentAttackState.mini * attackEndResetFactor
+            )
+
+            offsetX = miniX - baseX
+        }
+
+        if (AttackFeatureFlags.Scale.TINY && currentAttackState.tiny != 0f) {
+            val baseX = getHalfDoubleBaseX(column)
+            val currentX = baseX + offsetX
+            val centerX = arrowsSize * 4f
+
+            val tinyX = AttackEffects.tinyX(
+                x = currentX,
+                centerX = centerX,
+                amount = currentAttackState.tiny * attackEndResetFactor
+            )
+
+            offsetX = tinyX - baseX
+        }
+
+        val moveZScale = getAttackMoveZScale(column)
+        if (moveZScale != 1f) {
+            val baseX = getHalfDoubleBaseX(column)
+            val currentX = baseX + offsetX
+            val fieldCenterX = arrowsSize * 4f
+            val projectedX = fieldCenterX + (currentX - fieldCenterX) * moveZScale
+            offsetX = projectedX - baseX
+        }
+
+        if (isVertical) {
+            val baseX = getHalfDoubleBaseX(column)
+            val unclampedX = baseX + offsetX
+            val clampedX = clampAttackLogicalX(
+                column = column,
+                logicalX = unclampedX,
+                visualScale = getAttackVisualScale()
+            )
+            offsetX = clampedX - baseX
+        }
+
+        return offsetX
+    }
+
+    fun getAttackConfusionRotation(currentBeat: Double): Float {
+        if (!AttackFeatureFlags.Rotation3D.CONFUSION) return 0f
+
+        val amount =
+            currentAttackState.confusion * attackEndResetFactor
+
+        if (amount == 0f) return 0f
+
+        return AttackEffects.confusionRotation(
+            currentBeat = currentBeat,
+            amount = amount
+        )
+    }
+
+    fun getAttackNoteRotation(noteBeat: Double, currentBeat: Double): Float {
+        if (!AttackFeatureFlags.Rotation3D.DIZZY) return 0f
+
+        val amount =
+            currentAttackState.dizzy * attackEndResetFactor
+
+        if (amount == 0f) return 0f
+
+        return AttackEffects.dizzyRotation(
+            noteBeat = noteBeat,
+            currentBeat = currentBeat,
+            amount = amount
+        )
     }
 
     fun setNXFromLua(
@@ -397,11 +1021,15 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         nxWaitingReturn = true
     }
 
+    fun getAttackReverseScaleY(column: Int): Float = 1f
+
     private fun returnNxToBase(currentBeat: Double) {
         nxWaitingReturn = false
         nxReturningToBase = true
+
         nxStartProgress = nxProgress
         nxTargetProgress = if (baseNX) 1f else 0f
+
         nxTransitionStartBeat = currentBeat
 
         if (nxTransitionBeats <= 0.0) {
@@ -537,30 +1165,406 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     // ---------------------------------------------------
 
+    fun getAttackDarkAlpha(): Float {
+        if (!AttackFeatureFlags.Visibility.DARK) return 1f
+
+        val darkAmount =
+            currentAttackState.dark * attackEndResetFactor
+
+        return (1f - darkAmount)
+            .coerceIn(0f, 1f)
+    }
+
+    fun getAttackMoveZAmount(column: Int): Float {
+        if (!AttackFeatureFlags.Position.MOVE_Z) return 0f
+
+        return currentAttackState.getMoveZ(getAttackLane(column)) * attackEndResetFactor
+    }
+
+    fun getAttackBumpyAmount(): Float {
+        if (!AttackFeatureFlags.Rotation3D.BUMPY) return 0f
+        return currentAttackState.bumpy * attackEndResetFactor
+    }
+
+    fun getAttackTwirlAmount(): Float {
+        if (!AttackFeatureFlags.Rotation3D.TWIRL) return 0f
+        return currentAttackState.twirl * attackEndResetFactor
+    }
+
+    fun getAttackRollAmount(): Float {
+        if (!AttackFeatureFlags.Rotation3D.ROLL) return 0f
+        return currentAttackState.roll * attackEndResetFactor
+    }
+
+    fun getAttackReceptorCenterY(column: Int): Float {
+        return getAttackReceptorY(column) + (arrowsSize * 0.5f)
+    }
+
+    fun getAttackMoveZScale(column: Int): Float {
+        val amount = getAttackMoveZAmount(column)
+        if (kotlin.math.abs(amount) < 0.0001f) return 1f
+
+        // MoveZ 100% ~= una ArrowSize de profundidad.
+        val zPixels = amount * arrowsSize
+        val focal = (Gdx.graphics.height.toFloat() * 0.75f).coerceAtLeast(arrowsSize * 4f)
+        val denominator = (focal - zPixels).coerceAtLeast(focal * 0.25f)
+
+        return (focal / denominator).coerceIn(0.60f, 1.60f)
+    }
+
+    fun getAttackStealthAlpha(): Float {
+        if (!AttackFeatureFlags.Visibility.STEALTH) return 1f
+
+        val stealthAmount =
+            currentAttackState.stealth * attackEndResetFactor
+
+        return (1f - stealthAmount)
+            .coerceIn(0f, 1f)
+    }
+
+    fun isAttackAppearanceActive(): Boolean {
+        val hidden =
+            AttackFeatureFlags.Visibility.HIDDEN &&
+                    kotlin.math.abs(currentAttackState.hidden * attackEndResetFactor) > 0.0001f
+
+        val sudden =
+            AttackFeatureFlags.Visibility.SUDDEN &&
+                    kotlin.math.abs(currentAttackState.sudden * attackEndResetFactor) > 0.0001f
+
+        val blink =
+            AttackFeatureFlags.Visibility.BLINK &&
+                    kotlin.math.abs(currentAttackState.blink * attackEndResetFactor) > 0.0001f
+
+        val randomVanish =
+            AttackFeatureFlags.Visibility.RANDOM_VANISH &&
+                    kotlin.math.abs(currentAttackState.randomVanish * attackEndResetFactor) > 0.0001f
+
+        return hidden || sudden || blink || randomVanish
+    }
+
+    fun getAttackAppearanceAlpha(
+        column: Int,
+        sourceY: Float,
+        baseScrollSpeed: Float
+    ): Float {
+
+        if (!isAttackAppearanceActive()) {
+            return 1f
+        }
+
+        val hidden =
+            if (AttackFeatureFlags.Visibility.HIDDEN) {
+                (currentAttackState.hidden * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val sudden =
+            if (AttackFeatureFlags.Visibility.SUDDEN) {
+                (currentAttackState.sudden * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val blink =
+            if (AttackFeatureFlags.Visibility.BLINK) {
+                (currentAttackState.blink * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        val randomVanish =
+            if (AttackFeatureFlags.Visibility.RANDOM_VANISH) {
+                (currentAttackState.randomVanish * attackEndResetFactor)
+                    .coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+        /*
+         * Equivalente a ArrowEffects::GetYOffset(): incluye accel mods,
+         * XMod/Expand y scroll speed, pero todavía NO Reverse ni Tipsy.
+         */
+        val fYOffset =
+            getAttackStepManiaYOffset(
+                rawPixelYOffset = sourceY - targetTop,
+                baseScrollSpeed = baseScrollSpeed
+            )
+
+        /*
+         * StepMania GetAlpha():
+         *
+         *   fYPosWithoutReverse = GetYPos(..., WithReverse=false)
+         *
+         * GetYPos(false) parte de fYOffset y sí añade Tipsy.  Lo hacemos en
+         * unidades lógicas SM usando ARROW_SIZE=64, no arrowsSize física.
+         */
+        var fYPosWithoutReverse = fYOffset
+
+        val tipsyAmount =
+            if (AttackFeatureFlags.Position.TIPSY) {
+                currentAttackState.tipsy * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        if (tipsyAmount != 0f) {
+            fYPosWithoutReverse +=
+                AttackEffects.tipsyY(
+                    column = getAttackLane(column),
+                    songTimeSeconds = currentAttackSongTimeSeconds,
+                    arrowSize = FieldMetrics.SM_ARROW_SIZE,
+                    amount = tipsyAmount
+                )
+        }
+
+        /* StepMania por defecto no aplica appearance después de cruzar receptor. */
+        if (fYPosWithoutReverse < 0f) {
+            return 1f
+        }
+
+        /*
+         * ArrowEffects.cpp:
+         * CENTER_LINE_Y = 160
+         * FADE_DIST_Y   = 40
+         *
+         * El hack de Mini de StepMania NO usa pow(0.5, Mini) aquí; usa
+         * fZoom = 1 - Mini*0.5 y divide CENTER_LINE_Y por ese zoom.
+         */
+        val miniPercent =
+            if (AttackFeatureFlags.Scale.MINI) {
+                currentAttackState.mini * attackEndResetFactor
+            } else {
+                0f
+            }
+
+        val miniZoom =
+            (1f - miniPercent * 0.5f)
+                .coerceAtLeast(0.10f)
+
+        val centerLine = 160f / miniZoom
+        val fadeDist = 40f
+
+        val hiddenSudden =
+            (hidden * sudden)
+                .coerceIn(0f, 1f)
+
+        fun lerp(a: Float, b: Float, t: Float): Float =
+            a + (b - a) * t
+
+        fun scale(
+            value: Float,
+            fromLow: Float,
+            fromHigh: Float,
+            toLow: Float,
+            toHigh: Float
+        ): Float {
+            val denom = fromHigh - fromLow
+            if (abs(denom) < 0.0001f) return toLow
+            val t = (value - fromLow) / denom
+            return toLow + (toHigh - toLow) * t
+        }
+
+        val hiddenEndLine =
+            centerLine +
+                    fadeDist * lerp(-1.0f, -1.25f, hiddenSudden)
+
+        val hiddenStartLine =
+            centerLine +
+                    fadeDist * lerp(0.0f, -0.25f, hiddenSudden)
+
+        val suddenEndLine =
+            centerLine +
+                    fadeDist * lerp(0.0f, 0.25f, hiddenSudden)
+
+        val suddenStartLine =
+            centerLine +
+                    fadeDist * lerp(1.0f, 1.25f, hiddenSudden)
+
+        var visibleAdjust = 0f
+
+        if (hidden != 0f) {
+            val hiddenAdjust =
+                scale(
+                    value = fYPosWithoutReverse,
+                    fromLow = hiddenStartLine,
+                    fromHigh = hiddenEndLine,
+                    toLow = 0f,
+                    toHigh = -1f
+                ).coerceIn(-1f, 0f)
+
+            visibleAdjust += hidden * hiddenAdjust
+        }
+
+        if (sudden != 0f) {
+            val suddenAdjust =
+                scale(
+                    value = fYPosWithoutReverse,
+                    fromLow = suddenStartLine,
+                    fromHigh = suddenEndLine,
+                    toLow = -1f,
+                    toHigh = 0f
+                ).coerceIn(-1f, 0f)
+
+            visibleAdjust += sudden * suddenAdjust
+        }
+
+        if (blink != 0f) {
+            val frequency = 0.3333f
+            val raw =
+                kotlin.math.sin(
+                    currentAttackSongTimeSeconds * 10f
+                )
+
+            val quantized =
+                (
+                        kotlin.math.round(raw / frequency) * frequency
+                        ).coerceIn(0f, 1f)
+
+            /*
+             * StepMania considera Blink encendido cuando su amount es distinto
+             * de cero.  Conservamos la mezcla por amount para respetar el tween
+             * del AttackEngine de Finger Dance al entrar/salir del ATTACK.
+             */
+            visibleAdjust +=
+                blink * (quantized - 1f)
+        }
+
+        if (randomVanish != 0f) {
+            val distFromCenterLine =
+                abs(fYPosWithoutReverse - centerLine)
+
+            val randomAdjust =
+                scale(
+                    value = distFromCenterLine,
+                    fromLow = 80f,
+                    fromHigh = 160f,
+                    toLow = -1f,
+                    toHigh = 0f
+                ).coerceIn(-1f, 0f)
+
+            visibleAdjust +=
+                randomVanish * randomAdjust
+        }
+
+        return (1f + visibleAdjust)
+            .coerceIn(0f, 1f)
+    }
+
+    fun getAttackBlindAlpha(): Float {
+        if (!AttackFeatureFlags.Visibility.BLIND) return 1f
+
+        val blind =
+            currentAttackState.blind *
+                    attackEndResetFactor
+
+        return (1f - blind)
+            .coerceIn(0f, 1f)
+    }
+
     private fun drawRecepts() {
-        batch.draw(receptCE[0], arrowsSize + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
-        batch.draw(receptRU[0], (arrowsSize * 2) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
-        batch.draw(receptRD[0], (arrowsSize * 3) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
-        batch.draw(receptLD[0], (arrowsSize * 4) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
-        batch.draw(receptLU[0], (arrowsSize * 5) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
-        batch.draw(receptCE[0], (arrowsSize * 6) + luaRecepts.screenX, targetTop, arrowsSize, arrowsSize)
+        drawReceptor(receptCE[0], 2)
+        drawReceptor(receptRU[0], 3)
+        drawReceptor(receptRD[0], 4)
+        drawReceptor(receptLD[0], 5)
+        drawReceptor(receptLU[0], 6)
+        drawReceptor(receptCE[0], 7)
 
         if (showOverlay) {
             aBatch = batch.blendSrcFunc
             bBatch = batch.blendDstFunc
             batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-            drawOverlay(receptCE[1], 0, arrowsSize + luaRecepts.screenX)
-            drawOverlay(receptRU[1], 1, (arrowsSize * 2) + luaRecepts.screenX)
-            drawOverlay(receptRD[1], 2, (arrowsSize * 3) + luaRecepts.screenX)
-            drawOverlay(receptLD[1], 3, (arrowsSize * 4) + luaRecepts.screenX)
-            drawOverlay(receptLU[1], 4, (arrowsSize * 5) + luaRecepts.screenX)
-            drawOverlay(receptCE[1], 5, (arrowsSize * 6) + luaRecepts.screenX)
-
+            drawReceptor(receptCE[1], 2)
+            drawReceptor(receptRU[1], 3)
+            drawReceptor(receptRD[1], 4)
+            drawReceptor(receptLD[1], 5)
+            drawReceptor(receptLU[1], 6)
+            drawReceptor(receptCE[1], 7)
             batch.setBlendFunction(aBatch, bBatch)
         }
     }
 
     // ---------------------------------------------------
+
+    private fun drawReceptor(frame: TextureRegion, column: Int) {
+        val attackX =
+            getAttackColumnOffsetX(
+                column = column,
+                yOffset = 0f
+            )
+
+        var logicalY =
+            getAttackReceptorY(column)
+
+        val rotation =
+            getAttackConfusionRotation(
+                player.beatToShow
+            )
+
+        var logicalX =
+            getHalfDoubleBaseX(column) +
+                    attackX +
+                    luaRecepts.screenX
+
+        val metrics =
+            receptorMetrics[column]
+
+        val drawX =
+            metrics.drawX(
+                logicalX,
+                arrowsSize
+            )
+
+        val drawY =
+            metrics.drawY(
+                logicalY,
+                arrowsSize
+            )
+
+        val drawWidth =
+            metrics.drawWidth(
+                arrowsSize
+            )
+
+        val drawHeight =
+            metrics.drawHeight(
+                arrowsSize
+            )
+
+        val miniScale =
+            getAttackVisualScale() * getAttackMoveZScale(column)
+
+        val darkAlpha =
+            getAttackDarkAlpha()
+
+        val oldColor =
+            batch.color.cpy()
+
+        batch.setColor(
+            oldColor.r,
+            oldColor.g,
+            oldColor.b,
+            oldColor.a * darkAlpha
+        )
+
+        batch.draw(
+            frame,
+            drawX,
+            drawY,
+            drawWidth * 0.5f,
+            drawHeight * 0.5f,
+            drawWidth,
+            drawHeight,
+            miniScale,
+            miniScale,
+            rotation
+        )
+
+        batch.color = oldColor
+    }
 
     private fun getLifeLightningFrames(texture: Texture): Array<TextureRegion> {
         val tmp = TextureRegion.split(texture, texture.width / 4, texture.height / 6)
@@ -639,38 +1643,13 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         val pixmap = textureData.consumePixmap()
 
         try {
-            if (metricsColumn != null) {
-                receptorOverlayMetrics[metricsColumn] = calculateOverlayMetrics(
-                    baseFrame = tmp[0][0],
-                    overlayFrame = tmp[1][0],
-                    pixmap = pixmap,
-                    isMirror = isMirror
-                )
-            }
-
-            val frames = arrayOf(
-                trimFrame(tmp[0][0], pixmap),
-                trimFrame(tmp[1][0], pixmap),
-                trimFrame(tmp[2][0], pixmap)
-            )
-
+            if (metricsColumn != null) receptorMetrics[metricsColumn] = calculateNoteCellMetrics(tmp[0][0], pixmap, isMirror)
+            val frames = arrayOf(tmp[0][0], tmp[1][0], tmp[2][0])
             frames.forEach { it.flip(isMirror, true) }
             return frames
         } finally {
             if (textureData.disposePixmap()) pixmap.dispose()
         }
-    }
-
-    private fun drawOverlay(frame: TextureRegion, column: Int, baseX: Float) {
-        val metrics = receptorOverlayMetrics[column]
-
-        batch.draw(
-            frame,
-            baseX + arrowsSize * metrics.offsetXRatio,
-            targetTop + arrowsSize * metrics.offsetYRatio,
-            arrowsSize * metrics.widthRatio,
-            arrowsSize * metrics.heightRatio
-        )
     }
 
     private data class Bounds(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
@@ -708,71 +1687,21 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
         }
     }
 
-    private fun calculateOverlayMetrics(baseFrame: TextureRegion, overlayFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): OverlayMetrics {
-        val base = getVisibleBounds(baseFrame, pixmap)
-        val overlay = getVisibleBounds(overlayFrame, pixmap)
-
-        val baseWidth = base.width.toFloat()
-        val baseHeight = base.height.toFloat()
-
-        val widthRatio = overlay.width / baseWidth
-        val heightRatio = overlay.height / baseHeight
-
-        val offsetX = if (!isMirror) {
-            (overlay.minX - base.minX) / baseWidth
-        } else {
-            val sourceWidth = baseFrame.regionWidth
-
-            val baseMirrorX = sourceWidth - base.maxX - 1
-            val overlayMirrorX = sourceWidth - overlay.maxX - 1
-
-            (overlayMirrorX - baseMirrorX) / baseWidth
-        }
-
-        val offsetY = (overlay.minY - base.minY) / baseHeight
-
-        return OverlayMetrics(
-            widthRatio = widthRatio,
-            heightRatio = heightRatio,
-            offsetXRatio = offsetX,
-            offsetYRatio = offsetY
-        )
-    }
-
-    private fun trimFrame(sourceRegion: TextureRegion, pixmap: Pixmap, alphaThreshold: Int = 1): TextureRegion {
-        val sourceX = sourceRegion.regionX
-        val sourceY = sourceRegion.regionY
-        val sourceWidth = sourceRegion.regionWidth
-        val sourceHeight = sourceRegion.regionHeight
-
-        var minX = sourceWidth
-        var minY = sourceHeight
-        var maxX = -1
-        var maxY = -1
-
-        for (y in 0 until sourceHeight) {
-            for (x in 0 until sourceWidth) {
-                val pixel = pixmap.getPixel(sourceX + x, sourceY + y)
-                val alpha = pixel and 0xFF
-                if (alpha >= alphaThreshold) {
-                    if (x < minX) minX = x
-                    if (y < minY) minY = y
-                    if (x > maxX) maxX = x
-                    if (y > maxY) maxY = y
-                }
-            }
-        }
-        if (maxX < minX || maxY < minY) {
-            return TextureRegion(sourceRegion, 0, 0, 1, 1)
-        }
-
-        val trimmedWidth = maxX - minX + 1
-        val trimmedHeight = maxY - minY + 1
-        return TextureRegion(sourceRegion, minX, minY, trimmedWidth, trimmedHeight)
-    }
-
 
     // ---------------------------------------------------
+
+    private fun calculateNoteCellMetrics(baseFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): NoteCellMetrics {
+        val bounds = getVisibleBounds(baseFrame, pixmap)
+        val cellWidth = baseFrame.regionWidth.toFloat()
+        val cellHeight = baseFrame.regionHeight.toFloat()
+        val offsetX = if (isMirror) (baseFrame.regionWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
+        return NoteCellMetrics(
+            visibleWidthRatio = bounds.width / cellWidth,
+            visibleHeightRatio = bounds.height / cellHeight,
+            visibleOffsetXRatio = offsetX,
+            visibleOffsetYRatio = bounds.minY / cellHeight
+        )
+    }
 
     private fun getListNumbers(arrow: Texture): Array<TextureRegion> {
 
@@ -817,6 +1746,7 @@ open class GameScreenSscHD(activity: GameScreenActivity) : Screen {
 
     override fun dispose() {
 
+        font.dispose()
         batch.dispose()
         stage.dispose()
 

@@ -1,5 +1,6 @@
 package com.fingerdance.ssc
 
+import NoteCellMetrics
 import android.os.SystemClock
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
@@ -65,7 +66,7 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
     private lateinit var padB : TextureRegion
     lateinit var spritePadB: Sprite
 
-    val receptorMetrics = Array(10) { GameScreenSsc.NoteCellMetrics() }
+    val receptorMetrics = Array(10) { NoteCellMetrics() }
 
     private val textureLD = loadTexture(ruta, "DownLeft Ready Receptor")
     private val textureLU = loadTexture(ruta, "UpLeft Ready Receptor")
@@ -530,12 +531,12 @@ open class GameScreenSscHorizontalHD(activity: GameScreenActivityHorizontal) : S
         return if (maxX < minX || maxY < minY) Bounds(0, 0, sourceWidth - 1, sourceHeight - 1) else Bounds(minX, minY, maxX, maxY)
     }
 
-    private fun calculateNoteCellMetrics(baseFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): GameScreenSsc.NoteCellMetrics {
+    private fun calculateNoteCellMetrics(baseFrame: TextureRegion, pixmap: Pixmap, isMirror: Boolean): NoteCellMetrics {
         val bounds = getVisibleBounds(baseFrame, pixmap)
         val cellWidth = baseFrame.regionWidth.toFloat()
         val cellHeight = baseFrame.regionHeight.toFloat()
         val offsetX = if (isMirror) (baseFrame.regionWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
-        return GameScreenSsc.NoteCellMetrics(
+        return NoteCellMetrics(
             visibleWidthRatio = bounds.width / cellWidth,
             visibleHeightRatio = bounds.height / cellHeight,
             visibleOffsetXRatio = offsetX,

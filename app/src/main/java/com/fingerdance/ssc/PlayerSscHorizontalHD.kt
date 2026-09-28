@@ -2,6 +2,7 @@ package com.fingerdance.ssc
 
 import LuaEngine
 import LuaFgContext
+import NoteCellMetrics
 import android.util.Log
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -127,7 +128,7 @@ class PlayerSscHorizontalHD (
         val y: Float = Gdx.graphics.height / 2f
     )
 
-    private lateinit var cellMetrics: Array<GameScreenSsc.NoteCellMetrics>
+    private lateinit var cellMetrics: Array<NoteCellMetrics>
 
     private val baseSpeed = playerSong.speed.replace("X", "").toFloat() + 1f
 
