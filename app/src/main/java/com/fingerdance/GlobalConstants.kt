@@ -1172,6 +1172,8 @@ enum class SaveResult {
     INVALID_LEVEL
 }
 
+
+var orientationMode = OrientationMode.VERTICAL
 enum class OrientationMode {
     HORIZONTAL, VERTICAL
 }

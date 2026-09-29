@@ -1,5 +1,6 @@
 package com.fingerdance.ssc
 
+import NoteCellMetrics
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Mesh
@@ -9,7 +10,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.Matrix4
+import com.fingerdance.OrientationMode
 import com.fingerdance.luaNotes
+import com.fingerdance.orientationMode
 
 /**
  * Render compartido de TAP, MINE y HOLD para los Player SSC.
@@ -75,8 +78,9 @@ class SscNoteRenderer(
     private val computeReceptorCenterY: (column: Int) -> Float = { 0f },
 
     private val computeRotation: (note: Parser.Note) -> Float = { 0f },
+    private val computeHoldRotation: (note: Parser.Note) -> Float = computeRotation,
 
-    private val cellMetrics: Array<GameScreenSsc.NoteCellMetrics>
+    private val cellMetrics: Array<NoteCellMetrics>
 ) {
 
     /*
@@ -92,7 +96,6 @@ class SscNoteRenderer(
 
             uniform mat4 u_projTrans;
 
-            // Bumpy / Twirl / Roll
             uniform float u_bumpy;
             uniform float u_twirl;
             uniform float u_roll;
@@ -101,6 +104,7 @@ class SscNoteRenderer(
             uniform float u_objectCenterX;
             uniform float u_objectCenterY;
             uniform float u_focalLength;
+            uniform float u_stepmaniaHorizontal3D;
 
             varying vec4 v_color;
             varying vec2 v_texCoords;
@@ -130,16 +134,9 @@ class SscNoteRenderer(
 
             void main() {
                 v_color = a_color;
-                v_color.a =
-                    v_color.a *
-                    (255.0 / 254.0);
-
-                v_texCoords =
-                    a_texCoord0;
-
-                // Conservamos worldY original para AP/Vanish/Flip ribbon.
-                v_worldY =
-                    a_position.y;
+                v_color.a = v_color.a * (255.0 / 254.0);
+                v_texCoords = a_texCoord0;
+                v_worldY = a_position.y;
 
                 vec3 p = vec3(
                     a_position.x - u_objectCenterX,
@@ -147,12 +144,19 @@ class SscNoteRenderer(
                     0.0
                 );
 
-                // Este valor está en el mismo espacio lógico que ArrowEffects.cpp.
-                // Ya incluye Boost/Expand/scrollSpeed y todavía no incluye Reverse/Tipsy.
                 float yOffset = u_stepmaniaYOffset;
 
-                // Bumpy usa una magnitud ligada a ARROW_SIZE. En StepMania
-                // ARROW_SIZE=64; en Finger Dance 64 -> medidaFlechas.
+                /*
+                 * StepMania 5.1 ArrowEffects::GetZPos()
+                 *
+                 * Bumpy:
+                 *   fZPos += amount * 40 * sin(CalculateBumpyAngle(fYOffset))
+                 *
+                 * Para el caso base sin BumpyOffset/BumpyPeriod:
+                 *   CalculateBumpyAngle(fYOffset) = fYOffset / 16
+                 *
+                 * 64 unidades StepMania -> arrowSize real de FingerDance.
+                 */
                 float bumpyZ =
                     u_bumpy *
                     40.0 *
@@ -161,7 +165,12 @@ class SscNoteRenderer(
 
                 p.z += bumpyZ;
 
-                // Los ángulos permanecen en grados StepMania: no se escalan por píxeles.
+                /*
+                 * StepMania 5.1 ArrowEffects:
+                 *
+                 * Twirl -> RotationY += amount * fYOffset / 2 grados
+                 * Roll  -> RotationX += amount * fYOffset / 2 grados
+                 */
                 float twirlAngle =
                     (u_twirl * yOffset * 0.5) *
                     DEG_TO_RAD;
@@ -170,36 +179,72 @@ class SscNoteRenderer(
                     (u_roll * yOffset * 0.5) *
                     DEG_TO_RAD;
 
+                /*
+                 * El orden se conserva como en nuestro pipeline actual:
+                 * primero Twirl (Y), después Roll (X).
+                 *
+                 * Bumpy permanece en p.z y por eso sí participa cuando Twirl/Roll
+                 * rotan el quad, aunque Overhead no convierta Z directamente en zoom.
+                 */
                 p = rotateY(p, twirlAngle);
                 p = rotateX(p, rollAngle);
 
-                // Proyección perspectiva segura sobre el mismo playfield 2D.
-                float focal =
-                    max(u_focalLength, 1.0);
+                if (u_stepmaniaHorizontal3D > 0.5) {
+                    /*
+                     * HORIZONTAL / OVERHEAD:
+                     *
+                     * No hacemos perspective divide artificial por Bumpy.
+                     * Tampoco mandamos p.z como clip-space Z, porque el OrthographicCamera
+                     * de FingerDance lo recortaba y producía sprites/HOLDs "por cachos".
+                     *
+                     * Conservamos únicamente el X/Y resultante de la transformación 3D.
+                     */
+                    gl_Position =
+                        u_projTrans *
+                        vec4(
+                            u_objectCenterX + p.x,
+                            u_objectCenterY + p.y,
+                            0.0,
+                            1.0
+                        );
+                } else {
+                    /*
+                     * VERTICAL:
+                     * conservar exactamente el comportamiento FingerDance que ya existía.
+                     */
+                    float focal =
+                        max(
+                            u_focalLength,
+                            1.0
+                        );
 
-                float denom =
-                    max(focal - p.z, focal * 0.20);
+                    float denom =
+                        max(
+                            focal - p.z,
+                            focal * 0.20
+                        );
 
-                float perspective =
-                    clamp(
-                        focal / denom,
-                        0.35,
-                        2.50
-                    );
+                    float perspective =
+                        clamp(
+                            focal / denom,
+                            0.35,
+                            2.50
+                        );
 
-                vec2 finalPos =
-                    vec2(
-                        u_objectCenterX + p.x * perspective,
-                        u_objectCenterY + p.y * perspective
-                    );
+                    vec2 finalPos =
+                        vec2(
+                            u_objectCenterX + p.x * perspective,
+                            u_objectCenterY + p.y * perspective
+                        );
 
-                gl_Position =
-                    u_projTrans *
-                    vec4(
-                        finalPos,
-                        a_position.z,
-                        a_position.w
-                    );
+                    gl_Position =
+                        u_projTrans *
+                        vec4(
+                            finalPos,
+                            a_position.z,
+                            a_position.w
+                        );
+                }
             }
         """.trimIndent()
 
@@ -392,7 +437,12 @@ class SscNoteRenderer(
         try {
             batch.setColor(1f, 1f, 1f, activeNoteAlpha)
 
-            val rotation = computeRotation(note)
+            val rotation =
+                if (orientationMode == OrientationMode.VERTICAL) {
+                    computeRotation(note)
+                } else {
+                    computeHoldRotation(note)
+                }
 
             when {
                 isAp -> drawLongNoteAp(column, y, y2, frame, rotation)
@@ -719,9 +769,9 @@ class SscNoteRenderer(
             val sourceY =
                 activeHoldSourceStartY +
                         (
-                            activeHoldSourceEndY -
-                                activeHoldSourceStartY
-                            ) *
+                                activeHoldSourceEndY -
+                                        activeHoldSourceStartY
+                                ) *
                         sourceT
 
             val yOffset =
@@ -805,12 +855,12 @@ class SscNoteRenderer(
 
         holdRibbonShader.setUniformf(
             "u_twirl",
-            computeTwirl()
+            0f
         )
 
         holdRibbonShader.setUniformf(
             "u_roll",
-            computeRoll()
+            0f
         )
 
         holdRibbonShader.setUniformf(
@@ -833,6 +883,10 @@ class SscNoteRenderer(
             480f *
                     computeStepManiaFieldScaleY()
                         .coerceAtLeast(0.0001f)
+        )
+        holdRibbonShader.setUniformf(
+            "u_stepmaniaHorizontal3D",
+            if (orientationMode == OrientationMode.VERTICAL) 0f else 1f
         )
 
         holdRibbonShader.setUniformi(
@@ -1135,26 +1189,26 @@ class SscNoteRenderer(
         allowRoll: Boolean,
         stepManiaYOffset: Float
     ) {
+
         val bumpy = computeBumpy()
         val twirl = computeTwirl()
         val roll = computeRoll()
-
         shader.setUniformf("u_bumpy", bumpy)
         shader.setUniformf("u_twirl", twirl)
-        val fieldScaleY =
-            computeStepManiaFieldScaleY().coerceAtLeast(0.0001f)
 
-        val arrowScale =
-            computeStepManiaArrowScale().coerceAtLeast(0.0001f)
+        val fieldScaleY = computeStepManiaFieldScaleY().coerceAtLeast(0.0001f)
+        val arrowScale = computeStepManiaArrowScale().coerceAtLeast(0.0001f)
 
         shader.setUniformf("u_roll", if (allowRoll) roll else 0f)
         shader.setUniformf("u_stepmaniaYOffset", stepManiaYOffset)
         shader.setUniformf("u_stepmaniaArrowScale", arrowScale)
         shader.setUniformf("u_objectCenterX", objectCenterX)
         shader.setUniformf("u_objectCenterY", objectCenterY)
+        shader.setUniformf("u_focalLength", 480f * fieldScaleY)
+
         shader.setUniformf(
-            "u_focalLength",
-            480f * fieldScaleY
+            "u_stepmaniaHorizontal3D",
+            if (orientationMode == OrientationMode.VERTICAL) 0f else 1f
         )
     }
 
@@ -1922,6 +1976,14 @@ class SscNoteRenderer(
         attribute float a_alpha;
 
         uniform mat4 u_projTrans;
+        uniform float u_bumpy;
+        uniform float u_twirl;
+        uniform float u_roll;
+        uniform float u_stepmaniaArrowScale;
+        uniform float u_objectCenterX;
+        uniform float u_objectCenterY;
+        uniform float u_focalLength;
+        uniform float u_stepmaniaHorizontal3D;
 
         varying vec2 v_texCoords;
         varying float v_worldY;
@@ -1932,24 +1994,37 @@ class SscNoteRenderer(
             v_worldY = a_position.y;
             v_alpha = a_alpha;
 
-            /*
-             * IMPORTANTE:
-             * Para los HOLD bodies NO aplicamos Bumpy/Twirl/Roll.
-             *
-             * Eso evita:
-             * - serpenteo lateral
-             * - efecto reloj de arena
-             * - torsiones raras al final del chart
-             *
-             * El mesh continuo se conserva, así que ya no se verá por cachos.
-             */
-            gl_Position =
-                u_projTrans *
-                vec4(
-                    a_position.xy,
-                    a_position.z,
-                    1.0
-                );
+            if (u_stepmaniaHorizontal3D > 0.5) {
+                /*
+                 * HORIZONTAL:
+                 *
+                 * El BODY del HOLD se mantiene recto.
+                 *
+                 * En la referencia StepMania del tramo final, Twirl/Roll rotan
+                 * TAPs y HEAD/BOTTOM, pero NO estrangulan ni retuercen el body.
+                 *
+                 * Bumpy sigue siendo parte del estado 3D de la nota, pero bajo
+                 * Overhead no altera X/Y del ribbon. La perspectiva global
+                 * (Hallway/Distant/Incoming/Space) se aplica después al playfield.
+                 */
+                gl_Position =
+                    u_projTrans *
+                    vec4(
+                        a_position.x,
+                        a_position.y,
+                        0.0,
+                        1.0
+                    );
+            } else {
+                // Vertical: conservar exactamente el ribbon anterior.
+                gl_Position =
+                    u_projTrans *
+                    vec4(
+                        a_position.xy,
+                        a_position.z,
+                        1.0
+                    );
+            }
         }
         """.trimIndent()
 

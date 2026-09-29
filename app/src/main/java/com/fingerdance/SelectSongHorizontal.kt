@@ -217,7 +217,7 @@ class SelectSongHorizontal : AppCompatActivity() {
 
     private lateinit var selectModeContainer : FrameLayout
     private var modeSelected = false
-    private var orientationMode = OrientationMode.VERTICAL
+    //private var orientationMode = OrientationMode.VERTICAL
 
     private val sequence = mutableListOf<Boolean>()
     private val sequencePattern = listOf(false, true, false, true, false, true)
@@ -2033,8 +2033,8 @@ class SelectSongHorizontal : AppCompatActivity() {
                 else
                     GameScreenActivityHorizontal::class.java
             )
-
             isVertical = false
+
             intent.putExtra("IS_HALF_DOUBLE", isHalfDouble)
             startActivity(intent)
             handlerSelectSongHorizontal.postDelayed({

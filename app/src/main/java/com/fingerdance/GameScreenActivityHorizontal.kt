@@ -95,7 +95,6 @@ open class GameScreenActivityHorizontal : AndroidApplication() {
             RelativeLayout.LayoutParams.MATCH_PARENT
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
-        //isVertical = false //intent.getBooleanExtra("IS_VERTICAL", false)
         readyPlay = false
 
         val screenWidth = resources.displayMetrics.widthPixels

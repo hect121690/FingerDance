@@ -71,16 +71,17 @@ object AttackEffects {
         if (!AttackFeatureFlags.AccelScroll.BOOST) return yOffset
         if (amount == 0f || yOffset < 0f) return yOffset
 
-        val safeEffectHeight = effectHeight.coerceAtLeast(1f)
-        val denominator = (yOffset + safeEffectHeight / 1.2f) / safeEffectHeight
+        if (isVertical) {
+            val safeEffectHeight = effectHeight.coerceAtLeast(1f)
+            val denominator = (yOffset + safeEffectHeight / 1.2f) / safeEffectHeight
+            if (kotlin.math.abs(denominator) < 0.0001f) return yOffset
+            val newYOffset = yOffset * 1.5f / denominator
+            val adjustment = (amount * (newYOffset - yOffset)).coerceIn(BOOST_MOD_MIN_CLAMP, BOOST_MOD_MAX_CLAMP)
+            return yOffset + adjustment
+        }
 
-        if (kotlin.math.abs(denominator) < 0.0001f) return yOffset
-
-        val newYOffset = yOffset * 1.5f / denominator
-        val adjustment =
-            (amount * (newYOffset - yOffset))
-                .coerceIn(BOOST_MOD_MIN_CLAMP, BOOST_MOD_MAX_CLAMP)
-
+        val newYOffset = yOffset * 1.5f / ((yOffset + effectHeight / 1.2f) / effectHeight)
+        val adjustment = (amount * (newYOffset - yOffset)).coerceIn(BOOST_MOD_MIN_CLAMP, BOOST_MOD_MAX_CLAMP)
         return yOffset + adjustment
     }
 
@@ -99,13 +100,10 @@ object AttackEffects {
         if (!AttackFeatureFlags.AccelScroll.BRAKE) return yOffset
         if (amount == 0f || yOffset < 0f) return yOffset
 
-        val safeEffectHeight = effectHeight.coerceAtLeast(1f)
-        val scale = yOffset / safeEffectHeight
+        val height = if (isVertical) effectHeight.coerceAtLeast(1f) else effectHeight
+        val scale = yOffset / height
         val newYOffset = yOffset * scale
-        val adjustment =
-            (amount * (newYOffset - yOffset))
-                .coerceIn(BRAKE_MOD_MIN_CLAMP, BRAKE_MOD_MAX_CLAMP)
-
+        val adjustment = (amount * (newYOffset - yOffset)).coerceIn(BRAKE_MOD_MIN_CLAMP, BRAKE_MOD_MAX_CLAMP)
         return yOffset + adjustment
     }
 
@@ -122,12 +120,9 @@ object AttackEffects {
         if (!AttackFeatureFlags.AccelScroll.WAVE) return 0f
         if (amount == 0f || yOffset < 0f) return 0f
 
-        val denominator = (period * WAVE_MOD_HEIGHT) + WAVE_MOD_HEIGHT
-        if (kotlin.math.abs(denominator) < 0.0001f) return 0f
-
-        return amount *
-                WAVE_MOD_MAGNITUDE *
-                kotlin.math.sin(yOffset / denominator)
+        val denominator = period * WAVE_MOD_HEIGHT + WAVE_MOD_HEIGHT
+        if (isVertical && kotlin.math.abs(denominator) < 0.0001f) return 0f
+        return amount * WAVE_MOD_MAGNITUDE * kotlin.math.sin(yOffset / denominator)
     }
 
     /**
@@ -146,8 +141,8 @@ object AttackEffects {
         if (!AttackFeatureFlags.AccelScroll.BOOMERANG) return yOffset
         if (amount == 0f || yOffset < 0f) return yOffset
 
-        val safeScreenHeight = screenHeight.coerceAtLeast(1f)
-        return (-yOffset * yOffset / safeScreenHeight) + (1.5f * yOffset)
+        val height = if (isVertical) screenHeight.coerceAtLeast(1f) else screenHeight
+        return (-yOffset * yOffset / height) + 1.5f * yOffset
     }
 
     /**
@@ -202,7 +197,7 @@ object AttackEffects {
         expandAmount: Float,
         baseScrollSpeed: Float
     ): Float {
-        val safeBaseSpeed = baseScrollSpeed.coerceAtLeast(0.0001f)
+        val safeBaseSpeed = if (isVertical) baseScrollSpeed.coerceAtLeast(0.0001f) else baseScrollSpeed
 
         // StepMania: no aplica ACCEL después de cruzar el receptor.
         if (yOffsetSm < 0f) return yOffsetSm * safeBaseSpeed
@@ -311,13 +306,13 @@ object AttackEffects {
         screenHeight: Float
     ): Float {
 
-        val safeHeight = screenHeight.coerceAtLeast(1f)
+        val height = if (isVertical) screenHeight.coerceAtLeast(1f) else screenHeight
 
         return songTimeSeconds * (1f + speed) +
                 column * ((offset * columnFrequency) +
                 columnFrequency) +
                 yOffset * ((period * offsetFrequency) +
-                offsetFrequency) / safeHeight
+                offsetFrequency) / height
     }
 
     // =========================================================
@@ -351,18 +346,22 @@ object AttackEffects {
         column: Int,
         columnCount: Int,
         arrowSize: Float,
-        amount: Float
+        amount: Float,
+        columnPositions: FloatArray? = null,
+        notefieldZoom: Float = 1f
     ): Float {
         if (!AttackFeatureFlags.DirectionColumn.FLIP) return 0f
+        if (amount == 0f || columnCount <= 1 || column !in 0 until columnCount) return 0f
 
-        if (amount == 0f || columnCount <= 1) return 0f
-
-        val lastColumn = columnCount - 1
-        val newColumn = lastColumn - column
+        val newColumn = columnCount - 1 - column
+        if (!isVertical && columnPositions != null && columnPositions.size >= columnCount) {
+            val oldX = columnPositions[column] * notefieldZoom
+            val newX = columnPositions[newColumn] * notefieldZoom
+            return (newX - oldX) * amount
+        }
 
         val oldX = arrowSize * (column + 1)
         val newX = arrowSize * (newColumn + 1)
-
         return (newX - oldX) * amount
     }
 
@@ -417,61 +416,39 @@ object AttackEffects {
         screenHeight: Float,
         amount: Float,
         effectOffset: Float = 0f,
-        period: Float = 0f
+        period: Float = 0f,
+        columnPositions: FloatArray? = null,
+        notefieldZoom: Float = 1f
     ): Float {
         if (!AttackFeatureFlags.Position.TORNADO) return 0f
-
         if (amount == 0f || columnCount <= 1 || column !in 0 until columnCount) return 0f
 
-        /*
-         * StepMania:
-         * fields > 4 columnas => width = 2.
-         *
-         * En nuestro caso Pump 5 panel:
-         *
-         * col 0 -> columnas 0..2
-         * col 1 -> columnas 0..3
-         * col 2 -> columnas 0..4
-         * col 3 -> columnas 1..4
-         * col 4 -> columnas 2..4
-         */
         val width = if (columnCount > 4) 2 else 3
         val startColumn = (column - width).coerceAtLeast(0)
         val endColumn = (column + width).coerceAtMost(columnCount - 1)
 
-        val realPixelOffset = getTornadoColumnX(column, columnCount, arrowSize)
-        val minPixelOffset = getTornadoColumnX(startColumn, columnCount, arrowSize)
-        val maxPixelOffset = getTornadoColumnX(endColumn, columnCount, arrowSize)
+        val realPixelOffset: Float
+        val minPixelOffset: Float
+        val maxPixelOffset: Float
+
+        if (!isVertical && columnPositions != null && columnPositions.size >= columnCount) {
+            realPixelOffset = columnPositions[column] * notefieldZoom
+            minPixelOffset = (startColumn..endColumn).minOf { columnPositions[it] } * notefieldZoom
+            maxPixelOffset = (startColumn..endColumn).maxOf { columnPositions[it] } * notefieldZoom
+        } else {
+            realPixelOffset = getTornadoColumnX(column, columnCount, arrowSize)
+            minPixelOffset = getTornadoColumnX(startColumn, columnCount, arrowSize)
+            maxPixelOffset = getTornadoColumnX(endColumn, columnCount, arrowSize)
+        }
 
         if (maxPixelOffset == minPixelOffset) return 0f
-
-        val positionBetween = scale(
-            value = realPixelOffset,
-            fromLow = minPixelOffset,
-            fromHigh = maxPixelOffset,
-            toLow = TORNADO_POSITION_SCALE_LOW,
-            toHigh = TORNADO_POSITION_SCALE_HIGH
-        ).coerceIn(-1f, 1f)
-
-        var radians = acos(positionBetween)
-
-        val safeHeight = screenHeight.coerceAtLeast(1f)
-
-        radians +=
-            (yOffset + effectOffset) *
-                    ((period * TORNADO_OFFSET_FREQUENCY) +
-                            TORNADO_OFFSET_FREQUENCY) / safeHeight
-
+        val positionBetween = scale(realPixelOffset, minPixelOffset, maxPixelOffset, TORNADO_POSITION_SCALE_LOW, TORNADO_POSITION_SCALE_HIGH)
+        val positionForAcos = if (isVertical) positionBetween.coerceIn(-1f, 1f) else positionBetween
+        var radians = acos(positionForAcos)
+        val height = if (isVertical) screenHeight.coerceAtLeast(1f) else screenHeight
+        radians += (yOffset + effectOffset) * (period * TORNADO_OFFSET_FREQUENCY + TORNADO_OFFSET_FREQUENCY) / height
         val processedRadians = cos(radians)
-
-        val adjustedPixelOffset = scale(
-            value = processedRadians,
-            fromLow = TORNADO_OFFSET_SCALE_LOW,
-            fromHigh = TORNADO_OFFSET_SCALE_HIGH,
-            toLow = minPixelOffset,
-            toHigh = maxPixelOffset
-        )
-
+        val adjustedPixelOffset = scale(processedRadians, TORNADO_OFFSET_SCALE_LOW, TORNADO_OFFSET_SCALE_HIGH, minPixelOffset, maxPixelOffset)
         return (adjustedPixelOffset - realPixelOffset) * amount
     }
 
@@ -531,16 +508,27 @@ object AttackEffects {
         normalReceptorY: Float,
         reverseReceptorY: Float,
         reverseAmount: Float,
-        centeredAmount: Float
+        centeredAmount: Float,
+        miniZoom: Float = 1f
     ): Float {
         val distance = reverseReceptorY - normalReceptorY
-        val center = (normalReceptorY + reverseReceptorY) * 0.5f
-        val scaleY = 1f - 2f * reverseAmount
-        val shiftFromCenter =
-            (reverseAmount - 0.5f) * distance * (1f - centeredAmount)
-        val sourceOffset = y - normalReceptorY
 
-        return center + shiftFromCenter + sourceOffset * scaleY
+        if (isVertical) {
+            val center = (normalReceptorY + reverseReceptorY) * 0.5f
+            val scaleY = 1f - 2f * reverseAmount
+            val shiftFromCenter = (reverseAmount - 0.5f) * distance * (1f - centeredAmount)
+            val sourceOffset = y - normalReceptorY
+            return center + shiftFromCenter + sourceOffset * scaleY
+        }
+
+        var zoom = miniZoom
+        if (kotlin.math.abs(zoom) < 0.01f) zoom = 0.01f
+        var shift = scale(reverseAmount, 0f, 1f, -distance / zoom / 2f, distance / zoom / 2f)
+        shift = scale(centeredAmount, 0f, 1f, shift, 0f)
+        val reverseScale = scale(reverseAmount, 0f, 1f, 1f, -1f)
+        val sourceOffset = y - normalReceptorY
+        val fieldCenter = (normalReceptorY + reverseReceptorY) * 0.5f
+        return fieldCenter + (sourceOffset * reverseScale + shift) * zoom
     }
 
     // =========================================================
@@ -570,17 +558,44 @@ object AttackEffects {
     // INVERT
     // =========================================================
 
-    fun invertX(column: Int, columnCount: Int, arrowSize: Float, amount: Float): Float {
+    fun invertX(
+        column: Int,
+        columnCount: Int,
+        arrowSize: Float,
+        amount: Float,
+        columnPositions: FloatArray? = null,
+        numSides: Int = 1
+    ): Float {
         if (!AttackFeatureFlags.DirectionColumn.INVERT) return 0f
-
         if (amount == 0f || column !in 0 until columnCount || columnCount <= 1) return 0f
+
+        if (!isVertical && columnPositions != null && columnPositions.size >= columnCount) {
+            val colsPerSide = columnCount / numSides
+            val sideIndex = column / colsPerSide
+            val colOnSide = column % colsPerSide
+            val leftOfMiddle = (colsPerSide - 1) / 2
+            val rightOfMiddle = (colsPerSide + 1) / 2
+            val first: Int
+            val last: Int
+            if (colOnSide <= leftOfMiddle) {
+                first = 0
+                last = leftOfMiddle
+            } else if (colOnSide >= rightOfMiddle) {
+                first = rightOfMiddle
+                last = colsPerSide - 1
+            } else {
+                first = colOnSide / 2
+                last = colOnSide / 2
+            }
+            val newColOnSide = if (first == last) 0 else (first + last - colOnSide)
+            val newColumn = sideIndex * colsPerSide + newColOnSide
+            return (columnPositions[newColumn] - columnPositions[column]) * amount
+        }
 
         val leftOfMiddle = (columnCount - 1) / 2
         val rightOfMiddle = (columnCount + 1) / 2
-
         val firstColumn: Int
         val lastColumn: Int
-
         if (column <= leftOfMiddle) {
             firstColumn = 0
             lastColumn = leftOfMiddle
@@ -588,13 +603,8 @@ object AttackEffects {
             firstColumn = rightOfMiddle
             lastColumn = columnCount - 1
         }
-
         val newColumn = firstColumn + lastColumn - column
-
-        val oldX = arrowSize * column
-        val newX = arrowSize * newColumn
-
-        return (newX - oldX) * amount
+        return (arrowSize * newColumn - arrowSize * column) * amount
     }
 
     // =========================================================

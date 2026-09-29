@@ -108,7 +108,6 @@ open class GameScreenActivity : AndroidApplication() {
             RelativeLayout.LayoutParams.MATCH_PARENT
         )
         halfDouble = intent.getBooleanExtra("IS_HALF_DOUBLE", false)
-        //isVertical = true //intent.getBooleanExtra("IS_VERTICAL", true)
         readyPlay = false
 
         canGoBack = false

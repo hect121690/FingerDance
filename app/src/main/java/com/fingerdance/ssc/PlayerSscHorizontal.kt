@@ -2,6 +2,7 @@ package com.fingerdance.ssc
 
 import LuaEngine
 import LuaFgContext
+import NoteCellMetrics
 import android.util.Log
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -133,9 +134,9 @@ class PlayerSscHorizontal(
         val y: Float = Gdx.graphics.height / 2f
     )
 
-    private lateinit var cellMetrics: Array<GameScreenSsc.NoteCellMetrics>
+    private lateinit var cellMetrics: Array<NoteCellMetrics>
 
-    private val baseSpeed = playerSong.speed.replace("X", "").toFloat()
+    val baseSpeed = playerSong.speed.replace("X", "").toFloat()
 
     private val timingData = TimmingData(
         bpms = bpms,
@@ -311,7 +312,6 @@ class PlayerSscHorizontal(
 
     private fun getNoteRenderer(): SscNoteRenderer {
         noteRenderer?.let { return it }
-
         return SscNoteRenderer(
             batch = batch,
             arrowSize = medidaFlechasHorizontal,
@@ -330,10 +330,24 @@ class PlayerSscHorizontal(
             clipVanishBodyAtInitArrow = false,
             mineUsesMidLine = false,
             computeLeft = { x, y -> computeLeft(x, y) },
+            computeY = { column, y -> computeAttackY(column, y) },
+            computeStepManiaYOffset = { sourceY -> screen.getAttackStepManiaYOffset(sourceY - screen.targetTop, baseSpeed) },
+            computeStepManiaFieldScaleY = { screen.getAttackStepManiaFieldScaleY() },
+            computeStepManiaArrowScale = { screen.getAttackStepManiaArrowScale() },
+            computeRotation = { note -> computeAttackRotation(note) },
+            computeHoldRotation = { _ -> screen.getAttackConfusionRotation(beatToShow) },
+            computeScaleY = { column -> screen.getAttackReverseScaleY(column) },
+            computeScale = { screen.getAttackVisualScale() },
+            computeAlpha = { screen.getAttackStealthAlpha() },
+            computeAppearanceAlpha = { column, sourceY -> screen.getAttackAppearanceAlpha(column, sourceY, baseSpeed) },
+            computeAppearanceActive = { screen.isAttackAppearanceActive() },
+            computeDepthScale = { column -> screen.getAttackMoveZScale(column) },
+            computeBumpy = { screen.getAttackBumpyAmount() },
+            computeTwirl = { screen.getAttackTwirlAmount() },
+            computeRoll = { screen.getAttackRollAmount() },
+            computeReceptorCenterY = { column -> screen.getAttackReceptorCenterY(column) },
             cellMetrics = cellMetrics
-        ).also {
-            noteRenderer = it
-        }
+        ).also { noteRenderer = it }
     }
 
     private fun initColumnNotes() {
@@ -350,6 +364,7 @@ class PlayerSscHorizontal(
     }
 
 
+    var beatToShow = 0.0
     private val iLongTop = LongArray(5)
 
     private var meshTimeCom = 0L
@@ -360,6 +375,7 @@ class PlayerSscHorizontal(
         val delta = Gdx.graphics.deltaTime
         val nowMs = songTimeMs.toDouble()
         val currentBeat = timeToBeat(nowMs)
+        beatToShow = currentBeat
 
         if (showPadB == 0) {
             inputProcessor.render(batch)
@@ -425,6 +441,7 @@ class PlayerSscHorizontal(
         meshTimeCom = screen.timeGetTime()
         meshDelta = Gdx.graphics.deltaTime
         meshCurrentBeat = timeToBeat(songTimeMs)
+        beatToShow = meshCurrentBeat
 
         val currentBpm = bpms.lastOrNull { it.beat <= meshCurrentBeat }?.bpm ?: bpms.firstOrNull()?.bpm ?: 120.0
         m_fCurBPM = currentBpm.toFloat()
@@ -611,7 +628,8 @@ class PlayerSscHorizontal(
             y2 = y2,
             frame = arrowFrame,
             isAp = isAp,
-            isVanish = isVanish
+            isVanish = isVanish,
+            isAnchored = gameplayEngine.isHoldVisuallyAnchored(note)
         )
     }
 
@@ -637,54 +655,60 @@ class PlayerSscHorizontal(
         )
     }
 
+    private fun computeAttackY(column: Int, y: Float): Float = screen.getAttackNoteY(column, y, baseSpeed)
+
+    private fun computeAttackRotation(note: Parser.Note): Float {
+        return screen.getAttackConfusionRotation(beatToShow) + screen.getAttackNoteRotation(note.beat, beatToShow)
+    }
+
     private fun computeLeft(x: Int, y: Int): Float {
         val baseX = medidaFlechasHorizontal * (x + 1) + spaceInitHorizontal
+        var offsetX = 0f
         if (playerSong.snake) {
-            offsetX = (sin(y * frequency) * amplitude)
+            offsetX = sin(y * frequency) * amplitude
             if (y <= medidaFlechasHorizontal + fadeDistance) {
                 val factor = (y - medidaFlechasHorizontal) / fadeDistance
                 offsetX *= factor.coerceIn(0f, 1f)
             }
         }
-
+        offsetX += screen.getAttackColumnOffsetX(x, y.toFloat() - screen.targetTop, baseSpeed)
         return baseX + offsetX + luaNotes.screenX
     }
 
     private fun drawFlare(x: Int, frame: Int) {
-        var left = 0f
-        when(x){
-            0->{left = (medidaFlechasHorizontal * (x + 1) - xFlare1) + spaceInitHorizontal + luaFlare.screenX}
-            1->{left = (medidaFlechasHorizontal * (x + 1) - xFlare2) + spaceInitHorizontal + luaFlare.screenX}
-            2->{left = (medidaFlechasHorizontal * (x + 1) - xFlare3) + spaceInitHorizontal + luaFlare.screenX}
-            3->{left = (medidaFlechasHorizontal * (x + 1) - xFlare4) + spaceInitHorizontal + luaFlare.screenX}
-            4->{left = (medidaFlechasHorizontal * (x + 1) - xFlare5) + spaceInitHorizontal + luaFlare.screenX}
-        }
+        val attackX = screen.getAttackColumnOffsetX(x, 0f)
+        val receptorY = screen.getAttackReceptorY(x)
+        val confusionRotation = screen.getAttackConfusionRotation(beatToShow)
+        val visualScale = screen.getAttackVisualScale() * screen.getAttackMoveZScale(x)
+        val left = when (x) {
+            0 -> medidaFlechasHorizontal * (x + 1) - xFlare1
+            1 -> medidaFlechasHorizontal * (x + 1) - xFlare2
+            2 -> medidaFlechasHorizontal * (x + 1) - xFlare3
+            3 -> medidaFlechasHorizontal * (x + 1) - xFlare4
+            else -> medidaFlechasHorizontal * (x + 1) - xFlare5
+        } + spaceInitHorizontal + luaFlare.screenX + attackX
         val flareSprite = flareSprites[frame]
-        flareSprite.setBounds(left, yFlare, widthFlare, widthFlare)
+        flareSprite.setBounds(left, receptorY - medidaFlechasHorizontal * 2f, widthFlare, widthFlare)
+        flareSprite.setOriginCenter()
+        flareSprite.rotation = confusionRotation
+        flareSprite.setScale(visualScale)
         aBatch = batch.blendSrcFunc
         bBatch = batch.blendDstFunc
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         flareSprite.draw(batch)
         batch.setBlendFunction(aBatch, bBatch)
-
+        flareSprite.setScale(1f)
+        flareSprite.rotation = 0f
         val elapsed = screen.timeGetTime() - flare[x].startTime
-
         val (alpha, zoom) = calculateAlphaAndZoom(elapsed % animationDuration)
-
+        val flareSize = medidaFlechasHorizontal * zoom * visualScale
+        val flareX = medidaFlechasHorizontal * (x + 1) + spaceInitHorizontal + luaFlare.screenX + attackX - (flareSize - medidaFlechasHorizontal) * 0.5f
+        val flareY = receptorY - (flareSize - medidaFlechasHorizontal) * 0.5f
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
-        batch.color.a = alpha // Establecer transparencia (alpha)
-
-        batch.draw(
-            arrArrows[x][arrowFrame],
-            ((medidaFlechasHorizontal * (x + 1)) - ((medidaFlechasHorizontal * zoom) - medidaFlechasHorizontal) / 2) + spaceInitHorizontal + luaFlare.screenX,
-            STEPSIZE.toFloat() - ((medidaFlechasHorizontal * zoom) - medidaFlechasHorizontal) / 2,
-            medidaFlechasHorizontal * zoom,
-            medidaFlechasHorizontal * zoom
-        )
-
+        batch.color.a = alpha
+        batch.draw(arrArrows[x][arrowFrame], flareX, flareY, flareSize * 0.5f, flareSize * 0.5f, flareSize, flareSize, 1f, 1f, confusionRotation)
         batch.color.a = 1f
         batch.setBlendFunction(aBatch, bBatch)
-
     }
 
     private val flareSprites = Array(flareArrowFrame.size) { i ->
@@ -731,22 +755,22 @@ class PlayerSscHorizontal(
         val progress = (elapsed / expandDuration).coerceIn(0f, 1f)
         val scale = 1f + (expandMaximumScale - 1f) * progress
         val alpha = (0.8f - progress * progress).coerceIn(0f, 0.8f)
-        val baseX = getReceptorX(position)
-        val baseY = topPos
-
+        val attackX = screen.getAttackColumnOffsetX(position, 0f)
+        val baseX = getReceptorX(position) + attackX
+        val baseY = screen.getAttackReceptorY(position)
         val originX = when (position) {
             0 -> sizeScale * 0.30f
             4 -> sizeScale * 0.70f
             else -> sizeScale * 0.50f
         }
-
         val originY = sizeScale * 0.50f
+        val finalScale = scale * screen.getAttackVisualScale() * screen.getAttackMoveZScale(position)
+        val rotation = screen.getAttackConfusionRotation(beatToShow)
         val previousSrc = batch.blendSrcFunc
         val previousDst = batch.blendDstFunc
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
         batch.setColor(1f, 1f, 1f, alpha)
-        batch.draw(receptor, baseX, baseY, originX, originY, sizeScale, sizeScale, scale, scale, 0f)
-
+        batch.draw(receptor, baseX, baseY, originX, originY, sizeScale, sizeScale, finalScale, finalScale, rotation)
         batch.setColor(1f, 1f, 1f, 1f)
         batch.setBlendFunction(previousSrc, previousDst)
     }
@@ -800,6 +824,8 @@ class PlayerSscHorizontal(
             alpha = 1.0f
         }
 
+        val blindAlpha = screen.getAttackBlindAlpha()
+        val displayAlpha = alpha * blindAlpha
         judgeSprite.setRegion(screen.imgsJudge[m_judge.judge])
         val judgeW = widthJudges * ftX
         val judgeH = heightJudges * ftY
@@ -807,7 +833,7 @@ class PlayerSscHorizontal(
         judgeSprite.setSize(judgeW, judgeH)
         judgeSprite.setOriginCenter()
         judgeSprite.setCenter(x, y)
-        judgeSprite.setColor(1f, 1f, 1f, alpha)
+        judgeSprite.setColor(1f, 1f, 1f, displayAlpha)
         judgeSprite.draw(batch)
 
         val comboWidth = (widthJudges * 0.5f) * ftX
@@ -827,7 +853,7 @@ class PlayerSscHorizontal(
             comboSprite.setSize(comboWidth, comboHeight)
             comboSprite.setOriginCenter()
             comboSprite.setCenter(comboX + comboWidth / 2f, comboY + comboHeight / 2f)
-            comboSprite.setColor(1f, 1f, 1f, alpha)
+            comboSprite.setColor(1f, 1f, 1f, displayAlpha)
             comboSprite.draw(batch)
 
             val numStr = if (count < 100) count.toString().padStart(3, '0') else count.toString()
@@ -836,12 +862,12 @@ class PlayerSscHorizontal(
             var startX = (Gdx.graphics.width / 2f) - (totalWidth / 2f)
             val digitY = comboY + comboHeight - 10f
 
-            digitSprite.setColor(1f, 1f, 1f, alpha)
+            digitSprite.setColor(1f, 1f, 1f, displayAlpha)
             for (char in numStr) {
                 val digit = char.digitToInt()
                 digitSprite.setRegion(numberList[digit])
                 digitSprite.setBounds(startX, digitY, digitW, digitH)
-                digitSprite.setColor(1f, 1f, 1f, alpha)
+                digitSprite.setColor(1f, 1f, 1f, displayAlpha)
                 digitSprite.draw(batch)
                 startX += digitW
             }
@@ -973,7 +999,7 @@ class PlayerSscHorizontal(
         return frames
     }
 
-    private fun buildCellMetrics(): Array<GameScreenSsc.NoteCellMetrics> {
+    private fun buildCellMetrics(): Array<NoteCellMetrics> {
         val ld = calculateReceptorCellMetrics(screen.recept0Frames[0].texture, false)
         val lu = calculateReceptorCellMetrics(screen.recept1Frames[0].texture, false)
         val ce = calculateReceptorCellMetrics(screen.recept2Frames[0].texture, false)
@@ -987,7 +1013,7 @@ class PlayerSscHorizontal(
         val height get() = maxY - minY + 1
     }
 
-    private fun calculateReceptorCellMetrics(texture: Texture, isMirror: Boolean, alphaThreshold: Int = 1): GameScreenSsc.NoteCellMetrics {
+    private fun calculateReceptorCellMetrics(texture: Texture, isMirror: Boolean, alphaThreshold: Int = 1): NoteCellMetrics {
         val frame = TextureRegion(texture, 0, 0, texture.width, texture.height / 3)
         val textureData = texture.textureData
         if (!textureData.isPrepared) textureData.prepare()
@@ -1021,7 +1047,7 @@ class PlayerSscHorizontal(
             val cellHeight = sourceHeight.toFloat()
             val offsetX = if (isMirror) (sourceWidth - bounds.maxX - 1).toFloat() / cellWidth else bounds.minX.toFloat() / cellWidth
 
-            return GameScreenSsc.NoteCellMetrics(
+            return NoteCellMetrics(
                 visibleWidthRatio = bounds.width / cellWidth,
                 visibleHeightRatio = bounds.height / cellHeight,
                 visibleOffsetXRatio = offsetX,

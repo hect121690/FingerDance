@@ -69,6 +69,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.MarginPageTransformer
 import androidx.viewpager2.widget.ViewPager2
+import com.badlogic.gdx.backends.android.AndroidApplication
 import com.bumptech.glide.Glide
 import com.fingerdance.CustomAdapter.ViewHolder.Companion.md5
 import com.fingerdance.MainActivity.VideosDrive
@@ -223,7 +224,7 @@ class SelectSong : AppCompatActivity() {
     private lateinit var tipsArray : Array<String>
     private lateinit var txTip : TextView
     private var modeSelected = false
-    private var orientationMode = OrientationMode.VERTICAL
+    //private var orientationMode = OrientationMode.VERTICAL
     private lateinit var selectModeContainer : FrameLayout
 
     private var selectedIndex = 0
